@@ -207,9 +207,8 @@ export default function exportTTMLText(
 			lineP.setAttribute("end", msToTimestamp(endTime));
 
 			lineP.setAttribute("ttm:agent", line.isDuet ? "v2" : "v1");
-			const normalizedVocal = normalizeVocalValue(line.vocal);
-			if (normalizedVocal.length > 0) {
-				lineP.setAttribute("amll:vocal", normalizedVocal);
+			if (line.vocal && line.vocal.trim().length > 0) {
+				lineP.setAttribute("amll:vocal", line.vocal.trim());
 			}
 
 			const itunesKey = `L${++i}`;

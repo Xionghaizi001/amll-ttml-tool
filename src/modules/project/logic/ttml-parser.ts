@@ -282,9 +282,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			parsedEndTime = parseTimespan(endTimeAttr);
 		}
 
-		const lineVocalAttr =
-			lineEl.getAttribute("amll:vocal") ?? lineEl.getAttribute("vocal");
-		const lineVocal = lineVocalAttr ?? (isBG ? parentVocal : null);
+		const lineVocal = isBG
+			? parentVocal
+			: lineEl.getAttribute("amll:vocal") ?? lineEl.getAttribute("vocal");
 		const line: LyricLine = {
 			id: uid(),
 			words: [],
