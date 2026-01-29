@@ -726,7 +726,7 @@ export const LyricLineView: FC<{
 																		} else {
 																			currentIds.push(id);
 																		}
-																		targetLine.vocal = currentIds.join(" ");
+																		targetLine.vocal = currentIds.join(",");
 																	});
 																}}
 															>
@@ -744,7 +744,7 @@ export const LyricLineView: FC<{
 																evt.stopPropagation();
 																editLyricLines((state) => {
 																	const targetLine = state.lyricLines[lineIndex];
-																	targetLine.vocal = allSelected ? "" : vocalTagIds.join(" ");
+																	targetLine.vocal = allSelected ? "" : vocalTagIds.join(",");
 																});
 															}}
 														>
