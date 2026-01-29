@@ -292,6 +292,11 @@ export default function exportTTMLText(
 					bgLineSpan.setAttribute("end", msToTimestamp(word.endTime));
 				}
 
+				const normalizedBgVocal = normalizeVocalValue(bgLine.vocal);
+				if (normalizedBgVocal.length > 0) {
+					bgLineSpan.setAttribute("amll:vocal", normalizedBgVocal);
+				}
+
 				if (bgLine.translatedLyric) {
 					const span = doc.createElement("span");
 					span.setAttribute("ttm:role", "x-translation");
