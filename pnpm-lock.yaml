@@ -11,11 +11,11 @@ importers:
   .:
     dependencies:
       '@applemusic-like-lyrics/core':
-        specifier: github:Xionghaizi001/applemusic-like-lyrics#feat-speaker&path:packages/core
-        version: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/core(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))
+        specifier: github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/core
+        version: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/core(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))
       '@applemusic-like-lyrics/lyric':
-        specifier: github:Xionghaizi001/applemusic-like-lyrics#feat-speaker&path:packages/lyric
-        version: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/lyric
+        specifier: github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/lyric
+        version: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/lyric
       '@applemusic-like-lyrics/react':
         specifier: 0.2.0
         version: 0.2.0(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -208,8 +208,8 @@ packages:
       '@pixi/filter-color-matrix': '*'
       '@pixi/sprite': '*'
 
-  '@applemusic-like-lyrics/core@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/core':
-    resolution: {path: packages/core, tarball: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8}
+  '@applemusic-like-lyrics/core@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/core':
+    resolution: {path: packages/core, tarball: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642}
     version: 0.2.1
     peerDependencies:
       '@pixi/app': '*'
@@ -220,8 +220,8 @@ packages:
       '@pixi/filter-color-matrix': '*'
       '@pixi/sprite': '*'
 
-  '@applemusic-like-lyrics/lyric@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/lyric':
-    resolution: {path: packages/lyric, tarball: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8}
+  '@applemusic-like-lyrics/lyric@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/lyric':
+    resolution: {path: packages/lyric, tarball: https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642}
     version: 0.3.0
 
   '@applemusic-like-lyrics/react@0.2.0':
@@ -4595,7 +4595,7 @@ snapshots:
       deep-freeze: 0.0.1
       gl-matrix: 4.0.0-beta.2
 
-  '@applemusic-like-lyrics/core@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/core(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))':
+  '@applemusic-like-lyrics/core@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/core(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))':
     dependencies:
       '@pixi/app': 7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))
       '@pixi/core': 7.4.2
@@ -4609,7 +4609,7 @@ snapshots:
       deep-freeze: 0.0.1
       gl-matrix: 4.0.0-beta.2
 
-  '@applemusic-like-lyrics/lyric@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/3f4b049e4398d0cd405622696391bc8b090575a8#path:packages/lyric': {}
+  '@applemusic-like-lyrics/lyric@https://codeload.github.com/Xionghaizi001/applemusic-like-lyrics/tar.gz/fe3e05052defcbf9cf666a52a712ef006d5fc642#path:packages/lyric': {}
 
   '@applemusic-like-lyrics/react@0.2.0(@pixi/app@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2))(@pixi/filter-blur@7.4.2(@pixi/core@7.4.2))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.2))(@pixi/filter-color-matrix@7.4.2(@pixi/core@7.4.2))(@pixi/sprite@7.4.2(@pixi/core@7.4.2)(@pixi/display@7.4.2(@pixi/core@7.4.2)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
