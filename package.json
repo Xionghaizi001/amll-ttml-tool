@@ -15,7 +15,7 @@
 	"dependencies": {
 		"@applemusic-like-lyrics/core": "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/core",
 		"@applemusic-like-lyrics/lyric": "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/lyric",
-		"@applemusic-like-lyrics/react": "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/react-full",
+		"@applemusic-like-lyrics/react": "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/react",
 		"@radix-ui/themes": "^3.2.1",
 		"@sentry/react": "^10.32.1",
 		"@tauri-apps/api": "^2.9.1",

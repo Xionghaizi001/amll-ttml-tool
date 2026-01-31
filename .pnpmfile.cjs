@@ -18,11 +18,29 @@ const catalog = {
   "vite-plugin-wasm": "^3.5.0",
 };
 
+const workspaceMap = {
+  "@applemusic-like-lyrics/core":
+    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/core",
+  "@applemusic-like-lyrics/lyric":
+    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/lyric",
+  "@applemusic-like-lyrics/react":
+    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/react",
+};
+
 function replaceCatalog(deps) {
   if (!deps) return;
   for (const [name, spec] of Object.entries(deps)) {
     if (spec === "catalog:" && catalog[name]) {
       deps[name] = catalog[name];
+    }
+  }
+}
+
+function replaceWorkspace(deps) {
+  if (!deps) return;
+  for (const [name, spec] of Object.entries(deps)) {
+    if (typeof spec === "string" && spec.startsWith("workspace:") && workspaceMap[name]) {
+      deps[name] = workspaceMap[name];
     }
   }
 }
@@ -34,6 +52,10 @@ module.exports = {
       replaceCatalog(pkg.devDependencies);
       replaceCatalog(pkg.peerDependencies);
       replaceCatalog(pkg.optionalDependencies);
+      replaceWorkspace(pkg.dependencies);
+      replaceWorkspace(pkg.devDependencies);
+      replaceWorkspace(pkg.peerDependencies);
+      replaceWorkspace(pkg.optionalDependencies);
       return pkg;
     },
   },
