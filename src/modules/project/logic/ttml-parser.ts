@@ -87,6 +87,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	});
 
 	const itunesLineRomanizations = new Map<string, LineMetadata>();
+	const parseVocalValue = (value: string | string[] | null | undefined) => {
+		if (!value) return [];
+		const parts = Array.isArray(value) ? value : value.split(/[\s,]+/);
+		return parts.map((v) => v.trim()).filter(Boolean);
+	};
+
 	const itunesWordRomanizations = new Map<string, WordRomanMetadata>();
 
 	const romanizationTextElements = ttmlDoc.querySelectorAll(
@@ -269,7 +275,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		isBG = false,
 		isDuet = false,
 		parentItunesKey: string | null = null,
-		parentVocal: string | null = null,
+		parentVocal: string | string[] | null = null,
 	) {
 		const startTimeAttr = lineEl.getAttribute("begin");
 		const endTimeAttr = lineEl.getAttribute("end");
@@ -285,6 +291,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const lineVocalAttr =
 			lineEl.getAttribute("amll:vocal") ?? lineEl.getAttribute("vocal");
 		const lineVocal = lineVocalAttr ?? (isBG ? parentVocal : null);
+		const parsedLineVocal = parseVocalValue(lineVocal);
 		const line: LyricLine = {
 			id: uid(),
 			words: [],
@@ -298,7 +305,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			startTime: parsedStartTime,
 			endTime: parsedEndTime,
 			ignoreSync: false,
-			vocal: lineVocal ?? "",
+			vocal: parsedLineVocal,
 		};
 		let haveBg = false;
 
@@ -353,7 +360,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							true,
 							line.isDuet,
 							itunesKey,
-							line.vocal ?? null,
+							line.vocal?.length ? line.vocal : null,
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {

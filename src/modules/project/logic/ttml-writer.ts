@@ -61,10 +61,10 @@ export default function exportTTMLText(
 		return span;
 	}
 
-	function normalizeVocalValue(vocal?: string | null): string {
+	function normalizeVocalValue(vocal?: string | string[] | null): string {
 		if (!vocal) return "";
-		return vocal
-			.split(/[\s,]+/)
+		const parts = Array.isArray(vocal) ? vocal : vocal.split(/[\s,]+/);
+		return parts
 			.map((v) => v.trim())
 			.filter(Boolean)
 			.join(",");

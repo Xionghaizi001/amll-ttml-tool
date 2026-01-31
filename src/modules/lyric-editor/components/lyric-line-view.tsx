@@ -66,13 +66,11 @@ import { RomanWordView } from "./roman-word-view.tsx";
 
 const isDraggingAtom = atom(false);
 
-const parseLineVocalIds = (value?: string) =>
-	value
-		? value
-				.split(/[\s,]+/)
-				.map((v) => v.trim())
-				.filter(Boolean)
-		: [];
+const parseLineVocalIds = (value?: string | string[]) => {
+	if (!value) return [];
+	const parts = Array.isArray(value) ? value : value.split(/[\s,]+/);
+	return parts.map((v) => v.trim()).filter(Boolean);
+};
 
 // 定义一个派生 Atom，用于计算每一行的显示行号
 const lineDisplayNumbersAtom = atom((get) => {
@@ -696,7 +694,7 @@ export const LyricLineView: FC<{
 																		} else {
 																			currentIds.push(id);
 																		}
-																		targetLine.vocal = currentIds.join(",");
+																		targetLine.vocal = currentIds;
 																	});
 																}}
 															>
@@ -714,7 +712,7 @@ export const LyricLineView: FC<{
 																evt.stopPropagation();
 																editLyricLines((state) => {
 																	const targetLine = state.lyricLines[lineIndex];
-																	targetLine.vocal = allSelected ? "" : vocalTagIds.join(",");
+																	targetLine.vocal = allSelected ? [] : [...vocalTagIds];
 																});
 															}}
 														>

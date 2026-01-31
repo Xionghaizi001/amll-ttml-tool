@@ -10,13 +10,11 @@ import type { LyricLine, TTMLLyric } from "$/types/ttml";
 import styles from "./VocalTagsEditor.module.css";
 
 const getLineText = (line: LyricLine) => line.words.map((word) => word.word).join("");
-const parseLineVocalIds = (value?: string) =>
-	value
-		? value
-				.split(/[\s,]+/)
-				.map((v) => v.trim())
-				.filter(Boolean)
-		: [];
+const parseLineVocalIds = (value?: string | string[]) => {
+	if (!value) return [];
+	const parts = Array.isArray(value) ? value : value.split(/[\s,]+/);
+	return parts.map((v) => v.trim()).filter(Boolean);
+};
 const getNextVocalId = (ids: string[]) => {
 	let maxId = 0;
 	for (const id of ids) {
@@ -41,7 +39,7 @@ const hasDuplicateTag = (
 const reassignVocalIds = (draft: TTMLLyric) => {
 	if (!draft.vocalTags || draft.vocalTags.length === 0) {
 		draft.lyricLines.forEach((line) => {
-			line.vocal = "";
+			line.vocal = [];
 		});
 		return;
 	}
@@ -56,7 +54,7 @@ const reassignVocalIds = (draft: TTMLLyric) => {
 		const mapped = ids
 			.map((id) => idMap.get(id))
 			.filter((value): value is string => !!value);
-		line.vocal = mapped.join(",");
+		line.vocal = mapped;
 	});
 };
 
@@ -123,7 +121,7 @@ export const VocalTagsEditor = () => {
 										onClick={() => {
 											setLyricLines((draft) => {
 												draft.lyricLines.forEach((line) => {
-													line.vocal = "";
+													line.vocal = [];
 												});
 											});
 									}}
@@ -137,7 +135,7 @@ export const VocalTagsEditor = () => {
 											setLyricLines((draft) => {
 												draft.vocalTags = [];
 												draft.lyricLines.forEach((line) => {
-													line.vocal = "";
+													line.vocal = [];
 												});
 											});
 									}}
