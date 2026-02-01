@@ -1,4 +1,5 @@
-import { SegmentedControl, Text } from "@radix-ui/themes";
+import { Beaker24Regular } from "@fluentui/react-icons";
+import { Box, Flex, SegmentedControl, Text } from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { type FC, useCallback } from "react";
@@ -61,11 +62,30 @@ export const TitleBar: FC = () => {
 			}
 			endChildren={
 				!import.meta.env.TAURI_ENV_PLATFORM && (
-					<Text color="gray" wrap="nowrap" size="2" mr="2">
-						<span className={styles.title}>
-							{t("topBar.appName", "Apple Music-like Lyrics TTML Tool")}
-						</span>
-					</Text>
+					<Flex align="center" style={{ marginRight: "12px" }}>
+						<Text color="gray" wrap="nowrap" size="2">
+							<span className={styles.title}>
+								{t("topBar.appName", "Apple Music-like Lyrics TTML Tool")}
+							</span>
+						</Text>
+						<Box
+							style={{
+								marginLeft: "10px",
+								backgroundColor: "var(--accent-a3)",
+								borderRadius: "999px",
+								padding: "2px 8px",
+								display: "flex",
+								alignItems: "center",
+								gap: "4px",
+								color: "var(--accent-11)",
+							}}
+						>
+							<Beaker24Regular style={{ fontSize: 16 }} />
+							<Text size="1" weight="medium">
+								TEST
+							</Text>
+						</Box>
+					</Flex>
 				)
 			}
 			onSpacerClicked={() => {
