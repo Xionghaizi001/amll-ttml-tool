@@ -19,12 +19,9 @@ const catalog = {
 };
 
 const workspaceMap = {
-  "@applemusic-like-lyrics/core":
-    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/core",
-  "@applemusic-like-lyrics/lyric":
-    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/lyric",
-  "@applemusic-like-lyrics/react":
-    "github:Xionghaizi001/applemusic-like-lyrics#feat-speaker-prebuilt&path:packages/react",
+  "@applemusic-like-lyrics/core": "file:vendor/applemusic-like-lyrics-core-0.2.1.tgz",
+  "@applemusic-like-lyrics/lyric": "file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz",
+  "@applemusic-like-lyrics/react": "file:vendor/applemusic-like-lyrics-react-0.2.1.tgz",
 };
 
 function replaceCatalog(deps) {
