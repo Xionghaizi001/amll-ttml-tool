@@ -170,6 +170,7 @@ const SubLineEdit = memo(
 		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 		const line = useAtomValue(lineAtom);
 		const [editing, setEditing] = useState(false);
+		const [inputValue, setInputValue] = useState("");
 		const { t } = useTranslation();
 
 		const onEnter = useCallback(
@@ -184,6 +185,19 @@ const SubLineEdit = memo(
 			},
 			[editLyricLines, line, lineIndex, type],
 		);
+
+		useEffect(() => {
+			if (editing) {
+				setInputValue(line[type] || "");
+			}
+		}, [editing, line, type]);
+
+		const inputWidth = useMemo(() => {
+			if (inputValue.length > 0) {
+				return `${Math.min(Math.max(inputValue.length, 2), 60)}ch`;
+			}
+			return "12ch";
+		}, [inputValue]);
 
 		const label = useMemo(
 			() =>
@@ -200,7 +214,9 @@ const SubLineEdit = memo(
 					<TextField.Root
 						autoFocus
 						size="1"
-						defaultValue={line[type]}
+						value={inputValue}
+						style={{ width: inputWidth }}
+						onChange={(evt) => setInputValue(evt.currentTarget.value)}
 						onBlur={onEnter}
 						onKeyDown={(evt) => {
 							if (evt.key === "Enter") onEnter(evt);
@@ -262,6 +278,7 @@ export const LyricLineView: FC<{
 	const toolMode = useAtomValue(toolModeAtom);
 	const store = useStore();
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
+	const blockDragRef = useRef(false);
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
@@ -406,7 +423,20 @@ export const LyricLineView: FC<{
 						align="center"
 						gapX="4"
 						draggable={toolMode === ToolMode.Edit}
+						onPointerDown={(evt) => {
+							blockDragRef.current =
+								(evt.target as HTMLElement | null)?.tagName === "INPUT";
+						}}
+						onPointerUp={() => {
+							blockDragRef.current = false;
+						}}
 						onDragStart={(evt) => {
+							if (blockDragRef.current) {
+								blockDragRef.current = false;
+								evt.preventDefault();
+								evt.stopPropagation();
+								return;
+							}
 							evt.dataTransfer.dropEffect = "move";
 							store.set(isDraggingAtom, true);
 							store.set(draggingIdAtom, line.id);
