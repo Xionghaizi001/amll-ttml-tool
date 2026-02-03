@@ -31,6 +31,7 @@ import {
 	type ReviewLabel,
 	type ReviewPullRequest,
 } from "./review-card-service";
+import { githubFetch } from "$/modules/github/api";
 import styles from "./index.module.css";
 
 const REPO_OWNER = "Steve-xmh";
@@ -158,34 +159,39 @@ const ReviewPage = () => {
 	const fetchPendingLabelTime = useCallback(
 		async (token: string, prNumber: number) => {
 			if (!token) return null;
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/events?per_page=100`,
-				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+			const headers = {
+				Accept: "application/vnd.github+json",
+				Authorization: `Bearer ${token}`,
+			};
+			const perPage = 20;
+			const maxPages = 25;
+			for (let page = 1; page <= maxPages; page += 1) {
+				const response = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/events`,
+					{
+						params: { per_page: perPage, page },
+						init: { headers },
 					},
-				},
-			);
-			if (!response.ok) {
-				return null;
+				);
+				if (!response.ok) {
+					return null;
+				}
+				const events = (await response.json()) as Array<{
+					event?: string;
+					created_at?: string;
+					label?: { name?: string };
+				}>;
+				for (const event of events) {
+					if (event.event !== "labeled") continue;
+					if (event.label?.name?.trim() !== PENDING_LABEL_NAME) continue;
+					if (!event.created_at) continue;
+					return new Date(event.created_at).getTime();
+				}
+				if (events.length < perPage) {
+					break;
+				}
 			}
-			const events = (await response.json()) as Array<{
-				event?: string;
-				created_at?: string;
-				label?: { name?: string };
-			}>;
-			const latest = events.reduce<string | null>((acc, event) => {
-				if (event.event !== "labeled") return acc;
-				if (event.label?.name?.trim() !== PENDING_LABEL_NAME) return acc;
-				if (!event.created_at) return acc;
-				if (!acc) return event.created_at;
-				return new Date(event.created_at).getTime() >= new Date(acc).getTime()
-					? event.created_at
-					: acc;
-			}, null);
-			if (!latest) return null;
-			return new Date(latest).getTime();
+			return null;
 		},
 		[],
 	);
@@ -193,12 +199,14 @@ const ReviewPage = () => {
 	const fetchHeadCommitTime = useCallback(
 		async (token: string, prNumber: number) => {
 			if (!token) return null;
-			const pullResponse = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
+			const pullResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -210,12 +218,14 @@ const ReviewPage = () => {
 			};
 			const sha = pull.head?.sha;
 			if (!sha) return null;
-			const commitResponse = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${sha}`,
+			const commitResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/commits/${sha}`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -250,12 +260,15 @@ const ReviewPage = () => {
 	const fetchLabels = useCallback(
 		async (token: string) => {
 			if (!token) return;
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/labels?per_page=100`,
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/labels`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					params: { per_page: 100 },
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -289,9 +302,12 @@ const ReviewPage = () => {
 			};
 			const updated = [...sourceItems];
 			for (const pending of pendingItems) {
-				const response = await fetch(
-					`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${pending.item.number}/labels?per_page=100`,
-					{ headers },
+				const response = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${pending.item.number}/labels`,
+					{
+						params: { per_page: 100 },
+						init: { headers },
+					},
 				);
 				if (!response.ok) {
 					continue;
@@ -350,10 +366,12 @@ const ReviewPage = () => {
 		async (token: string) => {
 			const cached = githubLoginRef.current.trim();
 			if (cached) return cached;
-			const response = await fetch("https://api.github.com/user", {
-				headers: {
-					Accept: "application/vnd.github+json",
-					Authorization: `Bearer ${token}`,
+			const response = await githubFetch("/user", {
+				init: {
+					headers: {
+						Accept: "application/vnd.github+json",
+						Authorization: `Bearer ${token}`,
+					},
 				},
 			});
 			if (!response.ok) {
@@ -371,12 +389,14 @@ const ReviewPage = () => {
 
 	const fetchPullRequestDetail = useCallback(
 		async (token: string, prNumber: number) => {
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -463,9 +483,12 @@ const ReviewPage = () => {
 					Accept: "application/vnd.github+json",
 					Authorization: `Bearer ${token}`,
 				};
-				const fileResponse = await fetch(
-					`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}/files?per_page=100`,
-					{ headers },
+				const fileResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}/files`,
+					{
+						params: { per_page: 100 },
+						init: { headers },
+					},
 				);
 				if (!fileResponse.ok) {
 					throw new Error("load-pr-files-failed");
@@ -536,21 +559,23 @@ const ReviewPage = () => {
 			prNumber: number,
 			event: "APPROVE" | "REQUEST_CHANGES",
 		) => {
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/reviews`,
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/reviews`,
 				{
-					method: "POST",
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						method: "POST",
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({
+							event,
+							body:
+								event === "REQUEST_CHANGES"
+									? "请根据审阅意见修改后重新提交。"
+									: undefined,
+						}),
 					},
-					body: JSON.stringify({
-						event,
-						body:
-							event === "REQUEST_CHANGES"
-								? "请根据审阅意见修改后重新提交。"
-								: undefined,
-					}),
 				},
 			);
 			if (!response.ok) {
@@ -561,17 +586,19 @@ const ReviewPage = () => {
 	);
 
 	const addPendingLabel = useCallback(async (token: string, prNumber: number) => {
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/labels`,
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/labels`,
 				{
-					method: "POST",
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						method: "POST",
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({
+							labels: [PENDING_LABEL_NAME],
+						}),
 					},
-					body: JSON.stringify({
-						labels: [PENDING_LABEL_NAME],
-					}),
 				},
 			);
 			if (!response.ok) {
@@ -585,12 +612,14 @@ const ReviewPage = () => {
 			if (!login) {
 				throw new Error("无法获取 GitHub 用户信息");
 			}
-			const pullResponse = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
+			const pullResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -602,12 +631,14 @@ const ReviewPage = () => {
 			if (!headSha) {
 				throw new Error("找不到最新提交");
 			}
-			const commitResponse = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${headSha}`,
+			const commitResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/commits/${headSha}`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -625,12 +656,15 @@ const ReviewPage = () => {
 			const commitTime = commitTimeText
 				? new Date(commitTimeText).getTime()
 				: 0;
-			const reviewResponse = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/reviews?per_page=100`,
+			const reviewResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/reviews`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					params: { per_page: 100 },
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
 					},
 				},
 			);
@@ -773,13 +807,15 @@ const ReviewPage = () => {
 				if (!approved) {
 					await submitReview(token, prNumber, "APPROVE");
 				}
-				const mergeResponse = await fetch(
-					`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/merge`,
+				const mergeResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/merge`,
 					{
-						method: "PUT",
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
+						init: {
+							method: "PUT",
+							headers: {
+								Accept: "application/vnd.github+json",
+								Authorization: `Bearer ${token}`,
+							},
 						},
 					},
 				);
@@ -869,17 +905,21 @@ const ReviewPage = () => {
 					Accept: "application/vnd.github+json",
 					Authorization: `Bearer ${token}`,
 				};
-				const maxPages = 10;
+				const perPage = 20;
+				const maxPages = 50;
 				let etag: string | null = null;
-				const list: Array<{ number: number }> = [];
+				const result: ReviewPullRequest[] = [];
 				for (let page = 1; page <= maxPages; page += 1) {
 					const pageHeaders = { ...headers };
 					if (page === 1 && cached?.etag) {
 						pageHeaders["If-None-Match"] = cached.etag;
 					}
-					const listResponse = await fetch(
-						`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&per_page=100&page=${page}`,
-						{ headers: pageHeaders },
+					const listResponse = await githubFetch(
+						`/repos/${REPO_OWNER}/${REPO_NAME}/pulls`,
+						{
+							params: { state: "open", per_page: perPage, page },
+							init: { headers: pageHeaders },
+						},
 					);
 					log("review list response", listResponse.status);
 					if (page === 1 && listResponse.status === 304 && cached?.items?.length) {
@@ -907,38 +947,47 @@ const ReviewPage = () => {
 					if (pageList.length === 0) {
 						break;
 					}
-					list.push(...pageList);
-					if (pageList.length < 100) {
+					const detailItems = await Promise.all(
+						pageList.map(async (pr) => {
+							const detailResponse = await githubFetch(
+								`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}`,
+								{
+									init: { headers },
+								},
+							);
+							if (!detailResponse.ok) {
+								return null;
+							}
+							const detail = (await detailResponse.json()) as {
+								number: number;
+								title: string;
+								body?: string | null;
+								created_at: string;
+								labels?: Array<{ name: string; color: string }>;
+							};
+							return {
+								number: detail.number,
+								title: detail.title ?? "",
+								body: detail.body ?? "",
+								createdAt: detail.created_at,
+								labels:
+									detail.labels?.map((label) => ({
+										name: label.name,
+										color: label.color,
+									})) ?? [],
+							} satisfies ReviewPullRequest;
+						}),
+					);
+					for (const item of detailItems) {
+						if (item) {
+							result.push(item);
+						}
+					}
+					if (cancelled) return;
+					setItems([...result]);
+					if (pageList.length < perPage) {
 						break;
 					}
-				}
-				const result: ReviewPullRequest[] = [];
-				for (const pr of list) {
-					const detailResponse = await fetch(
-						`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}`,
-						{ headers },
-					);
-					if (!detailResponse.ok) {
-						continue;
-					}
-					const detail = (await detailResponse.json()) as {
-						number: number;
-						title: string;
-						body?: string | null;
-						created_at: string;
-						labels?: Array<{ name: string; color: string }>;
-					};
-					result.push({
-						number: detail.number,
-						title: detail.title ?? "",
-						body: detail.body ?? "",
-						createdAt: detail.created_at,
-						labels:
-							detail.labels?.map((label) => ({
-								name: label.name,
-								color: label.color,
-							})) ?? [],
-					});
 				}
 				const refreshed = await refreshPendingLabels(token, result);
 				if (cancelled) return;
