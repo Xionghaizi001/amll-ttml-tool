@@ -2,7 +2,7 @@ import { ErrorCircle16Regular, Info16Regular } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
-	Callout,
+	Card,
 	Checkbox,
 	Dialog,
 	Flex,
@@ -12,11 +12,10 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import type { TFunction } from "i18next";
-import { atom, useAtom, useAtomValue, useStore } from "jotai";
+import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { memo, useCallback, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import {
 	generateNameFromMetadataAtom,
@@ -24,6 +23,7 @@ import {
 } from "$/modules/settings/states";
 import { submitToAMLLDBDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main";
+import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLMetadata } from "$/types/ttml";
 
 enum UploadDBType {
@@ -133,6 +133,7 @@ export const SubmitToAMLLDBDialog = memo(() => {
 		t("submitToAMLLDB.defaultReason", "新歌词提交"),
 	);
 	const store = useStore();
+	const setPushNotification = useSetAtom(pushNotificationAtom);
 
 	const onSubmit = useCallback(async () => {
 		if (processing) return;
@@ -140,18 +141,22 @@ export const SubmitToAMLLDBDialog = memo(() => {
 		try {
 			const errors = validateMetadata(metadatas, t);
 			if (errors.length > 0) {
-				toast.error(
-					t("submitToAMLLDB.errors.validation", "提交验证失败：\n{errors}", {
-						errors: errors.join("\n"),
+				setPushNotification({
+					title: t("submitToAMLLDB.errors.validation", "提交验证失败：{errors}", {
+						errors: errors.join("；"),
 					}),
-				);
+					level: "error",
+					source: "SubmitToAMLLDB",
+				});
 				return;
 			}
 
 			if (store.get(lyricLinesAtom).lyricLines.length === 0) {
-				toast.error(
-					t("submitToAMLLDB.errors.noLyrics", "歌词还什么都没有呢？"),
-				);
+				setPushNotification({
+					title: t("submitToAMLLDB.errors.noLyrics", "歌词还什么都没有呢？"),
+					level: "error",
+					source: "SubmitToAMLLDB",
+				});
 				return;
 			}
 
@@ -209,15 +214,27 @@ ${comment}
 			setDialogOpen(false);
 		} catch (err) {
 			console.error(err);
-			toast.error(
-				t(
+			setPushNotification({
+				title: t(
 					"submitToAMLLDB.errors.submitFailed",
 					"提交发生错误，请查看控制台确认原因！",
 				),
-			);
+				level: "error",
+				source: "SubmitToAMLLDB",
+			});
 		}
 		setProcessing(false);
-	}, [store, name, submitReason, comment, setDialogOpen, t]);
+	}, [
+		store,
+		name,
+		submitReason,
+		comment,
+		setDialogOpen,
+		t,
+		metadatas,
+		processing,
+		setPushNotification,
+	]);
 
 	useLayoutEffect(() => {
 		if (genNameFromMetadata) {
@@ -248,54 +265,62 @@ ${comment}
 				<Flex direction="column" gap="4">
 					{!hideWarning && (
 						<>
-							<Callout.Root color="orange">
-								<Callout.Icon>
+							<Card>
+								<Flex gap="2" align="start">
 									<ErrorCircle16Regular />
-								</Callout.Icon>
-								<Callout.Text>
-									{t(
-										"submitToAMLLDB.chineseOnlyWarning",
-										"本功能仅使用 AMLL 歌词数据库的简体中文用户可用，如果您是为了在其他软件上使用歌词而编辑歌词的话，请参考对应的软件提交歌词的方式来提交歌词哦！",
-									)}
-								</Callout.Text>
-							</Callout.Root>
-							<Callout.Root color="blue">
-								<Callout.Icon>
+									<Text size="2">
+										{t(
+											"submitToAMLLDB.chineseOnlyWarning",
+											"本功能仅使用 AMLL 歌词数据库的简体中文用户可用，如果您是为了在其他软件上使用歌词而编辑歌词的话，请参考对应的软件提交歌词的方式来提交歌词哦！",
+										)}
+									</Text>
+								</Flex>
+							</Card>
+							<Card>
+								<Flex gap="2" align="start">
 									<Info16Regular />
-								</Callout.Icon>
-								<Callout.Text>
-									<p>
-										{t(
-											"submitToAMLLDB.thankYou",
-											"首先，感谢您的慷慨歌词贡献！",
-										)}
-										<br />
-										{t("submitToAMLLDB.cc0Agreement", "通过提交，你将默认同意")}{" "}
-										<Text weight="bold" color="orange">
-											{t(
-												"submitToAMLLDB.cc0Rights",
-												"使用 CC0 共享协议完全放弃歌词所有权",
-											)}
+									<Box>
+										<Text size="2" asChild>
+											<p>
+												{t(
+													"submitToAMLLDB.thankYou",
+													"首先，感谢您的慷慨歌词贡献！",
+												)}
+												<br />
+												{t(
+													"submitToAMLLDB.cc0Agreement",
+													"通过提交，你将默认同意",
+												)}{" "}
+												<Text weight="bold" color="orange">
+													{t(
+														"submitToAMLLDB.cc0Rights",
+														"使用 CC0 共享协议完全放弃歌词所有权",
+													)}
+												</Text>
+												{t(
+													"submitToAMLLDB.andSubmit",
+													"并提交到歌词数据库！",
+												)}
+												<br />
+												{t(
+													"submitToAMLLDB.futureUse",
+													"并且歌词将会在以后被 AMLL 系程序作为默认 TTML 歌词源获取！",
+												)}
+												<br />
+												{t(
+													"submitToAMLLDB.rightsWarning",
+													"如果您对歌词所有权比较看重的话，请勿提交歌词哦！",
+												)}
+												<br />
+												{t(
+													"submitToAMLLDB.submitInstructions",
+													"请输入以下提交信息然后跳转到 Github 议题提交页面！",
+												)}
+											</p>
 										</Text>
-										{t("submitToAMLLDB.andSubmit", "并提交到歌词数据库！")}
-										<br />
-										{t(
-											"submitToAMLLDB.futureUse",
-											"并且歌词将会在以后被 AMLL 系程序作为默认 TTML 歌词源获取！",
-										)}
-										<br />
-										{t(
-											"submitToAMLLDB.rightsWarning",
-											"如果您对歌词所有权比较看重的话，请勿提交歌词哦！",
-										)}
-										<br />
-										{t(
-											"submitToAMLLDB.submitInstructions",
-											"请输入以下提交信息然后跳转到 Github 议题提交页面！",
-										)}
-									</p>
-								</Callout.Text>
-							</Callout.Root>
+									</Box>
+								</Flex>
+							</Card>
 							<Button
 								variant="soft"
 								size="1"
@@ -330,31 +355,31 @@ ${comment}
 
 						<Flex direction="column">
 							{uploadDbType === UploadDBType.Official && (
-								<Callout.Root color="grass">
-									<Callout.Text size="1">
+								<Card>
+									<Text size="1" color="gray">
 										提交到官方歌词库，需要进行人工审核，确保歌词满足基本要求以及时间轴和效果后方可加入词库。
 										<br />
 										此举可以把关你的歌词质量，让你的歌词能以足够好的演出效果呈现，推荐提交到此处。
-									</Callout.Text>
-								</Callout.Root>
+									</Text>
+								</Card>
 							)}
 							{uploadDbType === UploadDBType.User && (
-								<Callout.Root color="orange">
-									<Callout.Text size="1">
+								<Card>
+									<Text size="1" color="gray">
 										提交到用户歌词库，仅需通过机器人审核没有严重问题后即可加入词库，无需人工审核。
 										<br />
 										但是如果出现歌词内容以及呈现效果的问题则只能通过重新提交覆盖，无法进行人工核对保证质量。
-									</Callout.Text>
-								</Callout.Root>
+									</Text>
+								</Card>
 							)}
 							{uploadDbType === UploadDBType.Both && (
-								<Callout.Root color="orange">
-									<Callout.Text size="1">
+								<Card>
+									<Text size="1" color="gray">
 										两个都要也不坏，知晓情况即可
 										<br />
 										上传后将会分别打开每个仓库对应的提交页面，请手动分别按下创建议题即可提交。
-									</Callout.Text>
-								</Callout.Root>
+									</Text>
+								</Card>
 							)}
 						</Flex>
 					</Flex>
@@ -405,19 +430,19 @@ ${comment}
 						</Flex>
 					</Text>
 					{issues.length > 0 && (
-						<Callout.Root color="red">
-							<Callout.Icon>
+						<Card>
+							<Flex gap="2" align="start">
 								<ErrorCircle16Regular />
-							</Callout.Icon>
-							<Callout.Text>
-								发现以下问题，请修正后再提交：
-								<ul>
-									{issues.map((issue) => (
-										<li key={issue}>{issue}</li>
-									))}
-								</ul>
-							</Callout.Text>
-						</Callout.Root>
+								<Box>
+									<Text size="2">发现以下问题，请修正后再提交：</Text>
+									<ul>
+										{issues.map((issue) => (
+											<li key={issue}>{issue}</li>
+										))}
+									</ul>
+								</Box>
+							</Flex>
+						</Card>
 					)}
 					<Button
 						loading={processing}

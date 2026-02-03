@@ -26,6 +26,7 @@ export enum ToolMode {
 	Edit = "edit",
 	Sync = "sync",
 	Preview = "preview",
+	Review = "review",
 }
 
 export const toolModeAtom = atom(ToolMode.Edit);
@@ -135,6 +136,29 @@ export interface EditingTimeFieldState {
 export const editingTimeFieldAtom = atom<EditingTimeFieldState | null>(null);
 
 export const requestFocusAtom = atom<string | null>(null);
+
+export type ReviewSession = {
+	prNumber: number;
+	prTitle: string;
+	fileName: string;
+};
+
+export const reviewSessionAtom = atom<ReviewSession | null>(null);
+export type ReviewSnapshot = {
+	prNumber: number;
+	fileName: string;
+	data: TTMLLyric;
+};
+export const reviewFreezeAtom = atom<ReviewSnapshot | null>(null);
+export const reviewStagedAtom = atom<TTMLLyric | null>(null);
+export type ReviewReportDraft = {
+	id: string;
+	prNumber: number | null;
+	prTitle: string;
+	report: string;
+	createdAt: string;
+};
+export const reviewReportDraftsAtom = atom<ReviewReportDraft[]>([]);
 
 /**
  * @description 用于控制全局文件拖拽遮罩层的显示

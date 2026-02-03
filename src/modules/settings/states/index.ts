@@ -1,3 +1,4 @@
+import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 export enum SyncJudgeMode {
@@ -95,3 +96,44 @@ export const customBackgroundBrightnessAtom = atomWithStorage(
 	"customBackgroundBrightness",
 	1,
 );
+
+export const githubPatAtom = atomWithStorage("githubPat", "");
+export const githubLoginAtom = atomWithStorage("githubLogin", "");
+export const githubAmlldbAccessAtom = atomWithStorage(
+	"githubAmlldbAccess",
+	false,
+);
+export type NeteaseProfile = {
+	userId: number;
+	nickname: string;
+	avatarUrl: string;
+	vipType: number;
+	signature?: string;
+};
+export const neteaseCookieAtom = atomWithStorage("neteaseCookie", "");
+export const neteaseUserAtom = atomWithStorage<NeteaseProfile | null>(
+	"neteaseUser",
+	null,
+);
+export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
+	"reviewHiddenLabels",
+	[],
+);
+export const reviewSelectedLabelsAtom = atomWithStorage<string[]>(
+	"reviewSelectedLabels",
+	[],
+);
+export const reviewPendingFilterAtom = atomWithStorage(
+	"reviewPendingFilter",
+	false,
+);
+export const reviewUpdatedFilterAtom = atomWithStorage(
+	"reviewUpdatedFilter",
+	false,
+);
+export const reviewRefreshTokenAtom = atom(0);
+export type ReviewLabel = {
+	name: string;
+	color: string;
+};
+export const reviewLabelsAtom = atom<ReviewLabel[]>([]);

@@ -12,6 +12,7 @@ export const replaceWordDialogAtom = atom(false);
 export const advancedSegmentationDialogAtom = atom(false);
 export const timeShiftDialogAtom = atom(false);
 export const distributeRomanizationDialogAtom = atom(false);
+export const notificationCenterDialogAtom = atom(false);
 export const confirmDialogAtom = atom<{
 	open: boolean;
 	title: string;
@@ -24,3 +25,16 @@ export const confirmDialogAtom = atom<{
 });
 export const historyRestoreDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
+export const reviewReportDialogAtom = atom<{
+	open: boolean;
+	prNumber: number | null;
+	prTitle: string;
+	report: string;
+	draftId: string | null;
+}>({
+	open: false,
+	prNumber: null,
+	prTitle: "",
+	report: "",
+	draftId: null,
+});

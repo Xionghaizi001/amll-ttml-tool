@@ -95,6 +95,18 @@
 		},
 		"loading": "面板载入中…"
 	},
+	"notificationCenter": {
+		"title": "通知中心",
+		"description": "应用内的通知、错误与提醒会显示在这里",
+		"emptyTitle": "暂无通知",
+		"emptyDescription": "当有新的错误或提示时会自动展示在此处",
+		"level": {
+			"info": "信息",
+			"warning": "警告",
+			"error": "错误",
+			"success": "成功"
+		}
+	},
 	"settings": {
 		"common": {
 			"layoutModeOptions": {
@@ -173,6 +185,7 @@
 			"preview": "预览"
 		},
 		"appName": "Apple Music-like Lyrics TTML Tool",
+		"notificationCenter": "通知中心",
 		"menu": {
 			"file": "文件",
 			"newLyric": "新建 TTML 文件",
@@ -191,6 +204,7 @@
 			"selectWordsOfMatchedSelection": "选择单词匹配项",
 			"timeShift": "平移时间...",
 			"editMetadata": "编辑歌词元数据",
+			"editVocalTags": "编辑演唱者标签",
 			"tool": "工具",
 			"segmentationTools": "分词",
 			"autoSegment": "一键分词",

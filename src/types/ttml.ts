@@ -61,7 +61,7 @@ export interface LyricLine extends AMLLLyricLine {
 	// startTime: number;
 	// endTime: number;
 	ignoreSync: boolean;
-	vocal?: string | string[];
+	vocal?: string[];
 }
 
 export const newLyricLine = (): LyricLine => ({

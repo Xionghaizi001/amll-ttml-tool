@@ -20,7 +20,6 @@ import {
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
 import {
 	deleteProject,
 	getProjectLatestState,
@@ -31,6 +30,7 @@ import {
 } from "$/modules/project/autosave/autosave";
 import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
 import { newLyricLinesAtom, projectIdAtom } from "$/states/main";
+import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
 
 export const HistoryRestoreDialog = () => {
@@ -45,6 +45,7 @@ export const HistoryRestoreDialog = () => {
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const { t } = useTranslation();
+	const setPushNotification = useSetAtom(pushNotificationAtom);
 
 	const loadProjects = useCallback(async () => {
 		try {
@@ -55,9 +56,13 @@ export const HistoryRestoreDialog = () => {
 			}
 		} catch (e) {
 			logError("Failed to load project list", e);
-			toast.error(t("historyRestoreDialog.loadError", "加载历史记录失败"));
+			setPushNotification({
+				title: t("historyRestoreDialog.loadError", "加载历史记录失败"),
+				level: "error",
+				source: "HistoryRestore",
+			});
 		}
-	}, [t]);
+	}, [t, setPushNotification]);
 
 	const loadVersions = useCallback(async (projectId: string) => {
 		try {
@@ -97,9 +102,17 @@ export const HistoryRestoreDialog = () => {
 					setProjectId(project.id);
 					setNewLyrics(latestLyric);
 					setIsOpen(false);
-					toast.success(t("common.success", "恢复成功"));
+					setPushNotification({
+						title: t("common.success", "恢复成功"),
+						level: "success",
+						source: "HistoryRestore",
+					});
 				} else {
-					toast.error(t("common.error", "数据已损坏或丢失"));
+					setPushNotification({
+						title: t("common.error", "数据已损坏或丢失"),
+						level: "error",
+						source: "HistoryRestore",
+					});
 				}
 			},
 		});
@@ -117,7 +130,11 @@ export const HistoryRestoreDialog = () => {
 				setProjectId(version.projectId);
 				setNewLyrics(version.data);
 				setIsOpen(false);
-				toast.success(t("common.success", "恢复成功"));
+				setPushNotification({
+					title: t("common.success", "恢复成功"),
+					level: "success",
+					source: "HistoryRestore",
+				});
 			},
 		});
 	};
@@ -137,7 +154,11 @@ export const HistoryRestoreDialog = () => {
 				if (selectedProjectId === projectId) {
 					setSelectedProjectId(null);
 				}
-				toast.success(t("common.deleteSuccess", "删除成功"));
+				setPushNotification({
+					title: t("common.deleteSuccess", "删除成功"),
+					level: "success",
+					source: "HistoryRestore",
+				});
 			},
 		});
 	};

@@ -27,10 +27,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform, version } from "@tauri-apps/plugin-os";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
-import { ToastContainer, toast } from "react-toastify";
 import saveFile from "save-file";
 import semverGt from "semver/functions/gt";
 import styles from "./App.module.css";
@@ -50,21 +49,42 @@ import {
 	customBackgroundImageAtom,
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
+	githubAmlldbAccessAtom,
+	githubLoginAtom,
+	githubPatAtom,
+	reviewHiddenLabelsAtom,
+	reviewLabelsAtom,
+	type ReviewLabel,
 } from "./modules/settings/states";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
-import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	isDarkThemeAtom,
 	isGlobalFileDraggingAtom,
 	lyricLinesAtom,
+	projectIdAtom,
+	reviewFreezeAtom,
+	reviewSessionAtom,
+	reviewStagedAtom,
+	saveFileNameAtom,
 	ToolMode,
 	toolModeAtom,
 } from "./states/main.ts";
+import type { TTMLLyric } from "./types/ttml.ts";
+import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
+import { pushNotificationAtom } from "./states/notifications.ts";
 import { useAppUpdate } from "./utils/useAppUpdate.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
 const Dialogs = lazy(() => import("./components/Dialogs"));
+const ReviewPage = lazy(() => import("./modules/review"));
+
+const REPO_OWNER = "Steve-xmh";
+const REPO_NAME = "amll-ttml-db";
+
+const cloneLyric = (data: TTMLLyric): TTMLLyric => {
+	return JSON.parse(JSON.stringify(data)) as TTMLLyric;
+};
 
 const AppErrorPage = ({
 	error,
@@ -140,10 +160,200 @@ function App() {
 			: "light";
 	const { checkUpdate, status, update } = useAppUpdate();
 	const hasNotifiedRef = useRef(false);
-	const setSettingsOpen = useSetAtom(settingsDialogAtom);
-	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const { t } = useTranslation();
 	const store = useStore();
+	const pat = useAtomValue(githubPatAtom);
+	const setLogin = useSetAtom(githubLoginAtom);
+	const setHasAccess = useSetAtom(githubAmlldbAccessAtom);
+	const setReviewLabels = useSetAtom(reviewLabelsAtom);
+	const setHiddenLabels = useSetAtom(reviewHiddenLabelsAtom);
+	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const setSettingsOpen = useSetAtom(settingsDialogAtom);
+	const setSettingsTab = useSetAtom(settingsTabAtom);
+	const setReviewSession = useSetAtom(reviewSessionAtom);
+	const setToolMode = useSetAtom(toolModeAtom);
+	const reviewSession = useAtomValue(reviewSessionAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const saveFileName = useAtomValue(saveFileNameAtom);
+	const projectId = useAtomValue(projectIdAtom);
+	const reviewFreeze = useAtomValue(reviewFreezeAtom);
+	const setReviewFreeze = useSetAtom(reviewFreezeAtom);
+	const setReviewStaged = useSetAtom(reviewStagedAtom);
+	const initialPatRef = useRef(pat);
+	const reviewPendingRef = useRef(false);
+	const reviewProjectIdRef = useRef(projectId);
+	const reviewPendingLyricRef = useRef(lyricLines);
+	const reviewSessionKeyRef = useRef<string | null>(null);
+
+	const fetchLabels = useCallback(
+		async (token: string) => {
+			const response = await fetch(
+				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/labels?per_page=100`,
+				{
+					headers: {
+						Accept: "application/vnd.github+json",
+						Authorization: `Bearer ${token}`,
+					},
+				},
+			);
+			if (!response.ok) {
+				setReviewLabels([]);
+				return;
+			}
+			const data = (await response.json()) as ReviewLabel[];
+			const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name));
+			setReviewLabels(sorted);
+			const labelSet = new Set(
+				sorted.map((label) => label.name.trim().toLowerCase()),
+			);
+			setHiddenLabels((prev) =>
+				prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
+			);
+		},
+		[setHiddenLabels, setReviewLabels],
+	);
+
+	const verifyAccess = useCallback(
+		async (token: string) => {
+			if (!token) {
+				setLogin("");
+				setHasAccess(false);
+				setReviewLabels([]);
+				return;
+			}
+
+			try {
+				const userResponse = await fetch("https://api.github.com/user", {
+					headers: {
+						Accept: "application/vnd.github+json",
+						Authorization: `Bearer ${token}`,
+					},
+				});
+
+				if (!userResponse.ok) {
+					setLogin("");
+					setHasAccess(false);
+					setReviewLabels([]);
+					return;
+				}
+
+				const userData = (await userResponse.json()) as { login?: string };
+				const userLogin = userData.login ?? "";
+				setLogin(userLogin);
+
+				if (!userLogin) {
+					setHasAccess(false);
+					setReviewLabels([]);
+					return;
+				}
+
+				const isOwner =
+					userLogin.toLowerCase() === REPO_OWNER.toLowerCase();
+
+				const collaboratorResponse = await fetch(
+					`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/collaborators/${userLogin}`,
+					{
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
+					},
+				);
+
+				if (collaboratorResponse.status === 403) {
+					setHasAccess(false);
+					setReviewLabels([]);
+					return;
+				}
+
+				const isCollaborator = collaboratorResponse.status === 204;
+				const allowed = isOwner || isCollaborator;
+
+				setHasAccess(allowed);
+
+				if (allowed) {
+					await fetchLabels(token);
+				} else {
+					setReviewLabels([]);
+				}
+			} catch {
+				setHasAccess(false);
+				setReviewLabels([]);
+			}
+		},
+		[fetchLabels, setHasAccess, setLogin, setReviewLabels],
+	);
+
+	useEffect(() => {
+		if (!reviewSession) {
+			reviewPendingRef.current = false;
+			reviewSessionKeyRef.current = null;
+			setReviewFreeze(null);
+			setReviewStaged(null);
+			log("[review]", "session cleared");
+			return;
+		}
+		const nextKey = `${reviewSession.prNumber}:${reviewSession.fileName}`;
+		if (reviewSessionKeyRef.current === nextKey) return;
+		reviewSessionKeyRef.current = nextKey;
+		reviewPendingRef.current = true;
+		reviewProjectIdRef.current = projectId;
+		reviewPendingLyricRef.current = store.get(lyricLinesAtom);
+		setReviewFreeze(null);
+		setReviewStaged(null);
+		log("[review]", "session set", {
+			prNumber: reviewSession.prNumber,
+			fileName: reviewSession.fileName,
+			projectId,
+		});
+	}, [projectId, reviewSession, setReviewFreeze, setReviewStaged, store]);
+
+	useEffect(() => {
+		if (!reviewSession || !reviewPendingRef.current) return;
+		const lyricUpdated = lyricLines !== reviewPendingLyricRef.current;
+		const fileReady =
+			saveFileName === reviewSession.fileName ||
+			projectId !== reviewProjectIdRef.current ||
+			lyricUpdated;
+		log("[review]", "pending check", {
+			fileReady,
+			saveFileName,
+			sessionFileName: reviewSession.fileName,
+			projectId,
+			pendingProjectId: reviewProjectIdRef.current,
+			lyricUpdated,
+		});
+		if (!fileReady) return;
+		const snapshot = cloneLyric(lyricLines);
+		setReviewFreeze({
+			prNumber: reviewSession.prNumber,
+			fileName: reviewSession.fileName,
+			data: snapshot,
+		});
+		setReviewStaged(snapshot);
+		log("[review]", "freeze and staged set", {
+			prNumber: reviewSession.prNumber,
+			fileName: reviewSession.fileName,
+		});
+		reviewPendingRef.current = false;
+	}, [
+		lyricLines,
+		projectId,
+		reviewSession,
+		saveFileName,
+		setReviewFreeze,
+		setReviewStaged,
+	]);
+
+	useEffect(() => {
+		if (!reviewSession || !reviewFreeze) return;
+		if (reviewFreeze.prNumber !== reviewSession.prNumber) return;
+		setReviewStaged(cloneLyric(lyricLines));
+		log("[review]", "staged updated", {
+			prNumber: reviewSession.prNumber,
+			projectId,
+		});
+	}, [lyricLines, projectId, reviewFreeze, reviewSession, setReviewStaged]);
 
 	useEffect(() => {
 		if (import.meta.env.TAURI_ENV_PLATFORM) {
@@ -152,31 +362,55 @@ function App() {
 	}, [checkUpdate]);
 
 	useEffect(() => {
+		const token = initialPatRef.current?.trim();
+		if (!token) return;
+		verifyAccess(token);
+	}, [verifyAccess]);
+
+	useEffect(() => {
 		if (status === "available" && update && !hasNotifiedRef.current) {
 			hasNotifiedRef.current = true;
 
-			toast.info(
-				<div>
-					<div style={{ fontWeight: "bold" }}>
-						{t("app.update.updateAvailable", "发现新版本: {version}", {
-							version: update.version,
-						})}
-					</div>
-				</div>,
-				{
-					autoClose: 5000,
-					onClick: () => {
-						setSettingsTab("about");
-						setSettingsOpen(true);
-					},
-				},
-			);
+			setPushNotification({
+				title: t("app.update.updateAvailable", "发现新版本: {version}", {
+					version: update.version,
+				}),
+				level: "info",
+				source: "AppUpdate",
+			});
+			setSettingsTab("about");
+			setSettingsOpen(true);
 		}
-	}, [status, update, t, setSettingsOpen, setSettingsTab]);
+	}, [status, update, t, setPushNotification, setSettingsOpen, setSettingsTab]);
 
 	const setIsGlobalDragging = useSetAtom(isGlobalFileDraggingAtom);
 	const { openFile } = useFileOpener();
 	useAudioFeedback();
+
+	// 正式推送前务必删除这段测试代码
+	useEffect(() => {
+		if (!import.meta.env.DEV) return;
+		const injectReviewFile = (
+			content: string,
+			options?: { filename?: string; prNumber?: number; prTitle?: string },
+		) => {
+			const filename = options?.filename ?? "review.ttml";
+			const file = new File([content], filename, { type: "text/plain" });
+			setReviewSession({
+				prNumber: options?.prNumber ?? 0,
+				prTitle: options?.prTitle ?? filename,
+				fileName: filename,
+			});
+			openFile(file);
+			setToolMode(ToolMode.Edit);
+		};
+		(window as typeof window & { injectReviewFile?: typeof injectReviewFile }).injectReviewFile =
+			injectReviewFile;
+		return () => {
+			const target = window as typeof window & { injectReviewFile?: typeof injectReviewFile };
+			delete target.injectReviewFile;
+		};
+	}, [openFile, setReviewSession, setToolMode]);
 
 	useEffect(() => {
 		if (!import.meta.env.TAURI_ENV_PLATFORM) {
@@ -315,8 +549,9 @@ function App() {
 						<TitleBar />
 						<RibbonBar />
 						<Box flexGrow="1" overflow="hidden">
-							<AnimatePresence mode="wait">
-								{toolMode !== ToolMode.Preview && (
+						<AnimatePresence mode="wait">
+							{(toolMode === ToolMode.Edit ||
+								toolMode === ToolMode.Sync) && (
 									<SuspensePlaceHolder key="edit">
 										<motion.div
 											layout="position"
@@ -333,7 +568,7 @@ function App() {
 										</motion.div>
 									</SuspensePlaceHolder>
 								)}
-								{toolMode === ToolMode.Preview && (
+							{toolMode === ToolMode.Preview && (
 									<SuspensePlaceHolder key="amll-preview">
 										<Box height="100%" key="amll-preview" p="2" asChild>
 											<motion.div
@@ -347,6 +582,20 @@ function App() {
 										</Box>
 									</SuspensePlaceHolder>
 								)}
+							{toolMode === ToolMode.Review && (
+								<SuspensePlaceHolder key="review">
+									<Box height="100%" key="review" p="2" asChild>
+										<motion.div
+											layout="position"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0 }}
+										>
+											<ReviewPage />
+										</motion.div>
+									</Box>
+								</SuspensePlaceHolder>
+							)}
 							</AnimatePresence>
 						</Box>
 						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
@@ -359,7 +608,6 @@ function App() {
 					<Suspense fallback={null}>
 						<Dialogs />
 					</Suspense>
-					<ToastContainer theme={effectiveTheme} />
 				</div>
 			</ErrorBoundary>
 		</Theme>

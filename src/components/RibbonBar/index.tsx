@@ -19,6 +19,7 @@ import { ToolMode, toolModeAtom } from "$/states/main.ts";
 const EditModeRibbonBar = lazy(() => import("./edit-mode"));
 const SyncModeRibbonBar = lazy(() => import("./sync-mode"));
 const PreviewModeRibbonBar = lazy(() => import("./preview-mode"));
+const ReviewModeRibbonBar = lazy(() => import("./review-mode"));
 
 export const RibbonBar = memo(
 	forwardRef<HTMLDivElement>((_props, ref) => {
@@ -55,6 +56,11 @@ export const RibbonBar = memo(
 							{toolMode === ToolMode.Preview && (
 								<SuspensePlaceHolder key="preview">
 									<PreviewModeRibbonBar />
+								</SuspensePlaceHolder>
+							)}
+							{toolMode === ToolMode.Review && (
+								<SuspensePlaceHolder key="review">
+									<ReviewModeRibbonBar />
 								</SuspensePlaceHolder>
 							)}
 						</AnimatePresence>

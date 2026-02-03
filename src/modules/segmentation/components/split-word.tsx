@@ -2,7 +2,7 @@ import { Info16Regular } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
-	Callout,
+	Card,
 	Checkbox,
 	Dialog,
 	Flex,
@@ -232,17 +232,17 @@ export const SplitWordDialog = memo(() => {
 			<Dialog.Content>
 				<Dialog.Title>{t("splitWordDialog.title", "拆分单词")}</Dialog.Title>
 				<Flex direction="column" gap="2">
-					<Callout.Root color="blue">
-						<Callout.Icon>
+					<Card>
+						<Flex gap="2" align="start">
 							<Info16Regular />
-						</Callout.Icon>
-						<Callout.Text>
-							{t(
-								"splitWordDialog.tip",
-								"拆分后新单词将会按自身单词字符平均分配原单词的始末时间，如有空拍则会被清除",
-							)}
-						</Callout.Text>
-					</Callout.Root>
+							<Text size="2" color="gray">
+								{t(
+									"splitWordDialog.tip",
+									"拆分后新单词将会按自身单词字符平均分配原单词的始末时间，如有空拍则会被清除",
+								)}
+							</Text>
+						</Flex>
+					</Card>
 
 					<Box my="3">
 						<ManualWordSplitter

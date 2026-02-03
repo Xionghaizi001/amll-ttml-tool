@@ -1,7 +1,7 @@
 import { InfoRegular } from "@fluentui/react-icons";
 import {
 	Button,
-	Callout,
+	Card,
 	Dialog,
 	Flex,
 	RadioGroup,
@@ -119,17 +119,17 @@ export const DistributeRomanizationDialog = () => {
 				</Dialog.Title>
 
 				<Flex direction="column" gap="4">
-					<Callout.Root color="gray" size="1">
-						<Callout.Icon>
+					<Card>
+						<Flex gap="2" align="start">
 							<InfoRegular />
-						</Callout.Icon>
-						<Callout.Text>
-							{t(
-								"distributeRomanDialog.warning",
-								"此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。",
-							)}
-						</Callout.Text>
-					</Callout.Root>
+							<Text size="2" color="gray">
+								{t(
+									"distributeRomanDialog.warning",
+									"此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。",
+								)}
+							</Text>
+						</Flex>
+					</Card>
 
 					<Flex direction="column" gap="2">
 						<Text size="2" weight="bold">

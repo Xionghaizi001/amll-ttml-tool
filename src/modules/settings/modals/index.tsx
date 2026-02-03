@@ -4,6 +4,7 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs.ts";
 import { SettingsAboutTab } from "./about";
+import { SettingsConnectTab } from "./connect";
 import { SettingsCommonTab } from "./common";
 import { SettingsKeyBindingsDialog } from "./keybindings";
 import { SettingsSpectrogramTab } from "./spectrogram";
@@ -29,6 +30,9 @@ export const SettingsDialog = memo(() => {
 						<Tabs.Trigger value="spectrogram">
 							{t("settingsDialog.tab.spectrogram", "频谱图")}
 						</Tabs.Trigger>
+						<Tabs.Trigger value="connect">
+							{t("settingsDialog.tab.connect", "连接")}
+						</Tabs.Trigger>
 						<Tabs.Trigger value="about">
 							{t("common.about", "关于")}
 						</Tabs.Trigger>
@@ -49,6 +53,9 @@ export const SettingsDialog = memo(() => {
 						</Tabs.Content>
 						<Tabs.Content value="spectrogram">
 							<SettingsSpectrogramTab />
+						</Tabs.Content>
+						<Tabs.Content value="connect">
+							<SettingsConnectTab />
 						</Tabs.Content>
 						<Tabs.Content value="about">
 							<SettingsAboutTab />

@@ -30,7 +30,6 @@ import classNames from "classnames";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
 import { uid } from "uid";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
@@ -44,6 +43,7 @@ import {
 	projectIdAtom,
 	saveFileNameAtom,
 } from "$/states/main.ts";
+import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
 import { LrcLibApi } from "../api/client";
 import type { LrcLibTrack } from "../types";
@@ -66,6 +66,7 @@ export const ImportFromLRCLIB = () => {
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setPushNotification = useSetAtom(pushNotificationAtom);
 
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<LrcLibTrack[]>([]);
@@ -90,11 +91,15 @@ export const ImportFromLRCLIB = () => {
 			setResults(data);
 		} catch (e) {
 			logError("LRCLIB Search Error", e);
-			toast.error(t("lrclib.searchError", "搜索失败，请检查网络或稍后重试"));
+			setPushNotification({
+				title: t("lrclib.searchError", "搜索失败，请检查网络或稍后重试"),
+				level: "error",
+				source: "LRCLIB",
+			});
 		} finally {
 			setLoading(false);
 		}
-	}, [query, t]);
+	}, [query, t, setPushNotification]);
 
 	const onKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === "Enter") {
@@ -141,7 +146,11 @@ export const ImportFromLRCLIB = () => {
 				setHasSearched(false);
 			} catch (e) {
 				logError("LRCLIB Import Error", e);
-				toast.error(t("lrclib.importError", "导入歌词时发生错误"));
+				setPushNotification({
+					title: t("lrclib.importError", "导入歌词时发生错误"),
+					level: "error",
+					source: "LRCLIB",
+				});
 			}
 		},
 		[
@@ -153,6 +162,7 @@ export const ImportFromLRCLIB = () => {
 			autoSegment,
 			segmentationConfig,
 			extractBg,
+			setPushNotification,
 		],
 	);
 

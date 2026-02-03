@@ -7,6 +7,26 @@
 	}
 }
 
+.modeSwitch {
+	gap: var(--space-1);
+}
+
+.reviewMenuItem {
+	background-color: var(--orange-4);
+	color: var(--orange-12);
+}
+
+.reviewMenuItem[data-state="on"] {
+	background-color: var(--orange-5);
+	color: var(--orange-12);
+}
+
+.reviewActionGroup {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
 @media screen and (max-width: 768px) {
 	.title {
 		display: none;

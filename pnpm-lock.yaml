@@ -100,9 +100,6 @@ importers:
       react-i18next:
         specifier: ^16.5.0
         version: 16.5.0(i18next@25.7.3(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      react-toastify:
-        specifier: ^11.0.5
-        version: 11.0.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-viewport-list:
         specifier: ^7.1.2
         version: 7.1.2(react@19.2.3)
@@ -3759,12 +3756,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  react-toastify@11.0.5:
-    resolution: {integrity: sha512-EpqHBGvnSTtHYhCPLxML05NLY2ZX0JURbAdNYa6BUkk+amz4wbKBQvoKQAB0ardvSarUBuY4Q4s1sluAzZwkmA==}
-    peerDependencies:
-      react: ^18 || ^19
-      react-dom: ^18 || ^19
 
   react-viewport-list@7.1.2:
     resolution: {integrity: sha512-CfmkYyoFufSdJ95nTgENAHtWOn1XwxcUZPBSueOPzOvz59A31qHgYpADYuiSUfZ5ypR3MfyWMUgRAOMsNDDl8Q==}

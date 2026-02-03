@@ -1,17 +1,25 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { type Id, toast } from "react-toastify";
+import { uid } from "uid";
 import {
 	audioErrorAtom,
 	audioTaskStateAtom,
 } from "$/modules/audio/states/index.ts";
+import {
+	pushNotificationAtom,
+	removeNotificationAtom,
+	upsertNotificationAtom,
+} from "$/states/notifications";
 
 export const useAudioFeedback = () => {
 	const taskState = useAtomValue(audioTaskStateAtom);
 	const [errorMsg, setErrorMsg] = useAtom(audioErrorAtom);
-	const toastId = useRef<Id | null>(null);
+	const notificationId = useRef<string | null>(null);
 	const { t } = useTranslation();
+	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const upsertNotification = useSetAtom(upsertNotificationAtom);
+	const removeNotification = useSetAtom(removeNotificationAtom);
 
 	useEffect(() => {
 		const getMessage = (type: string) => {
@@ -26,43 +34,39 @@ export const useAudioFeedback = () => {
 		};
 
 		if (taskState) {
-			const { type, progress } = taskState;
+			const { type } = taskState;
 			const message = getMessage(type);
 
-			if (toastId.current === null) {
-				toastId.current = toast.loading(message, {
-					autoClose: false,
-					closeButton: false,
-					closeOnClick: false,
-					draggable: false,
-					progress: progress,
-				});
-			} else {
-				toast.update(toastId.current, {
-					render: message,
-					progress: progress,
-				});
+			if (notificationId.current === null) {
+				notificationId.current = uid();
 			}
+			upsertNotification({
+				id: notificationId.current,
+				title: message,
+				level: "info",
+				source: "Audio",
+			});
 		} else {
-			if (toastId.current !== null) {
-				toast.dismiss(toastId.current);
-				toastId.current = null;
+			if (notificationId.current !== null) {
+				removeNotification(notificationId.current);
+				notificationId.current = null;
 			}
 		}
-	}, [taskState, t]);
+	}, [taskState, t, upsertNotification, removeNotification]);
 
 	useEffect(() => {
 		if (errorMsg) {
-			toast.error(
-				`${t("audio.error.workerError", "处理音频时出错")}: ${errorMsg}`,
-				{
-					autoClose: 5000,
-					closeOnClick: true,
-					draggable: true,
-				},
-			);
+			setPushNotification({
+				title: `${t("audio.error.workerError", "处理音频时出错")}: ${errorMsg}`,
+				level: "error",
+				source: "Audio",
+			});
+			if (notificationId.current !== null) {
+				removeNotification(notificationId.current);
+				notificationId.current = null;
+			}
 
 			setErrorMsg(null);
 		}
-	}, [errorMsg, setErrorMsg, t]);
+	}, [errorMsg, setErrorMsg, t, setPushNotification, removeNotification]);
 };

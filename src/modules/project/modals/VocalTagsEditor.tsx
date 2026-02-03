@@ -6,10 +6,9 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { vocalTagsEditorDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
-import type { LyricLine, TTMLLyric } from "$/types/ttml";
+import type { TTMLLyric } from "$/types/ttml";
 import styles from "./VocalTagsEditor.module.css";
 
-const getLineText = (line: LyricLine) => line.words.map((word) => word.word).join("");
 const parseLineVocalIds = (value?: string | string[]) => {
 	if (!value) return [];
 	const parts = Array.isArray(value) ? value : value.split(/[\s,]+/);
@@ -68,10 +67,6 @@ export const VocalTagsEditor = () => {
 	const [newTagValue, setNewTagValue] = useState("");
 
 	const vocalTags = lyricLines.vocalTags ?? [];
-	const vocalTagIds = useMemo(
-		() => Array.from(new Set(vocalTags.map((tag) => tag.key).filter(Boolean))),
-		[vocalTags],
-	);
 	const artistNames = useMemo(() => {
 		const artists = lyricLines.metadata.find((meta) => meta.key === "artists");
 		if (!artists) return [];

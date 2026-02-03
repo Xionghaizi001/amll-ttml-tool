@@ -12,17 +12,16 @@ import {
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { memo, type PropsWithChildren, useCallback } from "react";
-import { toast } from "react-toastify";
 import {
 	confirmDialogAtom,
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
 import { isDirtyAtom, lyricLinesAtom } from "$/states/main.ts";
+import { pushNotificationAtom } from "$/states/notifications";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 import { error as logError } from "$/utils/logging.ts";
 
 // import styles from "./ImportFromText.module.css";
-import error = toast.error;
 
 import { useTranslation } from "react-i18next";
 
@@ -99,6 +98,7 @@ export const ImportFromText = () => {
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const { t } = useTranslation();
+	const setPushNotification = useSetAtom(pushNotificationAtom);
 
 	const [importFromTextDialog, setImportFromTextDialog] = useAtom(
 		importFromTextDialogAtom,
@@ -312,9 +312,12 @@ export const ImportFromText = () => {
 										});
 									else importAction();
 								} catch (e) {
-									error(
-										"导入纯文本歌词失败，请检查输入的文本是否正确，或者导入设置是否正确",
-									);
+									setPushNotification({
+										title:
+											"导入纯文本歌词失败，请检查输入的文本是否正确，或者导入设置是否正确",
+										level: "error",
+										source: "ImportFromText",
+									});
 									logError(e);
 								}
 							}}

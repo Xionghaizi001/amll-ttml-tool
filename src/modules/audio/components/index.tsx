@@ -52,8 +52,13 @@ import {
 	keyVolumeDownAtom,
 	keyVolumeUpAtom,
 } from "$/states/keybindings.ts";
-import { useKeyBindingAtom } from "$/utils/keybindings.ts";
+import { useKeyBinding, useKeyBindingAtom } from "$/utils/keybindings.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
+
+const IS_MAC = navigator.userAgent.includes("Mac");
+const HIDDEN_AUDIO_CACHE_KEYS = IS_MAC
+	? ["Meta", "Alt", "KeyO"]
+	: ["Control", "Alt", "KeyO"];
 
 const AudioPlaybackKeyBinding = memo(() => {
 	const store = useStore();
@@ -104,7 +109,7 @@ export const AudioControls: FC = memo(() => {
 	const [audioPlaying, setAudioPlaying] = useAtom(audioPlayingAtom);
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
-	const { openFile } = useFileOpener();
+	const { openFile, openCachedAudio } = useFileOpener();
 	const { t } = useTranslation();
 
 	const onLoadMusic = useCallback(() => {
@@ -132,6 +137,14 @@ export const AudioControls: FC = memo(() => {
 			audioEngine.resumeOrSeekMusic();
 		}
 	}, []);
+
+	useKeyBinding(
+		HIDDEN_AUDIO_CACHE_KEYS,
+		() => {
+			openCachedAudio();
+		},
+		[openCachedAudio],
+	);
 
 	useEffect(() => {
 		const onMusicLoad = () => {

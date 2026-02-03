@@ -10,7 +10,7 @@ import {
 import {
 	Box,
 	Button,
-	Callout,
+	Card,
 	Checkbox,
 	Dialog,
 	Flex,
@@ -334,17 +334,17 @@ export const AdvancedSegmentationDialog = memo(() => {
 							)}
 						</Flex>
 
-						<Callout.Root color="blue">
-							<Callout.Icon>
+						<Card>
+							<Flex gap="2" align="start">
 								<Info16Regular />
-							</Callout.Icon>
-							<Callout.Text>
-								{t(
-									"advancedSegmentDialog.tip",
-									"分词后，原音节的时长会按照字符数和权重重新分配给新的音节",
-								)}
-							</Callout.Text>
-						</Callout.Root>
+								<Text size="2" color="gray">
+									{t(
+										"advancedSegmentDialog.tip",
+										"分词后，原音节的时长会按照字符数和权重重新分配给新的音节",
+									)}
+								</Text>
+							</Flex>
+						</Card>
 					</Flex>
 
 					<Flex direction="column" gap="3">

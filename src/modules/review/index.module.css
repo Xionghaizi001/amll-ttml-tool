@@ -1,0 +1,283 @@
+.container {
+	height: 100%;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding-bottom: var(--space-4);
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
+	align-content: start;
+	gap: var(--space-3);
+}
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+	z-index: 40;
+	opacity: 0;
+	transition: opacity 180ms ease;
+}
+
+.overlayVisible {
+	opacity: 1;
+}
+
+.overlayCard {
+	position: fixed;
+	z-index: 41;
+	transition:
+		left 200ms ease,
+		top 200ms ease,
+		width 200ms ease,
+		height 200ms ease;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.overlayCardExpanded {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.overlayCardInner {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.overlayHeader {
+	padding: var(--space-3) var(--space-3) 0;
+	gap: var(--space-2);
+}
+
+.overlayHeaderLeft {
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.overlayBody {
+	padding: var(--space-3);
+	padding-top: var(--space-2);
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.overlayFooter {
+	margin-top: auto;
+}
+
+.overlayTitle {
+	display: block;
+}
+
+.linkMuted {
+	color: var(--gray-11);
+	text-decoration: none;
+}
+
+.linkMuted:hover {
+	text-decoration: underline;
+}
+
+.metaBlock {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.metaBlockPanel {
+	background-color: var(--gray-a2);
+	border-radius: var(--radius-3);
+	padding: var(--space-3);
+}
+
+.metaSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+.metaRow {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-2);
+}
+
+.metaLabel {
+	min-width: 64px;
+}
+
+.metaValuesRow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	justify-content: flex-start;
+}
+
+.metaChip {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	border-radius: var(--radius-2);
+	background-color: var(--gray-a3);
+	color: var(--gray-12);
+}
+
+.contentBlock {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.treeItem {
+	display: grid;
+	grid-template-rows: auto 0fr;
+	row-gap: var(--space-2);
+	transition: grid-template-rows 200ms ease;
+}
+
+.treeItem[open] {
+	grid-template-rows: auto 1fr;
+}
+
+.treeSummary {
+	list-style: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.treeSummary::-webkit-details-marker {
+	display: none;
+}
+
+.treeSummary::before {
+	content: "▾";
+	display: inline-block;
+	margin-right: var(--space-2);
+	color: var(--gray-10);
+	transition: transform 150ms ease;
+	flex-shrink: 0;
+}
+
+.treeItem[open] .treeSummary::before {
+	transform: rotate(0deg);
+}
+
+.treeItem:not([open]) .treeSummary::before {
+	transform: rotate(-90deg);
+}
+
+.treeContent {
+	padding-left: calc(16px + var(--space-2));
+	overflow: hidden;
+	opacity: 0;
+	transform: translateY(-4px);
+	transition:
+		opacity 150ms ease,
+		transform 150ms ease;
+}
+
+.treeItem[open] .treeContent {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.blockTitle {
+	color: var(--gray-12);
+}
+
+.platformList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.platformItem {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.platformIcon {
+	width: 16px;
+	height: 16px;
+}
+
+.remarkHeader {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.remarkText {
+	color: var(--gray-12);
+}
+
+.card {
+	background-color: var(--color-panel);
+	max-width: 350px;
+	width: 100%;
+}
+
+.reviewCard {
+	background-color: var(--orange-5);
+}
+
+.title {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.meta {
+	color: var(--gray-a11);
+}
+
+.timeText {
+	white-space: nowrap;
+}
+
+.mentions {
+	color: var(--gray-a11);
+	flex-wrap: wrap;
+}
+
+.label {
+	border-radius: var(--radius-3);
+	padding: 2px 8px;
+	display: inline-flex;
+	align-items: center;
+}
+
+.icon {
+	font-size: 16px;
+}
+
+.loading {
+	margin-bottom: var(--space-2);
+}
+
+.error {
+	margin-bottom: var(--space-2);
+}
+
+.emptyState {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}

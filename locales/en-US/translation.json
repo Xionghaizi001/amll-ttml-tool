@@ -95,6 +95,18 @@
 		},
 		"loading": "Panel loading…"
 	},
+	"notificationCenter": {
+		"title": "Notification Center",
+		"description": "App notifications, errors, and alerts appear here",
+		"emptyTitle": "No notifications",
+		"emptyDescription": "New errors or tips will automatically show up here",
+		"level": {
+			"info": "Info",
+			"warning": "Warning",
+			"error": "Error",
+			"success": "Success"
+		}
+	},
 	"settings": {
 		"common": {
 			"layoutModeOptions": {
@@ -173,6 +185,7 @@
 			"preview": "Preview"
 		},
 		"appName": "Apple Music-like Lyrics TTML Tool",
+		"notificationCenter": "Notification Center",
 		"menu": {
 			"file": "File",
 			"newLyric": "New lyrics",
@@ -191,6 +204,7 @@
 			"selectWordsOfMatchedSelection": "Select words matching selection",
 			"timeShift": "Time Shift...",
 			"editMetadata": "Edit lyrics metadata…",
+			"editVocalTags": "Edit Vocal Tags…",
 			"tool": "Tools",
 			"segmentationTools": "Segmentation Tools",
 			"autoSegment": "Auto Segment",
