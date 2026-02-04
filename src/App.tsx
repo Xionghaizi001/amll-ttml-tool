@@ -9,6 +9,7 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
+import { Warning48Color } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
@@ -153,6 +154,8 @@ function App() {
 	const customBackgroundBlur = useAtomValue(customBackgroundBlurAtom);
 	const customBackgroundBrightness = useAtomValue(customBackgroundBrightnessAtom);
 	const [hasBackground, setHasBackground] = useState(false);
+	const [startupWarningOpen, setStartupWarningOpen] = useState(true);
+	const [startupWarningReady, setStartupWarningReady] = useState(false);
 	const effectiveTheme = customBackgroundImage
 		? "light"
 		: isDarkTheme
@@ -368,6 +371,15 @@ function App() {
 	}, [verifyAccess]);
 
 	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			setStartupWarningReady(true);
+		}, 3000);
+		return () => {
+			window.clearTimeout(timer);
+		};
+	}, []);
+
+	useEffect(() => {
 		if (status === "available" && update && !hasNotifiedRef.current) {
 			hasNotifiedRef.current = true;
 
@@ -538,6 +550,39 @@ function App() {
 								filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
 							}}
 						/>
+					</div>
+				)}
+				{startupWarningOpen && (
+					<div className={styles.startupWarningOverlay}>
+						<Flex
+							direction="column"
+							align="center"
+							justify="center"
+							height="100%"
+							width="100%"
+							p="6"
+						>
+							<Flex
+								direction="column"
+								align="center"
+								gap="4"
+								className={styles.startupWarningCard}
+							>
+								<Warning48Color />
+								<Heading size="6">警告</Heading>
+								<Text size="3" style={{ textAlign: "center" }}>
+									你正在使用测试版分支，可能会随时推送更新，也可能有未知的BUG或漏洞。
+								</Text><Text size="5" style={{ textAlign: "center" }}>
+									请在使用时随时注意保存你的文件，避免造成数据丢失。
+								</Text>
+								<Button
+									disabled={!startupWarningReady}
+									onClick={() => setStartupWarningOpen(false)}
+								>
+									确定
+								</Button>
+							</Flex>
+						</Flex>
 					</div>
 				)}
 				<div className={styles.appContent}>
