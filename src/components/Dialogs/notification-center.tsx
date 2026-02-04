@@ -72,45 +72,45 @@ const NotificationEntry = ({ item }: { item: AppNotification }) => {
 
 	return (
 		<Card onClick={canOpenDraft ? handleOpenDraft : undefined} style={cardStyle}>
-			<Flex align="center" justify="between" gap="3">
+			<Flex align="start" justify="between" gap="3">
 				<Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-					<Flex align="center" gap="2">
+					<Flex align="center" gap="2" wrap="wrap">
 						<Badge size="1" color={accentColor}>
 							{levelTextMap[item.level]}
 						</Badge>
-						<Text size="2" weight="bold" truncate>
-							{item.title}
-						</Text>
+						{item.source && (
+							<Text size="1" color="gray" wrap="nowrap">
+								{item.source}
+							</Text>
+						)}
 					</Flex>
+					<Text size="2" weight="bold" truncate>
+						{item.title}
+					</Text>
 					{item.description && (
 						<Text size="1" color="gray" wrap="wrap">
 							{item.description}
 						</Text>
 					)}
-					{item.source && (
-						<Text size="1" color="gray">
-							{item.source}
-						</Text>
-					)}
+				</Flex>
+				<Flex direction="column" align="end" gap="2">
+					<Text size="1" color="gray" wrap="nowrap">
+						{formatTime(item.createdAt)}
+					</Text>
 					{item.dismissible !== false && (
-						<Flex align="center" gap="2">
-							<Button
-								size="1"
-								variant="soft"
-								color={accentColor}
-								onClick={(event) => {
-									event.stopPropagation();
-									removeNotification(item.id);
-								}}
-							>
-								{t("notificationCenter.ignore", "忽略")}
-							</Button>
-						</Flex>
+						<Button
+							size="1"
+							variant="soft"
+							color={accentColor}
+							onClick={(event) => {
+								event.stopPropagation();
+								removeNotification(item.id);
+							}}
+						>
+							{t("notificationCenter.ignore", "忽略")}
+						</Button>
 					)}
 				</Flex>
-				<Text size="1" color="gray" wrap="nowrap">
-					{formatTime(item.createdAt)}
-				</Text>
 			</Flex>
 		</Card>
 	);
@@ -119,18 +119,27 @@ const NotificationEntry = ({ item }: { item: AppNotification }) => {
 export const NotificationCenterDialog = () => {
 	const [open, setOpen] = useAtom(notificationCenterDialogAtom);
 	const notifications = useAtomValue(notificationsAtom);
+	const drafts = useAtomValue(reviewReportDraftsAtom);
 	const { t } = useTranslation();
 	const clearNotifications = useSetAtom(clearNotificationsAtom);
+	const draftIdSet = useMemo(() => new Set(drafts.map((d) => d.id)), [drafts]);
+	const filteredNotifications = useMemo(() => {
+		return notifications.filter((notification) => {
+			if (notification.action?.type !== "open-review-report") return true;
+			const draftId = notification.action.payload.draftId;
+			return draftIdSet.has(draftId);
+		});
+	}, [draftIdSet, notifications]);
 	const sortedNotifications = useMemo(() => {
-		return [...notifications].sort((a, b) => {
+		return [...filteredNotifications].sort((a, b) => {
 			const pinnedDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
 			if (pinnedDelta !== 0) return pinnedDelta;
 			return b.createdAt.localeCompare(a.createdAt);
 		});
-	}, [notifications]);
+	}, [filteredNotifications]);
 	const hasDismissible = useMemo(
-		() => notifications.some((item) => item.dismissible !== false),
-		[notifications],
+		() => filteredNotifications.some((item) => item.dismissible !== false),
+		[filteredNotifications],
 	);
 
 	return (

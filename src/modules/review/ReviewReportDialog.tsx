@@ -155,6 +155,32 @@ export const ReviewReportDialog = () => {
 		};
 	}, [dialog.open]);
 
+	const collectDraftIds = () => {
+		const draftIds = new Set<string>();
+		if (dialog.draftId) {
+			draftIds.add(dialog.draftId);
+		}
+		reviewReportDrafts.forEach((draft) => {
+			if (
+				draft.prNumber === dialog.prNumber &&
+				draft.prTitle === dialog.prTitle
+			) {
+				draftIds.add(draft.id);
+			}
+		});
+		return draftIds;
+	};
+
+	const cleanupDrafts = (draftIds: Set<string>) => {
+		if (draftIds.size === 0) return;
+		setReviewReportDrafts((prev) =>
+			prev.filter((draft) => !draftIds.has(draft.id)),
+		);
+		for (const id of draftIds) {
+			removeNotification(`review-report-draft-${id}`);
+		}
+	};
+
 	const closeDialog = () => {
 		if (!submittedRef.current && dialog.report.trim()) {
 			const existingDraft = dialog.draftId
@@ -214,31 +240,13 @@ export const ReviewReportDialog = () => {
 		setTemplateContent("");
 	};
 	const discardDraft = () => {
-		const draftIds = new Set<string>();
-		if (dialog.draftId) {
-			draftIds.add(dialog.draftId);
-		}
-		reviewReportDrafts.forEach((draft) => {
-			if (
-				draft.prNumber === dialog.prNumber &&
-				draft.prTitle === dialog.prTitle
-			) {
-				draftIds.add(draft.id);
-			}
-		});
-		if (draftIds.size > 0) {
-			setReviewReportDrafts((prev) =>
-				prev.filter((draft) => !draftIds.has(draft.id)),
-			);
-			for (const id of draftIds) {
-				removeNotification(`review-report-draft-${id}`);
-			}
-		}
+		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
 		setDialog((prev) => ({ ...prev, report: "" }));
 		closeDialog();
 	};
 	const submitAndClose = () => {
+		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
 		closeDialog();
 	};
