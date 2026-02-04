@@ -11,9 +11,12 @@ import { useTranslation } from "react-i18next";
 import { reviewReportDialogAtom } from "$/states/dialogs";
 import {
 	lyricLinesAtom,
+	reviewReportDraftsAtom,
 	reviewFreezeAtom,
 	reviewSessionAtom,
 	reviewStagedAtom,
+	reviewStashLastSelectionAtom,
+	reviewStashSubmittedAtom,
 	selectedWordsAtom,
 	ToolMode,
 	toolModeAtom,
@@ -104,7 +107,7 @@ const normalizeReport = (value: string) => {
 const mergeReports = (reports: string[]) => {
 	const parts = reports.map(normalizeReport).filter(Boolean);
 	if (parts.length === 0) return "未检测到差异。";
-	return parts.join("\n\n");
+	return parts.join("\n");
 };
 
 const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
@@ -340,21 +343,39 @@ const buildSyncReportFromStash = (
 	for (const item of candidates) {
 		candidateMap.set(item.wordId, item);
 	}
-	const items = stash
-		.map((stashItem) => {
-			const candidate = candidateMap.get(stashItem.wordId);
+	const fieldMap = new Map<string, Set<TimeAxisStashItem["field"]>>();
+	for (const item of stash) {
+		const fields = fieldMap.get(item.wordId) ?? new Set();
+		fields.add(item.field);
+		fieldMap.set(item.wordId, fields);
+	}
+	const items = Array.from(fieldMap.entries())
+		.map(([wordId, fields]) => {
+			const candidate = candidateMap.get(wordId);
 			if (!candidate) return null;
-			const delta =
-				stashItem.field === "startTime"
-					? candidate.newStart - candidate.oldStart
-					: candidate.newEnd - candidate.oldEnd;
-			if (delta === 0) return null;
-			const speed = delta < 0 ? "快" : "慢";
+			const startDelta = candidate.newStart - candidate.oldStart;
+			const endDelta = candidate.newEnd - candidate.oldEnd;
+			const parts: string[] = [];
+			if (fields.has("startTime") && startDelta !== 0) {
+				const speed = startDelta < 0 ? "快" : "慢";
+				const prefix = fields.has("endTime") ? "起始" : "";
+				parts.push(
+					`${prefix}偏${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`,
+				);
+			}
+			if (fields.has("endTime") && endDelta !== 0) {
+				const speed = endDelta < 0 ? "快" : "慢";
+				const prefix = fields.has("startTime") ? "结束" : "";
+				parts.push(
+					`${prefix}偏${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`,
+				);
+			}
+			if (parts.length === 0) return null;
 			return {
 				lineNumber: candidate.lineNumber,
-				text: `第 ${candidate.lineNumber} 行：${wrap(candidate.word)} 偏${speed}了 ${wrap(
-					Math.abs(delta),
-				)} 毫秒`,
+				text: `第 ${candidate.lineNumber} 行：${wrap(candidate.word)} ${parts.join(
+					"，",
+				)}`,
 			};
 		})
 		.filter(
@@ -376,6 +397,14 @@ export const useReviewTimeAxisFlow = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const reviewStaged = useAtomValue(reviewStagedAtom);
+	const reviewReportDialog = useAtomValue(reviewReportDialogAtom);
+	const reviewReportDrafts = useAtomValue(reviewReportDraftsAtom);
+	const [reviewStashSubmitted, setReviewStashSubmitted] = useAtom(
+		reviewStashSubmittedAtom,
+	);
+	const [reviewStashLastSelection, setReviewStashLastSelection] = useAtom(
+		reviewStashLastSelectionAtom,
+	);
 	const setReviewReportDialog = useSetAtom(reviewReportDialogAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const { t } = useTranslation();
@@ -429,6 +458,11 @@ export const useReviewTimeAxisFlow = () => {
 		}
 		return map;
 	}, [lyricLines, reviewFreeze]);
+
+	const stashKey = useMemo(() => {
+		if (!reviewSession) return "";
+		return `${reviewSession.prNumber}:${reviewSession.fileName}`;
+	}, [reviewSession]);
 
 	const displayItems = useMemo(() => {
 		const items: Array<{
@@ -494,22 +528,37 @@ export const useReviewTimeAxisFlow = () => {
 	}, [displayItems]);
 
 	useEffect(() => {
-		if (!timeAxisStashOpen) return;
-		setTimeAxisStashSelected(new Set());
-	}, [timeAxisStashOpen]);
+		if (!stashKey || !timeAxisStashOpen) return;
+		const lastSelection = reviewStashLastSelection[stashKey] ?? [];
+		if (lastSelection.length === 0) return;
+		setTimeAxisStashSelected((prev) => {
+			if (
+				prev.size === lastSelection.length &&
+				lastSelection.every((id) => prev.has(id))
+			) {
+				return prev;
+			}
+			return new Set(lastSelection);
+		});
+	}, [reviewStashLastSelection, stashKey, timeAxisStashOpen]);
 
 	useEffect(() => {
 		if (!reviewSession || toolMode !== ToolMode.Sync || !reviewFreeze) {
 			setTimeAxisCandidates([]);
 			setTimeAxisStashItems([]);
+			setTimeAxisStashSelected(new Set());
 			return;
 		}
 		const freezeData = reviewFreeze.data;
 		const stagedData = reviewStaged ?? lyricLines;
 		const candidates = buildSyncChanges(freezeData, stagedData);
 		setTimeAxisCandidates(candidates);
+		const submittedSet = new Set(
+			stashKey ? reviewStashSubmitted[stashKey] ?? [] : [],
+		);
 		const nextStash: TimeAxisStashItem[] = [];
 		for (const candidate of candidates) {
+			if (submittedSet.has(candidate.wordId)) continue;
 			const startDelta = candidate.newStart - candidate.oldStart;
 			const endDelta = candidate.newEnd - candidate.oldEnd;
 			if (startDelta !== 0) {
@@ -520,7 +569,47 @@ export const useReviewTimeAxisFlow = () => {
 			}
 		}
 		setTimeAxisStashItems(nextStash);
-	}, [lyricLines, reviewFreeze, reviewSession, reviewStaged, toolMode]);
+	}, [
+		lyricLines,
+		reviewFreeze,
+		reviewSession,
+		reviewStaged,
+		reviewStashSubmitted,
+		stashKey,
+		toolMode,
+	]);
+
+	useEffect(() => {
+		if (!stashKey || !timeAxisStashOpen) return;
+		if (!timeAxisStashSelected.size) return;
+		setReviewStashLastSelection((prev) => ({
+			...prev,
+			[stashKey]: Array.from(timeAxisStashSelected),
+		}));
+	}, [
+		setReviewStashLastSelection,
+		stashKey,
+		timeAxisStashOpen,
+		timeAxisStashSelected,
+	]);
+
+	useEffect(() => {
+		const available = new Set(timeAxisStashItems.map((item) => item.wordId));
+		setTimeAxisStashSelected((prev) => {
+			if (prev.size === 0) return prev;
+			let changed = false;
+			const next = new Set<string>();
+			prev.forEach((id) => {
+				if (available.has(id)) {
+					next.add(id);
+					return;
+				}
+				changed = true;
+			});
+			if (!changed && next.size === prev.size) return prev;
+			return next;
+		});
+	}, [timeAxisStashItems]);
 
 	const onReviewComplete = useCallback(() => {
 		if (reviewSession) {
@@ -743,12 +832,49 @@ export const useReviewTimeAxisFlow = () => {
 									timeAxisCandidates,
 									selected,
 								);
+								const prNumber = reviewSession?.prNumber ?? null;
+								const prTitle = reviewSession?.prTitle ?? "";
+								const draftMatch = reviewReportDrafts.find((item) => {
+									if (prNumber) return item.prNumber === prNumber;
+									return item.prTitle === prTitle;
+								});
+								const baseReports: string[] = [];
+								if (
+									reviewReportDialog.open &&
+									reviewReportDialog.prNumber === prNumber
+								) {
+									baseReports.push(reviewReportDialog.report);
+								} else if (draftMatch?.report) {
+									baseReports.push(draftMatch.report);
+								}
+								const mergedReport = mergeReports([...baseReports, report]);
+								if (stashKey) {
+									const committed = new Set(
+										reviewStashSubmitted[stashKey] ?? [],
+									);
+									for (const it of selected) {
+										committed.add(it.wordId);
+									}
+									setReviewStashSubmitted((prev) => ({
+										...prev,
+										[stashKey]: Array.from(committed),
+									}));
+									setReviewStashLastSelection((prev) => ({
+										...prev,
+										[stashKey]: Array.from(timeAxisStashSelected),
+									}));
+								}
 								setReviewReportDialog({
 									open: true,
-									prNumber: reviewSession?.prNumber ?? null,
-									prTitle: reviewSession?.prTitle ?? "",
-									report,
-									draftId: null,
+									prNumber,
+									prTitle,
+									report: mergedReport,
+									draftId:
+										(reviewReportDialog.open &&
+											reviewReportDialog.prNumber === prNumber &&
+											reviewReportDialog.draftId) ||
+										draftMatch?.id ||
+										null,
 								});
 								setTimeAxisStashItems([]);
 								setTimeAxisStashSelected(new Set());
