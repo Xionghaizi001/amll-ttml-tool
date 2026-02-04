@@ -17,7 +17,8 @@ import { openDB } from "idb";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uid } from "uid";
-import { githubLoginAtom, githubPatAtom } from "$/modules/settings/states";
+import { githubFetch } from "$/modules/github/api";
+import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
 import { reviewReportDraftsAtom } from "$/states/main";
 import { pushNotificationAtom, upsertNotificationAtom } from "$/states/notifications";
@@ -27,6 +28,8 @@ const REPO_NAME = "amll-ttml-db";
 const TEMPLATE_DB_NAME = "review-template-db";
 const TEMPLATE_STORE = "templates";
 const TEMPLATE_KEY = "custom";
+const DEFAULT_REPORT_TEXT = "未检测到差异。";
+const PENDING_LABEL_NAME = "待更新";
 
 type ReviewTemplate = {
 	id: string;
@@ -96,13 +99,12 @@ const writeCustomTemplates = async (items: ReviewTemplate[]) => {
 
 export const ReviewReportDialog = () => {
 	const [dialog, setDialog] = useAtom(reviewReportDialogAtom);
+	const reviewReportDrafts = useAtomValue(reviewReportDraftsAtom);
 	const setReviewReportDrafts = useSetAtom(reviewReportDraftsAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const pat = useAtomValue(githubPatAtom);
-	const login = useAtomValue(githubLoginAtom);
 	const submittedRef = useRef(false);
-	const [approveChecking, setApproveChecking] = useState(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
 	const [customTemplates, setCustomTemplates] = useState<ReviewTemplate[]>([]);
 	const [templateTitle, setTemplateTitle] = useState("");
@@ -110,6 +112,9 @@ export const ReviewReportDialog = () => {
 	const [templateLoading, setTemplateLoading] = useState(false);
 	const [templateSaving, setTemplateSaving] = useState(false);
 	const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+	const [submitPending, setSubmitPending] = useState<
+		"APPROVE" | "REQUEST_CHANGES" | "MERGE" | null
+	>(null);
 	const titleText = useMemo(() => {
 		if (!dialog.prNumber) return "对当前 PR 做出的审阅结果如下：";
 		const title = dialog.prTitle?.trim() ? ` ${dialog.prTitle}` : "";
@@ -119,7 +124,6 @@ export const ReviewReportDialog = () => {
 	useEffect(() => {
 		if (dialog.open) {
 			submittedRef.current = false;
-			setApproveChecking(false);
 			setApprovedByUser(false);
 			setShowTemplateEditor(false);
 		}
@@ -147,7 +151,14 @@ export const ReviewReportDialog = () => {
 
 	const closeDialog = () => {
 		if (!submittedRef.current && dialog.report.trim()) {
-			const draftId = dialog.draftId ?? uid();
+			const existingDraft = dialog.draftId
+				? reviewReportDrafts.find((item) => item.id === dialog.draftId)
+				: reviewReportDrafts.find(
+						(item) =>
+							item.prNumber === dialog.prNumber &&
+							item.prTitle === dialog.prTitle,
+					);
+			const draftId = existingDraft?.id ?? dialog.draftId ?? uid();
 			const createdAt = new Date().toISOString();
 			setReviewReportDrafts((prev) => {
 				const existingIndex = prev.findIndex((item) => item.id === draftId);
@@ -184,7 +195,7 @@ export const ReviewReportDialog = () => {
 				level: "info",
 				source: "Review",
 				pinned: true,
-				dismissible: true,
+				dismissible: false,
 				action: {
 					type: "open-review-report",
 					payload: { draftId },
@@ -192,27 +203,35 @@ export const ReviewReportDialog = () => {
 			});
 		}
 		setDialog((prev) => ({ ...prev, open: false }));
+		setShowTemplateEditor(false);
+		setTemplateTitle("");
+		setTemplateContent("");
 	};
 	const submitAndClose = () => {
 		submittedRef.current = true;
 		closeDialog();
 	};
+	const getCleanReport = () => {
+		const trimmed = dialog.report.trim();
+		if (!trimmed || trimmed === DEFAULT_REPORT_TEXT) {
+			return "";
+		}
+		return trimmed;
+	};
 	const insertTemplate = (content: string) => {
-		const normalized = dialog.report.trim().length
-			? dialog.report
-			: titleText;
-		const ensured = normalized.startsWith(titleText)
-			? normalized
-			: `${titleText}\n${normalized}`;
-		const [firstLine, ...rest] = ensured.split("\n");
-		const existingBody = rest.join("\n").trim();
-		const nextBody = existingBody
-			? `${content.trim()}\n\n${existingBody}`
-			: content.trim();
-		setDialog((prev) => ({
-			...prev,
-			report: `${firstLine}\n${nextBody}`,
-		}));
+		const trimmed = content.trim();
+		if (!trimmed) return;
+		setDialog((prev) => {
+			const current = prev.report;
+			const trimmedCurrent = current.trim();
+			const base =
+				!trimmedCurrent || trimmedCurrent === DEFAULT_REPORT_TEXT ? "" : current;
+			const nextReport = base ? `${trimmed}\n${base}` : trimmed;
+			return {
+				...prev,
+				report: nextReport,
+			};
+		});
 	};
 	const handleSaveTemplate = async () => {
 		if (templateSaving) return;
@@ -256,11 +275,10 @@ export const ReviewReportDialog = () => {
 			setTemplateSaving(false);
 		}
 	};
-	const handleApproveCheck = async () => {
-		if (approveChecking || approvedByUser) return;
+	const submitReview = async (event: "APPROVE" | "REQUEST_CHANGES") => {
 		if (!dialog.prNumber) {
 			setPushNotification({
-				title: "无法检查审阅状态：缺少 PR 编号",
+				title: "无法提交审阅结果：缺少 PR 编号",
 				level: "error",
 				source: "Review",
 			});
@@ -269,89 +287,145 @@ export const ReviewReportDialog = () => {
 		const token = pat.trim();
 		if (!token) {
 			setPushNotification({
-				title: "请先在设置中登录以检查审阅状态",
+				title: "请先在设置中登录以提交审阅结果",
 				level: "error",
 				source: "Review",
 			});
 			return;
 		}
-		setApproveChecking(true);
+		const reportBody = getCleanReport();
+		if (event === "REQUEST_CHANGES" && !reportBody) {
+			setPushNotification({
+				title: "请填写需要修改内容再提交",
+				level: "warning",
+				source: "Review",
+			});
+			return;
+		}
+		setSubmitPending(event);
 		try {
-			let resolvedLogin = login.trim();
-			if (!resolvedLogin) {
-				const userResponse = await fetch("https://api.github.com/user", {
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
-					},
-				});
-				if (userResponse.ok) {
-					const data = (await userResponse.json()) as { login?: string };
-					resolvedLogin = data.login?.trim() ?? "";
-				}
-			}
-			if (!resolvedLogin) {
-				setPushNotification({
-					title: "无法检查审阅状态：缺少用户信息",
-					level: "error",
-					source: "Review",
-				});
-				return;
-			}
-			const response = await fetch(
-				`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews?per_page=100`,
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
 				{
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
+					init: {
+						method: "POST",
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							event,
+							...(reportBody ? { body: reportBody } : {}),
+						}),
 					},
 				},
 			);
 			if (!response.ok) {
 				setPushNotification({
-					title: `检查审阅状态失败：${response.status}`,
+					title: `提交审阅结果失败：${response.status}`,
 					level: "error",
 					source: "Review",
 				});
 				return;
 			}
-			const reviews = (await response.json()) as Array<{
-				user?: { login?: string };
-				state?: string;
-				submitted_at?: string;
-			}>;
-			const normalizedLogin = resolvedLogin.toLowerCase();
-			const latestReview = reviews.reduce<{
-				state?: string;
-				time: number;
-			} | null>((acc, item) => {
-				if (item.user?.login?.toLowerCase() !== normalizedLogin) {
-					return acc;
+			if (event === "REQUEST_CHANGES") {
+				const labelResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${dialog.prNumber}/labels`,
+					{
+						init: {
+							method: "POST",
+							headers: {
+								Accept: "application/vnd.github+json",
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({ labels: [PENDING_LABEL_NAME] }),
+						},
+					},
+				);
+				if (!labelResponse.ok) {
+					setPushNotification({
+						title: `已提交审阅结果，但设置待更新标签失败：${labelResponse.status}`,
+						level: "warning",
+						source: "Review",
+					});
 				}
-				const time = item.submitted_at
-					? new Date(item.submitted_at).getTime()
-					: 0;
-				if (!acc || time >= acc.time) {
-					return { state: item.state, time };
-				}
-				return acc;
-			}, null);
-			if (latestReview?.state === "APPROVED") {
-				setApprovedByUser(true);
-				setPushNotification({
-					title: `你已接受 PR #${dialog.prNumber}`,
-					level: "info",
-					source: "Review",
-				});
 			}
+			if (event === "APPROVE") {
+				setApprovedByUser(true);
+			}
+			setPushNotification({
+				title: "已提交审阅结果",
+				level: "success",
+				source: "Review",
+			});
+			submitAndClose();
 		} catch {
 			setPushNotification({
-				title: "检查审阅状态失败：网络错误",
+				title: "提交审阅结果失败：网络错误",
 				level: "error",
 				source: "Review",
 			});
 		} finally {
-			setApproveChecking(false);
+			setSubmitPending(null);
+		}
+	};
+	const submitMerge = async () => {
+		if (!dialog.prNumber) {
+			setPushNotification({
+				title: "无法合并：缺少 PR 编号",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+		const token = pat.trim();
+		if (!token) {
+			setPushNotification({
+				title: "请先在设置中登录以合并 PR",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+		setSubmitPending("MERGE");
+		try {
+			const response = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/merge`,
+				{
+					init: {
+						method: "PUT",
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+							"Content-Type": "application/json",
+						},
+					},
+				},
+			);
+			if (!response.ok) {
+				setPushNotification({
+					title: `合并失败：${response.status}`,
+					level: "error",
+					source: "Review",
+				});
+				return;
+			}
+			setPushNotification({
+				title: "已合并 PR",
+				level: "success",
+				source: "Review",
+			});
+			submitAndClose();
+		} catch {
+			setPushNotification({
+				title: "合并失败：网络错误",
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setSubmitPending(null);
 		}
 	};
 
@@ -405,7 +479,20 @@ export const ReviewReportDialog = () => {
 									placeholder="模板内容"
 									style={{ minHeight: "120px" }}
 								/>
-								<Flex justify="end">
+								<Flex justify="end" gap="2">
+									<Button
+										size="2"
+										variant="soft"
+										color="gray"
+										onClick={() => {
+											setTemplateTitle("");
+											setTemplateContent("");
+											setShowTemplateEditor(false);
+										}}
+										disabled={templateSaving}
+									>
+										取消
+									</Button>
 									<Button
 										size="2"
 										variant="soft"
@@ -445,15 +532,24 @@ export const ReviewReportDialog = () => {
 							size="2"
 							variant="soft"
 							color="green"
-							onClick={handleApproveCheck}
-							disabled={approveChecking || approvedByUser}
+							onClick={() => submitReview("APPROVE")}
+							disabled={approvedByUser || submitPending !== null}
 						>
 							<Flex align="center" gap="2">
 								<Checkmark20Regular />
 								<Text size="2">接受</Text>
 							</Flex>
 						</Button>
-						<Button size="2" variant="soft" color="red" onClick={submitAndClose}>
+						<Button
+							size="2"
+							variant="soft"
+							color="red"
+							onClick={() => submitReview("REQUEST_CHANGES")}
+							disabled={
+								submitPending !== null ||
+								getCleanReport().length === 0
+							}
+						>
 							<Flex align="center" gap="2">
 								<Dismiss20Regular />
 								<Text size="2">需要修改</Text>
@@ -463,7 +559,8 @@ export const ReviewReportDialog = () => {
 							size="2"
 							variant="soft"
 							color="gray"
-							onClick={submitAndClose}
+							onClick={submitMerge}
+							disabled={submitPending !== null}
 						>
 							<Flex align="center" gap="2">
 								<Merge20Regular	/>

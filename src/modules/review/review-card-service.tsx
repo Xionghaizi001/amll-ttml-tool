@@ -290,11 +290,7 @@ export const renderExpandedContent = (options: {
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
 	onLoadNeteaseAudio: (prNumber: number, id: string) => void;
-	onApprove: (prNumber: number) => void;
-	onRequestChanges: (prNumber: number) => void;
-	onMerge: (prNumber: number) => void;
 	onOpenFile: (pr: ReviewPullRequest) => void;
-	reviewActionPending: { prNumber: number } | null;
 	repoOwner: string;
 	repoName: string;
 	styles: Record<string, string>;
@@ -570,33 +566,6 @@ export const renderExpandedContent = (options: {
 					gap="2"
 					className={options.styles.overlayFooter}
 				>
-					<Button
-						onClick={() => options.onApprove(options.pr.number)}
-						size="2"
-						variant="soft"
-						color="green"
-						disabled={options.reviewActionPending?.prNumber === options.pr.number}
-					>
-						<Text size="2">接受</Text>
-					</Button>
-					<Button
-						onClick={() => options.onRequestChanges(options.pr.number)}
-						size="2"
-						variant="soft"
-						color="red"
-						disabled={options.reviewActionPending?.prNumber === options.pr.number}
-					>
-						<Text size="2">需要修改</Text>
-					</Button>
-					<Button
-						onClick={() => options.onMerge(options.pr.number)}
-						size="2"
-						variant="soft"
-						color="gray"
-						disabled={options.reviewActionPending?.prNumber === options.pr.number}
-					>
-						<Text size="2">合并</Text>
-					</Button>
 					<Button onClick={() => options.onOpenFile(options.pr)} size="2">
 						<Flex align="center" gap="2">
 							<ArrowSquareUpRight20Regular className={options.styles.icon} />

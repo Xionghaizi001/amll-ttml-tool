@@ -1,11 +1,5 @@
 import { Alert20Regular, Beaker24Regular } from "@fluentui/react-icons";
-import {
-	Box,
-	Button,
-	Flex,
-	SegmentedControl,
-	Text,
-} from "@radix-ui/themes";
+import { Button, Flex, SegmentedControl, Text } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtom, useAtomValue } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
@@ -244,23 +238,29 @@ export const TitleBar: FC = () => {
 										</motion.button>
 									</Button>
 								</motion.div>
-								<Box
-									style={{
-										marginLeft: "10px",
-										backgroundColor: "var(--accent-a3)",
-										borderRadius: "999px",
-										padding: "2px 8px",
-										display: "flex",
-										alignItems: "center",
-										gap: "4px",
-										color: "var(--accent-11)",
-									}}
+								<Button
+									asChild
+									variant="soft"
+									size="1"
+									style={{ marginLeft: "10px", borderRadius: "999px" }}
 								>
-									<Beaker24Regular style={{ fontSize: 16 }} />
-									<Text size="1" weight="medium">
-										TEST
-									</Text>
-								</Box>
+									<a
+										href="https://github.com/Xionghaizi001/amll-ttml-tool/tree/amll-ttml-tool-test"
+										target="_blank"
+										rel="noreferrer"
+										style={{
+											display: "inline-flex",
+											alignItems: "center",
+											gap: "4px",
+											padding: "2px 8px",
+										}}
+									>
+										<Beaker24Regular style={{ fontSize: 16 }} />
+										<Text size="1" weight="medium">
+											TEST
+										</Text>
+									</a>
+								</Button>
 							</>
 						)}
 					</Flex>

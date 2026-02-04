@@ -147,6 +147,7 @@ export const SettingsConnectTab = () => {
 	const [neteaseLoading, setNeteaseLoading] = useState(false);
 	const [neteaseTab, setNeteaseTab] = useState("phone");
 	const lastNotifiedMessage = useRef("");
+	const shouldNotifyAuth = useRef(false);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 
 	const trimmedPat = pat.trim();
@@ -199,6 +200,7 @@ export const SettingsConnectTab = () => {
 			return;
 		}
 
+		shouldNotifyAuth.current = true;
 		setStatus("checking");
 		setMessage("");
 
@@ -376,8 +378,10 @@ export const SettingsConnectTab = () => {
 
 	useEffect(() => {
 		if (!message || status === "checking") return;
+		if (!shouldNotifyAuth.current) return;
 		if (lastNotifiedMessage.current === message) return;
 		lastNotifiedMessage.current = message;
+		shouldNotifyAuth.current = false;
 		const level =
 			status === "authorized"
 				? "success"
@@ -610,12 +614,6 @@ export const SettingsConnectTab = () => {
 		<Flex direction="column" gap="4">
 			<Flex direction="column" gap="1">
 				<Heading size="4">{t("settings.connect.title", "连接")}</Heading>
-				<Text size="2" color="gray">
-					{t(
-						"settings.connect.desc",
-						"用于验证 GitHub PAT 并开启歌词库审阅入口",
-					)}
-				</Text>
 			</Flex>
 
 			<Card>

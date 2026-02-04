@@ -3,7 +3,7 @@ import {
 	Checkmark20Regular,
 	Dismiss20Regular,
 } from "@fluentui/react-icons";
-import { Box, Button, Dialog, Flex, RadioGroup, Select, Text } from "@radix-ui/themes";
+import { Box, Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -44,11 +44,6 @@ type SyncChangeCandidate = {
 	newStart: number;
 	oldEnd: number;
 	newEnd: number;
-};
-
-type ReviewTimeAxisConfirmData = {
-	wordId: string;
-	field: "startTime" | "endTime";
 };
 
 type TimeAxisStashItem = {
@@ -100,16 +95,16 @@ const formatReport = (items: string[]) => {
 
 const wrap = (value: string | number) => `\`${value}\``;
 
-const preferTimeAxisField = (
-	item: SyncChangeCandidate | null,
-	current: "startTime" | "endTime",
-) => {
-	if (!item) return current;
-	const startDelta = item.newStart - item.oldStart;
-	const endDelta = item.newEnd - item.oldEnd;
-	if (startDelta !== 0 && endDelta === 0) return "startTime";
-	if (endDelta !== 0 && startDelta === 0) return "endTime";
-	return current;
+const normalizeReport = (value: string) => {
+	const trimmed = value.trim();
+	if (!trimmed || trimmed === "未检测到差异。") return "";
+	return trimmed;
+};
+
+const mergeReports = (reports: string[]) => {
+	const parts = reports.map(normalizeReport).filter(Boolean);
+	if (parts.length === 0) return "未检测到差异。";
+	return parts.join("\n\n");
 };
 
 const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
@@ -320,24 +315,13 @@ const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	return reportLines;
 };
 
-const buildSyncReport = (
-	reportLines: SyncChangeCandidate[],
-	confirmData?: ReviewTimeAxisConfirmData | null,
-) => {
+const buildSyncReport = (reportLines: SyncChangeCandidate[]) => {
 	const sentences = reportLines
 		.sort((a, b) => a.lineNumber - b.lineNumber)
-		.filter((item) => !confirmData || item.wordId === confirmData.wordId)
 		.map((item) => {
 			const startDelta = item.newStart - item.oldStart;
 			const endDelta = item.newEnd - item.oldEnd;
-			const delta = confirmData
-				? confirmData.field === "startTime"
-					? startDelta
-					: endDelta
-				: startDelta !== 0
-					? startDelta
-					: endDelta;
-			if (confirmData && delta === 0) return null;
+			const delta = startDelta !== 0 ? startDelta : endDelta;
 			const speed = delta < 0 ? "快" : "慢";
 			return `第 ${item.lineNumber} 行：${wrap(item.word)} 偏${speed}了 ${wrap(
 				Math.abs(delta),
@@ -395,18 +379,9 @@ export const useReviewTimeAxisFlow = () => {
 	const setReviewReportDialog = useSetAtom(reviewReportDialogAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const { t } = useTranslation();
-	const [timeAxisDialogOpen, setTimeAxisDialogOpen] = useState(false);
 	const [timeAxisCandidates, setTimeAxisCandidates] = useState<SyncChangeCandidate[]>(
 		[],
 	);
-	const [timeAxisSelectedWordId, setTimeAxisSelectedWordId] = useState("");
-	const [timeAxisSelectedField, setTimeAxisSelectedField] = useState<
-		"startTime" | "endTime"
-	>("startTime");
-	const [pendingReviewMeta, setPendingReviewMeta] = useState<{
-		prNumber: number | null;
-		prTitle: string;
-	} | null>(null);
 	const [timeAxisStashOpen, setTimeAxisStashOpen] = useState(false);
 	const [timeAxisStashItems, setTimeAxisStashItems] = useState<TimeAxisStashItem[]>(
 		[],
@@ -415,15 +390,6 @@ export const useReviewTimeAxisFlow = () => {
 		new Set(),
 	);
 
-	const timeAxisOptions = useMemo(() => {
-		const seen = new Set<string>();
-		return timeAxisCandidates.filter((item) => {
-			if (seen.has(item.wordId)) return false;
-			seen.add(item.wordId);
-			return true;
-		});
-	}, [timeAxisCandidates]);
-
 	const timeAxisCandidateMap = useMemo(() => {
 		const map = new Map<string, SyncChangeCandidate>();
 		timeAxisCandidates.forEach((item) => {
@@ -431,13 +397,6 @@ export const useReviewTimeAxisFlow = () => {
 		});
 		return map;
 	}, [timeAxisCandidates]);
-
-	const selectedTimeAxisCandidate = useMemo(
-		() =>
-			timeAxisCandidates.find((item) => item.wordId === timeAxisSelectedWordId) ??
-			null,
-		[timeAxisCandidates, timeAxisSelectedWordId],
-	);
 
 	const timeAxisStashGroups = useMemo(() => {
 		const grouped = new Map<
@@ -563,147 +522,31 @@ export const useReviewTimeAxisFlow = () => {
 		setTimeAxisStashItems(nextStash);
 	}, [lyricLines, reviewFreeze, reviewSession, reviewStaged, toolMode]);
 
-	useEffect(() => {
-		if (!timeAxisDialogOpen || timeAxisOptions.length === 0) return;
-		if (!timeAxisOptions.some((item) => item.wordId === timeAxisSelectedWordId)) {
-			setTimeAxisSelectedWordId(timeAxisOptions[0].wordId);
-		}
-	}, [timeAxisDialogOpen, timeAxisOptions, timeAxisSelectedWordId]);
-
-	useEffect(() => {
-		if (!timeAxisDialogOpen) return;
-		const preferred = preferTimeAxisField(
-			selectedTimeAxisCandidate,
-			timeAxisSelectedField,
-		);
-		if (preferred !== timeAxisSelectedField) {
-			setTimeAxisSelectedField(preferred);
-		}
-	}, [
-		selectedTimeAxisCandidate,
-		timeAxisDialogOpen,
-		timeAxisSelectedField,
-	]);
-
-	const addTimeAxisStashItem = useCallback(() => {
-		if (!timeAxisSelectedWordId) return;
-		setTimeAxisStashItems((prev) => {
-			if (
-				prev.some(
-					(item) =>
-						item.wordId === timeAxisSelectedWordId &&
-						item.field === timeAxisSelectedField,
-				)
-			) {
-				return prev;
-			}
-			return [
-				...prev,
-				{
-					wordId: timeAxisSelectedWordId,
-					field: timeAxisSelectedField,
-				},
-			];
-		});
-	}, [timeAxisSelectedField, timeAxisSelectedWordId]);
-
-	const closeTimeAxisDialog = useCallback(() => {
-		setTimeAxisDialogOpen(false);
-		setPendingReviewMeta(null);
-	}, []);
-
-	const handleTimeAxisConfirm = useCallback(() => {
-		if (!pendingReviewMeta) {
-			closeTimeAxisDialog();
-			return;
-		}
-		const mergedStash: TimeAxisStashItem[] = [
-			...timeAxisStashItems,
-			{ wordId: timeAxisSelectedWordId, field: timeAxisSelectedField },
-		].reduce<TimeAxisStashItem[]>((acc, item) => {
-			if (
-				acc.some(
-					(existing) =>
-						existing.wordId === item.wordId && existing.field === item.field,
-				)
-			) {
-				return acc;
-			}
-			acc.push(item);
-			return acc;
-		}, []);
-		const report =
-			mergedStash.length > 0
-				? buildSyncReportFromStash(timeAxisCandidates, mergedStash)
-				: buildSyncReport(timeAxisCandidates, {
-						wordId: timeAxisSelectedWordId,
-						field: timeAxisSelectedField,
-					});
-		setReviewReportDialog({
-			open: true,
-			prNumber: pendingReviewMeta.prNumber,
-			prTitle: pendingReviewMeta.prTitle,
-			report,
-			draftId: null,
-		});
-		setTimeAxisStashItems([]);
-		setTimeAxisCandidates([]);
-		closeTimeAxisDialog();
-	}, [
-		closeTimeAxisDialog,
-		pendingReviewMeta,
-		setReviewReportDialog,
-		timeAxisCandidates,
-		timeAxisSelectedField,
-		timeAxisSelectedWordId,
-		timeAxisStashItems,
-	]);
-
 	const onReviewComplete = useCallback(() => {
 		if (reviewSession) {
 			const freezeData = reviewFreeze?.data ?? lyricLines;
 			const stagedData = reviewStaged ?? lyricLines;
+			const editReport = buildEditReport(freezeData, stagedData);
 			if (toolMode === ToolMode.Sync) {
 				const candidates = buildSyncChanges(freezeData, stagedData);
-				if (timeAxisStashItems.length > 0) {
-					const report = buildSyncReportFromStash(
-						candidates,
-						timeAxisStashItems,
-					);
-					setReviewReportDialog({
-						open: true,
-						prNumber: reviewSession.prNumber,
-						prTitle: reviewSession.prTitle,
-						report,
-						draftId: null,
-					});
-					setTimeAxisStashItems([]);
-					setTimeAxisStashOpen(false);
-					setTimeAxisCandidates([]);
-				} else if (candidates.length > 0) {
-					setTimeAxisCandidates(candidates);
-					setTimeAxisSelectedWordId(candidates[0]?.wordId ?? "");
-					setTimeAxisSelectedField(
-						preferTimeAxisField(candidates[0] ?? null, "startTime"),
-					);
-					setPendingReviewMeta({
-						prNumber: reviewSession.prNumber,
-						prTitle: reviewSession.prTitle,
-					});
-					setTimeAxisDialogOpen(true);
-				} else {
-					const report = buildSyncReport(candidates);
-					setReviewReportDialog({
-						open: true,
-						prNumber: reviewSession.prNumber,
-						prTitle: reviewSession.prTitle,
-						report,
-						draftId: null,
-					});
-					setTimeAxisCandidates([]);
-				}
+				const syncReport =
+					timeAxisStashItems.length > 0
+						? buildSyncReportFromStash(candidates, timeAxisStashItems)
+						: buildSyncReport(candidates);
+				const report = mergeReports([editReport, syncReport]);
+				setReviewReportDialog({
+					open: true,
+					prNumber: reviewSession.prNumber,
+					prTitle: reviewSession.prTitle,
+					report,
+					draftId: null,
+				});
+				setTimeAxisStashItems([]);
+				setTimeAxisStashOpen(false);
+				setTimeAxisCandidates([]);
+				setTimeAxisStashSelected(new Set());
 			} else {
-				const report = buildEditReport(freezeData, stagedData);
+				const report = editReport;
 				setReviewReportDialog({
 					open: true,
 					prNumber: reviewSession.prNumber,
@@ -912,79 +755,6 @@ export const useReviewTimeAxisFlow = () => {
 								setTimeAxisStashOpen(false);
 							}}
 							disabled={timeAxisStashSelected.size === 0}
-						>
-							{t("common.confirm", "确认")}
-						</Button>
-					</Flex>
-				</Dialog.Content>
-			</Dialog.Root>
-			<Dialog.Root
-				open={timeAxisDialogOpen}
-				onOpenChange={(open) => {
-					if (!open) {
-						closeTimeAxisDialog();
-						return;
-					}
-					setTimeAxisDialogOpen(true);
-				}}
-			>
-				<Dialog.Content maxWidth="520px">
-					<Dialog.Title>
-						{t("review.timeAxisConfirm.title", "确认时间轴错误")}
-					</Dialog.Title>
-					<Flex direction="column" gap="4">
-						<Flex direction="column" gap="2">
-							<Text size="2" weight="bold">
-								{t("review.timeAxisConfirm.word", "出错的单词")}
-							</Text>
-							<Select.Root
-								value={timeAxisSelectedWordId}
-								onValueChange={setTimeAxisSelectedWordId}
-							>
-								<Select.Trigger />
-								<Select.Content>
-									{timeAxisOptions.map((item) => (
-										<Select.Item key={item.wordId} value={item.wordId}>
-											{`第 ${item.lineNumber} 行：${item.word || "（空白）"}`}
-										</Select.Item>
-									))}
-								</Select.Content>
-							</Select.Root>
-						</Flex>
-						<Flex direction="column" gap="2">
-							<Text size="2" weight="bold">
-								{t("review.timeAxisConfirm.field", "出错的时间")}
-							</Text>
-							<RadioGroup.Root
-								value={timeAxisSelectedField}
-								onValueChange={(v) =>
-									setTimeAxisSelectedField(v as "startTime" | "endTime")
-								}
-							>
-								<RadioGroup.Item value="startTime">
-									{t("review.timeAxisConfirm.startTime", "开始时间")}
-								</RadioGroup.Item>
-								<RadioGroup.Item value="endTime">
-									{t("review.timeAxisConfirm.endTime", "结束时间")}
-								</RadioGroup.Item>
-							</RadioGroup.Root>
-						</Flex>
-					</Flex>
-					<Flex gap="3" mt="4" justify="end">
-						<Button variant="soft" color="gray" onClick={closeTimeAxisDialog}>
-							{t("common.cancel", "取消")}
-						</Button>
-						<Button
-							variant="soft"
-							color="orange"
-							onClick={addTimeAxisStashItem}
-							disabled={!timeAxisSelectedWordId}
-						>
-							{t("review.timeAxisStash.add", "暂存")}
-						</Button>
-						<Button
-							onClick={handleTimeAxisConfirm}
-							disabled={!timeAxisSelectedWordId}
 						>
 							{t("common.confirm", "确认")}
 						</Button>

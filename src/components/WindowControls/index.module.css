@@ -4,6 +4,7 @@
 	width: 100%;
 	font-size: 12px;
 	user-select: none;
+	position: relative;
 }
 
 .spacer {
