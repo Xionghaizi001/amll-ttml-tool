@@ -1,3 +1,11 @@
+> [!Caution]
+>
+> 你正在访问测试分支。
+>
+> 
+> 这里会先行测试很多主线分支里没有的功能，所以仓库所有者不保证程序的稳定性。  
+> 如果你仍要使用，请注意随时保存你的数据，避免它们意外丢失。
+
 <div align=center>
 
 <img src="./public/logo.svg" align="center" width="256">
