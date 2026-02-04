@@ -6,6 +6,10 @@ type GithubRequestOptions = {
 	init?: RequestInit;
 };
 
+type GithubRawOptions = {
+	init?: RequestInit;
+};
+
 const shouldUseProxy = () =>
 	import.meta.env.PROD && !import.meta.env.TAURI_ENV_PLATFORM;
 
@@ -35,4 +39,13 @@ const buildGithubUrl = (
 export const githubFetch = (path: string, options: GithubRequestOptions = {}) => {
 	const url = buildGithubUrl(path, options.params);
 	return fetch(url.toString(), options.init);
+};
+
+export const githubFetchRaw = (rawUrl: string, options: GithubRawOptions = {}) => {
+	if (!shouldUseProxy()) {
+		return fetch(rawUrl, options.init);
+	}
+	const proxyUrl = new URL(GITHUB_PROXY_PATH, window.location.origin);
+	proxyUrl.searchParams.set("url", rawUrl);
+	return fetch(proxyUrl.toString(), options.init);
 };

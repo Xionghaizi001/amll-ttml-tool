@@ -1,4 +1,9 @@
 const GITHUB_API_BASE = "https://api.github.com";
+const ALLOWED_HOSTS = new Set([
+	"api.github.com",
+	"github.com",
+	"raw.githubusercontent.com",
+]);
 
 const buildTargetUrl = (path: string, query: Record<string, string>) => {
 	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -25,6 +30,18 @@ const normalizeQuery = (query: Record<string, string | string[] | undefined>) =>
 	return result;
 };
 
+const buildTargetFromUrl = (rawUrl: string) => {
+	try {
+		const url = new URL(rawUrl);
+		if (!ALLOWED_HOSTS.has(url.hostname)) {
+			return null;
+		}
+		return url;
+	} catch {
+		return null;
+	}
+};
+
 const buildRequestBody = (body: unknown) => {
 	if (body === undefined || body === null) return undefined;
 	if (typeof body === "string") return body;
@@ -37,13 +54,19 @@ export default async function handler(
 	res: { status: (code: number) => void; setHeader: (key: string, value: string) => void; send: (body: string) => void },
 ) {
 	const rawQuery = normalizeQuery(req.query ?? {});
+	const rawUrl = rawQuery.url ?? "";
 	const path = rawQuery.path ?? "";
-	if (!path) {
+	if (!rawUrl && !path) {
 		res.status(400);
-		res.send("Missing path");
+		res.send("Missing path or url");
 		return;
 	}
-	const targetUrl = buildTargetUrl(path, rawQuery);
+	const targetUrl = rawUrl ? buildTargetFromUrl(rawUrl) : buildTargetUrl(path, rawQuery);
+	if (!targetUrl) {
+		res.status(400);
+		res.send("Invalid url");
+		return;
+	}
 	const method = req.method ?? "GET";
 	const headers: Record<string, string> = {
 		Accept: String(req.headers.accept ?? "application/vnd.github+json"),
@@ -59,11 +82,12 @@ export default async function handler(
 	}
 	const body = method === "GET" || method === "HEAD" ? undefined : buildRequestBody(req.body);
 	try {
-		const response = await fetch(targetUrl.toString(), {
+		const init: RequestInit = {
 			method,
 			headers,
 			body,
-		});
+		};
+		const response = await fetch(targetUrl.toString(), init);
 		const text = await response.text();
 		res.status(response.status);
 		const responseType = response.headers.get("content-type") ?? "application/json";

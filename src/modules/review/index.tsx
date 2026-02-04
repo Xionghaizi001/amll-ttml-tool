@@ -31,7 +31,7 @@ import {
 	type ReviewLabel,
 	type ReviewPullRequest,
 } from "./review-card-service";
-import { githubFetch } from "$/modules/github/api";
+import { githubFetch, githubFetchRaw } from "$/modules/github/api";
 import styles from "./index.module.css";
 
 const REPO_OWNER = "Steve-xmh";
@@ -528,7 +528,9 @@ const ReviewPage = () => {
 					});
 					return;
 				}
-				const rawResponse = await fetch(pick.raw_url, { headers });
+				const rawResponse = await githubFetchRaw(pick.raw_url, {
+					init: { headers },
+				});
 				if (!rawResponse.ok) {
 					throw new Error("load-raw-file-failed");
 				}
