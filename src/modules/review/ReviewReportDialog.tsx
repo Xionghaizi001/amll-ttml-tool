@@ -422,6 +422,95 @@ export const ReviewReportDialog = () => {
 		}
 		setSubmitPending("MERGE");
 		try {
+			const userResponse = await githubFetch("/user", {
+				init: {
+					headers: {
+						Accept: "application/vnd.github+json",
+						Authorization: `Bearer ${token}`,
+					},
+				},
+			});
+			if (!userResponse.ok) {
+				setPushNotification({
+					title: `获取用户信息失败：${userResponse.status}`,
+					level: "error",
+					source: "Review",
+				});
+				return;
+			}
+			const userData = (await userResponse.json()) as { login?: string };
+			const userLogin = userData.login?.trim() ?? "";
+			if (!userLogin) {
+				setPushNotification({
+					title: "无法识别当前登录用户",
+					level: "error",
+					source: "Review",
+				});
+				return;
+			}
+			const reviewsResponse = await githubFetch(
+				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
+				{
+					init: {
+						headers: {
+							Accept: "application/vnd.github+json",
+							Authorization: `Bearer ${token}`,
+						},
+					},
+				},
+			);
+			if (!reviewsResponse.ok) {
+				setPushNotification({
+					title: `获取审阅状态失败：${reviewsResponse.status}`,
+					level: "error",
+					source: "Review",
+				});
+				return;
+			}
+			const reviews = (await reviewsResponse.json()) as Array<{
+				user?: { login?: string };
+				state?: string;
+				submitted_at?: string;
+			}>;
+			const normalizedUser = userLogin.toLowerCase();
+			let latestReview: { state?: string; submitted_at?: string } | null = null;
+			for (const review of reviews) {
+				const reviewLogin = review.user?.login?.toLowerCase();
+				if (reviewLogin !== normalizedUser) continue;
+				if (
+					!latestReview ||
+					(review.submitted_at &&
+						(!latestReview.submitted_at ||
+							review.submitted_at > latestReview.submitted_at))
+				) {
+					latestReview = review;
+				}
+			}
+			if (latestReview?.state !== "APPROVED") {
+				const approveResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
+					{
+						init: {
+							method: "POST",
+							headers: {
+								Accept: "application/vnd.github+json",
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({ event: "APPROVE" }),
+						},
+					},
+				);
+				if (!approveResponse.ok) {
+					setPushNotification({
+						title: `自动批准失败：${approveResponse.status}`,
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+				setApprovedByUser(true);
+			}
 			const response = await githubFetch(
 				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/merge`,
 				{
