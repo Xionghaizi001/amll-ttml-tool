@@ -160,6 +160,14 @@ export type ReviewReportDraft = {
 };
 export const reviewReportDraftsAtom = atom<ReviewReportDraft[]>([]);
 
+export const reviewStashSubmittedAtom = atomWithStorage<Record<string, string[]>>(
+	"reviewStashSubmitted",
+	{},
+);
+export const reviewStashLastSelectionAtom = atomWithStorage<
+	Record<string, string[]>
+>("reviewStashLastSelection", {});
+
 /**
  * @description 用于控制全局文件拖拽遮罩层的显示
  */

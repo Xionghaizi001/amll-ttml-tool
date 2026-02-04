@@ -1,5 +1,6 @@
 import {
 	Checkmark20Regular,
+	Delete20Regular,
 	Dismiss20Regular,
 	LightbulbCheckmark20Regular,
 	Merge20Regular,
@@ -21,7 +22,11 @@ import { githubFetch } from "$/modules/github/api";
 import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
 import { reviewReportDraftsAtom } from "$/states/main";
-import { pushNotificationAtom, upsertNotificationAtom } from "$/states/notifications";
+import {
+	pushNotificationAtom,
+	removeNotificationAtom,
+	upsertNotificationAtom,
+} from "$/states/notifications";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
@@ -103,6 +108,7 @@ export const ReviewReportDialog = () => {
 	const setReviewReportDrafts = useSetAtom(reviewReportDraftsAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
+	const removeNotification = useSetAtom(removeNotificationAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
@@ -206,6 +212,31 @@ export const ReviewReportDialog = () => {
 		setShowTemplateEditor(false);
 		setTemplateTitle("");
 		setTemplateContent("");
+	};
+	const discardDraft = () => {
+		const draftIds = new Set<string>();
+		if (dialog.draftId) {
+			draftIds.add(dialog.draftId);
+		}
+		reviewReportDrafts.forEach((draft) => {
+			if (
+				draft.prNumber === dialog.prNumber &&
+				draft.prTitle === dialog.prTitle
+			) {
+				draftIds.add(draft.id);
+			}
+		});
+		if (draftIds.size > 0) {
+			setReviewReportDrafts((prev) =>
+				prev.filter((draft) => !draftIds.has(draft.id)),
+			);
+			for (const id of draftIds) {
+				removeNotification(`review-report-draft-${id}`);
+			}
+		}
+		submittedRef.current = true;
+		setDialog((prev) => ({ ...prev, report: "" }));
+		closeDialog();
 	};
 	const submitAndClose = () => {
 		submittedRef.current = true;
@@ -527,46 +558,60 @@ export const ReviewReportDialog = () => {
 							style={{ minHeight: "180px" }}
 						/>
 					</Box>
-					<Flex align="center" justify="end" gap="2">
-						<Button
-							size="2"
-							variant="soft"
-							color="green"
-							onClick={() => submitReview("APPROVE")}
-							disabled={approvedByUser || submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Checkmark20Regular />
-								<Text size="2">接受</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="red"
-							onClick={() => submitReview("REQUEST_CHANGES")}
-							disabled={
-								submitPending !== null ||
-								getCleanReport().length === 0
-							}
-						>
-							<Flex align="center" gap="2">
-								<Dismiss20Regular />
-								<Text size="2">需要修改</Text>
-							</Flex>
-						</Button>
+					<Flex align="center" justify="between" gap="2">
 						<Button
 							size="2"
 							variant="soft"
 							color="gray"
-							onClick={submitMerge}
+							onClick={discardDraft}
 							disabled={submitPending !== null}
 						>
 							<Flex align="center" gap="2">
-								<Merge20Regular	/>
-								<Text size="2">合并</Text>
+								<Delete20Regular />
+								<Text size="2">放弃</Text>
 							</Flex>
 						</Button>
+						<Flex align="center" justify="end" gap="2">
+							<Button
+								size="2"
+								variant="soft"
+								color="green"
+								onClick={() => submitReview("APPROVE")}
+								disabled={approvedByUser || submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Checkmark20Regular />
+									<Text size="2">接受</Text>
+								</Flex>
+							</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="red"
+								onClick={() => submitReview("REQUEST_CHANGES")}
+								disabled={
+									submitPending !== null ||
+									getCleanReport().length === 0
+								}
+							>
+								<Flex align="center" gap="2">
+									<Dismiss20Regular />
+									<Text size="2">需要修改</Text>
+								</Flex>
+							</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="gray"
+								onClick={submitMerge}
+								disabled={submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Merge20Regular />
+									<Text size="2">合并</Text>
+								</Flex>
+							</Button>
+						</Flex>
 					</Flex>
 				</Flex>
 			</Dialog.Content>
