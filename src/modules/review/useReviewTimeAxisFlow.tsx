@@ -543,7 +543,7 @@ export const useReviewTimeAxisFlow = () => {
 	}, [reviewStashLastSelection, stashKey, timeAxisStashOpen]);
 
 	useEffect(() => {
-		if (!reviewSession || toolMode !== ToolMode.Sync || !reviewFreeze) {
+		if (!reviewSession || !reviewFreeze) {
 			setTimeAxisCandidates([]);
 			setTimeAxisStashItems([]);
 			setTimeAxisStashSelected(new Set());
@@ -576,7 +576,6 @@ export const useReviewTimeAxisFlow = () => {
 		reviewStaged,
 		reviewStashSubmitted,
 		stashKey,
-		toolMode,
 	]);
 
 	useEffect(() => {
@@ -613,6 +612,21 @@ export const useReviewTimeAxisFlow = () => {
 
 	const onReviewComplete = useCallback(() => {
 		if (reviewSession) {
+			const draftMatch = reviewReportDrafts.find((item) => {
+				if (reviewSession.prNumber) {
+					return item.prNumber === reviewSession.prNumber;
+				}
+				return item.prTitle === reviewSession.prTitle;
+			});
+			const baseReports: string[] = [];
+			if (
+				reviewReportDialog.open &&
+				reviewReportDialog.prNumber === reviewSession.prNumber
+			) {
+				baseReports.push(reviewReportDialog.report);
+			} else if (draftMatch?.report) {
+				baseReports.push(draftMatch.report);
+			}
 			const freezeData = reviewFreeze?.data ?? lyricLines;
 			const stagedData = reviewStaged ?? lyricLines;
 			const editReport = buildEditReport(freezeData, stagedData);
@@ -623,12 +637,18 @@ export const useReviewTimeAxisFlow = () => {
 						? buildSyncReportFromStash(candidates, timeAxisStashItems)
 						: buildSyncReport(candidates);
 				const report = mergeReports([editReport, syncReport]);
+				const mergedReport = mergeReports([...baseReports, report]);
 				setReviewReportDialog({
 					open: true,
 					prNumber: reviewSession.prNumber,
 					prTitle: reviewSession.prTitle,
-					report,
-					draftId: null,
+					report: mergedReport,
+					draftId:
+						(reviewReportDialog.open &&
+							reviewReportDialog.prNumber === reviewSession.prNumber &&
+							reviewReportDialog.draftId) ||
+						draftMatch?.id ||
+						null,
 				});
 				setTimeAxisStashItems([]);
 				setTimeAxisStashOpen(false);
@@ -636,12 +656,18 @@ export const useReviewTimeAxisFlow = () => {
 				setTimeAxisStashSelected(new Set());
 			} else {
 				const report = editReport;
+				const mergedReport = mergeReports([...baseReports, report]);
 				setReviewReportDialog({
 					open: true,
 					prNumber: reviewSession.prNumber,
 					prTitle: reviewSession.prTitle,
-					report,
-					draftId: null,
+					report: mergedReport,
+					draftId:
+						(reviewReportDialog.open &&
+							reviewReportDialog.prNumber === reviewSession.prNumber &&
+							reviewReportDialog.draftId) ||
+						draftMatch?.id ||
+						null,
 				});
 			}
 		}
@@ -650,6 +676,8 @@ export const useReviewTimeAxisFlow = () => {
 	}, [
 		lyricLines,
 		reviewFreeze,
+		reviewReportDialog,
+		reviewReportDrafts,
 		reviewSession,
 		reviewStaged,
 		setReviewReportDialog,
