@@ -623,7 +623,7 @@ export const SettingsConnectTab = () => {
 						<Text size="2" color="gray">
 							{t(
 								"settings.connect.github.desc",
-								"用于验证 GitHub PAT 并开启歌词库审阅入口",
+								"用于登录 GitHub 并使用相关能力",
 							)}
 						</Text>
 					</Flex>
@@ -673,104 +673,129 @@ export const SettingsConnectTab = () => {
 					</Flex>
 
 					<Flex direction="column" gap="3">
-						<Text size="2">
-							{t(
-								"settings.connect.reviewHiddenLabelsTitle",
-								"审阅隐藏标签",
-							)}
-						</Text>
-						<Text size="1" color="gray">
-							{t(
-								"settings.connect.reviewHiddenLabelsDesc",
-								"点击标签可在未隐藏与已隐藏之间切换",
-							)}
-						</Text>
-						<Flex gap="4" wrap="wrap">
-							<Flex direction="column" gap="2" style={{ minWidth: "240px" }}>
-								<Text size="1" color="gray">
-									{t(
-										"settings.connect.reviewHiddenLabelsVisible",
-										"未隐藏",
-									)}
+						<Box asChild>
+							<details open>
+								<Text asChild size="2">
+									<summary style={{ cursor: "pointer" }}>
+										{t(
+											"settings.connect.reviewHiddenLabelsTitle",
+											"审阅隐藏标签",
+										)}
+									</summary>
 								</Text>
-								<Flex gap="2" wrap="wrap">
-									{visibleLabels.length === 0 ? (
-										<Text size="1" color="gray">
-											{t(
-												"settings.connect.reviewHiddenLabelsEmpty",
-												"暂无标签",
-											)}
-										</Text>
-									) : (
-										visibleLabels.map((label) => (
-											<Button
-												key={`visible-${label.name}`}
-												size="1"
-												variant="soft"
-												color="gray"
-												onClick={() => hideLabel(label.name)}
-											>
-												<Flex align="center" gap="2">
-													<Box
-														style={{
-															width: "8px",
-															height: "8px",
-															borderRadius: "999px",
-															backgroundColor: `#${label.color}`,
-														}}
-													/>
-													<Text size="1" weight="medium">
-														{label.name}
+								<Flex direction="column" gap="3" mt="2">
+									<Text size="1" color="gray">
+										{t(
+											"settings.connect.reviewHiddenLabelsDesc",
+											"点击标签可在未隐藏与已隐藏之间切换",
+										)}
+									</Text>
+									<Flex gap="4" wrap="wrap">
+										<Flex
+											direction="column"
+											gap="2"
+											style={{ minWidth: "240px" }}
+										>
+											<Text size="1" color="gray">
+												{t(
+													"settings.connect.reviewHiddenLabelsVisible",
+													"未隐藏",
+												)}
+											</Text>
+											<Flex gap="2" wrap="wrap">
+												{visibleLabels.length === 0 ? (
+													<Text size="1" color="gray">
+														{t(
+															"settings.connect.reviewHiddenLabelsEmpty",
+															"暂无标签",
+														)}
 													</Text>
-												</Flex>
-											</Button>
-										))
-									)}
-								</Flex>
-							</Flex>
-							<Flex direction="column" gap="2" style={{ minWidth: "240px" }}>
-								<Text size="1" color="gray">
-									{t(
-										"settings.connect.reviewHiddenLabelsHidden",
-										"已隐藏",
-									)}
-								</Text>
-								<Flex gap="2" wrap="wrap">
-									{hiddenLabelList.length === 0 ? (
-										<Text size="1" color="gray">
-											{t(
-												"settings.connect.reviewHiddenLabelsNone",
-												"暂无隐藏标签",
-											)}
-										</Text>
-									) : (
-										hiddenLabelList.map((label) => (
-											<Button
-												key={`hidden-${label.name}`}
-												size="1"
-												variant="soft"
-												color="red"
-												onClick={() => showLabel(label.name)}
-											>
-												<Flex align="center" gap="2">
-													<Box
-														style={{
-															width: "8px",
-															height: "8px",
-															borderRadius: "999px",
-															backgroundColor: `#${label.color}`,
-														}}
-													/>
-													<Text size="1" weight="medium">
-														{label.name}
+												) : (
+													visibleLabels.map((label) => (
+														<Button
+															key={`visible-${label.name}`}
+															size="1"
+															variant="soft"
+															color="gray"
+															onClick={() => hideLabel(label.name)}
+														>
+															<Flex align="center" gap="2">
+																<Box
+																	style={{
+																		width: "8px",
+																		height: "8px",
+																		borderRadius: "999px",
+																		backgroundColor: `#${label.color}`,
+																	}}
+																/>
+																<Text size="1" weight="medium">
+																	{label.name}
+																</Text>
+															</Flex>
+														</Button>
+													))
+												)}
+											</Flex>
+										</Flex>
+										<Flex
+											direction="column"
+											gap="2"
+											style={{ minWidth: "240px" }}
+										>
+											<Text size="1" color="gray">
+												{t(
+													"settings.connect.reviewHiddenLabelsHidden",
+													"已隐藏",
+												)}
+											</Text>
+											<Flex gap="2" wrap="wrap">
+												{hiddenLabelList.length === 0 ? (
+													<Text size="1" color="gray">
+														{t(
+															"settings.connect.reviewHiddenLabelsNone",
+															"暂无隐藏标签",
+														)}
 													</Text>
-												</Flex>
-											</Button>
-										))
-									)}
+												) : (
+													hiddenLabelList.map((label) => (
+														<Button
+															key={`hidden-${label.name}`}
+															size="1"
+															variant="soft"
+															color="red"
+															onClick={() => showLabel(label.name)}
+														>
+															<Flex align="center" gap="2">
+																<Box
+																	style={{
+																		width: "8px",
+																		height: "8px",
+																		borderRadius: "999px",
+																		backgroundColor: `#${label.color}`,
+																	}}
+																/>
+																<Text size="1" weight="medium">
+																	{label.name}
+																</Text>
+															</Flex>
+														</Button>
+													))
+												)}
+											</Flex>
+										</Flex>
+									</Flex>
 								</Flex>
-							</Flex>
-						</Flex>
+							</details>
+						</Box>
+						<Button asChild variant="soft">
+							<a
+								href={login ? `https://gist.github.com/${login}` : "https://gist.github.com/"}
+								target="_blank"
+								rel="noreferrer"
+							>
+								{t("settings.connect.viewGist", "查看 Gist")}
+							</a>
+						</Button>
 					</Flex>
 
 					{hasAccess && (
