@@ -3,6 +3,7 @@ import {
 	type MouseEvent,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -15,6 +16,9 @@ import styles from "../index.module.css";
 const ReviewPage = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const closeTimerRef = useRef<number | null>(null);
+	const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+	const cardRectsRef = useRef<Map<number, DOMRect>>(new Map());
+	const cardAnimationsRef = useRef<Map<number, Animation>>(new Map());
 	const [expandedCard, setExpandedCard] = useState<{
 		pr: ReviewPullRequest;
 		from: DOMRect;
@@ -66,6 +70,17 @@ const ReviewPage = () => {
 			closeTimerRef.current = null;
 		}, 200);
 	}, [expandedCard]);
+
+	const setCardRef = useCallback(
+		(prNumber: number) => (node: HTMLDivElement | null) => {
+			if (node) {
+				cardRefs.current.set(prNumber, node);
+			} else {
+				cardRefs.current.delete(prNumber);
+			}
+		},
+		[],
+	);
 
 	const openExpanded = useCallback(
 		(pr: ReviewPullRequest, rect: DOMRect) => {
@@ -129,6 +144,63 @@ const ReviewPage = () => {
 		[openExpanded],
 	);
 
+	useLayoutEffect(() => {
+		const listSize = sortedItems.length;
+		const prefersReducedMotion =
+			typeof window !== "undefined" &&
+			typeof window.matchMedia === "function" &&
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const shouldAnimate = !prefersReducedMotion && listSize > 0 && listSize <= 140;
+		const containerRect = containerRef.current?.getBoundingClientRect();
+		const viewportMargin = 80;
+		const maxAnimated = 80;
+		let animatedCount = 0;
+		const previousRects = cardRectsRef.current;
+		const nextRects = new Map<number, DOMRect>();
+		cardRefs.current.forEach((node, key) => {
+			if (!node) return;
+			const rect = node.getBoundingClientRect();
+			nextRects.set(key, rect);
+			const previous = previousRects.get(key);
+			if (!previous) return;
+			const deltaX = previous.left - rect.left;
+			const deltaY = previous.top - rect.top;
+			if (deltaX === 0 && deltaY === 0) return;
+			if (!shouldAnimate) return;
+			if (
+				containerRect &&
+				(rect.bottom < containerRect.top - viewportMargin ||
+					rect.top > containerRect.bottom + viewportMargin)
+			) {
+				return;
+			}
+			if (animatedCount >= maxAnimated) return;
+			animatedCount += 1;
+			if (typeof node.animate !== "function") return;
+			const existing = cardAnimationsRef.current.get(key);
+			if (existing) existing.cancel();
+			const animation = node.animate(
+				[
+					{ transform: `translate(${deltaX}px, ${deltaY}px)` },
+					{ transform: "translate(0, 0)" },
+				],
+				{
+					duration: 220,
+					easing: "cubic-bezier(0.2, 0.1, 0, 1)",
+				},
+			);
+			cardAnimationsRef.current.set(key, animation);
+			animation.finished
+				.then(() => {
+					if (cardAnimationsRef.current.get(key) === animation) {
+						cardAnimationsRef.current.delete(key);
+					}
+				})
+				.catch(() => {});
+		});
+		cardRectsRef.current = nextRects;
+	});
+
 	useEffect(() => {
 		return () => {
 			if (closeTimerRef.current) {
@@ -169,6 +241,7 @@ const ReviewPage = () => {
 								reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
 							}`}
 							onClick={(event) => handleCardClick(pr, event)}
+							ref={setCardRef(pr.number)}
 						>
 							{renderCardContent({ pr, hiddenLabelSet, styles })}
 						</Card>
