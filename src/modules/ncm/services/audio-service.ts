@@ -1,9 +1,7 @@
 import { openDB } from "idb";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppNotification } from "$/states/notifications";
-
-const NETEASE_API_BASE =
-	"https://netease-cloud-music-api-1035942257985.asia-east1.run.app";
+import { requestNetease } from "./index";
 
 const AUDIO_CACHE_DB = "amll-audio-cache";
 const AUDIO_CACHE_STORE = "audio-files";
@@ -16,15 +14,6 @@ type AudioCacheRecord = {
 	type: string;
 	updatedAt: number;
 	sourceId?: string;
-};
-
-type NeteaseResponse<T> = {
-	code?: number;
-	message?: string;
-	msg?: string;
-	cookie?: string;
-	data?: T;
-	[key: string]: unknown;
 };
 
 type RawNeteaseSong = {
@@ -95,42 +84,6 @@ const readAudioCache = async (id: string) => {
 	}
 };
 
-const requestNetease = async <T,>(
-	path: string,
-	options: {
-		params?: Record<string, string | number | boolean>;
-		method?: "GET" | "POST";
-		cookie?: string;
-	} = {},
-): Promise<T> => {
-	const url = new URL(`${NETEASE_API_BASE}${path}`);
-	const params: Record<string, string | boolean> = {
-		timestamp: Date.now().toString(),
-		randomCNIP: true,
-		...options.params,
-	};
-
-	if (options.cookie) {
-		params.cookie = options.cookie;
-	}
-
-	Object.keys(params).forEach((key) => {
-		url.searchParams.append(key, String(params[key]));
-	});
-
-	const res = await fetch(url.toString(), {
-		method: options.method || "GET",
-		credentials: "include",
-	});
-
-	const data = (await res.json()) as NeteaseResponse<T>;
-	const responseCode =
-		data.code ?? (data.data as { code?: number } | undefined)?.code;
-	if (responseCode !== undefined && responseCode !== 200) {
-		throw new Error(data.msg || data.message || `API Error: ${responseCode}`);
-	}
-	return data as T;
-};
 
 const fetchNeteaseSongDetail = async (id: string, cookie?: string) => {
 	const res = await requestNetease<{ songs?: RawNeteaseSong[] }>("/song/detail", {
