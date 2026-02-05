@@ -15,9 +15,14 @@ import {
 } from "@radix-ui/themes";
 import { openDB } from "idb";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { atomWithStorage } from "jotai/utils";
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	customBackgroundBlurAtom,
+	customBackgroundBrightnessAtom,
+	customBackgroundMaskAtom,
+	customBackgroundOpacityAtom,
+} from "$/modules/settings/states/background";
 
 const CUSTOM_BACKGROUND_DB = "amll-custom-background";
 const CUSTOM_BACKGROUND_STORE = "background-image";
@@ -133,26 +138,6 @@ export const customBackgroundImageInitAtom = atom(
 		const url = URL.createObjectURL(blob);
 		set(customBackgroundImageValueAtom, url);
 	},
-);
-
-export const customBackgroundOpacityAtom = atomWithStorage(
-	"customBackgroundOpacity",
-	0.4,
-);
-
-export const customBackgroundMaskAtom = atomWithStorage(
-	"customBackgroundMask",
-	0.2,
-);
-
-export const customBackgroundBlurAtom = atomWithStorage(
-	"customBackgroundBlur",
-	0,
-);
-
-export const customBackgroundBrightnessAtom = atomWithStorage(
-	"customBackgroundBrightness",
-	1,
 );
 
 export const SettingsCustomBackgroundSettings = ({

@@ -1,4 +1,3 @@
-import { Box, Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,8 +18,8 @@ import {
 import { githubAmlldbAccessAtom, githubPatAtom } from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric } from "$/types/ttml";
-import { requestFileUpdatePush } from "$/modules/github/services/update-service";
-import { ReviewActionGroup } from "$/modules/review/modals/ReviewActionGroup";
+import { requestFileUpdatePush } from "$/modules/user/services/pr/update-service";
+import { ReviewActionGroup } from "$/components/TitleBar/modals/ReviewActionGroup";
 import {
 	buildEditReport,
 	buildSyncChanges,
@@ -30,8 +29,9 @@ import {
 	type SyncChangeCandidate,
 	type TimeAxisStashItem,
 } from "$/modules/review/services/report-service";
+import { StashDialog } from "./StashDialog";
 
-export const useReviewTimeAxisFlow = () => {
+export const useReviewTimingFlow = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
@@ -408,224 +408,109 @@ export const useReviewTimeAxisFlow = () => {
 		setTimeAxisStashOpen(true);
 	}, []);
 
+	const onToggleStashItem = useCallback(
+		(wordId: string) => {
+			setTimeAxisStashSelected((prev) => {
+				const next = new Set(prev);
+				if (next.has(wordId)) next.delete(wordId);
+				else next.add(wordId);
+				return next;
+			});
+			setSelectedWords((o) => {
+				o.clear();
+				o.add(wordId);
+			});
+		},
+		[setSelectedWords],
+	);
+
+	const onRemoveStashSelected = useCallback(() => {
+		setTimeAxisStashItems((prev) =>
+			prev.filter((item) => !timeAxisStashSelected.has(item.wordId)),
+		);
+	}, [timeAxisStashSelected]);
+
+	const onClearStash = useCallback(() => {
+		setTimeAxisStashItems([]);
+		setTimeAxisStashSelected(new Set());
+	}, []);
+
+	const onConfirmStash = useCallback(() => {
+		const selected = timeAxisStashItems.filter((item) =>
+			timeAxisStashSelected.has(item.wordId),
+		);
+		if (selected.length === 0) return;
+		const report = buildSyncReportFromStash(timeAxisCandidates, selected);
+		const prNumber = reviewSession?.prNumber ?? null;
+		const prTitle = reviewSession?.prTitle ?? "";
+		const draftMatch = reviewReportDrafts.find((item) => {
+			if (prNumber) return item.prNumber === prNumber;
+			return item.prTitle === prTitle;
+		});
+		const baseReports: string[] = [];
+		if (reviewReportDialog.open && reviewReportDialog.prNumber === prNumber) {
+			baseReports.push(reviewReportDialog.report);
+		} else if (draftMatch?.report) {
+			baseReports.push(draftMatch.report);
+		}
+		const mergedReport = mergeReports([...baseReports, report]);
+		if (stashKey) {
+			const committed = new Set(reviewStashSubmitted[stashKey] ?? []);
+			for (const it of selected) {
+				committed.add(it.wordId);
+			}
+			setReviewStashSubmitted((prev) => ({
+				...prev,
+				[stashKey]: Array.from(committed),
+			}));
+			setReviewStashLastSelection((prev) => ({
+				...prev,
+				[stashKey]: Array.from(timeAxisStashSelected),
+			}));
+		}
+		setReviewReportDialog({
+			open: true,
+			prNumber,
+			prTitle,
+			report: mergedReport,
+			draftId:
+				(reviewReportDialog.open &&
+					reviewReportDialog.prNumber === prNumber &&
+					reviewReportDialog.draftId) ||
+				draftMatch?.id ||
+				null,
+		});
+		setTimeAxisStashItems([]);
+		setTimeAxisStashSelected(new Set());
+		setTimeAxisStashOpen(false);
+	}, [
+		reviewReportDialog,
+		reviewReportDrafts,
+		reviewSession,
+		reviewStashSubmitted,
+		setReviewReportDialog,
+		setReviewStashLastSelection,
+		setReviewStashSubmitted,
+		stashKey,
+		timeAxisCandidates,
+		timeAxisStashItems,
+		timeAxisStashSelected,
+	]);
+
 	const dialogs = (
-		<>
-			<Dialog.Root open={timeAxisStashOpen} onOpenChange={setTimeAxisStashOpen}>
-				<Dialog.Content maxWidth="520px">
-					<Dialog.Title>
-						{t("review.timeAxisStash.title", "暂存时间轴结果")}
-					</Dialog.Title>
-					<Flex direction="row" gap="3" align="start" wrap="wrap">
-						{timeAxisStashGroups.length === 0 ? (
-							<Text size="2" color="gray">
-								{t("review.timeAxisStash.empty", "暂无暂存结果")}
-							</Text>
-						) : (
-							timeAxisStashCards.map((card) => {
-								const key = card.items.map((item) => item.wordId).join("-");
-								const hasCrossLine = Boolean(card.lines[1]);
-								return (
-									<Box
-										key={key}
-										style={{
-											display: "inline-grid",
-											gridTemplateColumns: hasCrossLine
-												? "max-content max-content max-content"
-												: "max-content",
-											rowGap: "6px",
-											columnGap: "6px",
-											borderRadius: "12px",
-											border: "1px solid var(--gray-a6)",
-											padding: "10px 12px",
-											backgroundColor: "var(--gray-a2)",
-										}}
-									>
-										{hasCrossLine ? (
-											<>
-												<Text
-													size="2"
-													weight="bold"
-													style={{ gridColumn: "1 / 2", justifySelf: "center" }}
-												>
-													{`第 ${card.lines[0]} 行`}
-												</Text>
-												<Text
-													size="2"
-													color="gray"
-													style={{ gridColumn: "2 / 3", justifySelf: "center" }}
-												>
-													|
-												</Text>
-												<Text
-													size="2"
-													color="gray"
-													style={{ gridColumn: "3 / 4", justifySelf: "center" }}
-												>
-													{`第 ${card.lines[1]} 行`}
-												</Text>
-											</>
-										) : (
-											<Text
-												size="2"
-												weight="bold"
-												style={{ gridColumn: "1 / -1", justifySelf: "center" }}
-											>
-												{`第 ${card.lines[0]} 行`}
-											</Text>
-										)}
-										<Flex
-											align="center"
-											wrap="wrap"
-											gap="1"
-											style={{
-												gridColumn: hasCrossLine ? "1 / 2" : "1 / -1",
-												justifySelf: "center",
-											}}
-										>
-											{card.items.map((item, index) => {
-												const checked = timeAxisStashSelected.has(item.wordId);
-												return (
-													<Flex key={`${item.wordId}-${index}`} align="center" gap="1">
-														<Button
-															size="1"
-															variant={checked ? "solid" : "soft"}
-															color={checked ? "orange" : "gray"}
-															onClick={() => {
-																setTimeAxisStashSelected((prev) => {
-																	const next = new Set(prev);
-																	if (next.has(item.wordId)) next.delete(item.wordId);
-																	else next.add(item.wordId);
-																	return next;
-																});
-																setSelectedWords((o) => {
-																	o.clear();
-																	o.add(item.wordId);
-																});
-															}}
-															asChild
-														>
-															<span>{item.label}</span>
-														</Button>
-														{index < card.items.length - 1 ? (
-															<Text size="2" color="gray" asChild>
-																<span
-																	style={{
-																		display: "inline-flex",
-																		alignItems: "center",
-																	}}
-																>
-																	|
-																</span>
-															</Text>
-														) : null}
-													</Flex>
-												);
-											})}
-										</Flex>
-									</Box>
-								);
-							})
-						)}
-					</Flex>
-					<Flex gap="3" mt="4" justify="end">
-						<Button
-							variant="soft"
-							color="gray"
-							onClick={() => setTimeAxisStashOpen(false)}
-						>
-							{t("common.close", "关闭")}
-						</Button>
-						<Button
-							variant="soft"
-							color="red"
-							onClick={() => {
-								setTimeAxisStashItems((prev) =>
-									prev.filter(
-										(item) => !timeAxisStashSelected.has(item.wordId),
-									),
-								);
-							}}
-							disabled={timeAxisStashSelected.size === 0}
-						>
-							{t("review.timeAxisStash.removeSelected", "删除选中")}
-						</Button>
-						<Button
-							variant="soft"
-							color="orange"
-							onClick={() => {
-								setTimeAxisStashItems([]);
-								setTimeAxisStashSelected(new Set());
-							}}
-							disabled={timeAxisStashItems.length === 0}
-						>
-							{t("review.timeAxisStash.clear", "清空")}
-						</Button>
-						<Button
-							onClick={() => {
-								const selected = timeAxisStashItems.filter((item) =>
-									timeAxisStashSelected.has(item.wordId),
-								);
-								if (selected.length === 0) return;
-								const report = buildSyncReportFromStash(
-									timeAxisCandidates,
-									selected,
-								);
-								const prNumber = reviewSession?.prNumber ?? null;
-								const prTitle = reviewSession?.prTitle ?? "";
-								const draftMatch = reviewReportDrafts.find((item) => {
-									if (prNumber) return item.prNumber === prNumber;
-									return item.prTitle === prTitle;
-								});
-								const baseReports: string[] = [];
-								if (
-									reviewReportDialog.open &&
-									reviewReportDialog.prNumber === prNumber
-								) {
-									baseReports.push(reviewReportDialog.report);
-								} else if (draftMatch?.report) {
-									baseReports.push(draftMatch.report);
-								}
-								const mergedReport = mergeReports([...baseReports, report]);
-								if (stashKey) {
-									const committed = new Set(
-										reviewStashSubmitted[stashKey] ?? [],
-									);
-									for (const it of selected) {
-										committed.add(it.wordId);
-									}
-									setReviewStashSubmitted((prev) => ({
-										...prev,
-										[stashKey]: Array.from(committed),
-									}));
-									setReviewStashLastSelection((prev) => ({
-										...prev,
-										[stashKey]: Array.from(timeAxisStashSelected),
-									}));
-								}
-								setReviewReportDialog({
-									open: true,
-									prNumber,
-									prTitle,
-									report: mergedReport,
-									draftId:
-										(reviewReportDialog.open &&
-											reviewReportDialog.prNumber === prNumber &&
-											reviewReportDialog.draftId) ||
-										draftMatch?.id ||
-										null,
-								});
-								setTimeAxisStashItems([]);
-								setTimeAxisStashSelected(new Set());
-								setTimeAxisStashOpen(false);
-							}}
-							disabled={timeAxisStashSelected.size === 0}
-						>
-							{t("common.confirm", "确认")}
-						</Button>
-					</Flex>
-				</Dialog.Content>
-			</Dialog.Root>
-		</>
+		<StashDialog
+			open={timeAxisStashOpen}
+			onOpenChange={setTimeAxisStashOpen}
+			stashCards={timeAxisStashCards}
+			selectedIds={timeAxisStashSelected}
+			stashItemsCount={timeAxisStashItems.length}
+			onToggleItem={onToggleStashItem}
+			onClose={() => setTimeAxisStashOpen(false)}
+			onRemoveSelected={onRemoveStashSelected}
+			onClear={onClearStash}
+			onConfirm={onConfirmStash}
+			t={t}
+		/>
 	);
 
 	return {
@@ -641,13 +526,14 @@ export const useReviewTitleBar = (options?: {
 }) => {
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const { dialogs, openTimeAxisStash, onReviewComplete, onReviewCancel } =
-		useReviewTimeAxisFlow();
+		useReviewTimingFlow();
 
 	const showStash = reviewSession?.source !== "update";
 	const actionGroup = reviewSession ? (
 		<ReviewActionGroup
 			className={options?.actionGroupClassName}
 			showStash={showStash}
+			stashEnabled={Boolean(showStash)}
 			onOpenStash={openTimeAxisStash}
 			onComplete={onReviewComplete}
 			onCancel={onReviewCancel}

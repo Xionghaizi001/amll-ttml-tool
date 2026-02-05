@@ -1,6 +1,6 @@
 import { githubFetch } from "../api";
 
-const REPO_OWNER = "Steve-xmh";
+const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
 
 export type PendingUpdatePullRequest = {
@@ -15,6 +15,8 @@ export type PullRequestDetail = {
 	body: string;
 	createdAt: string;
 	labels: Array<{ name: string; color: string }>;
+	htmlUrl?: string;
+	headSha?: string | null;
 };
 
 export const fetchPendingUpdatePullRequest = async (
@@ -29,7 +31,7 @@ export const fetchPendingUpdatePullRequest = async (
 	};
 	const response = await githubFetch("/search/issues", {
 		params: {
-			q: `repo:Steve-xmh/amll-ttml-db is:pr is:open label:"待更新" mentions:${trimmedLogin}`,
+			q: `repo:amll-dev/amll-ttml-db is:pr is:open label:"待更新" mentions:${trimmedLogin}`,
 			per_page: 1,
 			sort: "updated",
 			order: "desc",
@@ -98,6 +100,8 @@ export const fetchPullRequestDetail = async (options: {
 		title: string;
 		body?: string | null;
 		created_at: string;
+		html_url?: string;
+		head?: { sha?: string | null };
 		labels?: Array<{ name: string; color: string }>;
 	};
 	return {
@@ -105,10 +109,53 @@ export const fetchPullRequestDetail = async (options: {
 		title: detail.title ?? "",
 		body: detail.body ?? "",
 		createdAt: detail.created_at,
+		htmlUrl: detail.html_url,
+		headSha: detail.head?.sha ?? null,
 		labels:
 			detail.labels?.map((label) => ({
 				name: label.name,
 				color: label.color,
 			})) ?? [],
+	};
+};
+
+export const fetchPullRequestComments = async (options: {
+	token: string;
+	prNumber: number;
+	since?: string;
+}) => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token}`,
+	};
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${options.prNumber}/comments`,
+		{
+			params: { per_page: 100, since: options.since },
+			init: { headers },
+		},
+	);
+	if (!response.ok) {
+		throw new Error("load-pr-comments-failed");
+	}
+	return (await response.json()) as Array<{
+		body?: string | null;
+		user?: { login?: string | null };
+	}>;
+};
+
+export const fetchPullRequestStatus = async (options: {
+	token: string;
+	prNumber: number;
+}) => {
+	const detail = await fetchPullRequestDetail(options);
+	if (!detail) {
+		throw new Error("load-pr-detail-failed");
+	}
+	return {
+		headSha: detail.headSha ?? null,
+		prUrl:
+			detail.htmlUrl ??
+			`https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${options.prNumber}`,
 	};
 };

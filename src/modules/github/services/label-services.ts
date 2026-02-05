@@ -5,7 +5,7 @@ import type {
 	ReviewPullRequest,
 } from "$/modules/review/services/card-service";
 
-const REPO_OWNER = "Steve-xmh";
+const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
 const PENDING_LABEL_NAME = "待更新";
 

@@ -223,6 +223,40 @@
 
 .remarkText {
 	color: var(--gray-12);
+	overflow-x: auto;
+}
+
+.remarkText table {
+	display: inline-table;
+	width: max-content;
+	max-width: 100%;
+	border-collapse: collapse;
+	margin: var(--space-2) 0;
+	border: 1px solid var(--gray-6);
+	background: var(--color-panel);
+}
+
+.remarkText th,
+.remarkText td {
+	padding: 6px 10px;
+	border: 1px solid var(--gray-6);
+	text-align: left;
+	vertical-align: top;
+}
+
+.remarkText thead th {
+	background: var(--gray-3);
+	font-weight: 600;
+}
+
+.remarkText tbody tr:nth-child(even) {
+	background: var(--gray-2);
+}
+
+.remarkText hr {
+	border: 0;
+	border-top: 1px solid var(--gray-6);
+	margin: var(--space-2) 0;
 }
 
 .card {

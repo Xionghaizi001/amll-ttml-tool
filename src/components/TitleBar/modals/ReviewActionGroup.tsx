@@ -7,15 +7,17 @@ import { Button, Flex, Text } from "@radix-ui/themes";
 
 export type ReviewActionGroupProps = {
 	className?: string;
-	showStash: boolean;
-	onOpenStash: () => void;
+	showStash?: boolean;
+	stashEnabled?: boolean;
+	onOpenStash?: () => void;
 	onComplete: () => void;
 	onCancel: () => void;
 };
 
 export const ReviewActionGroup = ({
 	className,
-	showStash,
+	showStash = false,
+	stashEnabled = false,
 	onOpenStash,
 	onComplete,
 	onCancel,
@@ -23,7 +25,13 @@ export const ReviewActionGroup = ({
 	return (
 		<Flex align="center" gap="1" className={className}>
 			{showStash && (
-				<Button size="1" variant="solid" color="orange" onClick={onOpenStash}>
+				<Button
+					size="1"
+					variant="solid"
+					color="orange"
+					onClick={onOpenStash}
+					disabled={!stashEnabled}
+				>
 					<Flex align="center" gap="1">
 						<AddCircle20Regular />
 						<Text size="1">暂存</Text>

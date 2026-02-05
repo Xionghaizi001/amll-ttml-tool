@@ -3,6 +3,7 @@ import {
 	type MouseEvent,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -33,6 +34,24 @@ const ReviewPage = () => {
 		openReviewFile,
 		reviewSession,
 	} = useReviewPageLogic();
+
+	const priorityLabelName = "参与审核招募";
+	const sortedItems = useMemo(() => {
+		const itemsWithPriority = filteredItems.map((pr, index) => ({
+			pr,
+			index,
+			hasPriorityLabel: pr.labels.some(
+				(label) => label.name.trim() === priorityLabelName,
+			),
+		}));
+		itemsWithPriority.sort((a, b) => {
+			if (a.hasPriorityLabel === b.hasPriorityLabel) {
+				return a.index - b.index;
+			}
+			return a.hasPriorityLabel ? -1 : 1;
+		});
+		return itemsWithPriority.map((item) => item.pr);
+	}, [filteredItems]);
 
 	const closeExpanded = useCallback(() => {
 		if (!expandedCard || expandedCard.phase === "closing") return;
@@ -142,7 +161,7 @@ const ReviewPage = () => {
 				</Text>
 			)}
 			<Box className={styles.grid}>
-				{filteredItems.map((pr) => {
+				{sortedItems.map((pr) => {
 					return (
 						<Card
 							key={pr.number}

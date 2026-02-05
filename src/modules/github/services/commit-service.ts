@@ -1,6 +1,6 @@
 import { githubFetch } from "$/modules/github/api";
 
-const REPO_OWNER = "Steve-xmh";
+const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
 
 export const fetchHeadCommitTime = async (token: string, prNumber: number) => {
