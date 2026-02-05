@@ -48,8 +48,11 @@ import {
 	customBackgroundBlurAtom,
 	customBackgroundBrightnessAtom,
 	customBackgroundImageAtom,
+	customBackgroundImageInitAtom,
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
+} from "./modules/settings/modals/customBackground";
+import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
 	githubPatAtom,
@@ -175,6 +178,7 @@ function App() {
 	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
+	const initCustomBackgroundImage = useSetAtom(customBackgroundImageInitAtom);
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const saveFileName = useAtomValue(saveFileNameAtom);
@@ -357,6 +361,10 @@ function App() {
 			projectId,
 		});
 	}, [lyricLines, projectId, reviewFreeze, reviewSession, setReviewStaged]);
+
+	useEffect(() => {
+		initCustomBackgroundImage();
+	}, [initCustomBackgroundImage]);
 
 	useEffect(() => {
 		if (import.meta.env.TAURI_ENV_PLATFORM) {

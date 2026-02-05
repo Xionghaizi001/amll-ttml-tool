@@ -72,31 +72,6 @@ export const enableAutoRomanizationPredictionAtom = atomWithStorage(
 	false,
 );
 
-export const customBackgroundImageAtom = atomWithStorage<string | null>(
-	"customBackgroundImage",
-	null,
-);
-
-export const customBackgroundOpacityAtom = atomWithStorage(
-	"customBackgroundOpacity",
-	0.4,
-);
-
-export const customBackgroundMaskAtom = atomWithStorage(
-	"customBackgroundMask",
-	0.2,
-);
-
-export const customBackgroundBlurAtom = atomWithStorage(
-	"customBackgroundBlur",
-	0,
-);
-
-export const customBackgroundBrightnessAtom = atomWithStorage(
-	"customBackgroundBrightness",
-	1,
-);
-
 export const githubPatAtom = atomWithStorage("githubPat", "");
 export const githubLoginAtom = atomWithStorage("githubLogin", "");
 export const githubAmlldbAccessAtom = atomWithStorage(
