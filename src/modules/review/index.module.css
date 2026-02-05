@@ -16,7 +16,7 @@
 
 .overlay {
 	position: fixed;
-	inset: 0;
+	inset: 44px 0 0 0;
 	background: rgba(255, 255, 255, 0.6);
 	backdrop-filter: blur(14px);
 	-webkit-backdrop-filter: blur(14px);

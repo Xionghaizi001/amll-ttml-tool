@@ -412,6 +412,7 @@ function App() {
 				prNumber: options?.prNumber ?? 0,
 				prTitle: options?.prTitle ?? filename,
 				fileName: filename,
+				source: "review",
 			});
 			openFile(file);
 			setToolMode(ToolMode.Edit);

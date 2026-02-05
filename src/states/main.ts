@@ -137,10 +137,13 @@ export const editingTimeFieldAtom = atom<EditingTimeFieldState | null>(null);
 
 export const requestFocusAtom = atom<string | null>(null);
 
+export type ReviewSessionSource = "review" | "update";
+
 export type ReviewSession = {
 	prNumber: number;
 	prTitle: string;
 	fileName: string;
+	source: ReviewSessionSource;
 };
 
 export const reviewSessionAtom = atom<ReviewSession | null>(null);

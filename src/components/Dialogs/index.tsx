@@ -8,7 +8,7 @@ import { ImportFromText } from "$/modules/project/modals/ImportFromText.tsx";
 import { MetadataEditor } from "$/modules/project/modals/MetadataEditor.tsx";
 import { VocalTagsEditor } from "$/modules/project/modals/VocalTagsEditor.tsx";
 import { SubmitToAMLLDBDialog } from "$/modules/project/modals/SubmitToAmll.tsx";
-import { ReviewReportDialog } from "$/modules/review/ReviewReportDialog.tsx";
+import { ReviewReportDialog } from "$/modules/review/modals/ReviewReportDialog.tsx";
 import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
 import { SettingsDialog } from "$/modules/settings/modals/index.tsx";

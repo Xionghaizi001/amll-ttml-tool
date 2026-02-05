@@ -6,7 +6,7 @@ import { useSetImmerAtom } from "jotai-immer";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import WindowControls from "$/components/WindowControls";
-import { useReviewTitleBar } from "$/modules/review/useReviewTimeAxisFlow";
+import { useReviewTitleBar } from "$/modules/review/modals/useReviewTimeAxisFlow";
 import { githubAmlldbAccessAtom } from "$/modules/settings/states";
 import { notificationCenterDialogAtom } from "$/states/dialogs";
 import { type AppNotification, notificationsAtom } from "$/states/notifications";

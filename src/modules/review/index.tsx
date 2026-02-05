@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
 	githubAmlldbAccessAtom,
+	githubLoginAtom,
 	githubPatAtom,
 	neteaseCookieAtom,
 	reviewHiddenLabelsAtom,
@@ -21,17 +22,28 @@ import {
 	reviewUpdatedFilterAtom,
 } from "$/modules/settings/states";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { pushNotificationAtom } from "$/states/notifications";
-import { reviewSessionAtom, ToolMode, toolModeAtom } from "$/states/main";
+import {
+	pushNotificationAtom,
+	removeNotificationAtom,
+	upsertNotificationAtom,
+} from "$/states/notifications";
+import { reviewSessionAtom, toolModeAtom } from "$/states/main";
 import { log } from "$/utils/logging";
-import { loadNeteaseAudioForReview } from "./netease-audio-service";
+import { loadNeteaseAudioForReview } from "$/modules/audio/netease-audio-service";
+import { loadReviewFileFromPullRequest } from "$/modules/github/services/review-file-service";
+import {
+	fetchLabels as fetchLabelsService,
+	hasPostLabelCommits as hasPostLabelCommitsService,
+	refreshPendingLabels as refreshPendingLabelsService,
+} from "$/modules/github/services/label-services";
+import { syncPendingUpdateReviewNotices } from "$/modules/github/services/review-notice-service";
+import { renderExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import {
 	renderCardContent,
-	renderExpandedContent,
 	type ReviewLabel,
 	type ReviewPullRequest,
-} from "./review-card-service";
-import { githubFetch, githubFetchRaw } from "$/modules/github/api";
+} from "$/modules/review/services/review-card-service";
+import { githubFetch } from "$/modules/github/api";
 import styles from "./index.module.css";
 
 const REPO_OWNER = "Steve-xmh";
@@ -94,6 +106,7 @@ const writeCache = async (items: ReviewPullRequest[], etag: string | null) => {
 
 const ReviewPage = () => {
 	const pat = useAtomValue(githubPatAtom);
+	const login = useAtomValue(githubLoginAtom);
 	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
@@ -107,9 +120,12 @@ const ReviewPage = () => {
 	const setToolMode = useSetAtom(toolModeAtom);
 	const { openFile } = useFileOpener();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
+	const setRemoveNotification = useSetAtom(removeNotificationAtom);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const closeTimerRef = useRef<number | null>(null);
+	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
 	const [expandedCard, setExpandedCard] = useState<{
 		pr: ReviewPullRequest;
 		from: DOMRect;
@@ -149,178 +165,70 @@ const ReviewPage = () => {
 		[],
 	);
 
-	const fetchPendingLabelTime = useCallback(
-		async (token: string, prNumber: number) => {
-			if (!token) return null;
-			const headers = {
-				Accept: "application/vnd.github+json",
-				Authorization: `Bearer ${token}`,
-			};
-			const perPage = 20;
-			const maxPages = 25;
-			for (let page = 1; page <= maxPages; page += 1) {
-				const response = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/events`,
-					{
-						params: { per_page: perPage, page },
-						init: { headers },
-					},
-				);
-				if (!response.ok) {
-					return null;
-				}
-				const events = (await response.json()) as Array<{
-					event?: string;
-					created_at?: string;
-					label?: { name?: string };
-				}>;
-				for (const event of events) {
-					if (event.event !== "labeled") continue;
-					if (event.label?.name?.trim() !== PENDING_LABEL_NAME) continue;
-					if (!event.created_at) continue;
-					return new Date(event.created_at).getTime();
-				}
-				if (events.length < perPage) {
-					break;
-				}
-			}
-			return null;
-		},
-		[],
-	);
-
-	const fetchHeadCommitTime = useCallback(
-		async (token: string, prNumber: number) => {
-			if (!token) return null;
-			const pullResponse = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
-				{
-					init: {
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				},
-			);
-			if (!pullResponse.ok) {
-				return null;
-			}
-			const pull = (await pullResponse.json()) as {
-				head?: { sha?: string };
-			};
-			const sha = pull.head?.sha;
-			if (!sha) return null;
-			const commitResponse = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/commits/${sha}`,
-				{
-					init: {
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				},
-			);
-			if (!commitResponse.ok) {
-				return null;
-			}
-			const commit = (await commitResponse.json()) as {
-				commit?: {
-					author?: { date?: string };
-					committer?: { date?: string };
-				};
-			};
-			const commitDate =
-				commit.commit?.committer?.date ?? commit.commit?.author?.date;
-			if (!commitDate) return null;
-			return new Date(commitDate).getTime();
-		},
-		[],
-	);
-
 	const hasPostLabelCommits = useCallback(
-		async (token: string, prNumber: number) => {
-			const labelTime = await fetchPendingLabelTime(token, prNumber);
-			if (!labelTime) return false;
-			const commitTime = await fetchHeadCommitTime(token, prNumber);
-			if (!commitTime) return false;
-			return commitTime > labelTime;
-		},
-		[fetchHeadCommitTime, fetchPendingLabelTime],
+		(token: string, prNumber: number) =>
+			hasPostLabelCommitsService(token, prNumber),
+		[],
 	);
 
 	const fetchLabels = useCallback(
-		async (token: string) => {
-			if (!token) return;
-			const response = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/labels`,
-				{
-					params: { per_page: 100 },
-					init: {
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				},
-			);
-			if (!response.ok) {
-				setReviewLabels([]);
-				return;
-			}
-			const data = (await response.json()) as ReviewLabel[];
-			const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name));
-			setReviewLabels(sorted);
-			const labelSet = new Set(
-				sorted.map((label) => label.name.trim().toLowerCase()),
-			);
-			setHiddenLabels((prev) =>
-				prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
-			);
-		},
+		(token: string) =>
+			fetchLabelsService({
+				token,
+				setReviewLabels,
+				setHiddenLabels,
+			}),
 		[setHiddenLabels, setReviewLabels],
 	);
 
 	const refreshPendingLabels = useCallback(
-		async (token: string, sourceItems: ReviewPullRequest[]) => {
-			if (!token) return sourceItems;
-			const pendingItems = sourceItems
-				.map((item, index) => ({ item, index }))
-				.filter(({ item }) => hasPendingLabel(item.labels));
-			if (pendingItems.length === 0) return sourceItems;
-			const headers: Record<string, string> = {
-				Accept: "application/vnd.github+json",
-				Authorization: `Bearer ${token}`,
-			};
-			const updated = [...sourceItems];
-			for (const pending of pendingItems) {
-				const response = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${pending.item.number}/labels`,
-					{
-						params: { per_page: 100 },
-						init: { headers },
-					},
-				);
-				if (!response.ok) {
-					continue;
-				}
-				const labels = (await response.json()) as Array<{
-					name: string;
-					color: string;
-				}>;
-				updated[pending.index] = {
-					...pending.item,
-					labels: labels.map((label) => ({
-						name: label.name,
-						color: label.color,
-					})),
-				};
-			}
-			return updated;
-		},
+		(token: string, sourceItems: ReviewPullRequest[]) =>
+			refreshPendingLabelsService({
+				token,
+				sourceItems,
+				hasPendingLabel,
+			}),
 		[hasPendingLabel],
 	);
+
+	useEffect(() => {
+		const token = pat.trim();
+		const trimmedLogin = login.trim();
+		if (!hasAccess || !token || !trimmedLogin) {
+			if (pendingUpdateNoticeIdsRef.current.size > 0) {
+				for (const id of pendingUpdateNoticeIdsRef.current) {
+					setRemoveNotification(id);
+				}
+				pendingUpdateNoticeIdsRef.current = new Set();
+			}
+			return;
+		}
+		let cancelled = false;
+		const run = async () => {
+			try {
+				const nextIds = await syncPendingUpdateReviewNotices({
+					token,
+					login: trimmedLogin,
+					previousIds: pendingUpdateNoticeIdsRef.current,
+					upsertNotification: setUpsertNotification,
+					removeNotification: setRemoveNotification,
+				});
+				if (cancelled) return;
+				pendingUpdateNoticeIdsRef.current = nextIds;
+			} catch {
+			}
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		hasAccess,
+		login,
+		pat,
+		setRemoveNotification,
+		setUpsertNotification,
+	]);
 
 	useEffect(() => {
 		if (!updatedChecked) return;
@@ -367,71 +275,16 @@ const ReviewPage = () => {
 				return;
 			}
 			try {
-				const headers: Record<string, string> = {
-					Accept: "application/vnd.github+json",
-					Authorization: `Bearer ${token}`,
-				};
-				const fileResponse = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}/files`,
-					{
-						params: { per_page: 100 },
-						init: { headers },
-					},
-				);
-				if (!fileResponse.ok) {
-					throw new Error("load-pr-files-failed");
-				}
-				const files = (await fileResponse.json()) as Array<{
-					filename: string;
-					raw_url?: string | null;
-				}>;
-				const supported = [
-					"ttml",
-					"lrc",
-					"eslrc",
-					"qrc",
-					"yrc",
-					"lys",
-				];
-				const priority = new Map(
-					supported.map((ext, index) => [ext, index]),
-				);
-				const pick = files
-					.map((file) => {
-						const ext =
-							file.filename.split(".").pop()?.toLowerCase() ?? "";
-						return { ...file, ext };
-					})
-					.filter((file) => priority.has(file.ext))
-					.sort(
-						(a, b) =>
-							(priority.get(a.ext) ?? 999) -
-							(priority.get(b.ext) ?? 999),
-					)[0];
-				if (!pick?.raw_url) {
-					setPushNotification({
-						title: "未找到可打开的歌词文件",
-						level: "warning",
-						source: "review",
-					});
-					return;
-				}
-				const rawResponse = await githubFetchRaw(pick.raw_url, {
-					init: { headers },
-				});
-				if (!rawResponse.ok) {
-					throw new Error("load-raw-file-failed");
-				}
-				const blob = await rawResponse.blob();
-				const fileName = pick.filename.split("/").pop() ?? pick.filename;
-				const file = new File([blob], fileName);
-				setReviewSession({
+				await loadReviewFileFromPullRequest({
+					token,
 					prNumber: pr.number,
 					prTitle: pr.title,
-					fileName,
+					source: "review",
+					openFile,
+					setToolMode,
+					setReviewSession,
+					pushNotification: setPushNotification,
 				});
-				openFile(file);
-				setToolMode(ToolMode.Edit);
 			} catch {
 				setPushNotification({
 					title: "打开 PR 文件失败",
@@ -622,9 +475,13 @@ const ReviewPage = () => {
 				window.clearTimeout(closeTimerRef.current);
 				closeTimerRef.current = null;
 			}
-			const containerRect =
-				containerRef.current?.getBoundingClientRect() ??
-				new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+			const overlayTopInset = 44;
+			const containerRect = new DOMRect(
+				0,
+				overlayTopInset,
+				window.innerWidth,
+				Math.max(0, window.innerHeight - overlayTopInset),
+			);
 			const padding = 24;
 			const maxWidth = Math.max(0, containerRect.width - padding * 2);
 			const maxHeight = Math.max(0, containerRect.height - padding * 2);

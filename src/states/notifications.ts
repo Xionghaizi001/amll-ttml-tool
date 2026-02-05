@@ -12,12 +12,26 @@ export type AppNotification = {
 	source?: string;
 	pinned?: boolean;
 	dismissible?: boolean;
-	action?: {
-		type: "open-review-report";
-		payload: {
-			draftId: string;
-		};
-	};
+	action?:
+		| {
+				type: "open-review-report";
+				payload: {
+					draftId: string;
+				};
+		  }
+		| {
+				type: "open-review-update";
+				payload: {
+					prNumber: number;
+					prTitle: string;
+				};
+		  }
+		| {
+				type: "open-url";
+				payload: {
+					url: string;
+				};
+		  };
 };
 
 export const notificationsAtom = atom<AppNotification[]>([]);

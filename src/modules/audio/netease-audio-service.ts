@@ -88,8 +88,7 @@ const readAudioCache = async (id: string) => {
 		if (isImageContentType(record.type)) return null;
 		if (record.key !== idKey && record.sourceId !== id) return null;
 		const fileName = record.name || `netease-${id}.mp3`;
-		const fileType =
-			record.type || record.file.type || "audio/*";
+		const fileType = record.type || record.file.type || "audio/*";
 		return new File([record.file], fileName, { type: fileType });
 	} catch {
 		return null;

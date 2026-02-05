@@ -19,6 +19,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uid } from "uid";
 import { githubFetch } from "$/modules/github/api";
+import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
 import { reviewReportDraftsAtom } from "$/states/main";
@@ -343,53 +344,29 @@ export const ReviewReportDialog = () => {
 		}
 		setSubmitPending(event);
 		try {
-			const response = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
-				{
-					init: {
-						method: "POST",
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							event,
-							...(reportBody ? { body: reportBody } : {}),
-						}),
-					},
-				},
-			);
-			if (!response.ok) {
+			const result = await submitReviewService({
+				token,
+				prNumber: dialog.prNumber,
+				event,
+				reportBody,
+				repoOwner: REPO_OWNER,
+				repoName: REPO_NAME,
+				pendingLabelName: PENDING_LABEL_NAME,
+			});
+			if (!result.ok) {
 				setPushNotification({
-					title: `提交审阅结果失败：${response.status}`,
+					title: `提交审阅结果失败：${result.status ?? "未知"}`,
 					level: "error",
 					source: "Review",
 				});
 				return;
 			}
-			if (event === "REQUEST_CHANGES") {
-				const labelResponse = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${dialog.prNumber}/labels`,
-					{
-						init: {
-							method: "POST",
-							headers: {
-								Accept: "application/vnd.github+json",
-								Authorization: `Bearer ${token}`,
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({ labels: [PENDING_LABEL_NAME] }),
-						},
-					},
-				);
-				if (!labelResponse.ok) {
-					setPushNotification({
-						title: `已提交审阅结果，但设置待更新标签失败：${labelResponse.status}`,
-						level: "warning",
-						source: "Review",
-					});
-				}
+			if (result.labelStatus) {
+				setPushNotification({
+					title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
+					level: "warning",
+					source: "Review",
+				});
 			}
 			if (event === "APPROVE") {
 				setApprovedByUser(true);

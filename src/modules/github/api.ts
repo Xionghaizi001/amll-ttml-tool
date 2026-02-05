@@ -49,3 +49,81 @@ export const githubFetchRaw = (rawUrl: string, options: GithubRawOptions = {}) =
 	proxyUrl.searchParams.set("url", rawUrl);
 	return fetch(proxyUrl.toString(), options.init);
 };
+
+export type PendingUpdatePullRequest = {
+	number: number;
+	title: string;
+	htmlUrl: string;
+};
+
+export const fetchPendingUpdatePullRequest = async (
+	token: string,
+	login: string,
+): Promise<PendingUpdatePullRequest | null> => {
+	const trimmedLogin = login.trim();
+	if (!token.trim() || !trimmedLogin) return null;
+	const headers = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${token}`,
+	};
+	const response = await githubFetch("/search/issues", {
+		params: {
+			q: `repo:Steve-xmh/amll-ttml-db is:pr is:open label:"待更新" mentions:${trimmedLogin}`,
+			per_page: 1,
+			sort: "updated",
+			order: "desc",
+		},
+		init: { headers },
+	});
+	if (!response.ok) return null;
+	const data = (await response.json()) as {
+		items?: Array<{
+			number: number;
+			title: string;
+			html_url: string;
+		}>;
+	};
+	const item = data.items?.[0];
+	if (!item) return null;
+	return {
+		number: item.number,
+		title: item.title,
+		htmlUrl: item.html_url,
+	};
+};
+
+export type GithubGistResponse = {
+	id: string;
+	html_url: string;
+	files?: Record<string, { raw_url?: string | null }>;
+};
+
+export const createGithubGist = async (
+	token: string,
+	payload: {
+		description: string;
+		isPublic: boolean;
+		files: Record<string, { content: string }>;
+	},
+): Promise<GithubGistResponse> => {
+	const headers = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${token}`,
+		"Content-Type": "application/json",
+	};
+	const response = await githubFetch("/gists", {
+		init: {
+			method: "POST",
+			headers,
+			body: JSON.stringify({
+				description: payload.description,
+				public: payload.isPublic,
+				files: payload.files,
+			}),
+		},
+	});
+	if (!response.ok) {
+		throw new Error("create-gist-failed");
+	}
+	return (await response.json()) as GithubGistResponse;
+};
