@@ -21,7 +21,7 @@ import {
 } from "$/states/notifications";
 import { ToolMode, reviewSessionAtom, toolModeAtom } from "$/states/main";
 import { log } from "$/utils/logging";
-import { loadNeteaseAudio } from "$/modules/audio/netease-audio-service";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import {
 	fetchOpenPullRequestPage,

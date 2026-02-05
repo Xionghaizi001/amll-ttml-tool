@@ -13,7 +13,7 @@ import type { AppNotification } from "$/states/notifications";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import { parseReviewMetadata } from "$/modules/review/services/card-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
-import { loadNeteaseAudio } from "$/modules/audio/netease-audio-service";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
 import { ToolMode, type ReviewSessionSource } from "$/states/main";
 
 const REPO_OWNER = "Steve-xmh";
