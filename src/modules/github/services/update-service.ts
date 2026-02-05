@@ -7,12 +7,13 @@ import {
 } from "@applemusic-like-lyrics/lyric";
 import type { Dispatch, SetStateAction } from "react";
 import type { LyricLine, TTMLLyric } from "$/types/ttml";
-import { createGithubGist, githubFetch } from "$/modules/github/api";
+import { githubFetch } from "$/modules/github/api";
+import { createGithubGist } from "./gist-service";
 import type { AppNotification } from "$/states/notifications";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
-import { parseReviewMetadata } from "$/modules/review/services/review-card-service";
-import { loadReviewFileFromPullRequest } from "$/modules/github/services/review-file-service";
-import { loadNeteaseAudioForReview } from "$/modules/audio/netease-audio-service";
+import { parseReviewMetadata } from "$/modules/review/services/card-service";
+import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
+import { loadNeteaseAudio } from "$/modules/audio/netease-audio-service";
 import { ToolMode, type ReviewSessionSource } from "$/states/main";
 
 const REPO_OWNER = "Steve-xmh";
@@ -164,20 +165,29 @@ export const openReviewUpdateFromNotification = async (options: {
 }) => {
 	const detail = await fetchPullRequestDetail(options.token, options.prNumber);
 	const prTitle = detail?.title || options.prTitle;
-	const fileResult = await loadReviewFileFromPullRequest({
+	const fileResult = await loadFileFromPullRequest({
 		token: options.token,
 		prNumber: options.prNumber,
-		prTitle,
-		source: "update",
-		openFile: options.openFile,
-		setToolMode: options.setToolMode,
-		setReviewSession: options.setReviewSession,
-		pushNotification: options.pushNotification,
 	});
-	if (!fileResult) return;
+	if (!fileResult) {
+		options.pushNotification({
+			title: "未找到可打开的歌词文件",
+			level: "warning",
+			source: "github",
+		});
+		return;
+	}
+	options.setReviewSession({
+		prNumber: options.prNumber,
+		prTitle,
+		fileName: fileResult.fileName,
+		source: "update",
+	});
+	options.openFile(fileResult.file);
+	options.setToolMode(ToolMode.Edit);
 	const ncmId = detail?.body ? parseReviewMetadata(detail.body).ncmId[0] : null;
 	if (!options.neteaseCookie.trim() || !ncmId) return;
-	await loadNeteaseAudioForReview({
+	await loadNeteaseAudio({
 		prNumber: options.prNumber,
 		id: ncmId,
 		pendingId: options.pendingId,
@@ -349,7 +359,7 @@ export const requestFileUpdatePush = (options: {
 					options.pushNotification({
 						title: "已推送更新",
 						level: "info",
-						source: "review",
+						source: "github",
 					});
 					const startedAt = new Date().toISOString();
 					pollFileUpdateStatus({

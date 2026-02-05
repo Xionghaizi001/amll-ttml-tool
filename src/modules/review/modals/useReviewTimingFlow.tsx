@@ -19,7 +19,7 @@ import {
 import { githubAmlldbAccessAtom, githubPatAtom } from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric } from "$/types/ttml";
-import { requestFileUpdatePush } from "$/modules/github/services/review-update-service";
+import { requestFileUpdatePush } from "$/modules/github/services/update-service";
 import { ReviewActionGroup } from "$/modules/review/modals/ReviewActionGroup";
 import {
 	buildEditReport,
@@ -29,7 +29,7 @@ import {
 	mergeReports,
 	type SyncChangeCandidate,
 	type TimeAxisStashItem,
-} from "$/modules/review/services/review-report-service";
+} from "$/modules/review/services/report-service";
 
 export const useReviewTimeAxisFlow = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);

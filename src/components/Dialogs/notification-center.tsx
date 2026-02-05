@@ -14,7 +14,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { openReviewUpdateFromNotification } from "$/modules/github/services/review-update-service";
+import { openReviewUpdateFromNotification } from "$/modules/github/services/update-service";
 import { githubPatAtom, neteaseCookieAtom } from "$/modules/settings/states";
 import { notificationCenterDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import { reviewSessionAtom, toolModeAtom } from "$/states/main";

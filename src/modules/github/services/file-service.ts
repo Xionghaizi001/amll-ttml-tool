@@ -1,6 +1,4 @@
 import { githubFetch, githubFetchRaw } from "$/modules/github/api";
-import { ToolMode, type ReviewSessionSource } from "$/states/main";
-import type { AppNotification } from "$/states/notifications";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
@@ -10,16 +8,8 @@ type ReviewFileEntry = {
 	raw_url?: string | null;
 };
 
-type OpenFile = (file: File, forceExt?: string) => void;
-type PushNotification = (
-	input: Omit<AppNotification, "id" | "createdAt"> & {
-		id?: string;
-		createdAt?: string;
-	},
-) => void;
-
 const pickReviewFile = (files: ReviewFileEntry[]) => {
-	const supported = ["ttml", "lrc", "eslrc", "qrc", "yrc", "lys"];
+	const supported = ["ttml"];
 	const priority = new Map(supported.map((ext, index) => [ext, index]));
 	return files
 		.map((file) => {
@@ -33,20 +23,9 @@ const pickReviewFile = (files: ReviewFileEntry[]) => {
 		)[0];
 };
 
-export const loadReviewFileFromPullRequest = async (options: {
+export const loadFileFromPullRequest = async (options: {
 	token: string;
 	prNumber: number;
-	prTitle: string;
-	source: ReviewSessionSource;
-	openFile: OpenFile;
-	setToolMode: (mode: ToolMode) => void;
-	setReviewSession: (value: {
-		prNumber: number;
-		prTitle: string;
-		fileName: string;
-		source: ReviewSessionSource;
-	}) => void;
-	pushNotification: PushNotification;
 }) => {
 	const headers: Record<string, string> = {
 		Accept: "application/vnd.github+json",
@@ -64,14 +43,7 @@ export const loadReviewFileFromPullRequest = async (options: {
 	}
 	const files = (await fileResponse.json()) as ReviewFileEntry[];
 	const pick = pickReviewFile(files);
-	if (!pick?.raw_url) {
-		options.pushNotification({
-			title: "未找到可打开的歌词文件",
-			level: "warning",
-			source: "review",
-		});
-		return null;
-	}
+	if (!pick?.raw_url) return null;
 	const rawResponse = await githubFetchRaw(pick.raw_url, {
 		init: { headers },
 	});
@@ -81,13 +53,5 @@ export const loadReviewFileFromPullRequest = async (options: {
 	const blob = await rawResponse.blob();
 	const fileName = pick.filename.split("/").pop() ?? pick.filename;
 	const file = new File([blob], fileName);
-	options.setReviewSession({
-		prNumber: options.prNumber,
-		prTitle: options.prTitle,
-		fileName,
-		source: options.source,
-	});
-	options.openFile(file);
-	options.setToolMode(ToolMode.Edit);
-	return { fileName, rawUrl: pick.raw_url };
+	return { file, fileName, rawUrl: pick.raw_url };
 };

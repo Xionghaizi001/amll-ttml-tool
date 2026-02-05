@@ -20,7 +20,7 @@ import {
 	parseReviewMetadata,
 	renderMetaValues,
 	type ReviewPullRequest,
-} from "$/modules/review/services/review-card-service";
+} from "$/modules/review/services/card-service";
 
 export const renderExpandedContent = (options: {
 	pr: ReviewPullRequest;

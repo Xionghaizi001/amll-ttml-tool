@@ -75,8 +75,13 @@ import {
 } from "./states/main.ts";
 import type { TTMLLyric } from "./types/ttml.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
-import { pushNotificationAtom } from "./states/notifications.ts";
+import {
+	pushNotificationAtom,
+	removeNotificationAtom,
+	upsertNotificationAtom,
+} from "./states/notifications.ts";
 import { useAppUpdate } from "./utils/useAppUpdate.ts";
+import { syncPendingUpdateNotices } from "./modules/github/services/notice-service.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
@@ -169,11 +174,15 @@ function App() {
 	const { t } = useTranslation();
 	const store = useStore();
 	const pat = useAtomValue(githubPatAtom);
+	const login = useAtomValue(githubLoginAtom);
+	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
 	const setLogin = useSetAtom(githubLoginAtom);
 	const setHasAccess = useSetAtom(githubAmlldbAccessAtom);
 	const setReviewLabels = useSetAtom(reviewLabelsAtom);
 	const setHiddenLabels = useSetAtom(reviewHiddenLabelsAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
+	const setRemoveNotification = useSetAtom(removeNotificationAtom);
 	const setSettingsOpen = useSetAtom(settingsDialogAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
@@ -191,7 +200,11 @@ function App() {
 	const reviewProjectIdRef = useRef(projectId);
 	const reviewPendingLyricRef = useRef(lyricLines);
 	const reviewSessionKeyRef = useRef<string | null>(null);
+	const startupPendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
+	const startupPendingUpdateSyncedRef = useRef(false);
 
+	// TODO: 这里可能与 github\services\label-service.ts 中的逻辑重复
+	// 考虑将这个逻辑删除，改为从 github\services\label-service.ts 中调用
 	const fetchLabels = useCallback(
 		async (token: string) => {
 			const response = await fetch(
@@ -377,6 +390,41 @@ function App() {
 		if (!token) return;
 		verifyAccess(token);
 	}, [verifyAccess]);
+
+	useEffect(() => {
+		if (startupPendingUpdateSyncedRef.current) return;
+		if (startupWarningOpen) return;
+		const token = pat.trim();
+		const trimmedLogin = login.trim();
+		if (!hasAccess || !token || !trimmedLogin) return;
+		let cancelled = false;
+		const run = async () => {
+			try {
+				const nextIds = await syncPendingUpdateNotices({
+					token,
+					login: trimmedLogin,
+					previousIds: startupPendingUpdateNoticeIdsRef.current,
+					upsertNotification: setUpsertNotification,
+					removeNotification: setRemoveNotification,
+				});
+				if (cancelled) return;
+				startupPendingUpdateNoticeIdsRef.current = nextIds;
+				startupPendingUpdateSyncedRef.current = true;
+			} catch {
+			}
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		hasAccess,
+		login,
+		pat,
+		setRemoveNotification,
+		setUpsertNotification,
+		startupWarningOpen,
+	]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {

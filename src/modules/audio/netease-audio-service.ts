@@ -230,7 +230,7 @@ export const cacheNeteaseAudioToIndexedDb = async (
 	return file;
 };
 
-export const loadNeteaseAudioForReview = async (options: {
+export const loadNeteaseAudio = async (options: {
 	prNumber: number;
 	id: string;
 	pendingId: string | null;
@@ -262,7 +262,7 @@ export const loadNeteaseAudioForReview = async (options: {
 		options.pushNotification({
 			title: `已加载音频并缓存：${file.name}`,
 			level: "success",
-			source: "review",
+			source: "audio",
 		});
 	} catch (error) {
 		options.pushNotification({
@@ -270,7 +270,7 @@ export const loadNeteaseAudioForReview = async (options: {
 				error instanceof Error ? error.message : "未知错误"
 			}`,
 			level: "error",
-			source: "review",
+			source: "audio",
 		});
 	} finally {
 		options.setPendingId(null);

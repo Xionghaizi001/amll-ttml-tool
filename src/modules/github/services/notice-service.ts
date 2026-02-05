@@ -68,7 +68,7 @@ const fetchPendingUpdatePullRequests = async (
 	return items;
 };
 
-export const syncPendingUpdateReviewNotices = async (options: {
+export const syncPendingUpdateNotices = async (options: {
 	token: string;
 	login: string;
 	previousIds: Set<string>;
