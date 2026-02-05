@@ -1,16 +1,13 @@
-import {
-	stringifyEslrc,
-	stringifyLrc,
-	stringifyLys,
-	stringifyQrc,
-	stringifyYrc,
-} from "@applemusic-like-lyrics/lyric";
 import type { Dispatch, SetStateAction } from "react";
-import type { LyricLine, TTMLLyric } from "$/types/ttml";
+import type { TTMLLyric } from "$/types/ttml";
 import { githubFetch } from "$/modules/github/api";
-import { createGithubGist } from "./gist-service";
+import { pushFileUpdateToGist } from "$/modules/github/services/gist-service";
+import {
+	fetchPullRequestComments,
+	fetchPullRequestDetail,
+	fetchPullRequestStatus,
+} from "$/modules/github/services/PR-service";
 import type { AppNotification } from "$/states/notifications";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import { parseReviewMetadata } from "$/modules/review/services/card-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
@@ -38,47 +35,12 @@ type FileUpdateSession = {
 	fileName: string;
 };
 
-const buildLyricForExport = (lines: LyricLine[]) =>
-	lines.map((line) => ({
-		...line,
-		startTime: Math.round(line.startTime),
-		endTime: Math.round(line.endTime),
-		words: line.words.map((word) => ({
-			...word,
-			startTime: Math.round(word.startTime),
-			endTime: Math.round(word.endTime),
-		})),
-	}));
-
-const buildLyricExportContent = (lyric: TTMLLyric, fileName: string) => {
-	const ext = fileName.split(".").pop()?.toLowerCase() ?? "ttml";
-	const lyricForExport = buildLyricForExport(lyric.lyricLines);
-	if (ext === "lrc") return stringifyLrc(lyricForExport);
-	if (ext === "eslrc") return stringifyEslrc(lyricForExport);
-	if (ext === "qrc") return stringifyQrc(lyricForExport);
-	if (ext === "yrc") return stringifyYrc(lyricForExport);
-	if (ext === "lys") return stringifyLys(lyricForExport);
-	return exportTTMLText(lyric);
-};
-
-const fetchPullRequestDetail = async (token: string, prNumber: number) => {
-	const headers: Record<string, string> = {
-		Accept: "application/vnd.github+json",
-		Authorization: `Bearer ${token}`,
-	};
-	const response = await githubFetch(
-		`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}`,
-		{ init: { headers } },
-	);
-	if (!response.ok) {
+const requirePullRequestDetail = async (token: string, prNumber: number) => {
+	const detail = await fetchPullRequestDetail({ token, prNumber });
+	if (!detail) {
 		throw new Error("load-pr-detail-failed");
 	}
-	return (await response.json()) as {
-		title: string;
-		body?: string | null;
-		html_url?: string;
-		head?: { sha?: string };
-	};
+	return detail;
 };
 
 const createPullRequestComment = async (
@@ -107,44 +69,6 @@ const createPullRequestComment = async (
 	return (await response.json()) as { id?: number };
 };
 
-const fetchPullRequestComments = async (
-	token: string,
-	prNumber: number,
-	since?: string,
-) => {
-	const headers: Record<string, string> = {
-		Accept: "application/vnd.github+json",
-		Authorization: `Bearer ${token}`,
-	};
-	const response = await githubFetch(
-		`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/comments`,
-		{
-			params: { per_page: 100, since },
-			init: { headers },
-		},
-	);
-	if (!response.ok) {
-		throw new Error("load-pr-comments-failed");
-	}
-	return (await response.json()) as Array<{
-		body?: string | null;
-		user?: { login?: string | null };
-	}>;
-};
-
-export const fetchPullRequestStatus = async (options: {
-	token: string;
-	prNumber: number;
-}) => {
-	const detail = await fetchPullRequestDetail(options.token, options.prNumber);
-	return {
-		headSha: detail.head?.sha ?? null,
-		prUrl:
-			detail.html_url ??
-			`https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${options.prNumber}`,
-	};
-};
-
 export const openReviewUpdateFromNotification = async (options: {
 	token: string;
 	prNumber: number;
@@ -163,8 +87,11 @@ export const openReviewUpdateFromNotification = async (options: {
 	setPendingId: (value: string | null) => void;
 	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
 }) => {
-	const detail = await fetchPullRequestDetail(options.token, options.prNumber);
-	const prTitle = detail?.title || options.prTitle;
+	const detail = await requirePullRequestDetail(
+		options.token,
+		options.prNumber,
+	);
+	const prTitle = detail.title || options.prTitle;
 	const fileResult = await loadFileFromPullRequest({
 		token: options.token,
 		prNumber: options.prNumber,
@@ -185,7 +112,7 @@ export const openReviewUpdateFromNotification = async (options: {
 	});
 	options.openFile(fileResult.file);
 	options.setToolMode(ToolMode.Edit);
-	const ncmId = detail?.body ? parseReviewMetadata(detail.body).ncmId[0] : null;
+	const ncmId = detail.body ? parseReviewMetadata(detail.body).ncmId[0] : null;
 	if (!options.neteaseCookie.trim() || !ncmId) return;
 	await loadNeteaseAudio({
 		prNumber: options.prNumber,
@@ -197,37 +124,6 @@ export const openReviewUpdateFromNotification = async (options: {
 		pushNotification: options.pushNotification,
 		cookie: options.neteaseCookie,
 	});
-};
-
-export const pushFileUpdateToGist = async (options: {
-	token: string;
-	prNumber: number;
-	prTitle: string;
-	fileName: string;
-	lyric: TTMLLyric;
-}) => {
-	const trimmedFileName = options.fileName.trim() || "lyric.ttml";
-	const content = buildLyricExportContent(options.lyric, trimmedFileName);
-	const result = await createGithubGist(options.token, {
-		description: `AMLL TTML Tool update for PR #${options.prNumber} ${options.prTitle}`,
-		isPublic: false,
-		files: {
-			[trimmedFileName]: {
-				content,
-			},
-		},
-	});
-	const rawUrl =
-		result.files?.[trimmedFileName]?.raw_url ??
-		Object.values(result.files ?? {})[0]?.raw_url;
-	if (!rawUrl) {
-		throw new Error("gist-raw-url-missing");
-	}
-	return {
-		gistId: result.id,
-		rawUrl,
-		fileName: trimmedFileName,
-	};
 };
 
 export const pushFileUpdateComment = async (options: {
@@ -258,9 +154,11 @@ export const pollFileUpdateStatus = (options: {
 		if (stopped) return;
 		try {
 			const comments = await fetchPullRequestComments(
-				options.token,
-				options.prNumber,
-				options.startedAt,
+				{
+					token: options.token,
+					prNumber: options.prNumber,
+					since: options.startedAt,
+				},
 			);
 			const failure = comments.find(
 				(comment) =>
@@ -279,10 +177,9 @@ export const pollFileUpdateStatus = (options: {
 		}
 		try {
 			const detail = await fetchPullRequestDetail(
-				options.token,
-				options.prNumber,
+				{ token: options.token, prNumber: options.prNumber },
 			);
-			const headSha = detail.head?.sha ?? null;
+			const headSha = detail?.headSha ?? null;
 			if (headSha) {
 				if (!lastHeadSha) {
 					lastHeadSha = headSha;

@@ -67,12 +67,7 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		result[key].push(...values);
 	};
 	const pushRemark = (value: string) => {
-		const cleaned = value
-			.replace(/^[-*]\s+/, "")
-			.replace(/^\[[ xX]\]\s*/, "")
-			.replace(/^>\s*/, "")
-			.replace(/`/g, "")
-			.trim();
+		const cleaned = value.trimEnd();
 		if (!cleaned) return;
 		result.remark.push(cleaned);
 	};
@@ -126,8 +121,14 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		| null = null;
 	const lines = body.split(/\r?\n/);
 	for (const rawLine of lines) {
-		const line = rawLine.trim();
-		if (!line) continue;
+		const trimmedLine = rawLine.trim();
+		if (!trimmedLine) {
+			if (currentKey === "remark") {
+				result.remark.push("");
+			}
+			continue;
+		}
+		const line = trimmedLine;
 		const inlineMatch = line.match(
 			/^(?:[-*]\s*)?(?:#+\s*)?(?:\*\*)?(.+?)(?:\*\*)?\s*[:：]\s*(.+)$/,
 		);

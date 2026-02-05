@@ -1,0 +1,40 @@
+import type { CSSProperties } from "react";
+
+export const notificationCenterStyles = {
+	notificationCard: (
+		accentColor: string,
+		clickable: boolean,
+	): CSSProperties => ({
+		borderLeft: `3px solid var(--${accentColor}-9)`,
+		cursor: clickable ? "pointer" : undefined,
+	}),
+	detailsRoot: {
+		width: "100%",
+	} satisfies CSSProperties,
+	detailsSummary: {
+		listStyle: "none",
+		cursor: "pointer",
+	} satisfies CSSProperties,
+	pendingGroupCard: (accentColor: string): CSSProperties => ({
+		borderLeft: `3px solid var(--${accentColor}-9)`,
+	}),
+	groupArrow: (open: boolean): CSSProperties => ({
+		display: "inline-block",
+		transform: open ? "rotate(90deg)" : "rotate(0deg)",
+		transition: "transform 150ms ease",
+		color: "var(--gray-10)",
+	}),
+	flexGrowMinWidth: {
+		flex: 1,
+		minWidth: 0,
+	} satisfies CSSProperties,
+	groupListOffset: {
+		paddingLeft: "20px",
+	} satisfies CSSProperties,
+	emptyIcon: {
+		color: "var(--gray-10)",
+	} satisfies CSSProperties,
+	scrollArea: {
+		maxHeight: "420px",
+	} satisfies CSSProperties,
+};

@@ -13,6 +13,8 @@ import {
 	QQMusicIcon,
 	SpotifyIcon,
 } from "$/modules/project/modals/PlatformIcons";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
 	extractMentions,
 	formatTimeAgo,
@@ -39,7 +41,7 @@ export const renderExpandedContent = (options: {
 		(label) => !options.hiddenLabelSet.has(label.name.toLowerCase()),
 	);
 	const metadata = parseReviewMetadata(options.pr.body);
-	const remarkText = metadata.remark.join(" ").trim();
+	const remarkText = metadata.remark.join("\n").trim();
 	const platformItems = [
 		{
 			id: metadata.ncmId[0],
@@ -293,9 +295,11 @@ export const renderExpandedContent = (options: {
 								备注
 							</Text>
 						</Flex>
-						<Text size="2" className={options.styles.remarkText}>
-							{remarkText}
-						</Text>
+						<Box className={options.styles.remarkText}>
+							<ReactMarkdown remarkPlugins={[remarkGfm]}>
+								{remarkText}
+							</ReactMarkdown>
+						</Box>
 					</Box>
 				)}
 				<Flex
