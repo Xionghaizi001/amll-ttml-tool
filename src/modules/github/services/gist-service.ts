@@ -1,15 +1,4 @@
-import {
-	stringifyEslrc,
-	stringifyLrc,
-	stringifyLys,
-	stringifyQrc,
-	stringifyYrc,
-} from "@applemusic-like-lyrics/lyric";
-import type { LyricLine, TTMLLyric } from "$/types/ttml";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
-import { githubFetch } from "../api";
-
-
+import { githubFetchRaw } from "../api";
 export type GithubGistResponse = {
 	id: string;
 	html_url: string;
@@ -27,9 +16,10 @@ export const createGithubGist = async (
 	const headers = {
 		Accept: "application/vnd.github+json",
 		Authorization: `Bearer ${token}`,
+		"X-GitHub-Api-Version": "2022-11-28",
 		"Content-Type": "application/json",
 	};
-	const response = await githubFetch("/gists", {
+	const response = await githubFetchRaw("https://api.github.com/gists", {
 		init: {
 			method: "POST",
 			headers,
@@ -46,44 +36,20 @@ export const createGithubGist = async (
 	return (await response.json()) as GithubGistResponse;
 };
 
-const buildLyricForExport = (lines: LyricLine[]) =>
-	lines.map((line) => ({
-		...line,
-		startTime: Math.round(line.startTime),
-		endTime: Math.round(line.endTime),
-		words: line.words.map((word) => ({
-			...word,
-			startTime: Math.round(word.startTime),
-			endTime: Math.round(word.endTime),
-		})),
-	}));
-
-const buildLyricExportContent = (lyric: TTMLLyric, fileName: string) => {
-	const ext = fileName.split(".").pop()?.toLowerCase() ?? "ttml";
-	const lyricForExport = buildLyricForExport(lyric.lyricLines);
-	if (ext === "lrc") return stringifyLrc(lyricForExport);
-	if (ext === "eslrc") return stringifyEslrc(lyricForExport);
-	if (ext === "qrc") return stringifyQrc(lyricForExport);
-	if (ext === "yrc") return stringifyYrc(lyricForExport);
-	if (ext === "lys") return stringifyLys(lyricForExport);
-	return exportTTMLText(lyric);
-};
-
 export const pushFileUpdateToGist = async (options: {
 	token: string;
 	prNumber: number;
 	prTitle: string;
 	fileName: string;
-	lyric: TTMLLyric;
+	content: string;
 }) => {
 	const trimmedFileName = options.fileName.trim() || "lyric.ttml";
-	const content = buildLyricExportContent(options.lyric, trimmedFileName);
 	const result = await createGithubGist(options.token, {
 		description: `AMLL TTML Tool update for PR #${options.prNumber} ${options.prTitle}`,
 		isPublic: false,
 		files: {
 			[trimmedFileName]: {
-				content,
+				content: options.content,
 			},
 		},
 	});

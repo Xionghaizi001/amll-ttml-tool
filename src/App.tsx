@@ -80,6 +80,7 @@ import { useAppUpdate } from "./utils/useAppUpdate.ts";
 import { syncPendingUpdateNotices } from "./modules/github/services/notice-service.ts";
 import { verifyGithubAccess } from "./modules/github/services/identity-service.ts";
 import { useReviewSessionLifecycle } from "./modules/review";
+import { setupDevTestHooks } from "./utils/test.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
@@ -291,31 +292,14 @@ function App() {
 	const { openFile } = useFileOpener();
 	useAudioFeedback();
 
-	// 正式推送前务必删除这段测试代码
 	useEffect(() => {
-		if (!import.meta.env.DEV) return;
-		const injectReviewFile = (
-			content: string,
-			options?: { filename?: string; prNumber?: number; prTitle?: string },
-		) => {
-			const filename = options?.filename ?? "review.ttml";
-			const file = new File([content], filename, { type: "text/plain" });
-			setReviewSession({
-				prNumber: options?.prNumber ?? 0,
-				prTitle: options?.prTitle ?? filename,
-				fileName: filename,
-				source: "review",
-			});
-			openFile(file);
-			setToolMode(ToolMode.Edit);
-		};
-		(window as typeof window & { injectReviewFile?: typeof injectReviewFile }).injectReviewFile =
-			injectReviewFile;
-		return () => {
-			const target = window as typeof window & { injectReviewFile?: typeof injectReviewFile };
-			delete target.injectReviewFile;
-		};
-	}, [openFile, setReviewSession, setToolMode]);
+		return setupDevTestHooks({
+			openFile,
+			setReviewSession,
+			setToolMode,
+			pushNotification: setPushNotification,
+		});
+	}, [openFile, setPushNotification, setReviewSession, setToolMode]);
 
 	useEffect(() => {
 		if (!import.meta.env.TAURI_ENV_PLATFORM) {
