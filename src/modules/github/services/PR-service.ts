@@ -19,6 +19,37 @@ export type PullRequestDetail = {
 	headSha?: string | null;
 };
 
+type PullRequestListItem = {
+	number: number;
+	title: string;
+	body?: string | null;
+	created_at: string;
+	html_url?: string;
+	head?: { sha?: string | null };
+	labels?: Array<{ name: string; color: string }>;
+};
+
+type PullRequestPageResult = {
+	status: number;
+	ok: boolean;
+	etag: string | null;
+	items: PullRequestDetail[];
+};
+
+const mapPullRequestListItem = (item: PullRequestListItem): PullRequestDetail => ({
+	number: item.number,
+	title: item.title ?? "",
+	body: item.body ?? "",
+	createdAt: item.created_at,
+	htmlUrl: item.html_url,
+	headSha: item.head?.sha ?? null,
+	labels:
+		item.labels?.map((label) => ({
+			name: label.name,
+			color: label.color,
+		})) ?? [],
+});
+
 export const fetchPendingUpdatePullRequest = async (
 	token: string,
 	login: string
@@ -60,7 +91,7 @@ export const fetchOpenPullRequestPage = async (options: {
 	perPage: number;
 	page: number;
 	etag?: string | null;
-}) => {
+}): Promise<PullRequestPageResult> => {
 	const headers: Record<string, string> = {
 		Accept: "application/vnd.github+json",
 		Authorization: `Bearer ${options.token}`,
@@ -68,7 +99,7 @@ export const fetchOpenPullRequestPage = async (options: {
 	if (options.etag) {
 		headers["If-None-Match"] = options.etag;
 	}
-	return githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
+	const response = await githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
 		params: {
 			state: "open",
 			per_page: options.perPage,
@@ -76,6 +107,24 @@ export const fetchOpenPullRequestPage = async (options: {
 		},
 		init: { headers },
 	});
+	const etag = response.headers.get("etag");
+	if (!response.ok) {
+		return {
+			status: response.status,
+			ok: response.ok,
+			etag,
+			items: [],
+		};
+	}
+	const items = ((await response.json()) as PullRequestListItem[]).map(
+		mapPullRequestListItem,
+	);
+	return {
+		status: response.status,
+		ok: response.ok,
+		etag,
+		items,
+	};
 };
 
 export const fetchPullRequestDetail = async (options: {

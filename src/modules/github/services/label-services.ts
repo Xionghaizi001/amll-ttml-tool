@@ -63,8 +63,8 @@ export const fetchLabels = async (options: {
 	token: string;
 	setReviewLabels: SetAtom<ReviewLabel[]>;
 	setHiddenLabels: SetAtom<string[]>;
-}) => {
-	if (!options.token) return;
+}): Promise<ReviewLabel[]> => {
+	if (!options.token) return [];
 	const response = await githubFetch(
 		`/repos/${REPO_OWNER}/${REPO_NAME}/labels`,
 		{
@@ -79,7 +79,7 @@ export const fetchLabels = async (options: {
 	);
 	if (!response.ok) {
 		options.setReviewLabels([]);
-		return;
+		return [];
 	}
 	const data = (await response.json()) as ReviewLabel[];
 	const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name));
@@ -90,6 +90,7 @@ export const fetchLabels = async (options: {
 	options.setHiddenLabels((prev) =>
 		prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
 	);
+	return sorted;
 };
 
 export const refreshPendingLabels = async (options: {

@@ -25,7 +25,6 @@ import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import {
 	fetchOpenPullRequestPage,
-	fetchPullRequestDetail,
 } from "$/modules/github/services/PR-service";
 import {
 	fetchLabels as fetchLabelsService,
@@ -40,15 +39,31 @@ import { useRemoteReviewService } from "./remote-service";
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";
 const RECORD_KEY = "open";
+const LABEL_CACHE_KEY = "labels";
+const PENDING_COMMIT_CACHE_KEY = "pending-commits";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
 const CACHE_TTL = 5 * 60 * 1000;
+const LABEL_CACHE_TTL = 30 * 60 * 1000;
+const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 
 type CachedPayload = {
 	key: string;
 	etag: string | null;
 	cachedAt: number;
 	items: ReviewPullRequest[];
+};
+
+type LabelCacheRecord = {
+	key: string;
+	cachedAt: number;
+	items: ReviewLabel[];
+};
+
+type PendingCommitCacheRecord = {
+	key: string;
+	cachedAt: number;
+	items: Record<number, { updated: boolean; cachedAt: number }>;
 };
 
 const dbPromise = openDB(DB_NAME, 1, {
@@ -94,6 +109,62 @@ const writeCache = async (items: ReviewPullRequest[], etag: string | null) => {
 	}
 };
 
+const readLabelCache = async () => {
+	try {
+		const db = await dbPromise;
+		const record = (await db.get(STORE_NAME, LABEL_CACHE_KEY)) as
+			| LabelCacheRecord
+			| undefined;
+		if (!record?.items) return null;
+		return record;
+	} catch {
+		return null;
+	}
+};
+
+const writeLabelCache = async (items: ReviewLabel[]) => {
+	try {
+		const db = await dbPromise;
+		const payload: LabelCacheRecord = {
+			key: LABEL_CACHE_KEY,
+			cachedAt: Date.now(),
+			items,
+		};
+		await db.put(STORE_NAME, payload);
+	} catch {
+		return;
+	}
+};
+
+const readPendingCommitCache = async () => {
+	try {
+		const db = await dbPromise;
+		const record = (await db.get(STORE_NAME, PENDING_COMMIT_CACHE_KEY)) as
+			| PendingCommitCacheRecord
+			| undefined;
+		if (!record?.items) return null;
+		return record;
+	} catch {
+		return null;
+	}
+};
+
+const writePendingCommitCache = async (
+	items: PendingCommitCacheRecord["items"],
+) => {
+	try {
+		const db = await dbPromise;
+		const payload: PendingCommitCacheRecord = {
+			key: PENDING_COMMIT_CACHE_KEY,
+			cachedAt: Date.now(),
+			items,
+		};
+		await db.put(STORE_NAME, payload);
+	} catch {
+		return;
+	}
+};
+
 export const useReviewPageLogic = () => {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
@@ -117,6 +188,9 @@ export const useReviewPageLogic = () => {
 	const pendingReviewModeSwitchRef = useRef(false);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
+	const pendingCommitCacheRef = useRef<
+		PendingCommitCacheRecord["items"]
+	>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
@@ -166,14 +240,35 @@ export const useReviewPageLogic = () => {
 		[],
 	);
 
+	const applyLabelCache = useCallback(
+		(labels: ReviewLabel[]) => {
+			const sorted = [...labels].sort((a, b) => a.name.localeCompare(b.name));
+			setReviewLabels(sorted);
+			const labelSet = new Set(
+				sorted.map((label) => label.name.trim().toLowerCase()),
+			);
+			setHiddenLabels((prev) =>
+				prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
+			);
+		},
+		[setHiddenLabels, setReviewLabels],
+	);
+
 	const fetchLabels = useCallback(
-		(token: string) =>
-			fetchLabelsService({
+		async (token: string) => {
+			const cached = await readLabelCache();
+			if (cached && Date.now() - cached.cachedAt < LABEL_CACHE_TTL) {
+				applyLabelCache(cached.items);
+				return;
+			}
+			const labels = await fetchLabelsService({
 				token,
 				setReviewLabels,
 				setHiddenLabels,
-			}),
-		[setHiddenLabels, setReviewLabels],
+			});
+			await writeLabelCache(labels);
+		},
+		[applyLabelCache, setHiddenLabels, setReviewLabels],
 	);
 
 	const refreshPendingLabels = useCallback(
@@ -185,6 +280,47 @@ export const useReviewPageLogic = () => {
 			}),
 		[hasPendingLabel],
 	);
+
+	useEffect(() => {
+		let cancelled = false;
+		const run = async () => {
+			const labelCache = await readLabelCache();
+			if (cancelled || !labelCache) return;
+			if (Date.now() - labelCache.cachedAt >= LABEL_CACHE_TTL) return;
+			applyLabelCache(labelCache.items);
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [applyLabelCache]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const run = async () => {
+			const record = await readPendingCommitCache();
+			if (cancelled || !record?.items) return;
+			const now = Date.now();
+			const freshItems: PendingCommitCacheRecord["items"] = {};
+			const mapped: Record<number, boolean> = {};
+			for (const [key, value] of Object.entries(record.items)) {
+				const prNumber = Number(key);
+				if (!Number.isFinite(prNumber)) continue;
+				if (now - value.cachedAt >= PENDING_COMMIT_CACHE_TTL) continue;
+				freshItems[prNumber] = value;
+				mapped[prNumber] = value.updated;
+			}
+			if (cancelled) return;
+			if (Object.keys(mapped).length > 0) {
+				setPostPendingCommitMap((prev) => ({ ...mapped, ...prev }));
+			}
+			pendingCommitCacheRef.current = freshItems;
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (remoteInitRef.current) return;
@@ -242,14 +378,30 @@ export const useReviewPageLogic = () => {
 		);
 		if (unknownItems.length === 0) return;
 		const run = async () => {
+			const now = Date.now();
+			const nextCache: PendingCommitCacheRecord["items"] = {
+				...pendingCommitCacheRef.current,
+			};
 			for (const item of unknownItems) {
+				const cached = nextCache[item.number];
+				if (cached && now - cached.cachedAt < PENDING_COMMIT_CACHE_TTL) {
+					setPostPendingCommitMap((prev) => {
+						if (prev[item.number] === cached.updated) return prev;
+						return { ...prev, [item.number]: cached.updated };
+					});
+					continue;
+				}
 				const updated = await hasPostLabelCommits(token, item.number);
 				if (cancelled) return;
+				nextCache[item.number] = { updated, cachedAt: Date.now() };
 				setPostPendingCommitMap((prev) => {
 					if (prev[item.number] === updated) return prev;
 					return { ...prev, [item.number]: updated };
 				});
 			}
+			if (cancelled) return;
+			pendingCommitCacheRef.current = nextCache;
+			await writePendingCommitCache(nextCache);
 		};
 		void run();
 		return () => {
@@ -453,28 +605,14 @@ export const useReviewPageLogic = () => {
 						break;
 					}
 					if (page === 1) {
-						etag = listResponse.headers.get("etag");
+						etag = listResponse.etag;
 						log("review list etag", etag);
 					}
-					const pageList = (await listResponse.json()) as Array<{
-						number: number;
-					}>;
+					const pageList = listResponse.items;
 					if (pageList.length === 0) {
 						break;
 					}
-					const detailItems = await Promise.all(
-						pageList.map(async (pr) => {
-							return fetchPullRequestDetail({
-								token,
-								prNumber: pr.number,
-							});
-						}),
-					);
-					for (const item of detailItems) {
-						if (item) {
-							result.push(item);
-						}
-					}
+					result.push(...pageList);
 					if (cancelled) return;
 					setItems([...result]);
 					if (pageList.length < perPage) {
