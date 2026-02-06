@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { createReviewUpdateNotificationHandler } from "$/modules/review/services/notification-service";
+import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import type { AppNotification } from "$/states/notifications";
-import type { ReviewSessionSource, ToolMode } from "$/states/main";
+import type { ToolMode } from "$/states/main";
 import { notificationCenterStyles } from "./notification-center.styles";
 import { PendingUpdateGroup } from "./pending-update-group";
 import { NotificationEntry } from "./notification-entry";
@@ -34,12 +34,6 @@ type NotificationCenterBodyProps = {
 	pat: string;
 	neteaseCookie: string;
 	setToolMode: (mode: ToolMode) => void;
-	setReviewSession: (value: {
-		prNumber: number;
-		prTitle: string;
-		fileName: string;
-		source: ReviewSessionSource;
-	}) => void;
 	setPushNotification: (
 		input: Omit<AppNotification, "id" | "createdAt"> & {
 			id?: string;
@@ -47,7 +41,7 @@ type NotificationCenterBodyProps = {
 		},
 	) => void;
 	audioLoadPendingId: string | null;
-	setAudioLoadPendingId: Dispatch<SetStateAction<string | null>>;
+	setAudioLoadPendingId: (value: string | null) => void;
 	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
 	getAccentColor: (
 		level: AppNotification["level"],
@@ -65,7 +59,6 @@ export const NotificationCenterBody = ({
 	pat,
 	neteaseCookie,
 	setToolMode,
-	setReviewSession,
 	setPushNotification,
 	audioLoadPendingId,
 	setAudioLoadPendingId,
@@ -115,13 +108,12 @@ export const NotificationCenterBody = ({
 	}, [closeNeteaseIdDialog, neteaseIdDialog.open, open]);
 	const handleOpenUpdate = createReviewUpdateNotificationHandler({
 		pat,
-		neteaseCookie,
 		openFile,
 		setToolMode,
-		setReviewSession,
 		pushNotification: setPushNotification,
-		audioLoadPendingId,
-		setAudioLoadPendingId,
+		neteaseCookie,
+		pendingId: audioLoadPendingId,
+		setPendingId: setAudioLoadPendingId,
 		setLastNeteaseIdByPr,
 		selectNeteaseId: requestNeteaseId,
 		onClose: () => setOpen(false),

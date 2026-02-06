@@ -2,7 +2,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useMemo, useState } from "react";
 import { githubPatAtom, neteaseCookieAtom } from "$/modules/settings/states";
 import { notificationCenterDialogAtom } from "$/states/dialogs";
-import { reviewSessionAtom, toolModeAtom } from "$/states/main";
+import { toolModeAtom } from "$/states/main";
 import {
 	clearNotificationsAtom,
 	notificationsAtom,
@@ -35,7 +35,6 @@ export const NotificationCenterDialog = () => {
 	const drafts = useAtomValue(reviewReportDraftsAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
-	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const clearNotifications = useSetAtom(clearNotificationsAtom);
@@ -122,7 +121,6 @@ export const NotificationCenterDialog = () => {
 			pat={pat}
 			neteaseCookie={neteaseCookie}
 			setToolMode={setToolMode}
-			setReviewSession={setReviewSession}
 			setPushNotification={setPushNotification}
 			audioLoadPendingId={audioLoadPendingId}
 			setAudioLoadPendingId={setAudioLoadPendingId}

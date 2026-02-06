@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
-import type { TTMLLyric } from "$/types/ttml";
+import type { LyricLine, TTMLLyric } from "$/types/ttml";
 import { githubFetch } from "$/modules/github/api";
 import { pushFileUpdateToGist } from "$/modules/github/services/gist-service";
 import {
@@ -8,10 +7,19 @@ import {
 	fetchPullRequestStatus,
 } from "$/modules/github/services/PR-service";
 import type { AppNotification } from "$/states/notifications";
-import { parseReviewMetadata } from "$/modules/review/services/card-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
+import { ToolMode } from "$/states/main";
+import { parseLyric } from "$/modules/project/logic/ttml-parser";
+import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
-import { ToolMode, type ReviewSessionSource } from "$/states/main";
+import type { Dispatch, SetStateAction } from "react";
+import {
+	stringifyEslrc,
+	stringifyLrc,
+	stringifyLys,
+	stringifyQrc,
+	stringifyYrc,
+} from "@applemusic-like-lyrics/lyric";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
@@ -35,12 +43,50 @@ type FileUpdateSession = {
 	fileName: string;
 };
 
+const buildLyricForExport = (lines: LyricLine[]) =>
+	lines.map((line) => ({
+		...line,
+		startTime: Math.round(line.startTime),
+		endTime: Math.round(line.endTime),
+		words: line.words.map((word) => ({
+			...word,
+			startTime: Math.round(word.startTime),
+			endTime: Math.round(word.endTime),
+		})),
+	}));
+
+const buildLyricExportContent = (lyric: TTMLLyric, fileName: string) => {
+	const ext = fileName.split(".").pop()?.toLowerCase() ?? "ttml";
+	const lyricForExport = buildLyricForExport(lyric.lyricLines);
+	if (ext === "lrc") return stringifyLrc(lyricForExport);
+	if (ext === "eslrc") return stringifyEslrc(lyricForExport);
+	if (ext === "qrc") return stringifyQrc(lyricForExport);
+	if (ext === "yrc") return stringifyYrc(lyricForExport);
+	if (ext === "lys") return stringifyLys(lyricForExport);
+	return exportTTMLText(lyric);
+};
+
 const requirePullRequestDetail = async (token: string, prNumber: number) => {
 	const detail = await fetchPullRequestDetail({ token, prNumber });
 	if (!detail) {
 		throw new Error("load-pr-detail-failed");
 	}
 	return detail;
+};
+
+const readNeteaseIdsFromFile = async (file: File) => {
+	try {
+		const text = await file.text();
+		const lyric = parseLyric(text);
+		const idValues = lyric.metadata
+			.filter((entry) => entry.key.toLowerCase() === "ncmmusicid")
+			.flatMap((entry) => entry.value)
+			.map((value) => value.trim())
+			.filter(Boolean);
+		return Array.from(new Set(idValues));
+	} catch {
+		return [];
+	}
 };
 
 const createPullRequestComment = async (
@@ -75,12 +121,6 @@ export const openReviewUpdateFromNotification = async (options: {
 	prTitle: string;
 	openFile: OpenFile;
 	setToolMode: (mode: ToolMode) => void;
-	setReviewSession: (value: {
-		prNumber: number;
-		prTitle: string;
-		fileName: string;
-		source: ReviewSessionSource;
-	}) => void;
 	pushNotification: PushNotification;
 	neteaseCookie: string;
 	pendingId: string | null;
@@ -88,11 +128,7 @@ export const openReviewUpdateFromNotification = async (options: {
 	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
 	selectNeteaseId?: (ids: string[]) => Promise<string | null> | string | null;
 }) => {
-	const detail = await requirePullRequestDetail(
-		options.token,
-		options.prNumber,
-	);
-	const prTitle = detail.title || options.prTitle;
+	await requirePullRequestDetail(options.token, options.prNumber);
 	const fileResult = await loadFileFromPullRequest({
 		token: options.token,
 		prNumber: options.prNumber,
@@ -101,27 +137,18 @@ export const openReviewUpdateFromNotification = async (options: {
 		options.pushNotification({
 			title: "未找到可打开的歌词文件",
 			level: "warning",
-			source: "github",
+			source: "user-PR-update",
 		});
 		return;
 	}
-	options.setReviewSession({
-		prNumber: options.prNumber,
-		prTitle,
-		fileName: fileResult.fileName,
-		source: "update",
-	});
 	options.openFile(fileResult.file);
 	options.setToolMode(ToolMode.Edit);
-	const ncmIds = detail.body
-		? parseReviewMetadata(detail.body).ncmId
-		: [];
-	const cleanedNcmIds = ncmIds.map((id) => id.trim()).filter(Boolean);
+	const cleanedIds = await readNeteaseIdsFromFile(fileResult.file);
 	const trimmedCookie = options.neteaseCookie.trim();
-	if (!trimmedCookie || cleanedNcmIds.length === 0) return;
-	let selectedId = cleanedNcmIds[0];
+	if (cleanedIds.length === 0) return;
+	let selectedId = cleanedIds[0];
 	if (options.selectNeteaseId) {
-		const resolved = await options.selectNeteaseId(cleanedNcmIds);
+		const resolved = await options.selectNeteaseId(cleanedIds);
 		if (!resolved) return;
 		selectedId = resolved;
 	}
@@ -229,7 +256,7 @@ export const requestFileUpdatePush = (options: {
 		options.pushNotification({
 			title: "请先在设置中登录以提交更新",
 			level: "error",
-			source: "review",
+			source: "user-PR-update",
 		});
 		return;
 	}
@@ -256,7 +283,10 @@ export const requestFileUpdatePush = (options: {
 						prNumber: options.session.prNumber,
 						prTitle: options.session.prTitle,
 						fileName: options.session.fileName,
-						lyric: options.lyric,
+						content: buildLyricExportContent(
+							options.lyric,
+							options.session.fileName,
+						),
 					});
 					await pushFileUpdateComment({
 						token,
@@ -267,7 +297,7 @@ export const requestFileUpdatePush = (options: {
 					options.pushNotification({
 						title: "已推送更新",
 						level: "info",
-						source: "github",
+						source: "user-PR-update",
 					});
 					const startedAt = new Date().toISOString();
 					pollFileUpdateStatus({
