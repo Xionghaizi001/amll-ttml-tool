@@ -19,6 +19,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uid } from "uid";
 import { githubFetch } from "$/modules/github/api";
+import { mergePullRequest } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
@@ -496,19 +497,11 @@ export const ReviewReportDialog = () => {
 				}
 				setApprovedByUser(true);
 			}
-			const response = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/merge`,
-				{
-					init: {
-						method: "PUT",
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-							"Content-Type": "application/json",
-						},
-					},
-				},
-			);
+			const response = await mergePullRequest({
+				token,
+				prNumber: dialog.prNumber,
+				mergeMethod: "squash",
+			});
 			if (!response.ok) {
 				setPushNotification({
 					title: `合并失败：${response.status}`,

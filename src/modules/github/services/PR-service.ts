@@ -144,6 +144,25 @@ export const fetchPullRequestComments = async (options: {
 	}>;
 };
 
+export const mergePullRequest = async (options: {
+	token: string;
+	prNumber: number;
+	mergeMethod?: "merge" | "squash" | "rebase";
+}) =>
+	githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${options.prNumber}/merge`, {
+		init: {
+			method: "PUT",
+			headers: {
+				Accept: "application/vnd.github+json",
+				Authorization: `Bearer ${options.token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				merge_method: options.mergeMethod ?? "squash",
+			}),
+		},
+	});
+
 export const fetchPullRequestStatus = async (options: {
 	token: string;
 	prNumber: number;
