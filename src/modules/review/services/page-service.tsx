@@ -267,6 +267,10 @@ const ReviewPage = () => {
 					const isExpanded = expandedCard?.pr.number === pr.number;
 					const isPlaceholder =
 						isExpanded && expandedCard?.phase === "open";
+					const placeholderStyle =
+						isPlaceholder && expandedCard
+							? { height: expandedCard.from.height }
+							: undefined;
 					return (
 						<Card
 							key={pr.number}
@@ -275,6 +279,7 @@ const ReviewPage = () => {
 							} ${isPlaceholder ? styles.cardPlaceholder : ""}`}
 							onClick={(event) => handleCardClick(pr, event)}
 							ref={setCardRef(pr.number)}
+							style={placeholderStyle}
 						>
 							{isPlaceholder
 								? null
