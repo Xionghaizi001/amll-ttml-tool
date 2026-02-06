@@ -2,14 +2,18 @@ import {
 	Box,
 	Button,
 	Card,
+	Dialog,
 	Flex,
 	Heading,
+	ScrollArea,
 	Text,
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { verifyGithubAccess } from "$/modules/github/services/identity-service";
 import {
 	githubAmlldbAccessAtom,
@@ -19,6 +23,7 @@ import {
 	reviewLabelsAtom,
 } from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
+import patGuide from "../utils/pat-guide.md?raw";
 
 const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
@@ -36,6 +41,7 @@ export const GithubLoginCard = () => {
 	const [message, setMessage] = useState("");
 	const [hasPrivilegedAccess, setHasPrivilegedAccess] = useState(false);
 	const [useNormalIdentity, setUseNormalIdentity] = useState(false);
+	const [patHelpOpen, setPatHelpOpen] = useState(false);
 	const lastNotifiedMessage = useRef("");
 	const shouldNotifyAuth = useRef(false);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
@@ -299,16 +305,59 @@ export const GithubLoginCard = () => {
 						<Text as="label" size="2">
 							{t("settings.connect.patLabel", "GitHub PAT")}
 						</Text>
-						<TextField.Root
-							type="password"
-							placeholder={t(
-								"settings.connect.patPlaceholder",
-								"输入你的 GitHub Personal Access Token",
-							)}
-							value={pat}
-							onChange={(e) => setPat(e.currentTarget.value)}
-							autoComplete="off"
-						/>
+						<Flex align="center" gap="2">
+							<TextField.Root
+								type="password"
+								placeholder={t(
+									"settings.connect.patPlaceholder",
+									"输入你的 GitHub Personal Access Token",
+								)}
+								value={pat}
+								onChange={(e) => setPat(e.currentTarget.value)}
+								autoComplete="off"
+								style={{ flex: 1 }}
+							/>
+							<Dialog.Root open={patHelpOpen} onOpenChange={setPatHelpOpen}>
+								<Button
+									size="1"
+									variant="soft"
+									onClick={() => setPatHelpOpen(true)}
+								>
+									{t("settings.connect.patHelp", "申请 PAT")}
+								</Button>
+								<Dialog.Content style={{ maxWidth: "640px" }}>
+									<Dialog.Title>
+										{t("settings.connect.patGuideTitle", "GitHub PAT 申请指引")}
+									</Dialog.Title>
+									<Dialog.Description size="2" color="gray" mb="3">
+										{t(
+											"settings.connect.patGuideDesc",
+											"按步骤创建访问令牌后粘贴到上方输入框即可。",
+										)}
+									</Dialog.Description>
+									<ScrollArea
+										type="auto"
+										scrollbars="vertical"
+										style={{ maxHeight: "360px" }}
+									>
+										<Box>
+											<ReactMarkdown remarkPlugins={[remarkGfm]}>
+												{patGuide}
+											</ReactMarkdown>
+										</Box>
+									</ScrollArea>
+									<Flex justify="end" mt="4">
+										<Button
+											variant="soft"
+											color="gray"
+											onClick={() => setPatHelpOpen(false)}
+										>
+											{t("common.close", "关闭")}
+										</Button>
+									</Flex>
+								</Dialog.Content>
+							</Dialog.Root>
+						</Flex>
 					</Box>
 
 					<Flex gap="2" align="center" wrap="wrap">

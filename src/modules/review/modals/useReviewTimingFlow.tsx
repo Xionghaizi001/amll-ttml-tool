@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
@@ -15,9 +15,16 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main";
-import { githubAmlldbAccessAtom, githubPatAtom } from "$/modules/settings/states";
+import {
+	githubAmlldbAccessAtom,
+	githubPatAtom,
+	neteaseCookieAtom,
+} from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric } from "$/types/ttml";
+import { useFileOpener } from "$/hooks/useFileOpener";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
+import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { requestFileUpdatePush } from "$/modules/user/services/pr/update-service";
 import { ReviewActionGroup } from "$/components/TitleBar/modals/ReviewActionGroup";
 import {
@@ -29,6 +36,8 @@ import {
 	type SyncChangeCandidate,
 	type TimeAxisStashItem,
 } from "$/modules/review/services/report-service";
+import { fetchPullRequestDetail } from "$/modules/github/services/PR-service";
+import { parseReviewMetadata } from "$/modules/review/services/card-service";
 import { StashDialog } from "./StashDialog";
 
 export const useReviewTimingFlow = () => {
@@ -52,6 +61,8 @@ export const useReviewTimingFlow = () => {
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const canReview = useAtomValue(githubAmlldbAccessAtom);
+	const neteaseCookie = useAtomValue(neteaseCookieAtom);
+	const { openFile } = useFileOpener();
 	const { t } = useTranslation();
 	const [timeAxisCandidates, setTimeAxisCandidates] = useState<SyncChangeCandidate[]>(
 		[],
@@ -62,6 +73,17 @@ export const useReviewTimingFlow = () => {
 	);
 	const [timeAxisStashSelected, setTimeAxisStashSelected] = useState<Set<string>>(
 		new Set(),
+	);
+	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
+		null,
+	);
+	const [, setLastNeteaseIdByPr] = useState<Record<number, string>>({});
+	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
+		open: boolean;
+		ids: string[];
+	}>({ open: false, ids: [] });
+	const neteaseIdResolveRef = useRef<((id: string | null) => void) | null>(
+		null,
 	);
 
 	const timeAxisCandidateMap = useMemo(() => {
@@ -254,6 +276,114 @@ export const useReviewTimingFlow = () => {
 			return next;
 		});
 	}, [timeAxisStashItems]);
+
+	const closeNeteaseIdDialog = useCallback(() => {
+		if (neteaseIdResolveRef.current) {
+			neteaseIdResolveRef.current(null);
+			neteaseIdResolveRef.current = null;
+		}
+		setNeteaseIdDialog({ open: false, ids: [] });
+	}, []);
+
+	const handleSelectNeteaseId = useCallback((id: string) => {
+		if (neteaseIdResolveRef.current) {
+			neteaseIdResolveRef.current(id);
+			neteaseIdResolveRef.current = null;
+		}
+		setNeteaseIdDialog({ open: false, ids: [] });
+	}, []);
+
+	const requestNeteaseId = useCallback((ids: string[]) => {
+		if (ids.length <= 1) {
+			return ids[0] ?? null;
+		}
+		if (neteaseIdResolveRef.current) {
+			neteaseIdResolveRef.current(null);
+		}
+		setNeteaseIdDialog({ open: true, ids });
+		return new Promise<string | null>((resolve) => {
+			neteaseIdResolveRef.current = resolve;
+		});
+	}, []);
+
+	useEffect(() => {
+		if (reviewSession || !neteaseIdDialog.open) return;
+		closeNeteaseIdDialog();
+	}, [closeNeteaseIdDialog, neteaseIdDialog.open, reviewSession]);
+
+	const onSwitchAudio = useCallback(async () => {
+		if (!reviewSession?.prNumber) {
+			setPushNotification({
+				title: "当前文件没有关联 PR，无法切换音频",
+				level: "warning",
+				source: "review",
+			});
+			return;
+		}
+		if (!canReview) {
+			setPushNotification({
+				title: "当前账号无权限切换音频",
+				level: "error",
+				source: "review",
+			});
+			return;
+		}
+		const token = pat.trim();
+		if (!token) {
+			setPushNotification({
+				title: "请先在设置中登录以切换音频",
+				level: "error",
+				source: "review",
+			});
+			return;
+		}
+		const cookie = neteaseCookie.trim();
+		if (!cookie) {
+			setPushNotification({
+				title: "请先登录网易云音乐以切换音频",
+				level: "error",
+				source: "ncm",
+			});
+			return;
+		}
+		if (audioLoadPendingId) return;
+		const detail = await fetchPullRequestDetail({
+			token,
+			prNumber: reviewSession.prNumber,
+		});
+		const metadata = detail?.body ? parseReviewMetadata(detail.body) : null;
+		const cleanedIds =
+			metadata?.ncmId.map((id) => id.trim()).filter(Boolean) ?? [];
+		if (cleanedIds.length === 0) {
+			setPushNotification({
+				title: "未找到可切换的网易云音乐 ID",
+				level: "warning",
+				source: "review",
+			});
+			return;
+		}
+		const selectedId = await requestNeteaseId(cleanedIds);
+		if (!selectedId) return;
+		await loadNeteaseAudio({
+			prNumber: reviewSession.prNumber,
+			id: selectedId,
+			pendingId: audioLoadPendingId,
+			setPendingId: setAudioLoadPendingId,
+			setLastNeteaseIdByPr,
+			openFile,
+			pushNotification: setPushNotification,
+			cookie,
+		});
+	}, [
+		audioLoadPendingId,
+		canReview,
+		neteaseCookie,
+		openFile,
+		pat,
+		reviewSession,
+		requestNeteaseId,
+		setPushNotification,
+	]);
 
 	const requestUpdatePush = useCallback(
 		(session: NonNullable<typeof reviewSession>, lyric: TTMLLyric) => {
@@ -498,19 +628,27 @@ export const useReviewTimingFlow = () => {
 	]);
 
 	const dialogs = (
-		<StashDialog
-			open={timeAxisStashOpen}
-			onOpenChange={setTimeAxisStashOpen}
-			stashCards={timeAxisStashCards}
-			selectedIds={timeAxisStashSelected}
-			stashItemsCount={timeAxisStashItems.length}
-			onToggleItem={onToggleStashItem}
-			onClose={() => setTimeAxisStashOpen(false)}
-			onRemoveSelected={onRemoveStashSelected}
-			onClear={onClearStash}
-			onConfirm={onConfirmStash}
-			t={t}
-		/>
+		<>
+			<StashDialog
+				open={timeAxisStashOpen}
+				onOpenChange={setTimeAxisStashOpen}
+				stashCards={timeAxisStashCards}
+				selectedIds={timeAxisStashSelected}
+				stashItemsCount={timeAxisStashItems.length}
+				onToggleItem={onToggleStashItem}
+				onClose={() => setTimeAxisStashOpen(false)}
+				onRemoveSelected={onRemoveStashSelected}
+				onClear={onClearStash}
+				onConfirm={onConfirmStash}
+				t={t}
+			/>
+			<NeteaseIdSelectDialog
+				open={neteaseIdDialog.open}
+				ids={neteaseIdDialog.ids}
+				onSelect={handleSelectNeteaseId}
+				onClose={closeNeteaseIdDialog}
+			/>
+		</>
 	);
 
 	return {
@@ -518,6 +656,9 @@ export const useReviewTimingFlow = () => {
 		openTimeAxisStash,
 		onReviewCancel,
 		onReviewComplete,
+		onSwitchAudio,
+		switchAudioEnabled: Boolean(reviewSession?.prNumber) && !audioLoadPendingId,
+		canReview,
 	};
 };
 
@@ -525,8 +666,15 @@ export const useReviewTitleBar = (options?: {
 	actionGroupClassName?: string;
 }) => {
 	const reviewSession = useAtomValue(reviewSessionAtom);
-	const { dialogs, openTimeAxisStash, onReviewComplete, onReviewCancel } =
-		useReviewTimingFlow();
+	const {
+		dialogs,
+		openTimeAxisStash,
+		onReviewComplete,
+		onReviewCancel,
+		onSwitchAudio,
+		switchAudioEnabled,
+		canReview,
+	} = useReviewTimingFlow();
 
 	const showStash = reviewSession?.source !== "update";
 	const actionGroup = reviewSession ? (
@@ -535,6 +683,9 @@ export const useReviewTitleBar = (options?: {
 			showStash={showStash}
 			stashEnabled={Boolean(showStash)}
 			onOpenStash={openTimeAxisStash}
+			showSwitchAudio={canReview}
+			switchAudioEnabled={switchAudioEnabled}
+			onSwitchAudio={onSwitchAudio}
 			onComplete={onReviewComplete}
 			onCancel={onReviewCancel}
 		/>

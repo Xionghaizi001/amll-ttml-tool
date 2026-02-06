@@ -113,6 +113,7 @@ export const useReviewPageLogic = () => {
 	const setRemoveNotification = useSetAtom(removeNotificationAtom);
 	const { initFromUrl } = useRemoteReviewService();
 	const remoteInitRef = useRef(false);
+	const pendingReviewModeSwitchRef = useRef(false);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
@@ -284,7 +285,11 @@ export const useReviewPageLogic = () => {
 			prNumber: null,
 			ids: [],
 		});
-	}, []);
+		if (pendingReviewModeSwitchRef.current) {
+			pendingReviewModeSwitchRef.current = false;
+			setToolMode(ToolMode.Edit);
+		}
+	}, [setToolMode]);
 
 	const handleSelectNeteaseId = useCallback(
 		(id: string) => {
@@ -348,9 +353,15 @@ export const useReviewPageLogic = () => {
 					source: "review",
 				});
 				openFile(fileResult.file);
-				setToolMode(ToolMode.Edit);
-				if (ids.length > 0) {
-					handleLoadNeteaseAudio(pr.number, ids);
+				const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
+				if (cleanedIds.length > 0) {
+					if (cleanedIds.length > 1) {
+						pendingReviewModeSwitchRef.current = true;
+					}
+					handleLoadNeteaseAudio(pr.number, cleanedIds);
+				}
+				if (!pendingReviewModeSwitchRef.current) {
+					setToolMode(ToolMode.Edit);
 				}
 			} catch {
 				setPushNotification({
