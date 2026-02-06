@@ -34,6 +34,8 @@ export const GithubLoginCard = () => {
 	const [labels, setLabels] = useAtom(reviewLabelsAtom);
 	const [status, setStatus] = useState<AuthStatus>("idle");
 	const [message, setMessage] = useState("");
+	const [hasPrivilegedAccess, setHasPrivilegedAccess] = useState(false);
+	const [useNormalIdentity, setUseNormalIdentity] = useState(false);
 	const lastNotifiedMessage = useRef("");
 	const shouldNotifyAuth = useRef(false);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
@@ -44,6 +46,8 @@ export const GithubLoginCard = () => {
 		if (!trimmedPat) {
 			setStatus("idle");
 			setMessage("");
+			setHasPrivilegedAccess(false);
+			setUseNormalIdentity(false);
 			setLogin("");
 			setHasAccess(false);
 			setLabels([]);
@@ -54,6 +58,8 @@ export const GithubLoginCard = () => {
 		if (!trimmedPat) {
 			setStatus("error");
 			setMessage(t("settings.connect.emptyPat", "请输入 GitHub PAT"));
+			setHasPrivilegedAccess(false);
+			setUseNormalIdentity(false);
 			setLogin("");
 			setHasAccess(false);
 			return;
@@ -65,25 +71,37 @@ export const GithubLoginCard = () => {
 
 		const result = await verifyGithubAccess(trimmedPat, REPO_OWNER, REPO_NAME);
 		if (result.status === "authorized") {
+			setHasPrivilegedAccess(true);
 			setLogin(result.login);
-			setHasAccess(true);
-			setStatus("authorized");
-			setMessage(
-				t("settings.connect.authorized", "已验证：{login}", {
-					login: result.login,
-				}),
-			);
-			setLabels(result.labels);
-			const labelSet = new Set(
-				result.labels.map((label) => label.name.trim().toLowerCase()),
-			);
-			setHiddenLabels((prev) =>
-				prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
-			);
+			if (useNormalIdentity) {
+				setHasAccess(false);
+				setStatus("unauthorized");
+				setMessage(
+					t("settings.connect.normalIdentity", "已切换为普通用户"),
+				);
+				setLabels([]);
+			} else {
+				setHasAccess(true);
+				setStatus("authorized");
+				setMessage(
+					t("settings.connect.authorized", "已验证：{login}", {
+						login: result.login,
+					}),
+				);
+				setLabels(result.labels);
+				const labelSet = new Set(
+					result.labels.map((label) => label.name.trim().toLowerCase()),
+				);
+				setHiddenLabels((prev) =>
+					prev.filter((label) => labelSet.has(label.trim().toLowerCase())),
+				);
+			}
 			return;
 		}
 
 		if (result.status === "unauthorized") {
+			setHasPrivilegedAccess(false);
+			setUseNormalIdentity(false);
 			setLogin(result.login);
 			setHasAccess(false);
 			setStatus("unauthorized");
@@ -99,6 +117,8 @@ export const GithubLoginCard = () => {
 
 		setLogin("");
 		setHasAccess(false);
+		setHasPrivilegedAccess(false);
+		setUseNormalIdentity(false);
 		setLabels([]);
 		if (result.status === "invalid-token") {
 			setStatus("error");
@@ -135,6 +155,7 @@ export const GithubLoginCard = () => {
 		setMessage(t("settings.connect.networkError", "网络请求失败"));
 	}, [
 		trimmedPat,
+		useNormalIdentity,
 		setHasAccess,
 		setHiddenLabels,
 		setLabels,
@@ -145,6 +166,7 @@ export const GithubLoginCard = () => {
 	useEffect(() => {
 		if (!trimmedPat) return;
 		if (status === "checking") return;
+		if (useNormalIdentity) return;
 		const trimmedLogin = login.trim();
 		if (trimmedLogin && hasAccess) {
 			setStatus("authorized");
@@ -165,7 +187,7 @@ export const GithubLoginCard = () => {
 		if (status === "idle") {
 			setMessage("");
 		}
-	}, [trimmedPat, login, hasAccess, status, t]);
+	}, [trimmedPat, login, hasAccess, status, t, useNormalIdentity]);
 
 	const hiddenLabelSet = useMemo(
 		() =>
@@ -208,6 +230,19 @@ export const GithubLoginCard = () => {
 		},
 		[setHiddenLabels],
 	);
+
+	const toggleIdentity = useCallback(() => {
+		if (useNormalIdentity) {
+			setUseNormalIdentity(false);
+			void verifyAccess();
+			return;
+		}
+		setUseNormalIdentity(true);
+		setHasAccess(false);
+		setStatus("unauthorized");
+		setMessage(t("settings.connect.normalIdentity", "已切换为普通用户"));
+		setLabels([]);
+	}, [setHasAccess, setLabels, t, useNormalIdentity, verifyAccess]);
 
 	useEffect(() => {
 		if (!message || status === "checking") return;
@@ -419,6 +454,13 @@ export const GithubLoginCard = () => {
 							</Flex>
 						</details>
 					</Box>
+					{(hasPrivilegedAccess || useNormalIdentity) && (
+						<Button variant="soft" onClick={toggleIdentity}>
+							{useNormalIdentity
+								? t("settings.connect.restoreIdentity", "恢复特权身份")
+								: t("settings.connect.switchIdentity", "切换为普通用户")}
+						</Button>
+					)}
 					<Button asChild variant="soft">
 						<a
 							href={

@@ -29,8 +29,7 @@ export const renderExpandedContent = (options: {
 	hiddenLabelSet: Set<string>;
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
-	onLoadNeteaseAudio: (prNumber: number, id: string) => void;
-	onOpenFile: (pr: ReviewPullRequest) => void;
+	onOpenFile: (pr: ReviewPullRequest, ids: string[]) => void;
 	repoOwner: string;
 	repoName: string;
 	styles: Record<string, string>;
@@ -42,17 +41,18 @@ export const renderExpandedContent = (options: {
 	);
 	const metadata = parseReviewMetadata(options.pr.body);
 	const remarkText = metadata.remark.join("\n").trim();
+	const neteaseIds = metadata.ncmId.filter(Boolean);
 	const platformItems = [
 		{
-			id: metadata.ncmId[0],
+			ids: neteaseIds,
 			label: "网易云音乐",
 			icon: NeteaseIcon,
-			url: metadata.ncmId[0]
-				? `https://music.163.com/#/song?id=${metadata.ncmId[0]}`
+			url: neteaseIds[0]
+				? `https://music.163.com/#/song?id=${neteaseIds[0]}`
 				: null,
 		},
 		{
-			id: metadata.qqMusicId[0],
+			ids: metadata.qqMusicId[0] ? [metadata.qqMusicId[0]] : [],
 			label: "QQ音乐",
 			icon: QQMusicIcon,
 			url: metadata.qqMusicId[0]
@@ -60,7 +60,7 @@ export const renderExpandedContent = (options: {
 				: null,
 		},
 		{
-			id: metadata.spotifyId[0],
+			ids: metadata.spotifyId[0] ? [metadata.spotifyId[0]] : [],
 			label: "Spotify",
 			icon: SpotifyIcon,
 			url: metadata.spotifyId[0]
@@ -68,14 +68,16 @@ export const renderExpandedContent = (options: {
 				: null,
 		},
 		{
-			id: metadata.appleMusicId[0],
+			ids: metadata.appleMusicId[0] ? [metadata.appleMusicId[0]] : [],
 			label: "Apple Music",
 			icon: AppleMusicIcon,
 			url: metadata.appleMusicId[0]
 				? `https://music.apple.com/song/${metadata.appleMusicId[0]}`
 				: null,
 		},
-	].filter((item) => item.id && item.url);
+	].filter((item) =>
+		item.ids.length > 0 && (item.label === "网易云音乐" || item.url),
+	);
 	const prUrl = `https://github.com/${options.repoOwner}/${options.repoName}/pull/${options.pr.number}`;
 	const mentionUrl = mention ? `https://github.com/${mention}` : null;
 	return (
@@ -231,55 +233,56 @@ export const renderExpandedContent = (options: {
 						>
 							{platformItems.map((item) => {
 								const Icon = item.icon;
-								const idText = item.id ?? "";
 								const isNetease = item.label === "网易云音乐";
-								const isLoading = options.audioLoadPendingId === idText;
-								const isLastOpened =
-									options.lastNeteaseIdByPr[options.pr.number] === idText;
+								const idText = item.ids[0] ?? "";
 								return (
-									<details key={item.label} className={options.styles.treeItem}>
-										<summary className={options.styles.treeSummary}>
-											<Flex
-												align="center"
-												gap="2"
-												className={options.styles.platformItem}
-											>
-												<Icon className={options.styles.platformIcon} />
-												<Text size="2" weight="bold">
-													{item.label}
-												</Text>
+									<Flex
+										key={item.label}
+										align="center"
+										justify="between"
+										className={options.styles.platformItem}
+									>
+										<Flex align="center" gap="2">
+											<Icon className={options.styles.platformIcon} />
+											<Text size="2" weight="bold">
+												{item.label}
+											</Text>
+										</Flex>
+										{isNetease ? (
+											<Flex wrap="wrap" gap="2">
+												{item.ids.map((id) => {
+													const isLoading = options.audioLoadPendingId === id;
+													const isLastOpened =
+														options.lastNeteaseIdByPr[options.pr.number] === id;
+													return (
+														<Button
+															key={id}
+															size="1"
+															onClick={() =>
+																options.onOpenFile(options.pr, [id])
+															}
+															disabled={isLoading}
+															{...(isLastOpened
+																? { variant: "soft", color: "blue" }
+																: {})}
+														>
+															{isLoading ? "加载中..." : id}
+														</Button>
+													);
+												})}
 											</Flex>
-										</summary>
-										<Box className={options.styles.treeContent}>
-											{isNetease ? (
-												<Button
-													size="1"
-													onClick={() =>
-														options.onLoadNeteaseAudio(
-															options.pr.number,
-															idText,
-														)
-													}
-													disabled={isLoading}
-													{...(isLastOpened
-														? { variant: "soft", color: "blue" }
-														: {})}
+										) : (
+											<Button asChild size="1" variant="soft" color="gray">
+												<a
+													href={item.url ?? undefined}
+													target="_blank"
+													rel="noreferrer"
 												>
-													{isLoading ? "加载中..." : idText}
-												</Button>
-											) : (
-												<Button asChild size="1" variant="soft" color="gray">
-													<a
-														href={item.url ?? undefined}
-														target="_blank"
-														rel="noreferrer"
-													>
-														{idText}
-													</a>
-												</Button>
-											)}
-										</Box>
-									</details>
+													{idText}
+												</a>
+											</Button>
+										)}
+									</Flex>
 								);
 							})}
 						</Flex>
@@ -308,7 +311,10 @@ export const renderExpandedContent = (options: {
 					gap="2"
 					className={options.styles.overlayFooter}
 				>
-					<Button onClick={() => options.onOpenFile(options.pr)} size="2">
+					<Button
+						onClick={() => options.onOpenFile(options.pr, neteaseIds)}
+						size="2"
+					>
 						<Flex align="center" gap="2">
 							<ArrowSquareUpRight20Regular className={options.styles.icon} />
 							<Text size="2">打开文件</Text>

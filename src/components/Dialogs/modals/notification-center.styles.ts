@@ -11,12 +11,9 @@ export const notificationCenterStyles = {
 	detailsRoot: {
 		width: "100%",
 	} satisfies CSSProperties,
-	detailsSummary: {
-		listStyle: "none",
-		cursor: "pointer",
-	} satisfies CSSProperties,
-	pendingGroupCard: (accentColor: string): CSSProperties => ({
+	pendingGroupHeader: (accentColor: string): CSSProperties => ({
 		borderLeft: `3px solid var(--${accentColor}-9)`,
+		cursor: "pointer",
 	}),
 	groupArrow: (open: boolean): CSSProperties => ({
 		display: "inline-block",

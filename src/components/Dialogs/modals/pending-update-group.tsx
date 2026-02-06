@@ -1,4 +1,5 @@
 import { Badge, Box, Button, Card, Flex, Text } from "@radix-ui/themes";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AppNotification } from "$/states/notifications";
@@ -33,16 +34,22 @@ export const PendingUpdateGroup = ({
 			.sort((a, b) => b.localeCompare(a))[0];
 	}, [items]);
 	const accentColor = getAccentColor("info");
+	const toggleOpen = () => {
+		setOpen((prev) => !prev);
+	};
 	return (
-		<details
-			open={open}
-			onToggle={(event) => {
-				setOpen(event.currentTarget.open);
-			}}
-			style={notificationCenterStyles.detailsRoot}
+		<motion.div
+			layout
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: -8 }}
+			transition={{ duration: 0.18 }}
 		>
-			<summary style={notificationCenterStyles.detailsSummary}>
-				<Card style={notificationCenterStyles.pendingGroupCard(accentColor)}>
+			<div style={notificationCenterStyles.detailsRoot}>
+				<Card
+					style={notificationCenterStyles.pendingGroupHeader(accentColor)}
+					onClick={toggleOpen}
+				>
 					<Flex align="start" justify="between" gap="3">
 						<Flex
 							align="center"
@@ -88,7 +95,6 @@ export const PendingUpdateGroup = ({
 								variant="soft"
 								color={accentColor}
 								onClick={(event) => {
-									event.preventDefault();
 									event.stopPropagation();
 									onClearGroup();
 								}}
@@ -98,20 +104,35 @@ export const PendingUpdateGroup = ({
 						</Flex>
 					</Flex>
 				</Card>
-			</summary>
-			<Box mt="2" style={notificationCenterStyles.groupListOffset}>
-				<Flex direction="column" gap="2">
-					{items.map((item) => (
-						<NotificationEntry
-							key={item.id}
-							item={item}
-							onOpenUpdate={onOpenUpdate}
-							formatTime={formatTime}
-							getAccentColor={getAccentColor}
-						/>
-					))}
-				</Flex>
-			</Box>
-		</details>
+				<AnimatePresence initial={false}>
+					{open && (
+						<motion.div
+							key="group-list"
+							initial={{ height: 0, opacity: 0 }}
+							animate={{ height: "auto", opacity: 1 }}
+							exit={{ height: 0, opacity: 0 }}
+							transition={{ duration: 0.18 }}
+							style={{ overflow: "hidden" }}
+						>
+							<Box mt="2" style={notificationCenterStyles.groupListOffset}>
+								<Flex direction="column" gap="2">
+									<AnimatePresence initial={false}>
+										{items.map((item) => (
+											<NotificationEntry
+												key={item.id}
+												item={item}
+												onOpenUpdate={onOpenUpdate}
+												formatTime={formatTime}
+												getAccentColor={getAccentColor}
+											/>
+										))}
+									</AnimatePresence>
+								</Flex>
+							</Box>
+						</motion.div>
+					)}
+				</AnimatePresence>
+			</div>
+		</motion.div>
 	);
 };

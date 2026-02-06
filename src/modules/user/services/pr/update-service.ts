@@ -86,6 +86,7 @@ export const openReviewUpdateFromNotification = async (options: {
 	pendingId: string | null;
 	setPendingId: (value: string | null) => void;
 	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
+	selectNeteaseId?: (ids: string[]) => Promise<string | null> | string | null;
 }) => {
 	const detail = await requirePullRequestDetail(
 		options.token,
@@ -112,17 +113,27 @@ export const openReviewUpdateFromNotification = async (options: {
 	});
 	options.openFile(fileResult.file);
 	options.setToolMode(ToolMode.Edit);
-	const ncmId = detail.body ? parseReviewMetadata(detail.body).ncmId[0] : null;
-	if (!options.neteaseCookie.trim() || !ncmId) return;
+	const ncmIds = detail.body
+		? parseReviewMetadata(detail.body).ncmId
+		: [];
+	const cleanedNcmIds = ncmIds.map((id) => id.trim()).filter(Boolean);
+	const trimmedCookie = options.neteaseCookie.trim();
+	if (!trimmedCookie || cleanedNcmIds.length === 0) return;
+	let selectedId = cleanedNcmIds[0];
+	if (options.selectNeteaseId) {
+		const resolved = await options.selectNeteaseId(cleanedNcmIds);
+		if (!resolved) return;
+		selectedId = resolved;
+	}
 	await loadNeteaseAudio({
 		prNumber: options.prNumber,
-		id: ncmId,
+		id: selectedId,
 		pendingId: options.pendingId,
 		setPendingId: options.setPendingId,
 		setLastNeteaseIdByPr: options.setLastNeteaseIdByPr,
 		openFile: options.openFile,
 		pushNotification: options.pushNotification,
-		cookie: options.neteaseCookie,
+		cookie: trimmedCookie,
 	});
 };
 
