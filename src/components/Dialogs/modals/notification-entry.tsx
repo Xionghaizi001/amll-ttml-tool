@@ -1,5 +1,6 @@
 import { Badge, Button, Card, Flex, Text } from "@radix-ui/themes";
 import { open } from "@tauri-apps/plugin-shell";
+import { motion } from "framer-motion";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { notificationCenterDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
@@ -91,51 +92,59 @@ export const NotificationEntry = ({
 	};
 
 	return (
-		<Card onClick={canOpenAction ? handleOpenAction : undefined} style={cardStyle}>
-			<Flex align="start" justify="between" gap="3">
-				<Flex
-					direction="column"
-					gap="1"
-					style={notificationCenterStyles.flexGrowMinWidth}
-				>
-					<Flex align="center" gap="2" wrap="wrap">
-						<Badge size="1" color={accentColor}>
-							{levelTextMap[item.level]}
-						</Badge>
-						{item.source && (
-							<Text size="1" color="gray" wrap="nowrap">
-								{item.source}
+		<motion.div
+			layout
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: -8 }}
+			transition={{ duration: 0.18 }}
+		>
+			<Card onClick={canOpenAction ? handleOpenAction : undefined} style={cardStyle}>
+				<Flex align="start" justify="between" gap="3">
+					<Flex
+						direction="column"
+						gap="1"
+						style={notificationCenterStyles.flexGrowMinWidth}
+					>
+						<Flex align="center" gap="2" wrap="wrap">
+							<Badge size="1" color={accentColor}>
+								{levelTextMap[item.level]}
+							</Badge>
+							{item.source && (
+								<Text size="1" color="gray" wrap="nowrap">
+									{item.source}
+								</Text>
+							)}
+						</Flex>
+						<Text size="2" weight="bold" truncate>
+							{item.title}
+						</Text>
+						{item.description && (
+							<Text size="1" color="gray" wrap="wrap">
+								{item.description}
 							</Text>
 						)}
 					</Flex>
-					<Text size="2" weight="bold" truncate>
-						{item.title}
-					</Text>
-					{item.description && (
-						<Text size="1" color="gray" wrap="wrap">
-							{item.description}
+					<Flex direction="column" align="end" gap="2">
+						<Text size="1" color="gray" wrap="nowrap">
+							{formatTime(item.createdAt)}
 						</Text>
-					)}
+						{item.dismissible !== false && (
+							<Button
+								size="1"
+								variant="soft"
+								color={accentColor}
+								onClick={(event) => {
+									event.stopPropagation();
+									removeNotification(item.id);
+								}}
+							>
+								{t("notificationCenter.ignore", "忽略")}
+							</Button>
+						)}
+					</Flex>
 				</Flex>
-				<Flex direction="column" align="end" gap="2">
-					<Text size="1" color="gray" wrap="nowrap">
-						{formatTime(item.createdAt)}
-					</Text>
-					{item.dismissible !== false && (
-						<Button
-							size="1"
-							variant="soft"
-							color={accentColor}
-							onClick={(event) => {
-								event.stopPropagation();
-								removeNotification(item.id);
-							}}
-						>
-							{t("notificationCenter.ignore", "忽略")}
-						</Button>
-					)}
-				</Flex>
-			</Flex>
-		</Card>
+			</Card>
+		</motion.div>
 	);
 };

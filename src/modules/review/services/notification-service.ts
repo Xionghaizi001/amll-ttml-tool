@@ -27,6 +27,7 @@ export const createReviewUpdateNotificationHandler = (options: {
 	audioLoadPendingId: string | null;
 	setAudioLoadPendingId: Dispatch<SetStateAction<string | null>>;
 	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
+	selectNeteaseId?: (ids: string[]) => Promise<string | null> | string | null;
 	onClose: () => void;
 }) =>
 	async (payload: ReviewUpdatePayload) => {
@@ -52,6 +53,7 @@ export const createReviewUpdateNotificationHandler = (options: {
 				pendingId: options.audioLoadPendingId,
 				setPendingId: options.setAudioLoadPendingId,
 				setLastNeteaseIdByPr: options.setLastNeteaseIdByPr,
+				selectNeteaseId: options.selectNeteaseId,
 			});
 			options.onClose();
 		} catch {

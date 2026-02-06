@@ -1,5 +1,5 @@
 import { Clock20Regular, Person20Regular } from "@fluentui/react-icons";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 
 export type ReviewLabel = {
 	name: string;
@@ -217,6 +217,7 @@ export const renderCardContent = (options: {
 	pr: ReviewPullRequest;
 	hiddenLabelSet: Set<string>;
 	styles: Record<string, string>;
+	onSelectUser?: (user: string) => void;
 }) => {
 	const mentions = extractMentions(options.pr.body);
 	const visibleLabels = options.pr.labels.filter(
@@ -244,11 +245,35 @@ export const renderCardContent = (options: {
 			</Text>
 			<Flex align="center" gap="2" className={options.styles.mentions}>
 				<Person20Regular className={options.styles.icon} />
-				<Text size="2" color="gray">
-					{mentions.length > 0
-						? mentions.map((name) => `@${name}`).join(" ")
-						: "未提到用户"}
-				</Text>
+				{mentions.length > 0 ? (
+					<Flex align="center" gap="1" wrap="wrap">
+						{mentions.map((name) =>
+							options.onSelectUser ? (
+								<Button
+									key={name}
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={(event) => {
+										event.stopPropagation();
+										options.onSelectUser?.(name);
+									}}
+									asChild
+								>
+									<span>@{name}</span>
+								</Button>
+							) : (
+								<Text key={name} size="2" color="gray" asChild>
+									<span>@{name}</span>
+								</Text>
+							),
+						)}
+					</Flex>
+				) : (
+					<Text size="2" color="gray">
+						未提到用户
+					</Text>
+				)}
 			</Flex>
 			<Flex wrap="wrap" gap="2">
 				{visibleLabels.length > 0 ? (

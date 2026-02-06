@@ -1,4 +1,4 @@
-import { Box, Card, Flex, Spinner, Text } from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Spinner, Text } from "@radix-ui/themes";
 import {
 	type MouseEvent,
 	useCallback,
@@ -8,6 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { renderExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import { renderCardContent, type ReviewPullRequest } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
@@ -29,14 +30,16 @@ const ReviewPage = () => {
 		audioLoadPendingId,
 		error,
 		filteredItems,
-		handleLoadNeteaseAudio,
 		hasAccess,
 		hiddenLabelSet,
 		items,
 		lastNeteaseIdByPr,
 		loading,
+		neteaseIdDialog,
 		openReviewFile,
 		reviewSession,
+		selectedUser,
+		setSelectedUser,
 	} = useReviewPageLogic();
 
 	const priorityLabelName = "参与审核招募";
@@ -232,18 +235,56 @@ const ReviewPage = () => {
 					{error}
 				</Text>
 			)}
+			{selectedUser && (
+				<Flex align="center" gap="2" className={styles.filterBar}>
+					<Text size="2" color="gray">
+						用户筛选
+					</Text>
+					<Box className={styles.filterChip}>
+						<Flex align="center" gap="1">
+							<Text size="2" weight="medium">
+								@{selectedUser}
+							</Text>
+							<Box className={styles.filterCount}>
+								<Text size="1" weight="medium">
+									{filteredItems.length}
+								</Text>
+							</Box>
+						</Flex>
+					</Box>
+					<Button
+						size="1"
+						variant="soft"
+						color="gray"
+						onClick={() => setSelectedUser(null)}
+					>
+						清除
+					</Button>
+				</Flex>
+			)}
 			<Box className={styles.grid}>
 				{sortedItems.map((pr) => {
+					const isExpanded = expandedCard?.pr.number === pr.number;
+					const isPlaceholder =
+						isExpanded && expandedCard?.phase === "open";
 					return (
 						<Card
 							key={pr.number}
 							className={`${styles.card} ${
 								reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
-							}`}
+							} ${isPlaceholder ? styles.cardPlaceholder : ""}`}
 							onClick={(event) => handleCardClick(pr, event)}
 							ref={setCardRef(pr.number)}
 						>
-							{renderCardContent({ pr, hiddenLabelSet, styles })}
+							{isPlaceholder
+								? null
+								: renderCardContent({
+										pr,
+										hiddenLabelSet,
+										styles,
+										onSelectUser: (user) =>
+											setSelectedUser((prev) => (prev === user ? null : user)),
+								  })}
 						</Card>
 					);
 				})}
@@ -278,7 +319,6 @@ const ReviewPage = () => {
 							hiddenLabelSet,
 							audioLoadPendingId,
 							lastNeteaseIdByPr,
-							onLoadNeteaseAudio: handleLoadNeteaseAudio,
 							onOpenFile: openReviewFile,
 							repoOwner: "Steve-xmh",
 							repoName: "amll-ttml-db",
@@ -287,6 +327,12 @@ const ReviewPage = () => {
 					</Card>
 				</Box>
 			)}
+			<NeteaseIdSelectDialog
+				open={neteaseIdDialog.open}
+				ids={neteaseIdDialog.ids}
+				onSelect={neteaseIdDialog.onSelect}
+				onClose={neteaseIdDialog.onClose}
+			/>
 		</Box>
 	);
 };

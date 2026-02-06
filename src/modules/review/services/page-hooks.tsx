@@ -34,6 +34,8 @@ import {
 } from "$/modules/github/services/label-services";
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
 import type { ReviewLabel, ReviewPullRequest } from "./card-service";
+import { applyReviewFilters } from "./filter-service";
+import { useRemoteReviewService } from "./remote-service";
 
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";
@@ -109,14 +111,26 @@ export const useReviewPageLogic = () => {
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const setRemoveNotification = useSetAtom(removeNotificationAtom);
+	const { initFromUrl } = useRemoteReviewService();
+	const remoteInitRef = useRef(false);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
+	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
 	);
 	const [lastNeteaseIdByPr, setLastNeteaseIdByPr] = useState<
 		Record<number, string>
 	>({});
+	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
+		open: boolean;
+		prNumber: number | null;
+		ids: string[];
+	}>({
+		open: false,
+		prNumber: null,
+		ids: [],
+	});
 
 	const hiddenLabelSet = useMemo(
 		() =>
@@ -169,6 +183,12 @@ export const useReviewPageLogic = () => {
 			}),
 		[hasPendingLabel],
 	);
+
+	useEffect(() => {
+		if (remoteInitRef.current) return;
+		remoteInitRef.current = true;
+		void initFromUrl();
+	}, [initFromUrl]);
 
 	useEffect(() => {
 		const token = pat.trim();
@@ -242,8 +262,63 @@ export const useReviewPageLogic = () => {
 		updatedChecked,
 	]);
 
+	const runLoadNeteaseAudio = useCallback(
+		async (prNumber: number, id: string) => {
+			await loadNeteaseAudio({
+				prNumber,
+				id,
+				pendingId: audioLoadPendingId,
+				setPendingId: setAudioLoadPendingId,
+				setLastNeteaseIdByPr,
+				openFile,
+				pushNotification: setPushNotification,
+				cookie: neteaseCookie,
+			});
+		},
+		[audioLoadPendingId, neteaseCookie, openFile, setPushNotification],
+	);
+
+	const closeNeteaseIdDialog = useCallback(() => {
+		setNeteaseIdDialog({
+			open: false,
+			prNumber: null,
+			ids: [],
+		});
+	}, []);
+
+	const handleSelectNeteaseId = useCallback(
+		(id: string) => {
+			const prNumber = neteaseIdDialog.prNumber;
+			if (!prNumber) {
+				closeNeteaseIdDialog();
+				return;
+			}
+			void runLoadNeteaseAudio(prNumber, id);
+			closeNeteaseIdDialog();
+		},
+		[closeNeteaseIdDialog, neteaseIdDialog.prNumber, runLoadNeteaseAudio],
+	);
+
+	const handleLoadNeteaseAudio = useCallback(
+		(prNumber: number, ids: string[]) => {
+			if (audioLoadPendingId) return;
+			const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
+			if (cleanedIds.length === 0) return;
+			if (cleanedIds.length === 1) {
+				void runLoadNeteaseAudio(prNumber, cleanedIds[0]);
+				return;
+			}
+			setNeteaseIdDialog({
+				open: true,
+				prNumber,
+				ids: cleanedIds,
+			});
+		},
+		[audioLoadPendingId, runLoadNeteaseAudio],
+	);
+
 	const openReviewFile = useCallback(
-		async (pr: ReviewPullRequest) => {
+		async (pr: ReviewPullRequest, ids: string[] = []) => {
 			const token = pat.trim();
 			if (!token) {
 				setPushNotification({
@@ -274,6 +349,9 @@ export const useReviewPageLogic = () => {
 				});
 				openFile(fileResult.file);
 				setToolMode(ToolMode.Edit);
+				if (ids.length > 0) {
+					handleLoadNeteaseAudio(pr.number, ids);
+				}
 			} catch {
 				setPushNotification({
 					title: "打开 PR 文件失败",
@@ -282,23 +360,14 @@ export const useReviewPageLogic = () => {
 				});
 			}
 		},
-		[openFile, pat, setPushNotification, setReviewSession, setToolMode],
-	);
-
-	const handleLoadNeteaseAudio = useCallback(
-		async (prNumber: number, id: string) => {
-			await loadNeteaseAudio({
-				prNumber,
-				id,
-				pendingId: audioLoadPendingId,
-				setPendingId: setAudioLoadPendingId,
-				setLastNeteaseIdByPr,
-				openFile,
-				pushNotification: setPushNotification,
-				cookie: neteaseCookie,
-			});
-		},
-		[audioLoadPendingId, neteaseCookie, openFile, setPushNotification],
+		[
+			handleLoadNeteaseAudio,
+			openFile,
+			pat,
+			setPushNotification,
+			setReviewSession,
+			setToolMode,
+		],
 	);
 
 	useEffect(() => {
@@ -412,40 +481,29 @@ export const useReviewPageLogic = () => {
 		};
 	}, [hasAccess, pat, refreshToken, fetchLabels, refreshPendingLabels]);
 
-	const filteredItems = useMemo(() => {
-		const visibleItems = items.filter(
-			(pr) =>
-				!pr.labels.some((label) =>
-					hiddenLabelSet.has(label.name.toLowerCase()),
-				),
-		);
-		const statusFilteredItems = visibleItems.filter((pr) => {
-			if (!pendingChecked && !updatedChecked) return true;
-			const isPending = hasPendingLabel(pr.labels);
-			const isUpdated = isPending && postPendingCommitMap[pr.number] === true;
-			const pendingMatch = isPending && !isUpdated;
-			const updatedMatch = isUpdated;
-			if (pendingChecked && updatedChecked) return pendingMatch || updatedMatch;
-			if (pendingChecked) return pendingMatch;
-			if (updatedChecked) return updatedMatch;
-			return true;
-		});
-		if (selectedLabels.length === 0) return statusFilteredItems;
-		const selectedSet = new Set(
-			selectedLabels.map((label) => label.toLowerCase()),
-		);
-		return statusFilteredItems.filter((pr) =>
-			pr.labels.some((label) => selectedSet.has(label.name.toLowerCase())),
-		);
-	}, [
-		hasPendingLabel,
-		hiddenLabelSet,
-		items,
-		pendingChecked,
-		postPendingCommitMap,
-		selectedLabels,
-		updatedChecked,
-	]);
+	const filteredItems = useMemo(
+		() =>
+			applyReviewFilters({
+				items,
+				hiddenLabelSet,
+				pendingChecked,
+				updatedChecked,
+				hasPendingLabel,
+				postPendingCommitMap,
+				selectedLabels,
+				selectedUser,
+			}),
+		[
+			items,
+			hiddenLabelSet,
+			pendingChecked,
+			updatedChecked,
+			hasPendingLabel,
+			postPendingCommitMap,
+			selectedLabels,
+			selectedUser,
+		],
+	);
 
 	return {
 		audioLoadPendingId,
@@ -457,7 +515,15 @@ export const useReviewPageLogic = () => {
 		items,
 		lastNeteaseIdByPr,
 		loading,
+		neteaseIdDialog: {
+			open: neteaseIdDialog.open,
+			ids: neteaseIdDialog.ids,
+			onSelect: handleSelectNeteaseId,
+			onClose: closeNeteaseIdDialog,
+		},
 		openReviewFile,
 		reviewSession,
+		selectedUser,
+		setSelectedUser,
 	};
 };
