@@ -42,6 +42,7 @@ const STORE_NAME = "open-prs";
 const RECORD_KEY = "open";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
+const CACHE_TTL = 5 * 60 * 1000;
 
 type CachedPayload = {
 	key: string;
@@ -409,11 +410,21 @@ export const useReviewPageLogic = () => {
 		let cancelled = false;
 
 		const load = async () => {
-			setLoading(true);
 			setError(null);
+			const cached = refreshChanged ? null : await readCache();
+			if (cached?.items?.length) {
+				const cacheAge = Date.now() - cached.cachedAt;
+				if (cacheAge < CACHE_TTL) {
+					if (!cancelled) {
+						setItems(cached.items);
+						setLoading(false);
+					}
+					return;
+				}
+			}
+			setLoading(true);
 			try {
 				await fetchLabels(token);
-				const cached = refreshChanged ? null : await readCache();
 				const perPage = 20;
 				const maxPages = 50;
 				let etag: string | null = null;
