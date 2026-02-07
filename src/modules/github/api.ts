@@ -10,8 +10,7 @@ type GithubRawOptions = {
 	init?: RequestInit;
 };
 
-const shouldUseProxy = () =>
-	import.meta.env.PROD && !import.meta.env.TAURI_ENV_PLATFORM;
+const shouldUseProxy = () => !import.meta.env.TAURI_ENV_PLATFORM;
 
 const buildGithubUrl = (
 	path: string,
@@ -28,12 +27,7 @@ const buildGithubUrl = (
 	if (!shouldUseProxy()) {
 		return apiUrl;
 	}
-	const proxyUrl = new URL(GITHUB_PROXY_PATH, window.location.origin);
-	proxyUrl.searchParams.set("path", apiUrl.pathname);
-	apiUrl.searchParams.forEach((value, key) => {
-		proxyUrl.searchParams.append(key, value);
-	});
-	return proxyUrl;
+	return new URL(buildGithubProxyUrl(apiUrl.toString()));
 };
 
 export const githubFetch = (path: string, options: GithubRequestOptions = {}) => {
@@ -42,10 +36,14 @@ export const githubFetch = (path: string, options: GithubRequestOptions = {}) =>
 };
 
 export const githubFetchRaw = (rawUrl: string, options: GithubRawOptions = {}) => {
+	return fetch(buildGithubProxyUrl(rawUrl), options.init);
+};
+
+export const buildGithubProxyUrl = (rawUrl: string) => {
 	if (!shouldUseProxy()) {
-		return fetch(rawUrl, options.init);
+		return rawUrl;
 	}
 	const proxyUrl = new URL(GITHUB_PROXY_PATH, window.location.origin);
 	proxyUrl.searchParams.set("url", rawUrl);
-	return fetch(proxyUrl.toString(), options.init);
+	return proxyUrl.toString();
 };

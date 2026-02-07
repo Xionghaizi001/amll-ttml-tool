@@ -14,5 +14,29 @@
 				}
 			]
 		}
+	],
+	"rewrites": [
+		{
+			"source": "/api/github",
+			"has": [
+				{
+					"type": "query",
+					"key": "path",
+					"value": "(.*)"
+				}
+			],
+			"destination": "https://api.github.com/$1"
+		},
+		{
+			"source": "/api/github",
+			"has": [
+				{
+					"type": "query",
+					"key": "url",
+					"value": "https://(.*)"
+				}
+			],
+			"destination": "https://$1"
+		}
 	]
 }

@@ -1,5 +1,5 @@
 import type { LyricLine, TTMLLyric } from "$/types/ttml";
-import { githubFetch } from "$/modules/github/api";
+import { buildGithubProxyUrl, githubFetch } from "$/modules/github/api";
 import { pushFileUpdateToGist } from "$/modules/github/services/gist-service";
 import {
 	fetchPullRequestComments,
@@ -267,14 +267,16 @@ export const requestFileUpdatePush = (options: {
 		onConfirm: () => {
 			void (async () => {
 				let baseHeadSha: string | null = null;
-				let prUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${options.session.prNumber}`;
+				let prUrl = buildGithubProxyUrl(
+					`https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${options.session.prNumber}`,
+				);
 				try {
 					const status = await fetchPullRequestStatus({
 						token,
 						prNumber: options.session.prNumber,
 					});
 					baseHeadSha = status.headSha;
-					prUrl = status.prUrl;
+					prUrl = buildGithubProxyUrl(status.prUrl);
 				} catch {
 				}
 				try {
