@@ -6,11 +6,14 @@
 
 ## 2. 选择权限范围
 - Fine-grained：
-  - Repository access 选择 amll-ttml-db
-  - Permissions 至少包含 Repository metadata（Read）与 Pull requests（Read）
+  - Repository access 选择 all
+  - Permissions 至少包含 Repository metadata（Read）、 Pull requests（Read）与 gist
+
+请注意，若你选择了 Fine-grained tokens ，那么你将无法使用编辑器内置的一键更新投稿功能。
+
 - Classic：
-  - 公共仓库使用 public_repo
-  - 私有仓库使用 repo
+  - 选择 repo、read:org、gist、user
+    - 若你觉得 repo 的权限还是太大了，也可以选择 public_repo
 
 ## 3. 生成并复制
 - 设置有效期与说明

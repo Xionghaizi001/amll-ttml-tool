@@ -147,6 +147,12 @@ export type ReviewSession = {
 };
 
 export const reviewSessionAtom = atom<ReviewSession | null>(null);
+export type FileUpdateSession = {
+	prNumber: number;
+	prTitle: string;
+	fileName: string;
+};
+export const fileUpdateSessionAtom = atom<FileUpdateSession | null>(null);
 export type ReviewSnapshot = {
 	prNumber: number;
 	fileName: string;

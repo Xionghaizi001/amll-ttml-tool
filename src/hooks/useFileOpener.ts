@@ -22,6 +22,7 @@ import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filen
 import { confirmDialogAtom } from "$/states/dialogs.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import {
+	fileUpdateSessionAtom,
 	isDirtyAtom,
 	newLyricLinesAtom,
 	projectIdAtom,
@@ -106,6 +107,7 @@ export const useFileOpener = () => {
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
+	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
 	const { t } = useTranslation();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 
@@ -227,6 +229,16 @@ export const useFileOpener = () => {
 				return;
 			}
 
+			if (fileUpdateSession) {
+				setConfirmDialog({
+					open: true,
+					title: "确认进入编辑",
+					description: `当前处于 PR #${fileUpdateSession.prNumber} 更新会话。是否继续打开文件并进入编辑？`,
+					onConfirm: run,
+				});
+				return;
+			}
+
 			if (isDirty) {
 				setConfirmDialog({
 					open: true,
@@ -241,7 +253,13 @@ export const useFileOpener = () => {
 				run();
 			}
 		},
-		[isDirty, setConfirmDialog, t, performOpenFile],
+		[
+			fileUpdateSession,
+			isDirty,
+			performOpenFile,
+			setConfirmDialog,
+			t,
+		],
 	);
 
 	const openCachedAudio = useCallback(async () => {

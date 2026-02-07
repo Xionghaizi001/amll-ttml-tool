@@ -1,10 +1,14 @@
 import { Flex, Heading } from "@radix-ui/themes";
+import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { GithubLoginCard } from "$/modules/github/modals/GithubLoginCard";
 import { NeteaseLoginCard } from "$/modules/ncm/modals/NeteaseLoginCard";
+import { githubLoginAtom } from "$/modules/settings/states";
 
 export const SettingsConnectTab = () => {
 	const { t } = useTranslation();
+	const githubLogin = useAtomValue(githubLoginAtom);
+	const shouldShowNetease = Boolean(githubLogin.trim());
 
 	return (
 		<Flex direction="column" gap="4">
@@ -14,7 +18,7 @@ export const SettingsConnectTab = () => {
 
 			<GithubLoginCard />
 
-			<NeteaseLoginCard />
+			{shouldShowNetease && <NeteaseLoginCard />}
 		</Flex>
 	);
 };

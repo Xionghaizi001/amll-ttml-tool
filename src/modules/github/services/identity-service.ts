@@ -66,10 +66,6 @@ export const verifyGithubAccess = async (
 			`/repos/${repoOwner}/${repoName}/collaborators/${userLogin}`,
 			{ init: { headers: buildHeaders(trimmedToken) } },
 		);
-		if (collaboratorResponse.status === 403) {
-			return { status: "permission-denied" };
-		}
-
 		const isCollaborator = collaboratorResponse.status === 204;
 		const allowed = isOwner || isCollaborator;
 

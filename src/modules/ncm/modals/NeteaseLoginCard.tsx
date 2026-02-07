@@ -10,17 +10,24 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeteaseAuthClient } from "$/modules/ncm/services";
-import { neteaseCookieAtom, neteaseUserAtom } from "$/modules/settings/states";
+import {
+	githubAmlldbAccessAtom,
+	neteaseCookieAtom,
+	neteaseRiskConfirmedAtom,
+	neteaseUserAtom,
+} from "$/modules/settings/states";
+import { riskConfirmDialogAtom } from "$/states/dialogs";	
 import { pushNotificationAtom } from "$/states/notifications";
 
 export const NeteaseLoginCard = () => {
 	const { t } = useTranslation();
 	const [neteaseCookie, setNeteaseCookie] = useAtom(neteaseCookieAtom);
 	const [neteaseUser, setNeteaseUser] = useAtom(neteaseUserAtom);
+	const [riskConfirmed, setRiskConfirmed] = useAtom(neteaseRiskConfirmedAtom);
 	const [neteasePhone, setNeteasePhone] = useState("");
 	const [neteaseCaptcha, setNeteaseCaptcha] = useState("");
 	const [neteaseCookieInput, setNeteaseCookieInput] = useState("");
@@ -28,6 +35,8 @@ export const NeteaseLoginCard = () => {
 	const [neteaseLoading, setNeteaseLoading] = useState(false);
 	const [neteaseTab, setNeteaseTab] = useState("phone");
 	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const setRiskConfirmDialog = useSetAtom(riskConfirmDialogAtom);
+	const hasGithubAccess = useAtomValue(githubAmlldbAccessAtom);
 
 	const trimmedNeteaseCookie = useMemo(
 		() => neteaseCookie.trim(),
@@ -85,135 +94,178 @@ export const NeteaseLoginCard = () => {
 		trimmedNeteaseCookie,
 	]);
 
-	const handleSendCaptcha = useCallback(async () => {
-		if (!neteasePhone.trim()) {
-			setPushNotification({
-				title: t("settings.connect.netease.phoneMissing", "请输入手机号"),
-				level: "warning",
-				source: "ncm",
-			});
-			return;
+	useEffect(() => {
+		if (!neteaseUser) {
+			if (riskConfirmed) {
+				setRiskConfirmed(false);
+			}
 		}
-		setNeteaseLoading(true);
-		try {
-			await NeteaseAuthClient.sendCaptcha(neteasePhone.trim());
-			setPushNotification({
-				title: t("settings.connect.netease.captchaSent", "验证码已发送"),
-				level: "success",
-				source: "ncm",
-			});
-			setNeteaseCountdown(60);
-		} catch (error) {
-			setPushNotification({
-				title: t(
-					"settings.connect.netease.captchaFailed",
-					"验证码发送失败：{message}",
-					{
-						message: error instanceof Error ? error.message : "未知错误",
-					},
-				),
-				level: "error",
-				source: "ncm",
-			});
-		} finally {
-			setNeteaseLoading(false);
-		}
-	}, [neteasePhone, setPushNotification, t]);
+	}, [neteaseUser, riskConfirmed, setRiskConfirmed]);
 
-	const handlePhoneLogin = useCallback(async () => {
-		const phone = neteasePhone.trim();
-		const captcha = neteaseCaptcha.trim();
-		if (!phone || !captcha) {
-			setPushNotification({
-				title: t(
-					"settings.connect.netease.phoneIncomplete",
-					"请填写手机号与验证码",
-				),
-				level: "warning",
-				source: "ncm",
+	const runWithRiskConfirm = useCallback(
+		(action: () => Promise<void>) => {
+			if (hasGithubAccess || riskConfirmed) {
+				void action();
+				return;
+			}
+			setRiskConfirmDialog({
+				open: true,
+				onConfirmed: () => {
+					setRiskConfirmed(true);
+					void action();
+				},
 			});
-			return;
-		}
-		setNeteaseLoading(true);
-		try {
-			const result = await NeteaseAuthClient.loginByPhone(phone, captcha);
-			setNeteaseCookie(result.cookie);
-			setNeteaseUser(result.profile);
-			setNeteasePhone("");
-			setNeteaseCaptcha("");
-			setNeteaseCookieInput("");
-			setPushNotification({
-				title: t(
-					"settings.connect.netease.loginSuccess",
-					"欢迎回来，{name}",
-					{ name: result.profile.nickname },
-				),
-				level: "success",
-				source: "ncm",
-			});
-		} catch (error) {
-			setPushNotification({
-				title: t("settings.connect.netease.loginFailed", "登录失败：{message}", {
-					message: error instanceof Error ? error.message : "未知错误",
-				}),
-				level: "error",
-				source: "ncm",
-			});
-		} finally {
-			setNeteaseLoading(false);
-		}
+		},
+		[hasGithubAccess, riskConfirmed, setRiskConfirmDialog, setRiskConfirmed],
+	);
+
+	const handleSendCaptcha = useCallback(() => {
+		runWithRiskConfirm(async () => {
+			if (!neteasePhone.trim()) {
+				setPushNotification({
+					title: t("settings.connect.netease.phoneMissing", "请输入手机号"),
+					level: "warning",
+					source: "ncm",
+				});
+				return;
+			}
+			setNeteaseLoading(true);
+			try {
+				await NeteaseAuthClient.sendCaptcha(neteasePhone.trim());
+				setPushNotification({
+					title: t("settings.connect.netease.captchaSent", "验证码已发送"),
+					level: "success",
+					source: "ncm",
+				});
+				setNeteaseCountdown(60);
+			} catch (error) {
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.captchaFailed",
+						"验证码发送失败：{message}",
+						{
+							message: error instanceof Error ? error.message : "未知错误",
+						},
+					),
+					level: "error",
+					source: "ncm",
+				});
+			} finally {
+				setNeteaseLoading(false);
+			}
+		});
+	}, [neteasePhone, runWithRiskConfirm, setPushNotification, t]);
+
+	const handlePhoneLogin = useCallback(() => {
+		runWithRiskConfirm(async () => {
+			const phone = neteasePhone.trim();
+			const captcha = neteaseCaptcha.trim();
+			if (!phone || !captcha) {
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.phoneIncomplete",
+						"请填写手机号与验证码",
+					),
+					level: "warning",
+					source: "ncm",
+				});
+				return;
+			}
+			setNeteaseLoading(true);
+			try {
+				const result = await NeteaseAuthClient.loginByPhone(phone, captcha);
+				setNeteaseCookie(result.cookie);
+				setNeteaseUser(result.profile);
+				setNeteasePhone("");
+				setNeteaseCaptcha("");
+				setNeteaseCookieInput("");
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.loginSuccess",
+						"欢迎回来，{name}",
+						{ name: result.profile.nickname },
+					),
+					level: "success",
+					source: "ncm",
+				});
+			} catch (error) {
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.loginFailed",
+						"登录失败：{message}",
+						{
+							message: error instanceof Error ? error.message : "未知错误",
+						},
+					),
+					level: "error",
+					source: "ncm",
+				});
+			} finally {
+				setNeteaseLoading(false);
+			}
+		});
 	}, [
 		neteaseCaptcha,
 		neteasePhone,
+		runWithRiskConfirm,
 		setNeteaseCookie,
 		setNeteaseUser,
 		setPushNotification,
 		t,
 	]);
 
-	const handleCookieLogin = useCallback(async () => {
-		const cookie = neteaseCookieInput.trim();
-		if (!cookie) {
-			setPushNotification({
-				title: t("settings.connect.netease.cookieMissing", "请输入 Cookie"),
-				level: "warning",
-				source: "ncm",
-			});
-			return;
-		}
-		setNeteaseLoading(true);
-		try {
-			const profile = await NeteaseAuthClient.checkCookieStatus(cookie);
-			setNeteaseCookie(cookie);
-			setNeteaseUser(profile);
-			setNeteaseCookieInput("");
-			setNeteasePhone("");
-			setNeteaseCaptcha("");
-			setPushNotification({
-				title: t(
-					"settings.connect.netease.cookieSuccess",
-					"欢迎回来，{name}",
-					{ name: profile.nickname },
-				),
-				level: "success",
-				source: "ncm",
-			});
-		} catch (error) {
-			setPushNotification({
-				title: t(
-					"settings.connect.netease.cookieInvalidToast",
-					"Cookie 无效：{message}",
-					{
-						message: error instanceof Error ? error.message : "未知错误",
-					},
-				),
-				level: "error",
-				source: "ncm",	
-			});
-		} finally {
-			setNeteaseLoading(false);
-		}
-	}, [neteaseCookieInput, setNeteaseCookie, setNeteaseUser, setPushNotification, t]);
+	const handleCookieLogin = useCallback(() => {
+		runWithRiskConfirm(async () => {
+			const cookie = neteaseCookieInput.trim();
+			if (!cookie) {
+				setPushNotification({
+					title: t("settings.connect.netease.cookieMissing", "请输入 Cookie"),
+					level: "warning",
+					source: "ncm",
+				});
+				return;
+			}
+			setNeteaseLoading(true);
+			try {
+				const profile = await NeteaseAuthClient.checkCookieStatus(cookie);
+				setNeteaseCookie(cookie);
+				setNeteaseUser(profile);
+				setNeteaseCookieInput("");
+				setNeteasePhone("");
+				setNeteaseCaptcha("");
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.cookieSuccess",
+						"欢迎回来，{name}",
+						{ name: profile.nickname },
+					),
+					level: "success",
+					source: "ncm",
+				});
+			} catch (error) {
+				setPushNotification({
+					title: t(
+						"settings.connect.netease.cookieInvalidToast",
+						"Cookie 无效：{message}",
+						{
+							message: error instanceof Error ? error.message : "未知错误",
+						},
+					),
+					level: "error",
+					source: "ncm",
+				});
+			} finally {
+				setNeteaseLoading(false);
+			}
+		});
+	}, [
+		neteaseCookieInput,
+		runWithRiskConfirm,
+		setNeteaseCookie,
+		setNeteaseUser,
+		setPushNotification,
+		t,
+	]);
 
 	const handleNeteaseLogout = useCallback(() => {
 		setNeteaseCookie("");

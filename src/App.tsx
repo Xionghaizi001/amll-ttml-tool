@@ -65,6 +65,7 @@ import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import {
 	isDarkThemeAtom,
 	isGlobalFileDraggingAtom,
+	fileUpdateSessionAtom,
 	lyricLinesAtom,
 	reviewSessionAtom,
 	ToolMode,
@@ -181,6 +182,7 @@ function App() {
 	const setSettingsOpen = useSetAtom(settingsDialogAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
+	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
 	const initCustomBackgroundImage = useSetAtom(customBackgroundImageInitAtom);
 	const initialPatRef = useRef(pat);
@@ -296,10 +298,17 @@ function App() {
 		return setupDevTestHooks({
 			openFile,
 			setReviewSession,
+			setFileUpdateSession,
 			setToolMode,
 			pushNotification: setPushNotification,
 		});
-	}, [openFile, setPushNotification, setReviewSession, setToolMode]);
+	}, [
+		openFile,
+		setFileUpdateSession,
+		setPushNotification,
+		setReviewSession,
+		setToolMode,
+	]);
 
 	useEffect(() => {
 		if (!import.meta.env.TAURI_ENV_PLATFORM) {

@@ -1,5 +1,5 @@
 import type { AppNotification } from "$/states/notifications";
-import { ToolMode, type ReviewSession } from "$/states/main";
+import { ToolMode, type FileUpdateSession, type ReviewSession } from "$/states/main";
 import type { Dispatch, SetStateAction } from "react";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/pr/update-service";
 
@@ -28,6 +28,7 @@ type InjectReviewUpdateOptions = {
 type DevTestHooksOptions = {
 	openFile: OpenFile;
 	setReviewSession: (value: ReviewSession) => void;
+	setFileUpdateSession: (value: FileUpdateSession | null) => void;
 	setToolMode: (mode: ToolMode) => void;
 	pushNotification: PushNotification;
 	neteaseCookie?: string;
@@ -67,6 +68,7 @@ export const setupDevTestHooks = (options: DevTestHooksOptions) => {
 			prNumber: injectOptions.prNumber,
 			prTitle: injectOptions.prTitle ?? `PR#${injectOptions.prNumber}`,
 			openFile: options.openFile,
+			setFileUpdateSession: options.setFileUpdateSession,
 			setToolMode: options.setToolMode,
 			pushNotification: options.pushNotification,
 			neteaseCookie: injectOptions.neteaseCookie ?? options.neteaseCookie ?? "",

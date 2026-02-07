@@ -13,6 +13,7 @@ import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/Ad
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
 import { SettingsDialog } from "$/modules/settings/modals/index.tsx";
 import { ConfirmationDialog } from "./confirmation.tsx";
+import { RiskConfirmationDialog } from "./risk-confirmation.tsx";
 import { NotificationCenterDialog } from "./notification-center.tsx";
 
 export const Dialogs = () => {
@@ -34,6 +35,7 @@ export const Dialogs = () => {
 			<DistributeRomanizationDialog />
 			<NotificationCenterDialog />
 			<ReviewReportDialog />
+			<RiskConfirmationDialog />
 		</>
 	);
 };

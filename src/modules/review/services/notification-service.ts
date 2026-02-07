@@ -1,5 +1,5 @@
 import type { AppNotification } from "$/states/notifications";
-import type { ToolMode } from "$/states/main";
+import type { FileUpdateSession, ToolMode } from "$/states/main";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/pr/update-service";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -15,6 +15,7 @@ type ReviewUpdatePayload = { prNumber: number; prTitle: string };
 export const createReviewUpdateNotificationHandler = (options: {
 	pat: string;
 	openFile: OpenFile;
+	setFileUpdateSession: (value: FileUpdateSession | null) => void;
 	setToolMode: (mode: ToolMode) => void;
 	pushNotification: PushNotification;
 	neteaseCookie: string;
@@ -40,6 +41,7 @@ export const createReviewUpdateNotificationHandler = (options: {
 				prNumber: payload.prNumber,
 				prTitle: payload.prTitle,
 				openFile: options.openFile,
+				setFileUpdateSession: options.setFileUpdateSession,
 				setToolMode: options.setToolMode,
 				pushNotification: options.pushNotification,
 				neteaseCookie: options.neteaseCookie,

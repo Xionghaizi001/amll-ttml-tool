@@ -302,8 +302,8 @@ export const buildSyncReport = (reportLines: SyncChangeCandidate[]) => {
 			const startDelta = item.newStart - item.oldStart;
 			const endDelta = item.newEnd - item.oldEnd;
 			const delta = startDelta !== 0 ? startDelta : endDelta;
-			const speed = delta < 0 ? "快" : "慢";
-			return `第 ${item.lineNumber} 行：${wrap(item.word)} 偏${speed}了 ${wrap(
+			const speed = delta < 0 ? "延后" :"提前";
+			return `第 ${item.lineNumber} 行：${wrap(item.word)} ${speed}了 ${wrap(
 				Math.abs(delta),
 			)} 毫秒`;
 		})
@@ -334,14 +334,14 @@ export const buildSyncReportFromStash = (
 			const endDelta = candidate.newEnd - candidate.oldEnd;
 			const parts: string[] = [];
 			if (fields.has("startTime") && startDelta !== 0) {
-				const speed = startDelta < 0 ? "快" : "慢";
+				const speed = startDelta < 0 ? "延后" : "提前";
 				const prefix = fields.has("endTime") ? "起始" : "";
 				parts.push(
 					`${prefix}偏${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`,
 				);
 			}
 			if (fields.has("endTime") && endDelta !== 0) {
-				const speed = endDelta < 0 ? "快" : "慢";
+				const speed = endDelta < 0 ? "延后" : "提前";
 				const prefix = fields.has("startTime") ? "结束" : "";
 				parts.push(
 					`${prefix}偏${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`,
