@@ -1,18 +1,20 @@
 import {
 	ArrowSquareUpRight20Regular,
+	Checkmark20Regular,
 	Clock20Regular,
 	Comment20Regular,
 	PersonCircle20Regular,
 	Record20Regular,
 	Stack20Regular,
 } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Spinner, Text } from "@radix-ui/themes";
 import {
 	AppleMusicIcon,
 	NeteaseIcon,
 	QQMusicIcon,
 	SpotifyIcon,
 } from "$/modules/project/modals/PlatformIcons";
+import { useCallback, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -24,16 +26,18 @@ import {
 	type ReviewPullRequest,
 } from "$/modules/review/services/card-service";
 
-export const renderExpandedContent = (options: {
+export const ReviewExpandedContent = (options: {
 	pr: ReviewPullRequest;
 	hiddenLabelSet: Set<string>;
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
-	onOpenFile: (pr: ReviewPullRequest, ids: string[]) => void;
+	onOpenFile: (pr: ReviewPullRequest, ids: string[]) => void | Promise<void>;
+	reviewedByUser?: boolean;
 	repoOwner: string;
 	repoName: string;
 	styles: Record<string, string>;
 }) => {
+	const [openFilePending, setOpenFilePending] = useState(false);
 	const mentions = extractMentions(options.pr.body);
 	const mention = mentions[0];
 	const visibleLabels = options.pr.labels.filter(
@@ -42,6 +46,15 @@ export const renderExpandedContent = (options: {
 	const metadata = parseReviewMetadata(options.pr.body);
 	const remarkText = metadata.remark.join("\n").trim();
 	const neteaseIds = metadata.ncmId.filter(Boolean);
+	const handleOpenFile = useCallback(async () => {
+		if (openFilePending) return;
+		setOpenFilePending(true);
+		try {
+			await options.onOpenFile(options.pr, neteaseIds);
+		} finally {
+			setOpenFilePending(false);
+		}
+	}, [neteaseIds, openFilePending, options]);
 	const platformItems = [
 		{
 			ids: neteaseIds,
@@ -143,6 +156,9 @@ export const renderExpandedContent = (options: {
 					</Flex>
 				</Flex>
 				<Flex align="center" gap="1" className={options.styles.meta}>
+					{options.reviewedByUser && (
+						<Checkmark20Regular className={options.styles.icon} />
+					)}
 					<Clock20Regular className={options.styles.icon} />
 					<Text size="1" color="gray" className={options.styles.timeText}>
 						{formatTimeAgo(options.pr.createdAt)}
@@ -311,13 +327,16 @@ export const renderExpandedContent = (options: {
 					gap="2"
 					className={options.styles.overlayFooter}
 				>
-					<Button
-						onClick={() => options.onOpenFile(options.pr, neteaseIds)}
-						size="2"
-					>
+					<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
 						<Flex align="center" gap="2">
-							<ArrowSquareUpRight20Regular className={options.styles.icon} />
-							<Text size="2">打开文件</Text>
+							{openFilePending ? (
+								<Spinner size="1" />
+							) : (
+								<ArrowSquareUpRight20Regular
+									className={options.styles.icon}
+								/>
+							)}
+							<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
 						</Flex>
 					</Button>
 				</Flex>

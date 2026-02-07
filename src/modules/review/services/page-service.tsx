@@ -9,7 +9,7 @@ import {
 	useState,
 } from "react";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
-import { renderExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
+import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import { renderCardContent, type ReviewPullRequest } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import styles from "../index.module.css";
@@ -37,6 +37,8 @@ const ReviewPage = () => {
 		loading,
 		neteaseIdDialog,
 		openReviewFile,
+		refreshReviewTimeline,
+		reviewedByUserMap,
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
@@ -141,10 +143,11 @@ const ReviewPage = () => {
 	const handleCardClick = useCallback(
 		(pr: ReviewPullRequest, event: MouseEvent<HTMLDivElement>) => {
 			event.stopPropagation();
+			void refreshReviewTimeline(pr.number);
 			const rect = event.currentTarget.getBoundingClientRect();
 			openExpanded(pr, rect);
 		},
-		[openExpanded],
+		[openExpanded, refreshReviewTimeline],
 	);
 
 	useLayoutEffect(() => {
@@ -287,6 +290,7 @@ const ReviewPage = () => {
 										pr,
 										hiddenLabelSet,
 										styles,
+										reviewedByUser: reviewedByUserMap[pr.number] === true,
 										onSelectUser: (user) =>
 											setSelectedUser((prev) => (prev === user ? null : user)),
 								  })}
@@ -319,16 +323,17 @@ const ReviewPage = () => {
 						}}
 						onClick={(event) => event.stopPropagation()}
 					>
-						{renderExpandedContent({
-							pr: expandedCard.pr,
-							hiddenLabelSet,
-							audioLoadPendingId,
-							lastNeteaseIdByPr,
-							onOpenFile: openReviewFile,
-							repoOwner: "Steve-xmh",
-							repoName: "amll-ttml-db",
-							styles,
-						})}
+						<ReviewExpandedContent
+							pr={expandedCard.pr}
+							hiddenLabelSet={hiddenLabelSet}
+							audioLoadPendingId={audioLoadPendingId}
+							lastNeteaseIdByPr={lastNeteaseIdByPr}
+							onOpenFile={openReviewFile}
+							reviewedByUser={reviewedByUserMap[expandedCard.pr.number] === true}
+							repoOwner="Steve-xmh"
+							repoName="amll-ttml-db"
+							styles={styles}
+						/>
 					</Card>
 				</Box>
 			)}

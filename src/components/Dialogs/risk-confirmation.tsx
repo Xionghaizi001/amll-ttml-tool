@@ -4,11 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
 
 const RISK_CONFIRM_PHRASES = [
-	"我知晓这是一个正在测试的应用",
-	"我知晓它存在可能的bug或漏洞",
-	"我知晓当我发现数据可能被泄露时我该怎么做",
-	"我知晓我如何为数据安全负责",
-	"我确定我要登录该应用",
+	"我确定我要登录该应用"
 ];
 
 const CONSOLE_HANDLER_KEY = "amllRiskConfirm";
@@ -68,7 +64,7 @@ export const RiskConfirmationDialog = () => {
 			<Dialog.Content style={{ maxWidth: "560px" }}>
 				<Dialog.Title>风险确认</Dialog.Title>
 				<Dialog.Description>
-					请打开控制台，逐条输入以下确认语句。完成后将自动继续登录流程。
+					请打开控制台，输入以下确认语句。完成后将自动继续登录流程。
 				</Dialog.Description>
 				<Flex direction="column" gap="3" mt="4">
 					<Flex direction="column" gap="2">

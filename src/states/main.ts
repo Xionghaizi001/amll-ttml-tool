@@ -168,6 +168,11 @@ export type ReviewReportDraft = {
 	createdAt: string;
 };
 export const reviewReportDraftsAtom = atom<ReviewReportDraft[]>([]);
+export const reviewReviewedPrsAtom = atomWithStorage<Record<number, boolean>>(
+	"reviewReviewedPrs",
+	{},
+);
+export const reviewSingleRefreshAtom = atom<number | null>(null);
 
 export const reviewStashSubmittedAtom = atomWithStorage<Record<string, string[]>>(
 	"reviewStashSubmitted",

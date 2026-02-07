@@ -1,4 +1,8 @@
-import { Clock20Regular, Person20Regular } from "@fluentui/react-icons";
+import {
+	Checkmark20Regular,
+	Clock20Regular,
+	Person20Regular,
+} from "@fluentui/react-icons";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 
 export type ReviewLabel = {
@@ -217,6 +221,7 @@ export const renderCardContent = (options: {
 	pr: ReviewPullRequest;
 	hiddenLabelSet: Set<string>;
 	styles: Record<string, string>;
+	reviewedByUser?: boolean;
 	onSelectUser?: (user: string) => void;
 }) => {
 	const mentions = extractMentions(options.pr.body);
@@ -226,9 +231,14 @@ export const renderCardContent = (options: {
 	return (
 		<Flex direction="column" gap="2">
 			<Flex align="center" justify="between">
-				<Text size="2" weight="medium">
-					#{options.pr.number}
-				</Text>
+				<Flex align="center" gap="1">
+					<Text size="2" weight="medium">
+						#{options.pr.number}
+					</Text>
+					{options.reviewedByUser && (
+						<Checkmark20Regular className={options.styles.icon} />
+					)}
+				</Flex>
 				<Flex align="center" gap="1" className={options.styles.meta}>
 					<Clock20Regular className={options.styles.icon} />
 					<Text size="1" color="gray" className={options.styles.timeText}>

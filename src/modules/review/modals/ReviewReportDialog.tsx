@@ -23,7 +23,11 @@ import { mergePullRequest } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
-import { reviewReportDraftsAtom } from "$/states/main";
+import {
+	reviewReportDraftsAtom,
+	reviewReviewedPrsAtom,
+	reviewSingleRefreshAtom,
+} from "$/states/main";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
@@ -108,6 +112,8 @@ export const ReviewReportDialog = () => {
 	const [dialog, setDialog] = useAtom(reviewReportDialogAtom);
 	const reviewReportDrafts = useAtomValue(reviewReportDraftsAtom);
 	const setReviewReportDrafts = useSetAtom(reviewReportDraftsAtom);
+	const setReviewReviewedPrs = useSetAtom(reviewReviewedPrsAtom);
+	const setReviewSingleRefresh = useSetAtom(reviewSingleRefreshAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const removeNotification = useSetAtom(removeNotificationAtom);
@@ -377,6 +383,12 @@ export const ReviewReportDialog = () => {
 				level: "success",
 				source: "Review",
 			});
+			setReviewReviewedPrs((prev) =>
+				dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+			);
+			if (dialog.prNumber) {
+				setReviewSingleRefresh(dialog.prNumber);
+			}
 			submitAndClose();
 		} catch {
 			setPushNotification({
@@ -515,6 +527,12 @@ export const ReviewReportDialog = () => {
 				level: "success",
 				source: "Review",
 			});
+			setReviewReviewedPrs((prev) =>
+				dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+			);
+			if (dialog.prNumber) {
+				setReviewSingleRefresh(dialog.prNumber);
+			}
 			submitAndClose();
 		} catch {
 			setPushNotification({

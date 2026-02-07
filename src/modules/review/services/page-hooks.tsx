@@ -19,12 +19,20 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
-import { ToolMode, reviewSessionAtom, toolModeAtom } from "$/states/main";
+import {
+	ToolMode,
+	reviewReviewedPrsAtom,
+	reviewSessionAtom,
+	reviewSingleRefreshAtom,
+	toolModeAtom,
+} from "$/states/main";
 import { log } from "$/utils/logging";
 import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import {
 	fetchOpenPullRequestPage,
+	fetchPullRequestDetail,
+	fetchPullRequestTimelinePage,
 } from "$/modules/github/services/PR-service";
 import {
 	fetchLabels as fetchLabelsService,
@@ -41,11 +49,13 @@ const STORE_NAME = "open-prs";
 const RECORD_KEY = "open";
 const LABEL_CACHE_KEY = "labels";
 const PENDING_COMMIT_CACHE_KEY = "pending-commits";
+const TIMELINE_CACHE_KEY = "timeline-reviewed";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 30 * 60 * 1000;
 const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
+const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
 
 type CachedPayload = {
 	key: string;
@@ -64,6 +74,12 @@ type PendingCommitCacheRecord = {
 	key: string;
 	cachedAt: number;
 	items: Record<number, { updated: boolean; cachedAt: number }>;
+};
+
+type TimelineCacheRecord = {
+	key: string;
+	cachedAt: number;
+	items: Record<number, { reviewed: boolean; cachedAt: number }>;
 };
 
 const dbPromise = openDB(DB_NAME, 1, {
@@ -165,6 +181,33 @@ const writePendingCommitCache = async (
 	}
 };
 
+const readTimelineCache = async () => {
+	try {
+		const db = await dbPromise;
+		const record = (await db.get(STORE_NAME, TIMELINE_CACHE_KEY)) as
+			| TimelineCacheRecord
+			| undefined;
+		if (!record?.items) return null;
+		return record;
+	} catch {
+		return null;
+	}
+};
+
+const writeTimelineCache = async (items: TimelineCacheRecord["items"]) => {
+	try {
+		const db = await dbPromise;
+		const payload: TimelineCacheRecord = {
+			key: TIMELINE_CACHE_KEY,
+			cachedAt: Date.now(),
+			items,
+		};
+		await db.put(STORE_NAME, payload);
+	} catch {
+		return;
+	}
+};
+
 export const useReviewPageLogic = () => {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
@@ -174,11 +217,15 @@ export const useReviewPageLogic = () => {
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
 	const updatedChecked = useAtomValue(reviewUpdatedFilterAtom);
 	const refreshToken = useAtomValue(reviewRefreshTokenAtom);
+	const reviewedByUserMap = useAtomValue(reviewReviewedPrsAtom);
+	const reviewSingleRefresh = useAtomValue(reviewSingleRefreshAtom);
 	const setReviewLabels = useSetAtom(reviewLabelsAtom);
 	const setHiddenLabels = useSetAtom(reviewHiddenLabelsAtom);
+	const setReviewReviewedPrs = useSetAtom(reviewReviewedPrsAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
+	const setReviewSingleRefresh = useSetAtom(reviewSingleRefreshAtom);
 	const { openFile } = useFileOpener();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
@@ -191,6 +238,7 @@ export const useReviewPageLogic = () => {
 	const pendingCommitCacheRef = useRef<
 		PendingCommitCacheRecord["items"]
 	>({});
+	const timelineCacheRef = useRef<TimelineCacheRecord["items"]>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
@@ -280,6 +328,75 @@ export const useReviewPageLogic = () => {
 			}),
 		[hasPendingLabel],
 	);
+	const refreshReviewTimeline = useCallback(
+		async (prNumber: number) => {
+			if (!Number.isFinite(prNumber)) return;
+			const token = pat.trim();
+			const userLogin = login.trim().toLowerCase();
+			if (!token || !userLogin || !hasAccess) return;
+			const perPage = 100;
+			const maxPages = 5;
+			let reviewed = false;
+			for (let page = 1; page <= maxPages; page += 1) {
+				const response = await fetchPullRequestTimelinePage({
+					token,
+					prNumber,
+					perPage,
+					page,
+				});
+				if (!response.ok) break;
+				for (const item of response.items) {
+					if (item.event !== "reviewed") continue;
+					const actorLogin =
+						item.user?.login?.toLowerCase() ??
+						item.actor?.login?.toLowerCase() ??
+						"";
+					if (actorLogin === userLogin) {
+						reviewed = true;
+						break;
+					}
+				}
+				if (reviewed || response.items.length < perPage) break;
+			}
+			setReviewReviewedPrs((prev) =>
+				Number.isFinite(prNumber)
+					? { ...prev, [prNumber]: reviewed }
+					: prev,
+			);
+			const now = Date.now();
+			const nextCache = {
+				...timelineCacheRef.current,
+				[prNumber]: { reviewed, cachedAt: now },
+			};
+			timelineCacheRef.current = nextCache;
+			await writeTimelineCache(nextCache);
+		},
+		[hasAccess, login, pat, setReviewReviewedPrs],
+	);
+	const refreshSinglePullRequest = useCallback(
+		async (prNumber: number) => {
+			const token = pat.trim();
+			if (!token) return;
+			const detail = await fetchPullRequestDetail({ token, prNumber });
+			if (!detail) return;
+			const refreshedItems = await refreshPendingLabels(token, [detail]);
+			const refreshedItem = refreshedItems[0] ?? detail;
+			setItems((prev) => {
+				const index = prev.findIndex((pr) => pr.number === prNumber);
+				if (index < 0) return prev;
+				const next = [...prev];
+				next[index] = refreshedItem;
+				return next;
+			});
+			const cached = await readCache();
+			if (!cached?.items?.length) return;
+			const nextCached = cached.items.map((pr) =>
+				pr.number === prNumber ? refreshedItem : pr,
+			);
+			await writeCache(nextCached, cached.etag ?? null);
+		},
+		[pat, refreshPendingLabels],
+	);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -323,10 +440,58 @@ export const useReviewPageLogic = () => {
 	}, []);
 
 	useEffect(() => {
+		let cancelled = false;
+		const run = async () => {
+			const record = await readTimelineCache();
+			if (cancelled || !record?.items) return;
+			const now = Date.now();
+			const freshItems: TimelineCacheRecord["items"] = {};
+			const mapped: Record<number, boolean> = {};
+			for (const [key, value] of Object.entries(record.items)) {
+				const prNumber = Number(key);
+				if (!Number.isFinite(prNumber)) continue;
+				if (now - value.cachedAt >= TIMELINE_CACHE_TTL) continue;
+				freshItems[prNumber] = value;
+				mapped[prNumber] = value.reviewed;
+			}
+			if (cancelled) return;
+			if (Object.keys(mapped).length > 0) {
+				setReviewReviewedPrs((prev) => ({ ...prev, ...mapped }));
+			}
+			timelineCacheRef.current = freshItems;
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [setReviewReviewedPrs]);
+
+	useEffect(() => {
 		if (remoteInitRef.current) return;
 		remoteInitRef.current = true;
 		void initFromUrl();
 	}, [initFromUrl]);
+
+	useEffect(() => {
+		if (!reviewSingleRefresh) return;
+		let cancelled = false;
+		const run = async () => {
+			await refreshSinglePullRequest(reviewSingleRefresh);
+			await refreshReviewTimeline(reviewSingleRefresh);
+			if (!cancelled) {
+				setReviewSingleRefresh(null);
+			}
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		refreshReviewTimeline,
+		refreshSinglePullRequest,
+		reviewSingleRefresh,
+		setReviewSingleRefresh,
+	]);
 
 	useEffect(() => {
 		const token = pat.trim();
@@ -682,6 +847,8 @@ export const useReviewPageLogic = () => {
 			onClose: closeNeteaseIdDialog,
 		},
 		openReviewFile,
+		refreshReviewTimeline,
+		reviewedByUserMap,
 		reviewSession,
 		selectedUser,
 		setSelectedUser,

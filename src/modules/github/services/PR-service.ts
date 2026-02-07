@@ -193,6 +193,40 @@ export const fetchPullRequestComments = async (options: {
 	}>;
 };
 
+export type PullRequestTimelineItem = {
+	event?: string;
+	user?: { login?: string | null };
+	actor?: { login?: string | null };
+	state?: string;
+	submitted_at?: string | null;
+};
+
+export const fetchPullRequestTimelinePage = async (options: {
+	token: string;
+	prNumber: number;
+	perPage: number;
+	page: number;
+}) => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json, application/vnd.github.mockingbird-preview+json",
+		Authorization: `Bearer ${options.token}`,
+	};
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${options.prNumber}/timeline`,
+		{
+			params: { per_page: options.perPage, page: options.page },
+			init: { headers },
+		},
+	);
+	return {
+		ok: response.ok,
+		status: response.status,
+		items: response.ok
+			? ((await response.json()) as PullRequestTimelineItem[])
+			: [],
+	};
+};
+
 export const mergePullRequest = async (options: {
 	token: string;
 	prNumber: number;
