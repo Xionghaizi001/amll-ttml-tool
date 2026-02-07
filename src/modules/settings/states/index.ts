@@ -78,6 +78,10 @@ export const githubAmlldbAccessAtom = atomWithStorage(
 	"githubAmlldbAccess",
 	false,
 );
+export const githubRiskConfirmedAtom = atomWithStorage(
+	"githubRiskConfirmed",
+	false,
+);
 export type NeteaseProfile = {
 	userId: number;
 	nickname: string;
@@ -89,6 +93,10 @@ export const neteaseCookieAtom = atomWithStorage("neteaseCookie", "");
 export const neteaseUserAtom = atomWithStorage<NeteaseProfile | null>(
 	"neteaseUser",
 	null,
+);
+export const neteaseRiskConfirmedAtom = atomWithStorage(
+	"neteaseRiskConfirmed",
+	false,
 );
 export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",

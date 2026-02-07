@@ -23,6 +23,12 @@ export const confirmDialogAtom = atom<{
 	title: "",
 	description: "",
 });
+export const riskConfirmDialogAtom = atom<{
+	open: boolean;
+	onConfirmed?: () => void;
+}>({
+	open: false,
+});
 export const historyRestoreDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
 export const reviewReportDialogAtom = atom<{

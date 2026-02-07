@@ -1,5 +1,6 @@
 // import MillionLint from "@million/lint";
 import { exec } from "node:child_process";
+import type { Readable } from "node:stream";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
@@ -26,6 +27,62 @@ const ReactCompilerConfig = {
 process.env.AMLL_LOCAL_EXISTS = AMLL_LOCAL_EXISTS ? "true" : "false";
 
 const plugins: Plugin[] = [
+	{
+		name: "github-proxy-dev",
+		configureServer(server) {
+			server.middlewares.use("/api/github", async (req, res) => {
+				const requestUrl = new URL(req.url ?? "", "http://localhost");
+				const rawUrl = requestUrl.searchParams.get("url") ?? "";
+				const path = requestUrl.searchParams.get("path") ?? "";
+				if (!rawUrl && !path) {
+					res.statusCode = 400;
+					res.end("Missing path or url");
+					return;
+				}
+				const targetUrl = rawUrl
+					? buildTargetFromUrl(rawUrl)
+					: buildTargetUrl(path, requestUrl.searchParams);
+				if (!targetUrl) {
+					res.statusCode = 400;
+					res.end("Invalid url");
+					return;
+				}
+				const method = req.method ?? "GET";
+				const headers: Record<string, string> = {
+					Accept: String(req.headers.accept ?? "application/vnd.github+json"),
+					"User-Agent": String(req.headers["user-agent"] ?? "amll-ttml-tool"),
+				};
+				const authorization = req.headers.authorization;
+				if (authorization) {
+					headers.Authorization = String(authorization);
+				}
+				const contentType = req.headers["content-type"];
+				if (contentType) {
+					headers["Content-Type"] = String(contentType);
+				}
+				const body =
+					method === "GET" || method === "HEAD"
+						? undefined
+						: await readRequestBody(req);
+				try {
+					const response = await fetch(targetUrl.toString(), {
+						method,
+						headers,
+						body,
+					});
+					res.statusCode = response.status;
+					const responseType =
+						response.headers.get("content-type") ?? "application/json";
+					res.setHeader("content-type", responseType);
+					const text = await response.text();
+					res.end(text);
+				} catch (error) {
+					res.statusCode = 502;
+					res.end(error instanceof Error ? error.message : "Proxy error");
+				}
+			});
+		},
+	},
 	ConditionalCompile(),
 	// topLevelAwait(),
 	// MillionLint.vite(),
@@ -128,6 +185,50 @@ const plugins: Plugin[] = [
 		},
 	}),
 ];
+
+const GITHUB_API_BASE = "https://api.github.com";
+const ALLOWED_HOSTS = new Set([
+	"api.github.com",
+	"github.com",
+	"raw.githubusercontent.com",
+]);
+
+const buildTargetUrl = (path: string, query: URLSearchParams) => {
+	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+	const url = new URL(normalizedPath, GITHUB_API_BASE);
+	for (const [key, value] of query.entries()) {
+		if (key === "path" || key === "url") continue;
+		url.searchParams.append(key, value);
+	}
+	return url;
+};
+
+const buildTargetFromUrl = (rawUrl: string) => {
+	try {
+		const url = new URL(rawUrl);
+		if (!ALLOWED_HOSTS.has(url.hostname)) {
+			return null;
+		}
+		return url;
+	} catch {
+		return null;
+	}
+};
+
+const readRequestBody = async (req: Readable) => {
+	if (!req.readable) return undefined;
+	const chunks: Uint8Array[] = [];
+	await new Promise<void>((resolve, reject) => {
+		req.on("data", (chunk) => {
+			chunks.push(chunk as Uint8Array);
+		});
+		req.on("end", () => resolve());
+		req.on("error", reject);
+	});
+	if (chunks.length === 0) return undefined;
+	const merged = Buffer.concat(chunks);
+	return merged;
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({

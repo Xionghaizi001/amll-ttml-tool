@@ -1,6 +1,7 @@
 import { Alert24Regular } from "@fluentui/react-icons";
 import { Box, Button, Dialog, Flex, ScrollArea, Text } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
@@ -8,6 +9,7 @@ import { createReviewUpdateNotificationHandler } from "$/modules/review/services
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import type { AppNotification } from "$/states/notifications";
 import type { ToolMode } from "$/states/main";
+import { fileUpdateSessionAtom } from "$/states/main";
 import { notificationCenterStyles } from "./notification-center.styles";
 import { PendingUpdateGroup } from "./pending-update-group";
 import { NotificationEntry } from "./notification-entry";
@@ -68,6 +70,7 @@ export const NotificationCenterBody = ({
 }: NotificationCenterBodyProps) => {
 	const { t } = useTranslation();
 	const { openFile } = useFileOpener();
+	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
 	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
 		open: boolean;
 		ids: string[];
@@ -109,6 +112,7 @@ export const NotificationCenterBody = ({
 	const handleOpenUpdate = createReviewUpdateNotificationHandler({
 		pat,
 		openFile,
+		setFileUpdateSession,
 		setToolMode,
 		pushNotification: setPushNotification,
 		neteaseCookie,

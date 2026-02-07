@@ -1,27 +1,36 @@
 import { Alert20Regular, Beaker24Regular } from "@fluentui/react-icons";
 import { Button, Flex, SegmentedControl, Text } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import WindowControls from "$/components/WindowControls";
 import { useReviewTitleBar } from "$/modules/review/modals/useReviewTimingFlow.tsx";
-import { githubAmlldbAccessAtom } from "$/modules/settings/states";
-import { notificationCenterDialogAtom } from "$/states/dialogs";
-import { type AppNotification, notificationsAtom } from "$/states/notifications";
+import { requestFileUpdatePush } from "$/modules/user/modals/request-file-update-push";
+import { githubAmlldbAccessAtom, githubPatAtom } from "$/modules/settings/states";
+import { notificationCenterDialogAtom, confirmDialogAtom } from "$/states/dialogs";
+import {
+	type AppNotification,
+	notificationsAtom,
+	pushNotificationAtom,
+} from "$/states/notifications";
 import {
 	keySwitchEditModeAtom,
 	keySwitchPreviewModeAtom,
 	keySwitchSyncModeAtom,
 } from "$/states/keybindings.ts";
 import {
+	fileUpdateSessionAtom,
+	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
 import { useKeyBindingAtom } from "$/utils/keybindings.ts";
+import { log } from "$/utils/logging";
+import { ReviewActionGroup } from "./modals/ReviewActionGroup";
 import { TopMenu } from "../TopMenu/index.tsx";
 import styles from "./index.module.css";
 
@@ -38,6 +47,12 @@ export const TitleBar: FC = () => {
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const canReview = useAtomValue(githubAmlldbAccessAtom);
+	const pat = useAtomValue(githubPatAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
+	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const [notificationCenterOpen, setNotificationCenterOpen] = useAtom(
 		notificationCenterDialogAtom,
 	);
@@ -103,6 +118,69 @@ export const TitleBar: FC = () => {
 		}
 	}, [canReview, toolMode, setToolMode]);
 
+	const onUpdateComplete = useCallback(() => {
+		if (!fileUpdateSession) return;
+		requestFileUpdatePush({
+			token: pat,
+			session: fileUpdateSession,
+			lyric: lyricLines,
+			setConfirmDialog,
+			pushNotification: setPushNotification,
+			onAfterPush: () => {
+				setFileUpdateSession(null);
+				log(`已结束更新会话 PR #${fileUpdateSession.prNumber}`);
+			},
+			onSuccess: () => {
+				setPushNotification({
+					title: "更新推送成功",
+					level: "success",
+					source: "user-PR-update",
+				});
+			},
+			onFailure: (message, url) => {
+				setPushNotification({
+					title: message || "更新推送失败",
+					level: "error",
+					source: "user-PR-update",
+					action: {
+						type: "open-url",
+						payload: { url },
+					},
+				});
+			},
+			onError: () => {
+				setPushNotification({
+					title: "推送更新失败",
+					level: "error",
+					source: "user-PR-update",
+				});
+			},
+		});
+	}, [
+		fileUpdateSession,
+		lyricLines,
+		pat,
+		setConfirmDialog,
+		setFileUpdateSession,
+		setPushNotification,
+	]);
+
+	const onUpdateCancel = useCallback(() => {
+		if (!fileUpdateSession) return;
+		setFileUpdateSession(null);
+		log(`已结束更新会话 PR #${fileUpdateSession.prNumber}`);
+	}, [fileUpdateSession, setFileUpdateSession]);
+
+	const updateActionGroup = fileUpdateSession ? (
+		<ReviewActionGroup
+			className={styles.reviewActionGroup}
+			onComplete={onUpdateComplete}
+			onCancel={onUpdateCancel}
+		/>
+	) : null;
+
+	const actionGroup = updateActionGroup ?? reviewActionGroup;
+
 	return (
 		<>
 			{reviewDialogs}
@@ -156,7 +234,7 @@ export const TitleBar: FC = () => {
 										>
 											<Text color="gray" wrap="nowrap" size="2">
 												<Flex align="center" gap="2">
-													{reviewActionGroup}
+														{actionGroup}
 													<span className={styles.title}>
 														{t(
 															"topBar.appName",
