@@ -230,15 +230,27 @@ const ReviewPage = () => {
 		return (
 			<Box className={styles.emptyState}>
 				<Flex direction="column" align="center" gap="4">
-					<Text color="gray">当前账号无审阅权限</Text>
-					<Text size="2" color="gray">
-						你可以通过以下方式获取权限：
-					</Text>
-					<Flex gap="2">
-						<Button variant="soft" onClick={initiateLyricsSiteLogin}>
-							登录歌词站
-						</Button>
-					</Flex>
+					{isLyricsSiteLoggedIn && !hasLyricsSiteReviewPermission ? (
+						<>
+							<Text color="gray">当前账号无审阅权限</Text>
+							<Text size="2" color="gray">
+								你当前不是歌词库审核员，无法参与审阅
+							</Text>
+							<Button size="1" variant="soft" color="gray" onClick={logoutLyricsSite}>
+								登出并切换账号
+							</Button>
+						</>
+					) : (
+						<>
+							<Text color="gray">当前账号无审阅权限</Text>
+							<Text size="2" color="gray">
+								请先登录以获取审阅权限
+							</Text>
+							<Button variant="soft" onClick={initiateLyricsSiteLogin}>
+								登录歌词站
+							</Button>
+						</>
+					)}
 				</Flex>
 			</Box>
 		);

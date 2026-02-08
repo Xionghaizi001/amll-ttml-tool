@@ -26,7 +26,7 @@ const getSafeUrl = (input: string, requireTtml: boolean) => {
 	}
 };
 
-// ========== 歌词站登录功能 ==========
+// ========== 歌词站登录 ==========
 
 const LYRICS_SITE_URL = "https://amlldb.bikonoo.com";
 
@@ -105,21 +105,31 @@ export const useLyricsSiteAuth = () => {
 	// 获取用户信息
 	const fetchUserInfo = useCallback(
 		async (accessToken: string): Promise<LyricsSiteUser | null> => {
+			console.log('[LyricsSiteAuth] 开始获取用户信息, token:', accessToken.substring(0, 20) + '...');
 			try {
-				const response = await fetch(`${LYRICS_SITE_URL}/api/user/profile`, {
+				const url = `${LYRICS_SITE_URL}/api/user/profile`;
+				console.log('[LyricsSiteAuth] 请求 URL:', url);
+				
+				const response = await fetch(url, {
 					headers: {
 						Authorization: `Bearer ${accessToken}`,
 					},
 				});
+				
+				console.log('[LyricsSiteAuth] 响应状态:', response.status);
 
 				if (!response.ok) {
-					throw new Error("获取用户信息失败");
+					const errorText = await response.text();
+					console.error('[LyricsSiteAuth] 获取用户信息失败:', errorText);
+					throw new Error(`获取用户信息失败: ${response.status}`);
 				}
 
 				const userData: LyricsSiteUser = await response.json();
+				console.log('[LyricsSiteAuth] 获取用户信息成功:', userData);
 				setUser(userData);
 				return userData;
 			} catch (error) {
+				console.error('[LyricsSiteAuth] 获取用户信息异常:', error);
 				setPushNotification({
 					title: "获取用户信息失败",
 					level: "error",

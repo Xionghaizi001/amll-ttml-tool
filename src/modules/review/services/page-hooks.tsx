@@ -214,7 +214,6 @@ export const useReviewPageLogic = () => {
 	const login = useAtomValue(githubLoginAtom);
 	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
 	const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
-	// 歌词站登录也可以获得审阅权限
 	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);

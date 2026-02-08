@@ -47,7 +47,7 @@ const LyricsSiteLoginCard = () => {
 			<Flex direction="column" gap="3">
 				<Text weight="medium">{t("settings.connect.lyricsSite", "歌词站")}</Text>
 				<Text size="2" color="gray">
-					{t("settings.connect.lyricsSiteDesc", "登录歌词站以参与歌词审核")}
+					{t("settings.connect.lyricsSiteDesc", "登录歌词站以使用歌词站相关功能")}
 				</Text>
 				<Button variant="soft" onClick={initiateLogin}>
 					{t("settings.connect.loginLyricsSite", "登录歌词站")}
