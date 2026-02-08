@@ -73,7 +73,7 @@ export const useLyricsSiteAuth = () => {
 	const setUser = useSetAtom(lyricsSiteUserAtom);
 	const setLoginPending = useSetAtom(lyricsSiteLoginPendingAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
-	const popupRef = useRef<Window | null>(null);
+	const isProcessingCallback = useRef(false);
 
 	// 生成并存储 PKCE 参数
 	const initiateLogin = useCallback(async () => {
@@ -144,30 +144,44 @@ export const useLyricsSiteAuth = () => {
 	// 处理回调
 	const handleCallback = useCallback(
 		async (code: string, state: string): Promise<boolean> => {
+			// 防止重复处理
+			if (isProcessingCallback.current) {
+				console.log('[LyricsSiteAuth] 回调正在处理中，跳过');
+				return false;
+			}
+			isProcessingCallback.current = true;
+			
+			console.log('[LyricsSiteAuth] 开始处理回调, code:', code.substring(0, 10) + '...');
+			
 			const storedState = sessionStorage.getItem("lyrics_site_state");
 			const codeVerifier = sessionStorage.getItem("lyrics_site_code_verifier");
 
 			if (!storedState || !codeVerifier) {
+				console.log('[LyricsSiteAuth] 授权状态已过期');
 				setPushNotification({
 					title: "授权状态已过期，请重新登录",
 					level: "error",
 					source: "lyrics-site-auth",
 				});
 				setLoginPending(false);
+				isProcessingCallback.current = false;
 				return false;
 			}
 
 			if (state !== storedState) {
+				console.log('[LyricsSiteAuth] 状态验证失败');
 				setPushNotification({
 					title: "授权状态验证失败，请重新登录",
 					level: "error",
 					source: "lyrics-site-auth",
 				});
 				setLoginPending(false);
+				isProcessingCallback.current = false;
 				return false;
 			}
 
 			try {
+				console.log('[LyricsSiteAuth] 开始换取 token');
 				// 换取 token
 				const response = await fetch(`${LYRICS_SITE_URL}/api/oauth/token`, {
 					method: "POST",
@@ -189,9 +203,11 @@ export const useLyricsSiteAuth = () => {
 				}
 
 				const data = await response.json();
+				console.log('[LyricsSiteAuth] 获取到 access_token');
 				setToken(data.access_token);
 
 				// 获取用户信息
+				console.log('[LyricsSiteAuth] 开始获取用户信息');
 				await fetchUserInfo(data.access_token);
 
 				// 清理 sessionStorage
@@ -205,14 +221,17 @@ export const useLyricsSiteAuth = () => {
 					source: "lyrics-site-auth",
 				});
 
+				isProcessingCallback.current = false;
 				return true;
 			} catch (error) {
+				console.error('[LyricsSiteAuth] 登录失败:', error);
 				setPushNotification({
 					title: `登录失败: ${error instanceof Error ? error.message : "未知错误"}`,
 					level: "error",
 					source: "lyrics-site-auth",
 				});
 				setLoginPending(false);
+				isProcessingCallback.current = false;
 				return false;
 			}
 		},
@@ -242,25 +261,7 @@ export const useLyricsSiteAuth = () => {
 	// 检查是否有审阅权限
 	const hasReviewPermission = user?.reviewPermission === 1;
 
-	// 监听消息（处理授权窗口回调）
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			// 验证来源
-			if (!event.origin.includes("bikonoo.com")) return;
-
-			if (event.data?.type === "lyrics-site-auth-callback") {
-				const { code, state } = event.data;
-				if (code && state) {
-					handleCallback(code, state);
-				}
-			}
-		};
-
-		window.addEventListener("message", handleMessage);
-		return () => window.removeEventListener("message", handleMessage);
-	}, [handleCallback]);
-
-	// 页面加载时检查 URL 参数（处理直接回调）
+	// 页面加载时检查 URL 参数（处理授权回调）
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		const code = params.get("code");
@@ -268,6 +269,7 @@ export const useLyricsSiteAuth = () => {
 		const type = params.get("type");
 
 		if (type === "lyrics-site-callback" && code && state) {
+			console.log('[LyricsSiteAuth] 检测到回调参数，开始处理');
 			handleCallback(code, state);
 			// 清理 URL
 			window.history.replaceState({}, document.title, window.location.pathname);
