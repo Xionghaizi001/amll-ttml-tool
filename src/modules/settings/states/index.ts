@@ -120,3 +120,14 @@ export type ReviewLabel = {
 	color: string;
 };
 export const reviewLabelsAtom = atom<ReviewLabel[]>([]);
+
+// 歌词站登录状态
+export type LyricsSiteUser = {
+	username: string;
+	displayName: string;
+	avatarUrl: string;
+	reviewPermission: 0 | 1;
+};
+export const lyricsSiteTokenAtom = atomWithStorage<string>("lyricsSiteToken", "");
+export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>("lyricsSiteUser", null);
+export const lyricsSiteLoginPendingAtom = atomWithStorage<boolean>("lyricsSiteLoginPending", false);

@@ -1,11 +1,14 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { atomWithStorage } from "jotai/utils";
 import { useCallback, useEffect, useRef } from "react";
 import { useFileOpener } from "$/hooks/useFileOpener";
 import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
 	githubPatAtom,
+	lyricsSiteTokenAtom,
+	lyricsSiteUserAtom,
+	lyricsSiteLoginPendingAtom,
+	type LyricsSiteUser,
 } from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
 import { ToolMode, reviewSessionAtom, toolModeAtom } from "$/states/main";
@@ -30,16 +33,8 @@ const getSafeUrl = (input: string, requireTtml: boolean) => {
 
 const LYRICS_SITE_URL = "https://amlldb.bikonoo.com";
 
-export interface LyricsSiteUser {
-	username: string;
-	displayName: string;
-	avatarUrl: string;
-	reviewPermission: 0 | 1;
-}
-
-export const lyricsSiteTokenAtom = atomWithStorage<string>("lyricsSiteToken", "");
-export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>("lyricsSiteUser", null);
-export const lyricsSiteLoginPendingAtom = atomWithStorage<boolean>("lyricsSiteLoginPending", false);
+export type { LyricsSiteUser };
+export { lyricsSiteTokenAtom, lyricsSiteUserAtom, lyricsSiteLoginPendingAtom };
 
 // PKCE 工具函数
 const generateCodeVerifier = (): string => {
@@ -73,7 +68,6 @@ export const useLyricsSiteAuth = () => {
 	const setUser = useSetAtom(lyricsSiteUserAtom);
 	const setLoginPending = useSetAtom(lyricsSiteLoginPendingAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
-	const isProcessingCallback = useRef(false);
 
 	// 生成并存储 PKCE 参数
 	const initiateLogin = useCallback(async () => {
@@ -102,147 +96,29 @@ export const useLyricsSiteAuth = () => {
 		window.location.href = authUrl;
 	}, [setLoginPending]);
 
-	// 获取用户信息
-	const fetchUserInfo = useCallback(
-		async (accessToken: string): Promise<LyricsSiteUser | null> => {
-			console.log('[LyricsSiteAuth] 开始获取用户信息, token:', accessToken.substring(0, 20) + '...');
-			try {
-				const url = `${LYRICS_SITE_URL}/api/user/profile`;
-				console.log('[LyricsSiteAuth] 请求 URL:', url);
-				
-				const response = await fetch(url, {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				});
-				
-				console.log('[LyricsSiteAuth] 响应状态:', response.status);
-
-				if (!response.ok) {
-					const errorText = await response.text();
-					console.error('[LyricsSiteAuth] 获取用户信息失败:', errorText);
-					throw new Error(`获取用户信息失败: ${response.status}`);
-				}
-
-				const userData: LyricsSiteUser = await response.json();
-				console.log('[LyricsSiteAuth] 获取用户信息成功:', userData);
-				setUser(userData);
-				return userData;
-			} catch (error) {
-				console.error('[LyricsSiteAuth] 获取用户信息异常:', error);
-				setPushNotification({
-					title: "获取用户信息失败",
-					level: "error",
-					source: "lyrics-site-auth",
-				});
-				return null;
-			}
-		},
-		[setUser, setPushNotification],
-	);
-
-	// 处理回调
-	const handleCallback = useCallback(
-		async (code: string, state: string): Promise<boolean> => {
-			// 防止重复处理
-			if (isProcessingCallback.current) {
-				console.log('[LyricsSiteAuth] 回调正在处理中，跳过');
-				return false;
-			}
-			isProcessingCallback.current = true;
-			
-			console.log('[LyricsSiteAuth] 开始处理回调, code:', code.substring(0, 10) + '...');
-			
-			const storedState = sessionStorage.getItem("lyrics_site_state");
-			const codeVerifier = sessionStorage.getItem("lyrics_site_code_verifier");
-
-			if (!storedState || !codeVerifier) {
-				console.log('[LyricsSiteAuth] 授权状态已过期');
-				setPushNotification({
-					title: "授权状态已过期，请重新登录",
-					level: "error",
-					source: "lyrics-site-auth",
-				});
-				setLoginPending(false);
-				isProcessingCallback.current = false;
-				return false;
-			}
-
-			if (state !== storedState) {
-				console.log('[LyricsSiteAuth] 状态验证失败');
-				setPushNotification({
-					title: "授权状态验证失败，请重新登录",
-					level: "error",
-					source: "lyrics-site-auth",
-				});
-				setLoginPending(false);
-				isProcessingCallback.current = false;
-				return false;
-			}
-
-			try {
-				console.log('[LyricsSiteAuth] 开始换取 token');
-				// 换取 token
-				const response = await fetch(`${LYRICS_SITE_URL}/api/oauth/token`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						grant_type: "authorization_code",
-						code,
-						redirect_uri: `${window.location.origin}/callback`,
-						client_id: "amll-ttml-tool",
-						code_verifier: codeVerifier,
-					}),
-				});
-
-				if (!response.ok) {
-					const error = await response.text();
-					throw new Error(error);
-				}
-
-				const data = await response.json();
-				console.log('[LyricsSiteAuth] 获取到 access_token');
-				setToken(data.access_token);
-
-				// 获取用户信息
-				console.log('[LyricsSiteAuth] 开始获取用户信息');
-				await fetchUserInfo(data.access_token);
-
-				// 清理 sessionStorage
-				sessionStorage.removeItem("lyrics_site_code_verifier");
-				sessionStorage.removeItem("lyrics_site_state");
-				setLoginPending(false);
-
-				setPushNotification({
-					title: "歌词站登录成功",
-					level: "success",
-					source: "lyrics-site-auth",
-				});
-
-				isProcessingCallback.current = false;
-				return true;
-			} catch (error) {
-				console.error('[LyricsSiteAuth] 登录失败:', error);
-				setPushNotification({
-					title: `登录失败: ${error instanceof Error ? error.message : "未知错误"}`,
-					level: "error",
-					source: "lyrics-site-auth",
-				});
-				setLoginPending(false);
-				isProcessingCallback.current = false;
-				return false;
-			}
-		},
-		[setToken, setLoginPending, setPushNotification, fetchUserInfo],
-	);
-
 	// 刷新用户信息
 	const refreshUserInfo = useCallback(async (): Promise<LyricsSiteUser | null> => {
 		if (!token) return null;
-		return fetchUserInfo(token);
-	}, [token, fetchUserInfo]);
+		
+		try {
+			const response = await fetch(`${LYRICS_SITE_URL}/api/user/profile`, {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`获取用户信息失败: ${response.status}`);
+			}
+
+			const userData: LyricsSiteUser = await response.json();
+			setUser(userData);
+			return userData;
+		} catch (error) {
+			console.error('[LyricsSiteAuth] 刷新用户信息失败:', error);
+			return null;
+		}
+	}, [token, setUser]);
 
 	// 登出
 	const logout = useCallback(() => {
@@ -261,27 +137,7 @@ export const useLyricsSiteAuth = () => {
 	// 检查是否有审阅权限
 	const hasReviewPermission = user?.reviewPermission === 1;
 
-	// 页面加载时检查 URL 参数（处理授权回调）- 使用 ref 确保只执行一次
-	const hasCheckedCallback = useRef(false);
-	useEffect(() => {
-		if (hasCheckedCallback.current) return;
-		
-		const params = new URLSearchParams(window.location.search);
-		const code = params.get("code");
-		const state = params.get("state");
-		const type = params.get("type");
-
-		if (type === "lyrics-site-callback" && code && state) {
-			hasCheckedCallback.current = true;
-			console.log('[LyricsSiteAuth] 检测到回调参数，立即处理');
-			// 立即处理，不等待 useEffect 调度
-			handleCallback(code, state);
-			// 清理 URL
-			window.history.replaceState({}, document.title, window.location.pathname);
-		}
-	}, [handleCallback]);
-
-	// 页面加载时刷新用户信息
+	// 页面加载时刷新用户信息（如果只有 token 没有 user）
 	useEffect(() => {
 		if (token && !user) {
 			refreshUserInfo();

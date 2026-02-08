@@ -82,6 +82,7 @@ import { syncPendingUpdateNotices } from "./modules/github/services/notice-servi
 import { verifyGithubAccess } from "./modules/github/services/identity-service.ts";
 import { useReviewSessionLifecycle } from "./modules/review";
 import { setupDevTestHooks } from "./utils/test.ts";
+import { OAuthCallbackHandler } from "./components/OAuthCallbackHandler";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
@@ -472,6 +473,7 @@ function App() {
 					</div>
 				)}
 				<div className={styles.appContent}>
+					<OAuthCallbackHandler />
 					<AutosaveManager />
 					<GlobalDragOverlay />
 					{toolMode === ToolMode.Sync && <SyncKeyBinding />}
