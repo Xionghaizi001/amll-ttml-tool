@@ -472,8 +472,8 @@ function App() {
 						</Flex>
 					</div>
 				)}
+				<OAuthCallbackHandler />
 				<div className={styles.appContent}>
-					<OAuthCallbackHandler />
 					<AutosaveManager />
 					<GlobalDragOverlay />
 					{toolMode === ToolMode.Sync && <SyncKeyBinding />}

@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import WindowControls from "$/components/WindowControls";
 import { useReviewTitleBar } from "$/modules/review/modals/useReviewTimingFlow.tsx";
 import { requestFileUpdatePush } from "$/modules/user/modals/request-file-update-push";
-import { githubAmlldbAccessAtom, githubPatAtom } from "$/modules/settings/states";
+import { githubAmlldbAccessAtom, githubPatAtom, lyricsSiteUserAtom } from "$/modules/settings/states";
 import { notificationCenterDialogAtom, confirmDialogAtom } from "$/states/dialogs";
 import {
 	type AppNotification,
@@ -46,7 +46,10 @@ export const TitleBar: FC = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
-	const canReview = useAtomValue(githubAmlldbAccessAtom);
+	const githubCanReview = useAtomValue(githubAmlldbAccessAtom);
+	const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
+	const lyricsSiteCanReview = lyricsSiteUser?.reviewPermission === 1;
+	const canReview = githubCanReview || lyricsSiteCanReview;
 	const pat = useAtomValue(githubPatAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
