@@ -261,15 +261,20 @@ export const useLyricsSiteAuth = () => {
 	// 检查是否有审阅权限
 	const hasReviewPermission = user?.reviewPermission === 1;
 
-	// 页面加载时检查 URL 参数（处理授权回调）
+	// 页面加载时检查 URL 参数（处理授权回调）- 使用 ref 确保只执行一次
+	const hasCheckedCallback = useRef(false);
 	useEffect(() => {
+		if (hasCheckedCallback.current) return;
+		
 		const params = new URLSearchParams(window.location.search);
 		const code = params.get("code");
 		const state = params.get("state");
 		const type = params.get("type");
 
 		if (type === "lyrics-site-callback" && code && state) {
-			console.log('[LyricsSiteAuth] 检测到回调参数，开始处理');
+			hasCheckedCallback.current = true;
+			console.log('[LyricsSiteAuth] 检测到回调参数，立即处理');
+			// 立即处理，不等待 useEffect 调度
 			handleCallback(code, state);
 			// 清理 URL
 			window.history.replaceState({}, document.title, window.location.pathname);
