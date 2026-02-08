@@ -13,6 +13,7 @@ import {
 	reviewSelectedLabelsAtom,
 	reviewUpdatedFilterAtom,
 } from "$/modules/settings/states";
+import { lyricsSiteUserAtom } from "./remote-service";
 import { useFileOpener } from "$/hooks/useFileOpener";
 import {
 	pushNotificationAtom,
@@ -212,6 +213,10 @@ export const useReviewPageLogic = () => {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
 	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
+	const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
+	// 歌词站登录也可以获得审阅权限
+	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
+	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
@@ -835,7 +840,7 @@ export const useReviewPageLogic = () => {
 		error,
 		filteredItems,
 		handleLoadNeteaseAudio,
-		hasAccess,
+		hasAccess: effectiveHasAccess,
 		hiddenLabelSet,
 		items,
 		lastNeteaseIdByPr,

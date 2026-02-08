@@ -1,4 +1,4 @@
-import { Box, Button, Card, Flex, Spinner, Text } from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Spinner, Text, Avatar } from "@radix-ui/themes";
 import {
 	type MouseEvent,
 	useCallback,
@@ -12,6 +12,7 @@ import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialo
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import { renderCardContent, type ReviewPullRequest } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
+import { useLyricsSiteAuth } from "./remote-service";
 import styles from "../index.module.css";
 
 const ReviewPage = () => {
@@ -43,6 +44,13 @@ const ReviewPage = () => {
 		selectedUser,
 		setSelectedUser,
 	} = useReviewPageLogic();
+	const {
+		user: lyricsSiteUser,
+		isLoggedIn: isLyricsSiteLoggedIn,
+		hasReviewPermission: hasLyricsSiteReviewPermission,
+		initiateLogin: initiateLyricsSiteLogin,
+		logout: logoutLyricsSite,
+	} = useLyricsSiteAuth();
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
@@ -215,16 +223,65 @@ const ReviewPage = () => {
 		};
 	}, []);
 
-	if (!hasAccess) {
+	// 检查是否有权限（GitHub PAT 或歌词站登录）
+	const hasReviewAccess = hasAccess || hasLyricsSiteReviewPermission;
+
+	if (!hasReviewAccess) {
 		return (
 			<Box className={styles.emptyState}>
-				<Text color="gray">当前账号无审阅权限</Text>
+				<Flex direction="column" align="center" gap="4">
+					<Text color="gray">当前账号无审阅权限</Text>
+					<Text size="2" color="gray">
+						你可以通过以下方式获取权限：
+					</Text>
+					<Flex gap="2">
+						<Button variant="soft" onClick={initiateLyricsSiteLogin}>
+							登录歌词站
+						</Button>
+					</Flex>
+				</Flex>
 			</Box>
 		);
 	}
 
 	return (
 		<Box className={styles.container} ref={containerRef}>
+			{/* 用户信息栏 */}
+			<Flex align="center" justify="between" className={styles.userBar}>
+				<Flex align="center" gap="2">
+					{isLyricsSiteLoggedIn && lyricsSiteUser ? (
+						<>
+							<Avatar
+								size="2"
+								src={lyricsSiteUser.avatarUrl}
+								fallback={lyricsSiteUser.displayName?.[0] || "U"}
+								radius="full"
+							/>
+							<Flex direction="column">
+								<Text size="2" weight="medium">
+									{lyricsSiteUser.displayName}
+								</Text>
+								<Text size="1" color="gray">
+									@{lyricsSiteUser.username}
+									{lyricsSiteUser.reviewPermission === 1 && (
+										<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
+											✓ 审核员
+										</span>
+									)}
+								</Text>
+							</Flex>
+							<Button size="1" variant="soft" color="gray" onClick={logoutLyricsSite}>
+								登出
+							</Button>
+						</>
+					) : (
+						<Button size="2" variant="soft" onClick={initiateLyricsSiteLogin}>
+							登录歌词站
+						</Button>
+					)}
+				</Flex>
+			</Flex>
+
 			{loading && items.length === 0 && (
 				<Flex align="center" gap="2" className={styles.loading}>
 					<Spinner size="2" />
