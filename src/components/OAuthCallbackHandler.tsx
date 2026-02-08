@@ -97,7 +97,6 @@ export const OAuthCallbackHandler = () => {
 				}
 
 				const userData = await userResponse.json();
-				console.log('[OAuthCallback] 获取到用户信息:', userData);
 				setUser(userData);
 
 				// 清理 sessionStorage
@@ -142,7 +141,7 @@ export const OAuthCallbackHandler = () => {
 				right: 0,
 				bottom: 0,
 				background: "var(--gray-1)",
-				zIndex: 9999,
+				zIndex: 10001,
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
@@ -169,10 +168,16 @@ export const OAuthCallbackHandler = () => {
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
-								fontSize: 24,
 							}}
 						>
-							✓
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 16 16"
+								fill="white"
+							>
+								<path d="M12.78 4.28a.75.75 0 0 0-1.06-1.06L6.25 8.69 3.78 6.22a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l6-6Z" />
+							</svg>
 						</Box>
 						<Text size="3" weight="medium">
 							登录成功
@@ -191,10 +196,16 @@ export const OAuthCallbackHandler = () => {
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
-								fontSize: 24,
 							}}
 						>
-							✕
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 16 16"
+								fill="white"
+							>
+								<path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+							</svg>
 						</Box>
 						<Text size="3" weight="medium" color="red">
 							登录失败

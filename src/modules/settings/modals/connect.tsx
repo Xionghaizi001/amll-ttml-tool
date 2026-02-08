@@ -17,22 +17,18 @@ const LyricsSiteLoginCard = () => {
 				<Flex direction="column" gap="3">
 					<Flex align="center" gap="3">
 						<Avatar
-						size="3"
-						src={user.avatarUrl}
-						fallback={user.displayName?.[0] || "U"}
-						radius="full"
-						alt={`${user.displayName} 的头像`}
-						onError={(e) => console.error('[LyricsSite] 头像加载失败:', user.avatarUrl, e)}
-					/>
+							size="3"
+							src={user.avatarUrl}
+							fallback={user.displayName?.[0] || "U"}
+							radius="full"
+						/>
 						<Flex direction="column">
 							<Text weight="medium">{user.displayName}</Text>
 							<Text size="2" color="gray">
 								@{user.username}
-								{hasReviewPermission && (
-									<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
-										✓ 审核员
-									</span>
-								)}
+							<span style={{ color: hasReviewPermission ? "var(--green-9)" : "var(--gray-9)", marginLeft: "8px" }}>
+								{hasReviewPermission ? "审核员" : "普通用户"}
+							</span>
 							</Text>
 						</Flex>
 					</Flex>
