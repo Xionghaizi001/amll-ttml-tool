@@ -97,6 +97,7 @@ export const OAuthCallbackHandler = () => {
 				}
 
 				const userData = await userResponse.json();
+				console.log('[OAuthCallback] 获取到用户信息:', userData);
 				setUser(userData);
 
 				// 清理 sessionStorage

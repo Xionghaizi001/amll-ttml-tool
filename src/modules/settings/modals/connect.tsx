@@ -17,11 +17,13 @@ const LyricsSiteLoginCard = () => {
 				<Flex direction="column" gap="3">
 					<Flex align="center" gap="3">
 						<Avatar
-							size="3"
-							src={user.avatarUrl}
-							fallback={user.displayName?.[0] || "U"}
-							radius="full"
-						/>
+						size="3"
+						src={user.avatarUrl}
+						fallback={user.displayName?.[0] || "U"}
+						radius="full"
+						alt={`${user.displayName} 的头像`}
+						onError={(e) => console.error('[LyricsSite] 头像加载失败:', user.avatarUrl, e)}
+					/>
 						<Flex direction="column">
 							<Text weight="medium">{user.displayName}</Text>
 							<Text size="2" color="gray">
