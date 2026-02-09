@@ -182,6 +182,9 @@ export const reviewStashSubmittedAtom = atomWithStorage<Record<string, string[]>
 export const reviewStashLastSelectionAtom = atomWithStorage<
 	Record<string, string[]>
 >("reviewStashLastSelection", {});
+export const reviewStashRemovedOrderAtom = atomWithStorage<
+	Record<string, number[]>
+>("reviewStashRemovedOrder", {});
 
 /**
  * @description 用于控制全局文件拖拽遮罩层的显示

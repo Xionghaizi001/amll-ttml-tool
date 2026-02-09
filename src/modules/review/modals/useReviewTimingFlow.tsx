@@ -10,6 +10,7 @@ import {
 	reviewSessionAtom,
 	reviewStagedAtom,
 	reviewStashLastSelectionAtom,
+	reviewStashRemovedOrderAtom,
 	reviewStashSubmittedAtom,
 	selectedWordsAtom,
 	ToolMode,
@@ -54,6 +55,9 @@ export const useReviewTimingFlow = () => {
 	);
 	const [reviewStashLastSelection, setReviewStashLastSelection] = useAtom(
 		reviewStashLastSelectionAtom,
+	);
+	const [reviewStashRemovedOrder, setReviewStashRemovedOrder] = useAtom(
+		reviewStashRemovedOrderAtom,
 	);
 	const setReviewReportDialog = useSetAtom(reviewReportDialogAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
@@ -223,9 +227,14 @@ export const useReviewTimingFlow = () => {
 		const submittedSet = new Set(
 			stashKey ? reviewStashSubmitted[stashKey] ?? [] : [],
 		);
+		const removedOrderSet = new Set(
+			stashKey ? reviewStashRemovedOrder[stashKey] ?? [] : [],
+		);
 		const nextStash: TimingStashItem[] = [];
 		for (const candidate of candidates) {
 			if (submittedSet.has(candidate.wordId)) continue;
+			const orderIndex = TimingOrderMap.get(candidate.wordId);
+			if (orderIndex !== undefined && removedOrderSet.has(orderIndex)) continue;
 			const startDelta = candidate.newStart - candidate.oldStart;
 			const endDelta = candidate.newEnd - candidate.oldEnd;
 			if (startDelta !== 0) {
@@ -241,8 +250,10 @@ export const useReviewTimingFlow = () => {
 		reviewFreeze,
 		reviewSession,
 		reviewStaged,
+		reviewStashRemovedOrder,
 		reviewStashSubmitted,
 		stashKey,
+		TimingOrderMap,
 	]);
 
 	useEffect(() => {
@@ -555,15 +566,45 @@ export const useReviewTimingFlow = () => {
 	);
 
 	const onRemoveStashSelected = useCallback(() => {
+		if (stashKey) {
+			setReviewStashRemovedOrder((prev) => {
+				const existing = new Set(prev[stashKey] ?? []);
+				TimingStashSelected.forEach((wordId) => {
+					const orderIndex = TimingOrderMap.get(wordId);
+					if (orderIndex !== undefined) existing.add(orderIndex);
+				});
+				return { ...prev, [stashKey]: Array.from(existing) };
+			});
+		}
 		setTimingStashItems((prev) =>
 			prev.filter((item) => !TimingStashSelected.has(item.wordId)),
 		);
-	}, [TimingStashSelected]);
+	}, [
+		stashKey,
+		setReviewStashRemovedOrder,
+		TimingStashSelected,
+		TimingOrderMap,
+	]);
 
 	const onClearStash = useCallback(() => {
+		if (stashKey) {
+			setReviewStashRemovedOrder((prev) => {
+				const existing = new Set(prev[stashKey] ?? []);
+				TimingStashItems.forEach((item) => {
+					const orderIndex = TimingOrderMap.get(item.wordId);
+					if (orderIndex !== undefined) existing.add(orderIndex);
+				});
+				return { ...prev, [stashKey]: Array.from(existing) };
+			});
+		}
 		setTimingStashItems([]);
 		setTimingStashSelected(new Set());
-	}, []);
+	}, [
+		stashKey,
+		setReviewStashRemovedOrder,
+		TimingOrderMap,
+		TimingStashItems,
+	]);
 
 	const onConfirmStash = useCallback(() => {
 		const selected = TimingStashItems.filter((item) =>

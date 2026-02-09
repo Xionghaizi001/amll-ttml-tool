@@ -92,6 +92,93 @@ const formatLineLabelList = (
 		);
 	return list.map((item) => formatLineLabel(item.lineNumber, item.isBG)).join("、");
 };
+const buildSyncParts = (
+	item: SyncChangeCandidate,
+	fields?: Set<TimingStashItem["field"]>,
+) => {
+	const startDelta = item.newStart - item.oldStart;
+	const endDelta = item.newEnd - item.oldEnd;
+	const useStart = fields ? fields.has("startTime") : true;
+	const useEnd = fields ? fields.has("endTime") : true;
+	const parts: string[] = [];
+	if (useStart && startDelta !== 0) {
+		const speed = startDelta < 0 ? "延后" : "提前";
+		const prefix = "起始";
+		parts.push(`${prefix}${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`);
+	}
+	if (useEnd && endDelta !== 0) {
+		const speed = endDelta < 0 ? "延后" : "提前";
+		const prefix = "结束";
+		parts.push(`${prefix}${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`);
+	}
+	return parts;
+};
+const buildSyncReportItems = (
+	candidates: SyncChangeCandidate[],
+	fieldMap?: Map<string, Set<TimingStashItem["field"]>>,
+) => {
+	return candidates
+		.map((candidate) => {
+			const fields = fieldMap?.get(candidate.wordId);
+			if (fieldMap && !fields) return null;
+			const parts = buildSyncParts(candidate, fields);
+			if (parts.length === 0) return null;
+			return {
+				lineNumber: candidate.lineNumber,
+				isBG: candidate.isBG,
+				detail: `${wrap(candidate.word)} ${parts.join("，")}`,
+			};
+		})
+		.filter(
+			(
+				item,
+			): item is {
+				lineNumber: number;
+				isBG: boolean;
+				detail: string;
+			} => Boolean(item),
+		);
+};
+const formatSyncReport = (
+	items: Array<{ lineNumber: number; isBG: boolean; detail: string }>,
+	options?: { groupByLine?: boolean },
+) => {
+	if (!options?.groupByLine) {
+		const lines = items
+			.sort(
+				(a, b) =>
+					a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+			)
+			.map((item) => `${formatLineLabel(item.lineNumber, item.isBG)}：${item.detail}`);
+		return formatReport(lines);
+	}
+	const lineMap = new Map<
+		string,
+		{ lineNumber: number; isBG: boolean; list: string[] }
+	>();
+	for (const item of items) {
+		const key = `${item.lineNumber}:${item.isBG ? "bg" : "main"}`;
+		const entry = lineMap.get(key) ?? {
+			lineNumber: item.lineNumber,
+			isBG: item.isBG,
+			list: [],
+		};
+		entry.list.push(item.detail);
+		lineMap.set(key, entry);
+	}
+	const lines = Array.from(lineMap.values())
+		.sort(
+			(a, b) =>
+				a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+		)
+		.map(
+			(entry) =>
+				`${formatLineLabel(entry.lineNumber, entry.isBG)}：${entry.list.join(
+					"；",
+				)}`,
+		);
+	return formatReport(lines);
+};
 
 export const formatReport = (items: string[]) => {
 	if (items.length === 0) return "未检测到差异。";
@@ -353,29 +440,8 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 };
 
 export const buildSyncReport = (reportLines: SyncChangeCandidate[]) => {
-	const sentences = reportLines
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.map((item) => {
-			const startDelta = item.newStart - item.oldStart;
-			const endDelta = item.newEnd - item.oldEnd;
-			const parts: string[] = [];
-			if (startDelta !== 0) {
-				const speed = startDelta < 0 ? "延后" : "提前";
-				parts.push(`起始${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`);
-			}
-			if (endDelta !== 0) {
-				const speed = endDelta < 0 ? "延后" : "提前";
-				parts.push(`结束${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`);
-			}
-			return `${formatLineLabel(item.lineNumber, item.isBG)}：${wrap(
-				item.word,
-			)} ${parts.join("，")}`;
-		})
-		.filter((item): item is string => Boolean(item));
-
-	return formatReport(sentences);
+	const items = buildSyncReportItems(reportLines);
+	return formatSyncReport(items);
 };
 
 export const buildSyncReportFromStash = (
@@ -392,64 +458,14 @@ export const buildSyncReportFromStash = (
 		fields.add(item.field);
 		fieldMap.set(item.wordId, fields);
 	}
-	const items = Array.from(fieldMap.entries())
-		.map(([wordId, fields]) => {
-			const candidate = candidateMap.get(wordId);
-			if (!candidate) return null;
-			const startDelta = candidate.newStart - candidate.oldStart;
-			const endDelta = candidate.newEnd - candidate.oldEnd;
-			const parts: string[] = [];
-			if (fields.has("startTime") && startDelta !== 0) {
-				const speed = startDelta < 0 ? "延后" : "提前";
-				const prefix = fields.has("endTime") ? "起始" : "";
-				parts.push(
-					`${prefix}${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`,
-				);
-			}
-			if (fields.has("endTime") && endDelta !== 0) {
-				const speed = endDelta < 0 ? "延后" : "提前";
-				const prefix = fields.has("startTime") ? "结束" : "";
-				parts.push(
-					`${prefix}${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`,
-				);
-			}
-			if (parts.length === 0) return null;
-			return {
-				lineNumber: candidate.lineNumber,
-				isBG: candidate.isBG,
-				detail: `${wrap(candidate.word)} ${parts.join("，")}`,
-			};
-		})
-		.filter(
-			(
-				item,
-			): item is {
-				lineNumber: number;
-				isBG: boolean;
-				detail: string;
-			} => Boolean(item),
-		);
-	const lineMap = new Map<string, { lineNumber: number; isBG: boolean; list: string[] }>();
-	for (const item of items) {
-		const key = `${item.lineNumber}:${item.isBG ? "bg" : "main"}`;
-		const entry = lineMap.get(key) ?? {
-			lineNumber: item.lineNumber,
-			isBG: item.isBG,
-			list: [],
-		};
-		entry.list.push(item.detail);
-		lineMap.set(key, entry);
-	}
-	const lines = Array.from(lineMap.values())
-		.sort(
-			(a, b) =>
-				a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.map(
-			(entry) =>
-				`${formatLineLabel(entry.lineNumber, entry.isBG)}：${entry.list.join(
-					"；",
-				)}`,
-		);
-	return formatReport(lines);
+	const items = buildSyncReportItems(
+		Array.from(fieldMap.entries())
+			.map(([wordId]) => candidateMap.get(wordId))
+			.filter(
+				(item): item is SyncChangeCandidate =>
+					Boolean(item),
+			),
+		fieldMap,
+	);
+	return formatSyncReport(items, { groupByLine: true });
 };

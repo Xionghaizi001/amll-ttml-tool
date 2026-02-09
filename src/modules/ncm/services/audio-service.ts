@@ -113,7 +113,7 @@ const fetchNeteaseAudioUrl = async (id: string, cookie?: string) => {
 	const res = await requestNetease<{
 		data: { url: string | null; size: number; code: number }[];
 	}>("/song/url/v1", {
-		params: { id, level: "exhigh" },
+		params: { id, level: "lossless" },
 		cookie,
 	});
 	const originUrl = res.data?.[0]?.url ?? null;
