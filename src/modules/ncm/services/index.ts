@@ -1,5 +1,5 @@
 export const NETEASE_API_BASE =
-	"https://netease-cloud-music-api-1035942257985.asia-east1.run.app";
+	"https://ncmapi.bikonoo.com";
 
 export type NeteaseResponse<T> = {
 	code?: number;
