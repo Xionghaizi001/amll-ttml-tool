@@ -1,6 +1,6 @@
 import type { AppNotification } from "$/states/notifications";
 import type { FileUpdateSession, ToolMode } from "$/states/main";
-import { openReviewUpdateFromNotification } from "$/modules/user/services/pr/update-service";
+import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import type { Dispatch, SetStateAction } from "react";
 
 type OpenFile = (file: File, forceExt?: string) => void;

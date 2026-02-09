@@ -1,7 +1,7 @@
 import type { AppNotification } from "$/states/notifications";
 import { ToolMode, type FileUpdateSession, type ReviewSession } from "$/states/main";
 import type { Dispatch, SetStateAction } from "react";
-import { openReviewUpdateFromNotification } from "$/modules/user/services/pr/update-service";
+import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 
 type OpenFile = (file: File, forceExt?: string) => void;
 type PushNotification = (

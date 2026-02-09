@@ -17,7 +17,7 @@ import {
 	pushFileUpdateComment,
 	REPO_NAME,
 	REPO_OWNER,
-} from "../services/pr/update-service";
+} from "../services/update-service";
 
 type ConfirmDialogState = {
 	open: boolean;
