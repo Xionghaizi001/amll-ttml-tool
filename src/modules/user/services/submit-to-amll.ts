@@ -80,6 +80,23 @@ const sanitizeFileName = (value: string) => {
 	return trimmed.length > 0 ? trimmed : "lyric";
 };
 
+const sleep = (ms: number) =>
+	new Promise<void>((resolve) => {
+		setTimeout(resolve, ms);
+	});
+
+const isHttpsUrl = (value: string) => {
+	if (typeof value !== "string") return false;
+	const trimmed = value.trim();
+	if (!trimmed) return false;
+	try {
+		const url = new URL(trimmed);
+		return url.protocol === "https:";
+	} catch {
+		return false;
+	}
+};
+
 const buildGistFileName = (value: string) => {
 	const base = sanitizeFileName(value);
 	return base.toLowerCase().endsWith(".ttml") ? base : `${base}.ttml`;
@@ -278,25 +295,59 @@ export const useSubmitToAMLLDBDialog = () => {
 			const fileName = buildGistFileName(name);
 
 			// 2. Upload to Gist
-			const gistResult = await createGithubGist(pat, {
-				description: `AMLL TTML Lyric Submission: ${name}`,
-				isPublic: false,
-				files: {
-					[fileName]: { content: ttmlContent },
-				},
-			});
+			let gistResult:
+				| Awaited<ReturnType<typeof createGithubGist>>
+				| undefined;
+			for (let attempt = 1; attempt <= 3; attempt += 1) {
+				try {
+					gistResult = await createGithubGist(pat, {
+						description: `AMLL TTML Lyric Submission: ${name}`,
+						isPublic: false,
+						files: {
+							[fileName]: { content: ttmlContent },
+						},
+					});
+					break;
+				} catch {
+					if (attempt < 3) {
+						await sleep(5000);
+					}
+				}
+			}
 
-			const rawLink =
-				gistResult.files?.[fileName]?.raw_url ??
-				Object.values(gistResult.files ?? {})[0]?.raw_url;
-			if (!rawLink) {
-				throw new Error("Failed to get Gist raw URL");
+			let ttmlDownloadUrl =
+				gistResult?.files?.[fileName]?.raw_url ??
+				Object.values(gistResult?.files ?? {})[0]?.raw_url ??
+				null;
+			if (!ttmlDownloadUrl) {
+				const manualUrl = await new Promise<string | null>((resolve) => {
+					setConfirmDialog({
+						open: true,
+						title: "Gist 上传失败",
+						description: "是否填写你自己提供的文件链接？",
+						input: {
+							placeholder: "https://",
+							validate: (value) => {
+								if (typeof value !== "string") return "请输入 https 链接";
+								return isHttpsUrl(value) ? null : "请输入 https 链接";
+							},
+						},
+						onConfirm: (value) => {
+							resolve(typeof value === "string" ? value.trim() : "");
+						},
+						onCancel: () => resolve(null),
+					});
+				});
+				if (!manualUrl || !isHttpsUrl(manualUrl)) {
+					throw new Error("No valid TTML download URL provided");
+				}
+				ttmlDownloadUrl = manualUrl;
 			}
 
 			// 3. Build Issue JSON
 			const issueContent = buildSubmitLyricIssueContent({
 				title: name,
-				ttmlDownloadUrl: rawLink,
+				ttmlDownloadUrl,
 				uploadReason: resolveUploadReason(submitReason),
 				comment: comment,
 			});
