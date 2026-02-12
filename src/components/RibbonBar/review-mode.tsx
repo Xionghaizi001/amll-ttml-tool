@@ -9,7 +9,15 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { Box, Button, Checkbox, Flex, Grid, Text } from "@radix-ui/themes";
+import {
+	Box,
+	Button,
+	Checkbox,
+	DropdownMenu,
+	Flex,
+	Grid,
+	Text,
+} from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { forwardRef, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +25,8 @@ import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
 	githubPatAtom,
+	lyricsSiteTokenAtom,
+	lyricsSiteUserAtom,
 	reviewHiddenLabelsAtom,
 	reviewLabelsAtom,
 	reviewPendingFilterAtom,
@@ -27,6 +37,8 @@ import {
 } from "$/modules/settings/states";
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs";
 import { RibbonFrame, RibbonSection } from "./common";
+
+export type ContentSource = "github" | "lyrics-site";
 
 const REPO_OWNER = "Steve-xmh";
 type GithubUser = {
@@ -40,6 +52,8 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const pat = useAtomValue(githubPatAtom);
 		const login = useAtomValue(githubLoginAtom);
 		const hasAccess = useAtomValue(githubAmlldbAccessAtom);
+		const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
+		const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
 		const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
 		const labels = useAtomValue(reviewLabelsAtom);
 		const { t } = useTranslation();
@@ -49,8 +63,8 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const [selectedLabels, setSelectedLabels] = useAtom(
 			reviewSelectedLabelsAtom,
 		);
-	const [pendingChecked, setPendingChecked] = useAtom(reviewPendingFilterAtom);
-	const [updatedChecked, setUpdatedChecked] = useAtom(reviewUpdatedFilterAtom);
+		const [pendingChecked, setPendingChecked] = useAtom(reviewPendingFilterAtom);
+		const [updatedChecked, setUpdatedChecked] = useAtom(reviewUpdatedFilterAtom);
 		const setSettingsDialogOpen = useSetAtom(settingsDialogAtom);
 		const setSettingsTab = useSetAtom(settingsTabAtom);
 		const bumpRefreshToken = useSetAtom(reviewRefreshTokenAtom);
@@ -59,6 +73,21 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 
 		const idPending = useId();
 		const idUpdated = useId();
+
+		// 登录状态
+		const isGithubLoggedIn = !!pat.trim() && !!login.trim();
+		const isLyricsSiteLoggedIn = !!lyricsSiteToken && !!lyricsSiteUser;
+		const hasLyricsSiteReviewPermission = lyricsSiteUser?.reviewPermission === 1;
+
+		// 内容来源状态
+		const [contentSource, setContentSource] = useState<ContentSource>(() => {
+			if (isLyricsSiteLoggedIn && hasLyricsSiteReviewPermission) return "lyrics-site";
+			if (isGithubLoggedIn && hasAccess) return "github";
+			return "lyrics-site";
+		});
+
+		// 是否需要显示下拉菜单
+		const showSourceSelector = isGithubLoggedIn && isLyricsSiteLoggedIn;
 
 		const identityLabel = useMemo(() => {
 			if (!login) return t("ribbonBar.reviewMode.identityUnknown", "未知身份");
@@ -188,6 +217,34 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 			[hiddenLabelSet, labels],
 		);
 
+		// 获取当前显示的用户信息
+		const currentUserInfo = useMemo(() => {
+			if (contentSource === "lyrics-site" && isLyricsSiteLoggedIn && lyricsSiteUser) {
+				return {
+					source: "lyrics-site" as ContentSource,
+					avatarUrl: lyricsSiteUser.avatarUrl,
+					displayName: lyricsSiteUser.displayName,
+					username: lyricsSiteUser.username,
+					hasPermission: lyricsSiteUser.reviewPermission === 1,
+					permissionLabel: "审核员",
+				};
+			}
+			return {
+				source: "github" as ContentSource,
+				avatarUrl: avatarUrl,
+				displayName: displayName || login || "GitHub",
+				username: login,
+				hasPermission: hasAccess,
+				permissionLabel: hasAccess
+					? login.toLowerCase() === REPO_OWNER.toLowerCase()
+						? "所有者"
+						: "协作者"
+					: "未知身份",
+			};
+		}, [contentSource, isLyricsSiteLoggedIn, lyricsSiteUser, avatarUrl, displayName, login, hasAccess]);
+
+		const currentAvatarFallback = currentUserInfo.displayName?.trim().slice(0, 1).toUpperCase() || "?";
+
 		return (
 			<RibbonFrame ref={ref}>
 				<RibbonSection label={t("ribbonBar.reviewMode.avatar", "头像")}>
@@ -209,7 +266,23 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 						}}
 						onClick={handleAvatarClick}
 					>
-						{avatarUrl ? (
+						{showSourceSelector ? (
+							currentUserInfo.avatarUrl ? (
+								<img
+									src={currentUserInfo.avatarUrl}
+									alt={currentUserInfo.displayName || "avatar"}
+									style={{
+										width: "100%",
+										height: "100%",
+										objectFit: "cover",
+									}}
+								/>
+							) : (
+								<Text size="2" weight="medium">
+									{currentAvatarFallback}
+								</Text>
+							)
+						) : avatarUrl ? (
 							<img
 								src={avatarUrl}
 								alt={resolvedLogin || "avatar"}
@@ -227,14 +300,79 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					</Box>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.reviewMode.user", "用户")}>
-					<Flex direction="column" gap="1" align="start">
-						<Text size="2" weight="medium">
-							{resolvedLogin || t("ribbonBar.reviewMode.noLogin", "未登录")}
-						</Text>
-						<Text size="1" color="gray">
-							{identityLabel}
-						</Text>
-					</Flex>
+					{showSourceSelector ? (
+						<Flex direction="column" gap="1" align="start">
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger>
+									<Button variant="ghost" size="2" style={{ padding: 0, height: "auto" }}>
+										<Flex align="center" gap="1">
+											<Text weight="medium">{currentUserInfo.displayName}</Text>
+											<DropdownMenu.TriggerIcon />
+										</Flex>
+									</Button>
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content>
+									<DropdownMenu.Item
+										onSelect={() => setContentSource("lyrics-site")}
+										disabled={!isLyricsSiteLoggedIn}
+									>
+										<Flex align="center" gap="2">
+											<Box
+												style={{
+													width: "8px",
+													height: "8px",
+													borderRadius: "999px",
+													backgroundColor:
+														contentSource === "lyrics-site"
+															? "var(--green-9)"
+															: "var(--gray-6)",
+												}}
+											/>
+											<Text>歌词站</Text>
+										</Flex>
+									</DropdownMenu.Item>
+									<DropdownMenu.Item
+										onSelect={() => setContentSource("github")}
+										disabled={!isGithubLoggedIn}
+									>
+										<Flex align="center" gap="2">
+											<Box
+												style={{
+													width: "8px",
+													height: "8px",
+													borderRadius: "999px",
+													backgroundColor:
+														contentSource === "github"
+															? "var(--green-9)"
+															: "var(--gray-6)",
+												}}
+											/>
+											<Text>GitHub</Text>
+										</Flex>
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+							<Text size="1" color="gray">
+								{currentUserInfo.username
+									? `@${currentUserInfo.username}`
+									: currentUserInfo.permissionLabel}
+								{currentUserInfo.hasPermission && (
+									<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
+										✓ {currentUserInfo.permissionLabel}
+									</span>
+								)}
+							</Text>
+						</Flex>
+					) : (
+						<Flex direction="column" gap="1" align="start">
+							<Text size="2" weight="medium">
+								{resolvedLogin || t("ribbonBar.reviewMode.noLogin", "未登录")}
+							</Text>
+							<Text size="1" color="gray">
+								{identityLabel}
+							</Text>
+						</Flex>
+					)}
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.reviewMode.status", "状态")}>
 					<Grid columns="1fr auto" gapX="4" gapY="1" align="center">

@@ -1,13 +1,4 @@
-import {
-	Box,
-	Button,
-	Card,
-	Flex,
-	Spinner,
-	Text,
-	Avatar,
-	DropdownMenu,
-} from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Spinner, Text } from "@radix-ui/themes";
 import {
 	type MouseEvent,
 	useCallback,
@@ -20,8 +11,7 @@ import {
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import { renderCardContent, type ReviewPullRequest } from "./card-service";
-import { useReviewPageLogic, type ContentSource } from "./page-hooks";
-import { useLyricsSiteAuth } from "./remote-service";
+import { useReviewPageLogic } from "./page-hooks";
 import styles from "../index.module.css";
 
 const ReviewPage = () => {
@@ -39,15 +29,10 @@ const ReviewPage = () => {
 	} | null>(null);
 	const {
 		audioLoadPendingId,
-		contentSource,
 		error,
 		filteredItems,
 		hasAccess,
-		hasGithubAccess,
-		hasLyricsSiteReviewPermission,
 		hiddenLabelSet,
-		isGithubLoggedIn,
-		isLyricsSiteLoggedIn,
 		items,
 		lastNeteaseIdByPr,
 		loading,
@@ -57,14 +42,8 @@ const ReviewPage = () => {
 		reviewedByUserMap,
 		reviewSession,
 		selectedUser,
-		setContentSource,
 		setSelectedUser,
 	} = useReviewPageLogic();
-	const {
-		user: lyricsSiteUser,
-		initiateLogin: initiateLyricsSiteLogin,
-		logout: logoutLyricsSite,
-	} = useLyricsSiteAuth();
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
@@ -242,32 +221,6 @@ const ReviewPage = () => {
 		cardRectsRef.current = nextRects;
 	});
 
-	// 判断是否需要显示下拉菜单（同时登录了两个账号）
-	const showSourceSelector = isGithubLoggedIn && isLyricsSiteLoggedIn;
-
-	// 获取当前显示的用户信息 - 必须在 early return 之前调用
-	const currentUserInfo = useMemo(() => {
-		if (contentSource === "lyrics-site" && isLyricsSiteLoggedIn && lyricsSiteUser) {
-			return {
-				source: "lyrics-site" as ContentSource,
-				avatarUrl: lyricsSiteUser.avatarUrl,
-				displayName: lyricsSiteUser.displayName,
-				username: lyricsSiteUser.username,
-				hasPermission: lyricsSiteUser.reviewPermission === 1,
-				permissionLabel: "审核员",
-			};
-		}
-		// GitHub 用户信息将在后续通过 API 获取，这里先返回基本信息
-		return {
-			source: "github" as ContentSource,
-			avatarUrl: null,
-			displayName: "GitHub",
-			username: "",
-			hasPermission: hasGithubAccess,
-			permissionLabel: hasGithubAccess ? "协作者" : "未知身份",
-		};
-	}, [contentSource, isLyricsSiteLoggedIn, lyricsSiteUser, hasGithubAccess]);
-
 	useEffect(() => {
 		return () => {
 			if (closeTimerRef.current) {
@@ -277,33 +230,16 @@ const ReviewPage = () => {
 	}, []);
 
 	// 检查是否有权限（GitHub PAT 或歌词站登录）
-	const hasReviewAccess = hasAccess || hasLyricsSiteReviewPermission;
+	const hasReviewAccess = hasAccess;
 
 	if (!hasReviewAccess) {
 		return (
 			<Box className={styles.emptyState}>
 				<Flex direction="column" align="center" gap="4">
-					{isLyricsSiteLoggedIn && !hasLyricsSiteReviewPermission ? (
-						<>
-							<Text color="gray">当前账号无审阅权限</Text>
-							<Text size="2" color="gray">
-								你当前不是歌词库审核员，无法参与审阅
-							</Text>
-							<Button size="1" variant="soft" color="gray" onClick={logoutLyricsSite}>
-								登出并切换账号
-							</Button>
-						</>
-					) : (
-						<>
-							<Text color="gray">当前账号无审阅权限</Text>
-							<Text size="2" color="gray">
-								请先登录以获取审阅权限
-							</Text>
-							<Button variant="soft" onClick={initiateLyricsSiteLogin}>
-								登录歌词站
-							</Button>
-						</>
-					)}
+					<Text color="gray">当前账号无审阅权限</Text>
+					<Text size="2" color="gray">
+						请先登录以获取审阅权限
+					</Text>
 				</Flex>
 			</Box>
 		);
@@ -311,143 +247,6 @@ const ReviewPage = () => {
 
 	return (
 		<Box className={styles.container} ref={containerRef}>
-			{/* 用户信息栏 */}
-			<Flex align="center" justify="between" className={styles.userBar}>
-				<Flex align="center" gap="2">
-					{/* 未登录任何账号 */}
-					{!isGithubLoggedIn && !isLyricsSiteLoggedIn ? (
-						<Flex align="center" gap="3">
-							<Text size="2" color="gray">
-								未登录
-							</Text>
-							<Button size="2" variant="soft" onClick={initiateLyricsSiteLogin}>
-								登录歌词站
-							</Button>
-						</Flex>
-					) : showSourceSelector ? (
-						<>
-							<Avatar
-								size="2"
-								src={currentUserInfo.avatarUrl || undefined}
-								fallback={currentUserInfo.displayName?.[0] || "U"}
-								radius="full"
-							/>
-							<Flex direction="column">
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										<Button variant="ghost" size="2" className={styles.sourceSelector}>
-											<Flex align="center" gap="1">
-												<Text weight="medium">
-													{currentUserInfo.displayName}
-												</Text>
-												<DropdownMenu.TriggerIcon />
-											</Flex>
-										</Button>
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content>
-										<DropdownMenu.Item
-											onSelect={() => setContentSource("lyrics-site")}
-											disabled={!isLyricsSiteLoggedIn}
-										>
-											<Flex align="center" gap="2">
-												<Box
-													style={{
-														width: "8px",
-														height: "8px",
-														borderRadius: "999px",
-														backgroundColor:
-															contentSource === "lyrics-site"
-																? "var(--green-9)"
-																: "var(--gray-6)",
-													}}
-												/>
-												<Text>歌词站</Text>
-											</Flex>
-										</DropdownMenu.Item>
-										<DropdownMenu.Item
-											onSelect={() => setContentSource("github")}
-											disabled={!isGithubLoggedIn}
-										>
-											<Flex align="center" gap="2">
-												<Box
-													style={{
-														width: "8px",
-														height: "8px",
-														borderRadius: "999px",
-														backgroundColor:
-															contentSource === "github"
-																? "var(--green-9)"
-																: "var(--gray-6)",
-													}}
-												/>
-												<Text>GitHub</Text>
-											</Flex>
-										</DropdownMenu.Item>
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-								<Text size="1" color="gray">
-									{currentUserInfo.username
-										? `@${currentUserInfo.username}`
-										: currentUserInfo.permissionLabel}
-									{currentUserInfo.hasPermission && (
-										<span
-											style={{ color: "var(--green-9)", marginLeft: "8px" }}
-										>
-											✓ {currentUserInfo.permissionLabel}
-										</span>
-									)}
-								</Text>
-							</Flex>
-							{contentSource === "lyrics-site" ? (
-								<Button
-									size="1"
-									variant="soft"
-									color="gray"
-									onClick={logoutLyricsSite}
-								>
-									登出
-								</Button>
-							) : null}
-						</>
-					) : isLyricsSiteLoggedIn && lyricsSiteUser ? (
-						<>
-							<Avatar
-								size="2"
-								src={lyricsSiteUser.avatarUrl}
-								fallback={lyricsSiteUser.displayName?.[0] || "U"}
-								radius="full"
-							/>
-							<Flex direction="column">
-								<Text size="2" weight="medium">
-									{lyricsSiteUser.displayName}
-								</Text>
-								<Text size="1" color="gray">
-									@{lyricsSiteUser.username}
-									{lyricsSiteUser.reviewPermission === 1 && (
-										<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
-											✓ 审核员
-										</span>
-									)}
-								</Text>
-							</Flex>
-							<Button size="1" variant="soft" color="gray" onClick={logoutLyricsSite}>
-								登出
-							</Button>
-						</>
-					) : (
-						<>
-							<Avatar size="2" fallback="G" radius="full" />
-							<Flex direction="column">
-								<Text size="2" weight="medium">GitHub</Text>
-								<Text size="1" color="gray">
-									{hasGithubAccess ? "✓ 协作者" : "未知身份"}
-								</Text>
-							</Flex>
-						</>
-					)}
-				</Flex>
-			</Flex>
-
 			{loading && items.length === 0 && (
 				<Flex align="center" gap="2" className={styles.loading}>
 					<Spinner size="2" />
