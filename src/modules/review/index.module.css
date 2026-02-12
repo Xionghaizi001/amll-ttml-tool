@@ -384,3 +384,17 @@
 	border-radius: var(--radius-3);
 	margin-bottom: var(--space-2);
 }
+
+.sourceSelector {
+	padding: 0;
+	height: auto;
+	min-height: unset;
+}
+
+.sourceSelector:hover {
+	background-color: var(--gray-a3);
+}
+
+.sourceSelector [data-state="open"] {
+	background-color: var(--gray-a4);
+}
