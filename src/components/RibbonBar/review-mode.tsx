@@ -353,15 +353,15 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								</DropdownMenu.Content>
 							</DropdownMenu.Root>
 							<Text size="1" color="gray">
-								{currentUserInfo.username
-									? `@${currentUserInfo.username}`
-									: currentUserInfo.permissionLabel}
-								{currentUserInfo.hasPermission && (
-									<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
-										✓ {currentUserInfo.permissionLabel}
-									</span>
-								)}
-							</Text>
+							{currentUserInfo.username
+								? `@${currentUserInfo.username}`
+								: currentUserInfo.permissionLabel}
+							{currentUserInfo.hasPermission && (
+								<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
+									{currentUserInfo.permissionLabel}
+								</span>
+							)}
+						</Text>
 						</Flex>
 					) : (
 						<Flex direction="column" gap="1" align="start">
