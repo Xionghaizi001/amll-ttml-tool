@@ -82,19 +82,74 @@ const normalizeGroup = (items: string[]): MetaSuggestionGroup => {
 	}
 	return result;
 };
-
-const parseStringGroup = (input: unknown): string[] | null => {
+  
+const parseStringGroup = (
+	input: unknown,
+	onWarning?: () => void,
+): string[] | null => {
 	if (!Array.isArray(input)) return null;
-	if (!input.every((item) => typeof item === "string")) return null;
-	const items = normalizeGroup(input);
+	if (
+		input.some(
+			(item) =>
+				Array.isArray(item) || (item !== null && typeof item === "object"),
+		)
+	) {
+		return null;
+	}
+	const invalidItems = input.filter((item) => {
+		if (typeof item !== "string") return true;
+		if (item.trim() === "") return true;
+		return false;
+	});
+	const items = normalizeGroup(input.filter((item) => typeof item === "string"));
+	if (invalidItems.length > 0) {
+		onWarning?.();
+	}
 	return items.length > 0 ? items : null;
 };
 
-const parseEntryList = (input: unknown): MetaSuggestionNode[] => {
+const parseNameField = (input: unknown, onWarning?: () => void): string[] => {
+	if (typeof input === "string") return [input];
+	if (Array.isArray(input)) {
+		const invalidItems = input.filter((item) => {
+			if (item === null || item === undefined) return true;
+			if (
+				typeof item !== "string" &&
+				typeof item !== "number" &&
+				typeof item !== "boolean"
+			) {
+				return true;
+			}
+			if (typeof item === "string" && item.trim() === "") return true;
+			return false;
+		});
+		const items = input
+			.filter(
+				(item) =>
+					typeof item === "string" ||
+					typeof item === "number" ||
+					typeof item === "boolean",
+			)
+			.map((item) => String(item));
+		if (invalidItems.length > 0) {
+			onWarning?.();
+		}
+		return items;
+	}
+	if (typeof input === "number" || typeof input === "boolean") {
+		return [String(input)];
+	}
+	return [];
+};
+
+const parseEntryList = (
+	input: unknown,
+	onWarning?: () => void,
+): MetaSuggestionNode[] => {
 	if (!Array.isArray(input)) return [];
 	const nodes: MetaSuggestionNode[] = [];
 	for (const entry of input) {
-		const node = parseEntry(entry);
+		const node = parseEntry(entry, onWarning);
 		if (node) {
 			nodes.push(node);
 		}
@@ -102,16 +157,15 @@ const parseEntryList = (input: unknown): MetaSuggestionNode[] => {
 	return nodes;
 };
 
-const parseObjectEntry = (entry: {
-	name?: string | string[];
-	members?: MetaSuggestionEntry[];
-}): MetaSuggestionNode | null => {
-	const nameList =
-		typeof entry.name === "string"
-			? [entry.name]
-			: Array.isArray(entry.name)
-				? entry.name.filter((item) => typeof item === "string")
-				: [];
+const parseObjectEntry = (
+	entry: {
+		name?: string | string[];
+		members?: MetaSuggestionEntry[];
+	},
+	onWarning?: () => void,
+): MetaSuggestionNode | null => {
+	const nameList = parseNameField(entry.name, onWarning);
+	const normalizedNames = normalizeGroup(nameList);
 	const members = Array.isArray(entry.members) ? entry.members : [];
 	const directMembers: string[] = [];
 	const children: MetaSuggestionNode[] = [];
@@ -121,17 +175,17 @@ const parseObjectEntry = (entry: {
 			directMembers.push(member);
 			continue;
 		}
-		const stringGroup = parseStringGroup(member);
+		const stringGroup = parseStringGroup(member, onWarning);
 		if (stringGroup) {
 			children.push({ group: stringGroup, children: [] });
 			continue;
 		}
 		if (Array.isArray(member)) {
-			children.push(...parseEntryList(member));
+			children.push(...parseEntryList(member, onWarning));
 			continue;
 		}
 		if (member && typeof member === "object") {
-			const node = parseObjectEntry(member);
+			const node = parseObjectEntry(member, onWarning);
 			if (node) {
 				children.push(node);
 			}
@@ -139,19 +193,26 @@ const parseObjectEntry = (entry: {
 	}
 
 	const childGroups = children.flatMap((child) => child.group);
-	const combined = normalizeGroup([...nameList, ...directMembers, ...childGroups]);
+	const combined = normalizeGroup([
+		...normalizedNames,
+		...directMembers,
+		...childGroups,
+	]);
 	if (combined.length === 0) return null;
-	const title = nameList[0] ? nameList[0] : undefined;
+	const title = normalizedNames[0] ? normalizedNames[0] : undefined;
 	return { group: combined, children, title };
 };
 
-const parseEntry = (entry: unknown): MetaSuggestionNode | null => {
+const parseEntry = (
+	entry: unknown,
+	onWarning?: () => void,
+): MetaSuggestionNode | null => {
 	if (Array.isArray(entry)) {
-		const stringGroup = parseStringGroup(entry);
+		const stringGroup = parseStringGroup(entry, onWarning);
 		if (stringGroup) {
 			return { group: stringGroup, children: [], title: stringGroup[0] };
 		}
-		const nodes = parseEntryList(entry);
+		const nodes = parseEntryList(entry, onWarning);
 		if (nodes.length === 1) return nodes[0];
 		if (nodes.length > 1) {
 			const combined = normalizeGroup(nodes.flatMap((node) => node.group));
@@ -163,12 +224,26 @@ const parseEntry = (entry: unknown): MetaSuggestionNode | null => {
 	if (entry && typeof entry === "object") {
 		return parseObjectEntry(
 			entry as { name?: string | string[]; members?: MetaSuggestionEntry[] },
+			onWarning,
 		);
 	}
 	return null;
 };
 
-export const parseJsonl = (input: string): MetaSuggestionNode[] => {
+const sanitizeJsonLine = (input: string): string => {
+	let output = input;
+	output = output.replace(/\[,/g, "[null,");
+	output = output.replace(/,\]/g, ",null]");
+	while (output.includes(",,")) {
+		output = output.replace(/,,/g, ",null,");
+	}
+	return output;
+};
+
+const parseJsonlInternal = (
+	input: string,
+	onWarning?: () => void,
+): MetaSuggestionNode[] => {
 	const nodes: MetaSuggestionNode[] = [];
 	const lines = input.split(/\r?\n/);
 	for (const line of lines) {
@@ -176,13 +251,35 @@ export const parseJsonl = (input: string): MetaSuggestionNode[] => {
 		if (!trimmed) continue;
 		try {
 			const entry = JSON.parse(trimmed) as unknown;
-			const node = parseEntry(entry);
+			const node = parseEntry(entry, onWarning);
 			if (node) nodes.push(node);
 		} catch {
-			continue;
+			try {
+				const sanitized = sanitizeJsonLine(trimmed);
+				const entry = JSON.parse(sanitized) as unknown;
+				onWarning?.();
+				const node = parseEntry(entry, onWarning);
+				if (node) nodes.push(node);
+			} catch {
+				onWarning?.();
+				continue;
+			}
 		}
 	}
 	return nodes;
+};
+
+export const parseJsonl = (input: string): MetaSuggestionNode[] =>
+	parseJsonlInternal(input);
+
+export const parseJsonlWithWarnings = (
+	input: string,
+): { nodes: MetaSuggestionNode[]; warnings: number } => {
+	let warnings = 0;
+	const nodes = parseJsonlInternal(input, () => {
+		warnings += 1;
+	});
+	return { nodes, warnings };
 };
 
 export const formatFileTitle = (fileName: string): string => {

@@ -296,9 +296,9 @@ const MetadataValueRow = ({
 								<DropdownMenu.Content
 									style={{
 										maxWidth: "min(520px, 80vw)",
-										maxHeight: "200vh",
+										maxHeight: "60vh",
 										overflowY: "auto",
-										whiteSpace: "normal",
+										whiteSpace: "nowrap",
 									}}
 								>
 									{suggestions.map((suggestion, suggestionIndex) => (
@@ -309,10 +309,10 @@ const MetadataValueRow = ({
 											}}
 											style={{
 												display: "block",
-												whiteSpace: "normal",
-												wordBreak: "break-word",
-												overflowWrap: "anywhere",
-												lineHeight: "auto",
+												overflow: "hidden",
+												textOverflow: "ellipsis",
+												whiteSpace: "nowrap",
+												lineHeight: "1.4",
 											}}
 										>
 											{suggestion.title}

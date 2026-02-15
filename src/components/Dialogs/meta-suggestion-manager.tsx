@@ -7,7 +7,7 @@ import saveFile from "save-file";
 import {
 	formatFileTitle,
 	getUserMetaSuggestionFiles,
-	parseJsonl,
+	parseJsonlWithWarnings,
 	setUserMetaSuggestionFiles,
 	type UserMetaSuggestionFile,
 } from "$/modules/project/logic/meatdata-suggestion";
@@ -136,11 +136,15 @@ export const MetaSuggestionManagerDialog = () => {
 				}
 
 				const importedItems: UserMetaSuggestionFile[] = [];
+				let warningCount = 0;
 				for (const fileName of indexEntries) {
 					const matched = resolveZipFile(zip, fileName);
 					if (!matched) continue;
 					const text = await matched.async("text");
-					const nodes = parseJsonl(text);
+					const { nodes, warnings } = parseJsonlWithWarnings(text);
+					if (warnings > 0) {
+						warningCount += warnings;
+					}
 					if (nodes.length === 0) continue;
 					importedItems.push({
 						fileName,
@@ -179,6 +183,17 @@ export const MetaSuggestionManagerDialog = () => {
 					level: "success",
 					source: "MetaSuggestion",
 				});
+				if (warningCount > 0) {
+					setPushNotification({
+						title: t(
+							"metaSuggestion.importWarning",
+							"导入完成，但已跳过 {count} 处空值",
+							{ count: warningCount },
+						),
+						level: "warning",
+						source: "MetaSuggestion",
+					});
+				}
 			},
 			{ once: true },
 		);
