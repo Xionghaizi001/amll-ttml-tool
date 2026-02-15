@@ -85,7 +85,7 @@ const normalizeGroup = (items: string[]): MetaSuggestionGroup => {
   
 const parseStringGroup = (
 	input: unknown,
-	onWarning?: () => void,
+	onWarning: () => void,
 ): string[] | null => {
 	if (!Array.isArray(input)) return null;
 	if (
@@ -144,7 +144,7 @@ const parseNameField = (input: unknown, onWarning?: () => void): string[] => {
 
 const parseEntryList = (
 	input: unknown,
-	onWarning?: () => void,
+	onWarning: () => void,
 ): MetaSuggestionNode[] => {
 	if (!Array.isArray(input)) return [];
 	const nodes: MetaSuggestionNode[] = [];
@@ -162,7 +162,7 @@ const parseObjectEntry = (
 		name?: string | string[];
 		members?: MetaSuggestionEntry[];
 	},
-	onWarning?: () => void,
+	onWarning: () => void,
 ): MetaSuggestionNode | null => {
 	const nameList = parseNameField(entry.name, onWarning);
 	const normalizedNames = normalizeGroup(nameList);
@@ -205,7 +205,7 @@ const parseObjectEntry = (
 
 const parseEntry = (
 	entry: unknown,
-	onWarning?: () => void,
+	onWarning: () => void,
 ): MetaSuggestionNode | null => {
 	if (Array.isArray(entry)) {
 		const stringGroup = parseStringGroup(entry, onWarning);
@@ -242,7 +242,7 @@ const sanitizeJsonLine = (input: string): string => {
 
 const parseJsonlInternal = (
 	input: string,
-	onWarning?: () => void,
+	onWarning: () => void,
 ): MetaSuggestionNode[] => {
 	const nodes: MetaSuggestionNode[] = [];
 	const lines = input.split(/\r?\n/);
@@ -257,7 +257,6 @@ const parseJsonlInternal = (
 			try {
 				const sanitized = sanitizeJsonLine(trimmed);
 				const entry = JSON.parse(sanitized) as unknown;
-				onWarning?.();
 				const node = parseEntry(entry, onWarning);
 				if (node) nodes.push(node);
 			} catch {
@@ -270,7 +269,7 @@ const parseJsonlInternal = (
 };
 
 export const parseJsonl = (input: string): MetaSuggestionNode[] =>
-	parseJsonlInternal(input);
+	parseJsonlInternal(input, () => {});
 
 export const parseJsonlWithWarnings = (
 	input: string,
