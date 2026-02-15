@@ -41,6 +41,8 @@ import {
 	fetchNeteaseSongMeta,
 	type NeteaseSongMeta,
 } from "$/modules/ncm/services/meta-service";
+import { fetchGithubUserProfile } from "$/modules/github/services/identity-service";
+import { githubLoginAtom, githubPatAtom } from "$/modules/settings/states";
 import { metadataEditorDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
@@ -614,6 +616,8 @@ export const MetadataEditor = () => {
 	const [metadataEditorDialog, setMetadataEditorDialog] = useAtom(
 		metadataEditorDialogAtom,
 	);
+	const [githubPat] = useAtom(githubPatAtom);
+	const [githubLogin] = useAtom(githubLoginAtom);
 	const [customKey, setCustomKey] = useState("");
 	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
 	const addKeyButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -691,6 +695,37 @@ export const MetadataEditor = () => {
 		},
 		[appendMetadataValues],
 	);
+
+	useEffect(() => {
+		if (!metadataEditorDialog) return;
+		const trimmedLogin = githubLogin.trim();
+		const trimmedPat = githubPat.trim();
+		if (!trimmedLogin && !trimmedPat) return;
+		let active = true;
+		const loadGithubIdentity = async () => {
+			if (trimmedLogin) {
+				appendMetadataValues("ttmlAuthorGithubLogin", [trimmedLogin]);
+			}
+			if (!trimmedPat) return;
+			const result = await fetchGithubUserProfile(trimmedPat);
+			if (!active) return;
+			if (result.status !== "ok") return;
+			if (result.profile.login.trim()) {
+				appendMetadataValues("ttmlAuthorGithubLogin", [
+					result.profile.login.trim(),
+				]);
+			}
+			if (typeof result.profile.id === "number") {
+				appendMetadataValues("ttmlAuthorGithub", [
+					String(result.profile.id),
+				]);
+			}
+		};
+		void loadGithubIdentity();
+		return () => {
+			active = false;
+		};
+	}, [appendMetadataValues, githubLogin, githubPat, metadataEditorDialog]);
 
 	const builtinOptions: SelectOption[] = useMemo(() => {
 		const numeric = (value: string) => /^\d+$/.test(value);
