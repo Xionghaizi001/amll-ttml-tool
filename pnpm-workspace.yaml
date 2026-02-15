@@ -5,3 +5,4 @@ allowBuilds:
   '@applemusic-like-lyrics/core': true
   '@applemusic-like-lyrics/lyric': true
   '@applemusic-like-lyrics/react': true
+  esbuild: true

@@ -271,6 +271,7 @@ export default defineConfig({
 					}
 				: {},
 		) as Record<string, string>,
+		dedupe: ["react", "react-dom", "jotai"],
 	},
 	worker: {
 		format: "es",

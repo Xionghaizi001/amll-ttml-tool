@@ -1,4 +1,4 @@
-import { atom } from "jotai/index";
+import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 export const audioBufferAtom = atom<AudioBuffer | null>(null);

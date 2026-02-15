@@ -29,7 +29,7 @@ import { platform, version } from "@tauri-apps/plugin-os";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { ErrorBoundary } from "react-error-boundary";
+import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import semverGt from "semver/functions/gt";
@@ -92,15 +92,10 @@ const ReviewPage = lazy(() => import("./modules/review"));
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 
-const AppErrorPage = ({
-	error,
-	resetErrorBoundary,
-}: {
-	error: Error;
-	resetErrorBoundary: () => void;
-}) => {
+const AppErrorPage = ({ error, resetErrorBoundary }: FallbackProps) => {
 	const store = useStore();
 	const { t } = useTranslation();
+	const errorValue = error instanceof Error ? error : new Error(String(error));
 
 	return (
 		<Flex direction="column" align="center" justify="center" height="100vh">
@@ -138,7 +133,7 @@ const AppErrorPage = ({
 				<Text>{t("app.error.details", "大致错误信息：")}</Text>
 				<TextArea
 					readOnly
-					value={String(error)}
+					value={String(errorValue)}
 					style={{
 						width: "100%",
 						height: "8em",
