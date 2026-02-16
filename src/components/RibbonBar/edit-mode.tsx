@@ -78,6 +78,7 @@ function EditField<
 }) {
 	const [fieldInput, setFieldInput] = useState<string | undefined>(undefined);
 	const [fieldPlaceholder, setFieldPlaceholder] = useState<string>("");
+	const [durationInputInvalid, setDurationInputInvalid] = useState(false);
 	const [showDurationInput, setShowDurationInput] = useAtom(
 		showEndTimeAsDurationAtom,
 	);
@@ -92,6 +93,7 @@ function EditField<
 
 	const [requestFocus, setRequestFocus] = useAtom(requestFocusAtom);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const durationInvalidTimerRef = useRef<number | null>(null);
 
 	useEffect(() => {
 		if (requestFocus === fieldName && !isWordField && inputRef.current) {
@@ -99,6 +101,14 @@ function EditField<
 			setRequestFocus(null);
 		}
 	}, [requestFocus, fieldName, isWordField, setRequestFocus]);
+	useEffect(
+		() => () => {
+			if (durationInvalidTimerRef.current !== null) {
+				window.clearTimeout(durationInvalidTimerRef.current);
+			}
+		},
+		[],
+	);
 
 	const hasErrorAtom = useMemo(
 		() =>
@@ -215,14 +225,40 @@ function EditField<
 		if (typeof currentValue === "string") return currentValue;
 		return "";
 	}, [currentValue, durationValue, fieldName, showDurationInput]);
+	const flashInvalidDurationInput = useCallback(() => {
+		setFieldInput("");
+		setDurationInputInvalid(true);
+		if (durationInvalidTimerRef.current !== null) {
+			window.clearTimeout(durationInvalidTimerRef.current);
+		}
+		durationInvalidTimerRef.current = window.setTimeout(() => {
+			setDurationInputInvalid(false);
+		}, 300);
+		inputRef.current?.animate(
+			[
+				{ backgroundColor: "var(--red-a5)" },
+				{ backgroundColor: "var(--red-a3)" },
+				{ backgroundColor: "transparent" },
+			],
+			{ duration: 300 },
+		);
+	}, []);
 
 	const onInputFinished = useCallback(
 		(rawValue: string) => {
 			try {
 				const selectedItems = store.get(itemAtom);
 				if (fieldName === "endTime" && showDurationInput) {
-					const durationValue = Number(rawValue.trim());
-					if (!Number.isFinite(durationValue) || durationValue <= 0) return;
+					const trimmedValue = rawValue.trim();
+					if (!/^\d+$/.test(trimmedValue)) {
+						flashInvalidDurationInput();
+						return;
+					}
+					const durationValue = Number(trimmedValue);
+					if (!Number.isFinite(durationValue) || durationValue <= 0) {
+						flashInvalidDurationInput();
+						return;
+					}
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
@@ -278,6 +314,7 @@ function EditField<
 			isWordField,
 			parser,
 			showDurationInput,
+			flashInvalidDurationInput,
 		],
 	);
 
@@ -328,8 +365,8 @@ function EditField<
 			<TextField.Root
 				ref={inputRef}
 				size="1"
-				color={hasError ? "red" : undefined}
-				variant={hasError ? "soft" : undefined}
+				color={durationInputInvalid || hasError ? "red" : undefined}
+				variant={durationInputInvalid || hasError ? "soft" : undefined}
 				style={{ width: "8em", ...textFieldStyle }}
 				value={fieldInput ?? ""}
 				placeholder={fieldPlaceholder}
