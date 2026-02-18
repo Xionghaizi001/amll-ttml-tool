@@ -43,7 +43,9 @@ import {
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
 import type { ReviewLabel, ReviewPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
-import { useRemoteReviewService } from "./remote-service";
+import { useRemoteReviewService, useLyricsSiteAuth } from "./remote-service";
+
+export type ContentSource = "github" | "lyrics-site";
 
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";
@@ -216,6 +218,25 @@ export const useReviewPageLogic = () => {
 	const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
 	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
+
+	// 歌词站登录状态
+	const {
+		isLoggedIn: isLyricsSiteLoggedIn,
+		hasReviewPermission: hasLyricsSiteReviewPermission,
+	} = useLyricsSiteAuth();
+
+	// GitHub 登录状态
+	const isGithubLoggedIn = !!pat.trim() && !!login.trim();
+	const hasGithubAccess = hasAccess;
+
+	// 内容来源状态：根据登录状态自动设置默认值
+	const [contentSource, setContentSource] = useState<ContentSource>(() => {
+		// 显示歌词站（如果已登录且有权限）
+		if (isLyricsSiteLoggedIn && hasLyricsSiteReviewPermission) return "lyrics-site";
+		// 显示 GitHub（如果已登录且有权限）
+		if (isGithubLoggedIn && hasGithubAccess) return "github";
+		return "lyrics-site";
+	});
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
@@ -836,11 +857,16 @@ export const useReviewPageLogic = () => {
 
 	return {
 		audioLoadPendingId,
+		contentSource,
 		error,
 		filteredItems,
 		handleLoadNeteaseAudio,
 		hasAccess: effectiveHasAccess,
+		hasGithubAccess,
+		hasLyricsSiteReviewPermission,
 		hiddenLabelSet,
+		isGithubLoggedIn,
+		isLyricsSiteLoggedIn,
 		items,
 		lastNeteaseIdByPr,
 		loading,
@@ -855,6 +881,7 @@ export const useReviewPageLogic = () => {
 		reviewedByUserMap,
 		reviewSession,
 		selectedUser,
+		setContentSource,
 		setSelectedUser,
 	};
 };
