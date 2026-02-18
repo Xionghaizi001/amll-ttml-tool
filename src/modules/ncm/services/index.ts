@@ -49,3 +49,4 @@ export const requestNetease = async <T,>(
 
 export { NeteaseAuthClient, NeteaseAutoLoginGuard } from "./auth-service";
 export { cacheNeteaseAudioToIndexedDb, loadNeteaseAudio } from "./audio-service";
+export { fetchNeteaseSongMeta } from "./meta-service";

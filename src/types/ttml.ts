@@ -19,6 +19,7 @@ export interface TTMLMetadata {
 	key: string;
 	value: string[];
 	error?: boolean;
+	autoSuggested?: boolean;
 }
 
 export interface TTMLVocalTag {

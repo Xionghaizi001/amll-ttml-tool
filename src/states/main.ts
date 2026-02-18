@@ -128,6 +128,7 @@ export const showUnselectedLinesAtom = atomWithStorage(
 	true,
 );
 export const bgLyricIgnoreSyncAtom = atom(false);
+export const showEndTimeAsDurationAtom = atom(false);
 
 export interface EditingTimeFieldState {
 	isWord: boolean;

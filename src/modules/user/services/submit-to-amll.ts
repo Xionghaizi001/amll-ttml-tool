@@ -118,6 +118,7 @@ export const useSubmitToAMLLDBDialog = () => {
 	const [remarkValue, setRemarkValue] = useState("");
 	const [comment, setComment] = useState("");
 	const [processing, setProcessing] = useState(false);
+	const [name, setName] = useState("");
 	const [submitReason, setSubmitReason] = useState(
 		t("submitToAMLLDB.defaultReason", "新歌词提交"),
 	);
@@ -243,15 +244,18 @@ export const useSubmitToAMLLDBDialog = () => {
 		[orderedFieldKeys, fieldItems],
 	);
 
-	const name = useMemo(() => {
+	useEffect(() => {
+		if (!dialogOpen) {
+			if (name) setName("");
+			return;
+		}
 		const segments = orderedFieldItems
 			.map((item) => item.value)
 			.filter((value) => value.length > 0 && value !== emptySelectValue);
-		return segments.join(" - ");
-	}, [orderedFieldItems]);
-	useEffect(() => {
-		log("[SubmitToAMLLDB] 拼接结果:", name);
-	}, [name]);
+		const nextName = segments.join(" - ");
+		setName(nextName);
+		log("[SubmitToAMLLDB] 拼接结果:", nextName);
+	}, [dialogOpen, name, orderedFieldItems]);
 
 	const onNameOrderMove = useCallback(
 		(

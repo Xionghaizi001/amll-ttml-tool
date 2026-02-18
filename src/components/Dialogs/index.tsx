@@ -16,6 +16,7 @@ import { AddLanguageDialog } from "./add-language.tsx";
 import { ConfirmationDialog } from "./confirmation.tsx";
 import { RiskConfirmationDialog } from "./risk-confirmation.tsx";
 import { NotificationCenterDialog } from "./notification-center.tsx";
+import { MetaSuggestionManagerDialog } from "./meta-suggestion-manager.tsx";
 
 export const Dialogs = () => {
 	return (
@@ -38,6 +39,7 @@ export const Dialogs = () => {
 			<NotificationCenterDialog />
 			<ReviewReportDialog />
 			<RiskConfirmationDialog />
+			<MetaSuggestionManagerDialog />
 		</>
 	);
 };

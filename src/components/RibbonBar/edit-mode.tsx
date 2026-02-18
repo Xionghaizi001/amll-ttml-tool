@@ -48,6 +48,7 @@ import {
 	requestFocusAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
+	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
 import { addLanguageDialogAtom } from "$/states/dialogs";
 import { type LyricLine, type LyricWord, newLyricLine } from "$/types/ttml";
@@ -77,6 +78,10 @@ function EditField<
 }) {
 	const [fieldInput, setFieldInput] = useState<string | undefined>(undefined);
 	const [fieldPlaceholder, setFieldPlaceholder] = useState<string>("");
+	const [durationInputInvalid, setDurationInputInvalid] = useState(false);
+	const [showDurationInput, setShowDurationInput] = useAtom(
+		showEndTimeAsDurationAtom,
+	);
 	const itemAtom = useMemo(
 		() => (isWordField ? selectedWordsAtom : selectedLinesAtom),
 		[isWordField],
@@ -88,6 +93,7 @@ function EditField<
 
 	const [requestFocus, setRequestFocus] = useAtom(requestFocusAtom);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const durationInvalidTimerRef = useRef<number | null>(null);
 
 	useEffect(() => {
 		if (requestFocus === fieldName && !isWordField && inputRef.current) {
@@ -95,6 +101,14 @@ function EditField<
 			setRequestFocus(null);
 		}
 	}, [requestFocus, fieldName, isWordField, setRequestFocus]);
+	useEffect(
+		() => () => {
+			if (durationInvalidTimerRef.current !== null) {
+				window.clearTimeout(durationInvalidTimerRef.current);
+			}
+		},
+		[],
+	);
 
 	const hasErrorAtom = useMemo(
 		() =>
@@ -171,11 +185,105 @@ function EditField<
 	);
 	const currentValue = useAtomValue(currentValueAtom);
 	const store = useStore();
+	const durationValueAtom = useMemo(
+		() =>
+			atom((get) => {
+				if (fieldName !== "endTime") return undefined;
+				const selectedItems = get(itemAtom);
+				const lyricLines = get(lyricLinesAtom);
+				if (selectedItems.size === 0) return undefined;
+				const durations = new Set<number>();
+				if (isWordField) {
+					const selectedWords = selectedItems as Set<string>;
+					for (const line of lyricLines.lyricLines) {
+						for (const word of line.words) {
+							if (selectedWords.has(word.id)) {
+								durations.add(word.endTime - word.startTime);
+							}
+						}
+					}
+				} else {
+					const selectedLines = selectedItems as Set<string>;
+					for (const line of lyricLines.lyricLines) {
+						if (selectedLines.has(line.id)) {
+							durations.add(line.endTime - line.startTime);
+						}
+					}
+				}
+				if (durations.size === 1) return durations.values().next().value;
+				return MULTIPLE_VALUES;
+			}),
+		[fieldName, isWordField, itemAtom],
+	);
+	const durationValue = useAtomValue(durationValueAtom);
+	const compareValue = useMemo(() => {
+		if (fieldName === "endTime" && showDurationInput) {
+			if (durationValue === MULTIPLE_VALUES) return "";
+			if (typeof durationValue === "number") return String(durationValue);
+			return "";
+		}
+		if (typeof currentValue === "string") return currentValue;
+		return "";
+	}, [currentValue, durationValue, fieldName, showDurationInput]);
+	const flashInvalidDurationInput = useCallback(() => {
+		setFieldInput("");
+		setDurationInputInvalid(true);
+		if (durationInvalidTimerRef.current !== null) {
+			window.clearTimeout(durationInvalidTimerRef.current);
+		}
+		durationInvalidTimerRef.current = window.setTimeout(() => {
+			setDurationInputInvalid(false);
+		}, 300);
+		inputRef.current?.animate(
+			[
+				{ backgroundColor: "var(--red-a5)" },
+				{ backgroundColor: "var(--red-a3)" },
+				{ backgroundColor: "transparent" },
+			],
+			{ duration: 300 },
+		);
+	}, []);
 
 	const onInputFinished = useCallback(
 		(rawValue: string) => {
 			try {
 				const selectedItems = store.get(itemAtom);
+				if (fieldName === "endTime" && showDurationInput) {
+					const trimmedValue = rawValue.trim();
+					if (!/^\d+$/.test(trimmedValue)) {
+						flashInvalidDurationInput();
+						return;
+					}
+					const durationValue = Number(trimmedValue);
+					if (!Number.isFinite(durationValue) || durationValue <= 0) {
+						flashInvalidDurationInput();
+						return;
+					}
+					editLyricLines((state) => {
+						for (const line of state.lyricLines) {
+							if (isWordField) {
+								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
+									const word = line.words[wordIndex];
+									if (!selectedItems.has(word.id)) continue;
+									const nextWord = line.words[wordIndex + 1];
+									const nextStartTime = nextWord?.startTime;
+									const newEndTime = word.startTime + durationValue;
+									if (
+										typeof nextStartTime === "number" &&
+										newEndTime < nextStartTime
+									) {
+										continue;
+									}
+									word.endTime = newEndTime;
+								}
+							} else if (selectedItems.has(line.id)) {
+								line.endTime = line.startTime + durationValue;
+							}
+						}
+						return state;
+					});
+					return;
+				}
 				const value = parser(rawValue);
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
@@ -194,40 +302,71 @@ function EditField<
 					return state;
 				});
 			} catch (err) {
-				if (typeof currentValue === "string") setFieldInput(currentValue);
+				if (compareValue) setFieldInput(compareValue);
 			}
 		},
 		[
 			itemAtom,
 			store,
 			editLyricLines,
-			currentValue,
+			compareValue,
 			fieldName,
 			isWordField,
 			parser,
+			showDurationInput,
+			flashInvalidDurationInput,
 		],
 	);
 
 	useLayoutEffect(() => {
+		if (fieldName === "endTime" && showDurationInput) {
+			if (durationValue === MULTIPLE_VALUES) {
+				setFieldInput("");
+				setFieldPlaceholder(
+					t("ribbonBar.editMode.multipleValues", "多个值..."),
+				);
+				return;
+			}
+			if (typeof durationValue === "number") {
+				setFieldInput(String(durationValue));
+				setFieldPlaceholder("");
+				return;
+			}
+			setFieldInput(undefined);
+			setFieldPlaceholder("");
+			return;
+		}
 		if (currentValue === MULTIPLE_VALUES) {
 			setFieldInput("");
 			setFieldPlaceholder(t("ribbonBar.editMode.multipleValues", "多个值..."));
-		} else {
-			setFieldInput(currentValue);
-			setFieldPlaceholder("");
+			return;
 		}
-	}, [currentValue, t]);
+		setFieldInput(currentValue);
+		setFieldPlaceholder("");
+	}, [currentValue, durationValue, fieldName, showDurationInput, t]);
 
 	return (
 		<>
-			<Text wrap="nowrap" size="1">
-				{label}
-			</Text>
+			{fieldName === "endTime" ? (
+				<Button
+					size="1"
+					variant="ghost"
+					onClick={() => setShowDurationInput((v) => !v)}
+				>
+					{showDurationInput
+						? t("ribbonBar.editMode.duration", "持续时间")
+						: label}
+				</Button>
+			) : (
+				<Text wrap="nowrap" size="1">
+					{label}
+				</Text>
+			)}
 			<TextField.Root
 				ref={inputRef}
 				size="1"
-				color={hasError ? "red" : undefined}
-				variant={hasError ? "soft" : undefined}
+				color={durationInputInvalid || hasError ? "red" : undefined}
+				variant={durationInputInvalid || hasError ? "soft" : undefined}
 				style={{ width: "8em", ...textFieldStyle }}
 				value={fieldInput ?? ""}
 				placeholder={fieldPlaceholder}
@@ -251,7 +390,7 @@ function EditField<
 				onBlur={(evt) => {
 					setEditingTimeField(null);
 
-					if (evt.currentTarget.value === currentValue) return;
+					if (evt.currentTarget.value === compareValue) return;
 					onInputFinished(evt.currentTarget.value);
 				}}
 			/>

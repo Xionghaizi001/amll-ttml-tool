@@ -1,5 +1,4 @@
-import { useAtom } from "jotai";
-import { useAtomValue } from "jotai/index";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import { audioBufferAtom } from "$/modules/audio/states";
 import {

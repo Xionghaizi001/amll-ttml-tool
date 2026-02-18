@@ -11,10 +11,58 @@ export type GithubIdentityResult =
 	| { status: "unauthorized"; login: string }
 	| { status: "network-error" };
 
+export type GithubUserProfile = {
+	login: string;
+	id?: number;
+};
+
+export type GithubUserProfileResult =
+	| { status: "missing-token" }
+	| { status: "invalid-token" }
+	| { status: "user-error"; code: number }
+	| { status: "user-missing" }
+	| { status: "network-error" }
+	| { status: "ok"; profile: GithubUserProfile };
+
 const buildHeaders = (token: string) => ({
 	Accept: "application/vnd.github+json",
 	Authorization: `Bearer ${token}`,
 });
+
+export const fetchGithubUserProfile = async (
+	token: string,
+): Promise<GithubUserProfileResult> => {
+	const trimmedToken = token.trim();
+	if (!trimmedToken) {
+		return { status: "missing-token" };
+	}
+	try {
+		const userResponse = await githubFetch("/user", {
+			init: { headers: buildHeaders(trimmedToken) },
+		});
+		if (!userResponse.ok) {
+			if (userResponse.status === 401) {
+				return { status: "invalid-token" };
+			}
+			return { status: "user-error", code: userResponse.status };
+		}
+		const userData = (await userResponse.json()) as {
+			login?: string;
+			id?: number;
+		};
+		const userLogin = userData.login ?? "";
+		if (!userLogin) {
+			return { status: "user-missing" };
+		}
+		const profile: GithubUserProfile = { login: userLogin };
+		if (typeof userData.id === "number") {
+			profile.id = userData.id;
+		}
+		return { status: "ok", profile };
+	} catch {
+		return { status: "network-error" };
+	}
+};
 
 export const fetchReviewLabels = async (
 	token: string,
@@ -45,20 +93,23 @@ export const verifyGithubAccess = async (
 		return { status: "missing-token" };
 	}
 	try {
-		const userResponse = await githubFetch("/user", {
-			init: { headers: buildHeaders(trimmedToken) },
-		});
-		if (!userResponse.ok) {
-			if (userResponse.status === 401) {
+		const userResult = await fetchGithubUserProfile(trimmedToken);
+		if (userResult.status !== "ok") {
+			if (userResult.status === "missing-token") {
+				return { status: "missing-token" };
+			}
+			if (userResult.status === "invalid-token") {
 				return { status: "invalid-token" };
 			}
-			return { status: "user-error", code: userResponse.status };
+			if (userResult.status === "user-error") {
+				return { status: "user-error", code: userResult.code };
+			}
+			if (userResult.status === "user-missing") {
+				return { status: "user-missing" };
+			}
+			return { status: "network-error" };
 		}
-		const userData = (await userResponse.json()) as { login?: string };
-		const userLogin = userData.login ?? "";
-		if (!userLogin) {
-			return { status: "user-missing" };
-		}
+		const userLogin = userResult.profile.login;
 
 		const isOwner = userLogin.toLowerCase() === repoOwner.toLowerCase();
 

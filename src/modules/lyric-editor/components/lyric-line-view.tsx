@@ -12,6 +12,7 @@
 import {
 	AddFilled,
 	People24Regular,
+	LinkMultiple20Regular,
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
@@ -53,6 +54,7 @@ import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
+	showEndTimeAsDurationAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
@@ -295,8 +297,10 @@ export const LyricLineView: FC<{
 	const lineSelected = useAtomValue(lineSelectedAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);
+	const showEndTimeAsDuration = useAtomValue(showEndTimeAsDurationAtom);
 	const toolMode = useAtomValue(toolModeAtom);
 	const store = useStore();
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
@@ -332,8 +336,11 @@ export const LyricLineView: FC<{
 	const enablePrediction = useAtomValue(enableAutoRomanizationPredictionAtom);
 
 	const startTimeRef = useRef<HTMLDivElement>(null);
-	const endTimeRef = useRef<HTMLDivElement>(null);
+	const endTimeRef = useRef<HTMLButtonElement>(null);
 	const [enableInsert, setEnableInsert] = useState(false);
+	const [endTimeLinked, setEndTimeLinked] = useState(false);
+	const originalEndTimeRef = useRef<number | null>(null);
+	const originalNextStartTimeRef = useRef<number | null>(null);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 用于呈现时间戳更新效果
 	useEffect(() => {
@@ -385,6 +392,21 @@ export const LyricLineView: FC<{
 		};
 	}, [line.endTime, visualizeTimestampUpdate]);
 
+	useEffect(() => {
+		if (!endTimeLinked) return;
+		const nextLine = lyricLines.lyricLines[lineIndex + 1];
+		if (!nextLine) {
+			setEndTimeLinked(false);
+			return;
+		}
+		if (nextLine.startTime === line.endTime) return;
+		editLyricLines((state) => {
+			const targetLine = state.lyricLines[lineIndex + 1];
+			if (!targetLine) return;
+			targetLine.startTime = line.endTime;
+		});
+	}, [endTimeLinked, editLyricLines, line.endTime, lineIndex, lyricLines]);
+
 	const suggestedRomans = useMemo(() => {
 		if (!enablePrediction) {
 			return [];
@@ -392,6 +414,53 @@ export const LyricLineView: FC<{
 
 		return predictLineRomanization(line.words, line.romanLyric || "");
 	}, [line.romanLyric, line.words, enablePrediction]);
+
+	const onToggleEndTimeLink = useCallback(
+		(evt: React.MouseEvent<HTMLButtonElement>) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+			const nextLine = lyricLines.lyricLines[lineIndex + 1];
+			if (endTimeLinked) {
+				setEndTimeLinked(false);
+				const originalEndTime = originalEndTimeRef.current;
+				const originalNextStartTime = originalNextStartTimeRef.current;
+				originalEndTimeRef.current = null;
+				originalNextStartTimeRef.current = null;
+				if (originalEndTime === null) return;
+				editLyricLines((state) => {
+					const targetLine = state.lyricLines[lineIndex];
+					if (!targetLine) return;
+					targetLine.endTime = originalEndTime;
+					const nextTarget = state.lyricLines[lineIndex + 1];
+					if (nextTarget && originalNextStartTime !== null) {
+						nextTarget.startTime = originalNextStartTime;
+					}
+				});
+				return;
+			}
+			originalEndTimeRef.current = line.endTime;
+			originalNextStartTimeRef.current = nextLine?.startTime ?? null;
+			editLyricLines((state) => {
+				const targetLine = state.lyricLines[lineIndex];
+				if (!targetLine) return;
+				const nextTarget = state.lyricLines[lineIndex + 1];
+				const desiredEndTime =
+					nextTarget?.startTime ?? targetLine.endTime;
+				targetLine.endTime = desiredEndTime;
+				if (nextTarget) nextTarget.startTime = desiredEndTime;
+			});
+			if (nextLine) {
+				setEndTimeLinked(true);
+			}
+		},
+		[
+			editLyricLines,
+			endTimeLinked,
+			line.endTime,
+			lineIndex,
+			lyricLines,
+		],
+	);
 
 	return (
 		<>
@@ -801,9 +870,18 @@ export const LyricLineView: FC<{
 									<div className={styles.startTime} ref={startTimeRef}>
 										{msToTimestamp(line.startTime)}
 									</div>
-									<div className={styles.endTime} ref={endTimeRef}>
-										{msToTimestamp(line.endTime)}
-									</div>
+									<button
+										type="button"
+										className={classNames(styles.endTime, styles.endTimeButton)}
+										ref={endTimeRef}
+										onClick={onToggleEndTimeLink}
+									>
+										{endTimeLinked ? (
+											<LinkMultiple20Regular />
+										) : (
+											msToTimestamp(line.endTime)
+										)}
+									</button>
 								</Flex>
 							)}
 						</div>
