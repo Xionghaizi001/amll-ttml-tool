@@ -116,7 +116,12 @@ export const NotificationEntry = ({
 								</Text>
 							)}
 						</Flex>
-						<Text size="2" weight="bold" truncate>
+						<Text
+							size="2"
+							weight="bold"
+							wrap="wrap"
+							style={notificationCenterStyles.titleText}
+						>
 							{item.title}
 						</Text>
 						{item.description && (
