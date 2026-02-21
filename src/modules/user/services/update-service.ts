@@ -21,6 +21,10 @@ type PushNotification = (
 		createdAt?: string;
 	},
 ) => void;
+type ReviewUpdateAction = Extract<
+	NonNullable<AppNotification["action"]>,
+	{ type: "open-review-update" }
+>;
 
 const requirePullRequestDetail = async (token: string, prNumber: number) => {
 	const detail = await fetchPullRequestDetail({ token, prNumber });
@@ -126,6 +130,16 @@ export const openReviewUpdateFromNotification = async (options: {
 		cookie: trimmedCookie,
 	});
 };
+
+export const getReviewUpdateAction = (item: AppNotification) =>
+	item.action?.type === "open-review-update" ? item.action : null;
+
+export const createReviewUpdateActionHandler =
+	(options: { onOpenUpdate: (payload: ReviewUpdateAction["payload"]) => void }) =>
+	(action: ReviewUpdateAction | null) => {
+		if (!action) return;
+		options.onOpenUpdate(action.payload);
+	};
 
 export const pushFileUpdateComment = async (options: {
 	token: string;

@@ -9,6 +9,14 @@ import {
 	type AppNotification,
 } from "$/states/notifications";
 import { reviewReportDraftsAtom } from "$/states/main";
+import {
+	createReviewReportDraftHandler,
+	getReviewReportDraftAction,
+} from "$/modules/review/services/notification-service";
+import {
+	createReviewUpdateActionHandler,
+	getReviewUpdateAction,
+} from "$/modules/user/services/update-service";
 import { notificationCenterStyles } from "./notification-center.styles";
 
 type NotificationEntryProps = {
@@ -38,10 +46,8 @@ export const NotificationEntry = ({
 		success: t("notificationCenter.level.success", "成功"),
 	};
 
-	const draftAction =
-		item.action?.type === "open-review-report" ? item.action : null;
-	const updateAction =
-		item.action?.type === "open-review-update" ? item.action : null;
+	const draftAction = getReviewReportDraftAction(item);
+	const updateAction = getReviewUpdateAction(item);
 	const urlAction = item.action?.type === "open-url" ? item.action : null;
 	const canOpenDraft = Boolean(draftAction);
 	const canOpenUpdate = Boolean(updateAction);
@@ -52,33 +58,21 @@ export const NotificationEntry = ({
 		accentColor,
 		canOpenAction,
 	);
-	const handleOpenDraft = () => {
-		if (!canOpenDraft) return;
-		const draft = drafts.find(
-			(candidate) => candidate.id === draftAction?.payload.draftId,
-		);
-		if (!draft) return;
-		setReviewReportDialog({
-			open: true,
-			prNumber: draft.prNumber,
-			prTitle: draft.prTitle,
-			report: draft.report,
-			draftId: draft.id,
-		});
-		setNotificationCenterOpen(false);
-	};
-	const handleOpenUpdate = () => {
-		if (!canOpenUpdate) return;
-		if (!updateAction) return;
-		onOpenUpdate(updateAction.payload);
-	};
+	const handleOpenDraft = createReviewReportDraftHandler({
+		drafts,
+		setReviewReportDialog,
+		onClose: () => setNotificationCenterOpen(false),
+	});
+	const handleOpenUpdate = createReviewUpdateActionHandler({
+		onOpenUpdate,
+	});
 	const handleOpenAction = () => {
 		if (canOpenDraft) {
-			handleOpenDraft();
+			handleOpenDraft(draftAction);
 			return;
 		}
 		if (canOpenUpdate) {
-			handleOpenUpdate();
+			handleOpenUpdate(updateAction);
 			return;
 		}
 		if (canOpenUrl && urlAction) {
