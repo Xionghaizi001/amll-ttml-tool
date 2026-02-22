@@ -357,7 +357,7 @@ export const LyricLineView: FC<{
 			editLyricLines((state) => {
 				const targetLine = state.lyricLines[lineIndex];
 				if (!targetLine) return;
-				delete targetLine.endTimeLink;
+				if (targetLine.endTimeLink) delete targetLine.endTimeLink;
 			});
 			return;
 		}
@@ -387,10 +387,21 @@ export const LyricLineView: FC<{
 					if (!targetLine) return;
 					const linkInfo = targetLine.endTimeLink;
 					if (!linkInfo) return;
+					if (
+						typeof linkInfo.originalEndTime !== "number" ||
+						!Number.isFinite(linkInfo.originalEndTime)
+					) {
+						delete targetLine.endTimeLink;
+						return;
+					}
 					targetLine.endTime = linkInfo.originalEndTime;
 					const nextTarget = state.lyricLines[lineIndex + 1];
-					if (nextTarget && linkInfo.originalNextStartTime !== null) {
-						nextTarget.startTime = linkInfo.originalNextStartTime;
+					if (
+						nextTarget &&
+						Number.isFinite(linkInfo.originalNextStartTime ?? Number.NaN)
+					) {
+						nextTarget.startTime =
+							linkInfo.originalNextStartTime ?? nextTarget.startTime;
 					}
 					delete targetLine.endTimeLink;
 				});
