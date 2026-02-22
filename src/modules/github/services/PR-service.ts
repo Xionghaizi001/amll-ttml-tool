@@ -193,6 +193,124 @@ export const fetchPullRequestComments = async (options: {
 	}>;
 };
 
+export const fetchPullRequestAssignees = async (options: {
+	token: string;
+	prNumber: number;
+}) => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token}`,
+	};
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${options.prNumber}/assignees`,
+		{
+			init: { headers },
+		},
+	);
+	if (!response.ok) {
+		return { ok: false, status: response.status, assignees: [] as string[] };
+	}
+	const assignees = ((await response.json()) as Array<{ login?: string | null }>)
+		.map((user) => user.login?.trim())
+		.filter((login): login is string => Boolean(login));
+	return { ok: true, assignees };
+};
+
+export const assignPullRequest = async (options: {
+	token: string;
+	prNumber: number;
+	assignees: string[];
+}) => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token}`,
+		"Content-Type": "application/json",
+	};
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${options.prNumber}/assignees`,
+		{
+			init: {
+				method: "POST",
+				headers,
+				body: JSON.stringify({ assignees: options.assignees }),
+			},
+		},
+	);
+	return { ok: response.ok, status: response.status };
+};
+
+export const ensurePullRequestAssigned = async (options: {
+	token: string;
+	prNumber: number;
+	login: string;
+}) => {
+	const trimmedLogin = options.login.trim();
+	if (!trimmedLogin) {
+		return { ok: false, status: 400, assigned: false, changed: false };
+	}
+	const assigneeResult = await fetchPullRequestAssignees({
+		token: options.token,
+		prNumber: options.prNumber,
+	});
+	if (!assigneeResult.ok && assigneeResult.status !== 404) {
+		return {
+			ok: false,
+			status: assigneeResult.status,
+			assigned: false,
+			changed: false,
+		};
+	}
+	const normalizedLogin = trimmedLogin.toLowerCase();
+	const alreadyAssigned =
+		assigneeResult.ok &&
+		assigneeResult.assignees.some(
+		(login) => login.toLowerCase() === normalizedLogin,
+		);
+	if (alreadyAssigned) {
+		return { ok: true, assigned: true, changed: false };
+	}
+	const assignResult = await assignPullRequest({
+		token: options.token,
+		prNumber: options.prNumber,
+		assignees: [trimmedLogin],
+	});
+	if (!assignResult.ok) {
+		return {
+			ok: false,
+			status: assignResult.status,
+			assigned: false,
+			changed: false,
+		};
+	}
+	const verifyResult = await fetchPullRequestAssignees({
+		token: options.token,
+		prNumber: options.prNumber,
+	});
+	if (!verifyResult.ok) {
+		return {
+			ok: true,
+			status: verifyResult.status,
+			assigned: true,
+			changed: true,
+		};
+	}
+	let verifiedAssigned = verifyResult.assignees.some(
+		(login) => login.toLowerCase() === normalizedLogin,
+	);
+	if (!verifiedAssigned) {
+		const retryResult = await fetchPullRequestAssignees({
+			token: options.token,
+			prNumber: options.prNumber,
+		});
+		if (retryResult.ok) {
+			verifiedAssigned = retryResult.assignees.some(
+				(login) => login.toLowerCase() === normalizedLogin,
+			);
+		}
+	}
+	return { ok: true, assigned: verifiedAssigned, changed: true };
+};
+
 export type PullRequestTimelineItem = {
 	event?: string;
 	user?: { login?: string | null };
