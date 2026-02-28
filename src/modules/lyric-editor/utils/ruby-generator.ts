@@ -90,11 +90,20 @@ export const generateRubyFromRomanWord = (
 
 export const applyGeneratedRuby = (
 	word: LyricWord,
-	options?: { overwrite?: boolean },
+	options?: { overwrite?: boolean; lineWords?: LyricWord[]; wordIndex?: number },
 ) => {
 	const generated = generateRubyFromRomanWord(word);
 	if (!generated || generated.length === 0) return;
 	const hasRuby = word.ruby && word.ruby.length > 0;
 	if (!options?.overwrite && hasRuby) return;
 	word.ruby = generated;
+	// 自动检测 rubyPhraseStart：如果是行首单词，或前一个单词没有 ruby，则标记为 true
+	if (!word.rubyPhraseStart && options?.lineWords && options.wordIndex !== undefined) {
+		const isFirstWord = options.wordIndex === 0;
+		const prevWord = options.wordIndex > 0 ? options.lineWords[options.wordIndex - 1] : null;
+		const prevWordHasNoRuby = !prevWord || !prevWord.ruby || prevWord.ruby.length === 0;
+		if (isFirstWord || prevWordHasNoRuby) {
+			word.rubyPhraseStart = true;
+		}
+	}
 };

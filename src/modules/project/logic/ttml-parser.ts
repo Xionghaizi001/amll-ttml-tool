@@ -47,6 +47,7 @@ interface SpanNode {
 	lang: string | null;
 	emptyBeat: string | null;
 	ruby: string | null;
+	rubyPhraseStart: boolean;
 	children: SpanNode[];
 	tail: string;
 }
@@ -81,6 +82,7 @@ function parseSpan(spanEl: Element): SpanNode {
 		lang: getAttr(spanEl, "lang"),
 		emptyBeat: getAttr(spanEl, "empty-beat"),
 		ruby: getAttr(spanEl, "ruby"),
+		rubyPhraseStart: getAttr(spanEl, "rubyPhraseStart") !== null,
 		children: [],
 		tail: "",
 	};
@@ -188,6 +190,7 @@ function createWordFromSpanElement(wordEl: Element): LyricWord | null {
 			emptyBeat: 0,
 			romanWord: "",
 			ruby: rubyWords.length > 0 ? rubyWords : undefined,
+			rubyPhraseStart: spanNode.rubyPhraseStart,
 		};
 		const emptyBeat = getAttr(wordEl, "empty-beat");
 		if (emptyBeat) {
@@ -211,6 +214,7 @@ function createWordFromSpanElement(wordEl: Element): LyricWord | null {
 		obscene: false,
 		emptyBeat: 0,
 		romanWord: "",
+		rubyPhraseStart: spanNode.rubyPhraseStart,
 	};
 	const emptyBeat = getAttr(wordEl, "empty-beat");
 	if (emptyBeat) {
@@ -692,6 +696,23 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					}
 
 					line.words.push(word);
+				}
+			}
+		}
+
+		// 自动标记 rubyPhraseStart：如果单词有 ruby 且是行首或前一个单词没有 ruby，则标记为 ruby 短语开始
+		for (let i = 0; i < line.words.length; i++) {
+			const word = line.words[i];
+			if (word.ruby && word.ruby.length > 0) {
+				// 检查是否已经有 rubyPhraseStart 标记
+				if (!word.rubyPhraseStart) {
+					// 如果是行首单词，或者前一个单词没有 ruby，则标记为 ruby 短语开始
+					const isFirstWord = i === 0;
+					const prevWord = i > 0 ? line.words[i - 1] : null;
+					const prevWordHasNoRuby = !prevWord || !prevWord.ruby || prevWord.ruby.length === 0;
+					if (isFirstWord || prevWordHasNoRuby) {
+						word.rubyPhraseStart = true;
+					}
 				}
 			}
 		}

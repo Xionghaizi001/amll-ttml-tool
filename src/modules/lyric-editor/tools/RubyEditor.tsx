@@ -64,16 +64,25 @@ export const RubyEditor = ({
 		const nextIndex = currentWord.ruby?.length ?? 0;
 		editLyricLines((state) => {
 			for (const line of state.lyricLines) {
-				for (const word of line.words) {
-					if (word.id !== currentWord.id) continue;
-					if (!word.ruby) word.ruby = [];
-					word.ruby.push({
-						word: "",
-						startTime: word.startTime,
-						endTime: word.endTime,
-					});
-					break;
+				const wordIndex = line.words.findIndex((w) => w.id === currentWord.id);
+				if (wordIndex === -1) continue;
+				const word = line.words[wordIndex];
+				if (!word.ruby) word.ruby = [];
+				word.ruby.push({
+					word: "",
+					startTime: word.startTime,
+					endTime: word.endTime,
+				});
+				// 自动检测 rubyPhraseStart：如果是行首单词，或前一个单词没有 ruby，则标记为 true
+				if (!word.rubyPhraseStart) {
+					const isFirstWord = wordIndex === 0;
+					const prevWord = wordIndex > 0 ? line.words[wordIndex - 1] : null;
+					const prevWordHasNoRuby = !prevWord || !prevWord.ruby || prevWord.ruby.length === 0;
+					if (isFirstWord || prevWordHasNoRuby) {
+						word.rubyPhraseStart = true;
+					}
 				}
+				break;
 			}
 		});
 		requestAnimationFrame(() => {
@@ -103,12 +112,20 @@ export const RubyEditor = ({
 			const currentWord = store.get(wordAtom);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						if (word.id !== currentWord.id) continue;
-						if (!word.ruby || !word.ruby[index]) return;
-						word.ruby.splice(index, 1);
-						break;
+					const wordIndex = line.words.findIndex((w) => w.id === currentWord.id);
+					if (wordIndex === -1) continue;
+					const word = line.words[wordIndex];
+					if (!word.ruby || !word.ruby[index]) return;
+					word.ruby.splice(index, 1);
+					// 如果删除后 ruby 为空，且不是行最后一个单词，检查后一个单词是否需要设置 rubyPhraseStart
+					if (word.ruby.length === 0) {
+						word.rubyPhraseStart = false;
+						const nextWord = wordIndex < line.words.length - 1 ? line.words[wordIndex + 1] : null;
+						if (nextWord && nextWord.ruby && nextWord.ruby.length > 0) {
+							nextWord.rubyPhraseStart = true;
+						}
 					}
+					break;
 				}
 			});
 		},

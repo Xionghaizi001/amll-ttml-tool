@@ -58,6 +58,8 @@ export default function exportTTMLText(
 		if (word.obscene) container.setAttribute("amll:obscene", "true");
 		if (word.emptyBeat)
 			container.setAttribute("amll:empty-beat", `${word.emptyBeat}`);
+		if (word.rubyPhraseStart)
+			container.setAttribute("amll:rubyPhraseStart", "true");
 		const base = doc.createElement("span");
 		base.setAttribute("tts:ruby", "base");
 		base.appendChild(doc.createTextNode(word.word));

@@ -40,12 +40,12 @@ export const RomanWordView = ({
 			if (newValue !== word.romanWord) {
 				editLyricLines((draft) => {
 					for (const line of draft.lyricLines) {
-						const targetWord = line.words.find((w) => w.id === word.id);
-						if (targetWord) {
-							targetWord.romanWord = newValue;
-							applyGeneratedRuby(targetWord);
-							break;
-						}
+						const wordIndex = line.words.findIndex((w) => w.id === word.id);
+						if (wordIndex === -1) continue;
+						const targetWord = line.words[wordIndex];
+						targetWord.romanWord = newValue;
+						applyGeneratedRuby(targetWord, { lineWords: line.words, wordIndex });
+						break;
 					}
 				});
 			}
