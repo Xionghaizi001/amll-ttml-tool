@@ -39,7 +39,10 @@ import {
 	smartLastWordAtom,
 	syncJudgeModeAtom,
 } from "$/modules/settings/states";
-import { metaSuggestionManagerDialogAtom } from "$/states/dialogs";
+import {
+	metaSuggestionManagerDialogAtom,
+	storageManagerDialogAtom,
+} from "$/states/dialogs";
 import {
 	KeyBindingTriggerMode,
 	keyBindingTriggerModeAtom,
@@ -67,6 +70,7 @@ export const SettingsCommonTab = () => {
 	const setMetaSuggestionManagerOpen = useSetAtom(
 		metaSuggestionManagerDialogAtom,
 	);
+	const setStorageManagerOpen = useSetAtom(storageManagerDialogAtom);
 	const { t, i18n } = useTranslation();
 	const currentLanguage = i18n.resolvedLanguage || i18n.language;
 	const [showBackgroundSettings, setShowBackgroundSettings] = useState(false);
@@ -517,6 +521,35 @@ export const SettingsCommonTab = () => {
 									onClick={() => setMetaSuggestionManagerOpen(true)}
 								>
 									{t("settings.common.metaSuggestion.action", "打开管理器")}
+								</Button>
+							</Flex>
+						</Box>
+					</Flex>
+				</Card>
+			</Flex>
+			<Flex direction="column" gap="2">
+				<Heading size="4">{t("settings.group.storage", "存储")}</Heading>
+				<Card>
+					<Flex gap="3" align="center">
+						<Save24Regular />
+						<Box flexGrow="1">
+							<Flex align="center" justify="between" gap="4">
+								<Flex direction="column" gap="1">
+									<Text>
+										{t("settings.common.storage.title", "管理存储空间")}
+									</Text>
+									<Text size="1" color="gray">
+										{t(
+											"settings.common.storage.desc",
+											"查看或清理本地缓存",
+										)}
+									</Text>
+								</Flex>
+								<Button
+									variant="soft"
+									onClick={() => setStorageManagerOpen(true)}
+								>
+									{t("settings.common.storage.action", "打开管理器")}
 								</Button>
 							</Flex>
 						</Box>

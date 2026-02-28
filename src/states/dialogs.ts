@@ -4,6 +4,7 @@ export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
 export const vocalTagsEditorDialogAtom = atom(false);
 export const metaSuggestionManagerDialogAtom = atom(false);
+export const storageManagerDialogAtom = atom(false);
 export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
 export const latencyTestDialogAtom = atom(false);

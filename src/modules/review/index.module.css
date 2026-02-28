@@ -325,9 +325,14 @@
 	opacity: 0.55;
 	border: 1px dashed var(--gray-6);
 	pointer-events: none;
+	box-sizing: border-box;
 }
 
 .reviewCard {
+	background-color: var(--orange-5);
+}
+
+:global(.radix-themes.dark) .reviewCard {
 	background-color: var(--orange-5);
 }
 

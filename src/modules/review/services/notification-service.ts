@@ -1,5 +1,5 @@
 import type { AppNotification } from "$/states/notifications";
-import type { FileUpdateSession, ToolMode } from "$/states/main";
+import type { FileUpdateSession, ReviewReportDraft, ToolMode } from "$/states/main";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -11,6 +11,42 @@ type PushNotification = (
 	},
 ) => void;
 type ReviewUpdatePayload = { prNumber: number; prTitle: string };
+type ReviewReportDialogState = {
+	open: boolean;
+	prNumber: number | null;
+	prTitle: string;
+	report: string;
+	draftId: string | null;
+};
+type ReviewReportDraftAction = Extract<
+	NonNullable<AppNotification["action"]>,
+	{ type: "open-review-report" }
+>;
+
+export const getReviewReportDraftAction = (item: AppNotification) =>
+	item.action?.type === "open-review-report" ? item.action : null;
+
+export const createReviewReportDraftHandler =
+	(options: {
+		drafts: ReviewReportDraft[];
+		setReviewReportDialog: (value: ReviewReportDialogState) => void;
+		onClose: () => void;
+	}) =>
+	(action: ReviewReportDraftAction | null) => {
+		if (!action) return;
+		const draft = options.drafts.find(
+			(candidate) => candidate.id === action.payload.draftId,
+		);
+		if (!draft) return;
+		options.setReviewReportDialog({
+			open: true,
+			prNumber: draft.prNumber,
+			prTitle: draft.prTitle,
+			report: draft.report,
+			draftId: draft.id,
+		});
+		options.onClose();
+	};
 
 export const createReviewUpdateNotificationHandler = (options: {
 	pat: string;

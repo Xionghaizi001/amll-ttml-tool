@@ -19,7 +19,10 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uid } from "uid";
 import { githubFetch } from "$/modules/github/api";
-import { mergePullRequest } from "$/modules/github/services/PR-service";
+import {
+	ensurePullRequestAssigned,
+	mergePullRequest,
+} from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { githubPatAtom } from "$/modules/settings/states";
 import { reviewReportDialogAtom } from "$/states/dialogs";
@@ -322,6 +325,52 @@ export const ReviewReportDialog = () => {
 			setTemplateSaving(false);
 		}
 	};
+	const getCurrentUserLogin = async (token: string) => {
+		const userResponse = await githubFetch("/user", {
+			init: {
+				headers: {
+					Accept: "application/vnd.github+json",
+					Authorization: `Bearer ${token}`,
+				},
+			},
+		});
+		if (!userResponse.ok) {
+			setPushNotification({
+				title: `获取用户信息失败：${userResponse.status}`,
+				level: "error",
+				source: "Review",
+			});
+			return "";
+		}
+		const userData = (await userResponse.json()) as { login?: string };
+		const userLogin = userData.login?.trim() ?? "";
+		if (!userLogin) {
+			setPushNotification({
+				title: "无法识别当前登录用户",
+				level: "error",
+				source: "Review",
+			});
+		}
+		return userLogin;
+	};
+	const ensureAssigned = async (token: string, prNumber: number) => {
+		const userLogin = await getCurrentUserLogin(token);
+		if (!userLogin) return "";
+		const assignResult = await ensurePullRequestAssigned({
+			token,
+			prNumber,
+			login: userLogin,
+		});
+		if (!assignResult.ok) {
+			setPushNotification({
+				title: `设置 PR 负责人失败：${assignResult.status ?? "未知"}`,
+				level: "error",
+				source: "Review",
+			});
+			return "";
+		}
+		return userLogin;
+	};
 	const submitReview = async (event: "APPROVE" | "REQUEST_CHANGES") => {
 		if (!dialog.prNumber) {
 			setPushNotification({
@@ -351,6 +400,8 @@ export const ReviewReportDialog = () => {
 		}
 		setSubmitPending(event);
 		try {
+			const userLogin = await ensureAssigned(token, dialog.prNumber);
+			if (!userLogin) return;
 			const result = await submitReviewService({
 				token,
 				prNumber: dialog.prNumber,
@@ -420,30 +471,8 @@ export const ReviewReportDialog = () => {
 		}
 		setSubmitPending("MERGE");
 		try {
-			const userResponse = await githubFetch("/user", {
-				init: {
-					headers: {
-						Accept: "application/vnd.github+json",
-						Authorization: `Bearer ${token}`,
-					},
-				},
-			});
-			if (!userResponse.ok) {
-				setPushNotification({
-					title: `获取用户信息失败：${userResponse.status}`,
-					level: "error",
-					source: "Review",
-				});
-				return;
-			}
-			const userData = (await userResponse.json()) as { login?: string };
-			const userLogin = userData.login?.trim() ?? "";
+			const userLogin = await ensureAssigned(token, dialog.prNumber);
 			if (!userLogin) {
-				setPushNotification({
-					title: "无法识别当前登录用户",
-					level: "error",
-					source: "Review",
-				});
 				return;
 			}
 			const reviewsResponse = await githubFetch(

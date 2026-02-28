@@ -17,6 +17,7 @@ import { ConfirmationDialog } from "./confirmation.tsx";
 import { RiskConfirmationDialog } from "./risk-confirmation.tsx";
 import { NotificationCenterDialog } from "./notification-center.tsx";
 import { MetaSuggestionManagerDialog } from "./meta-suggestion-manager.tsx";
+import { StorageManagerDialog } from "./storage-manager.tsx";
 
 export const Dialogs = () => {
 	return (
@@ -40,6 +41,7 @@ export const Dialogs = () => {
 			<ReviewReportDialog />
 			<RiskConfirmationDialog />
 			<MetaSuggestionManagerDialog />
+			<StorageManagerDialog />
 		</>
 	);
 };

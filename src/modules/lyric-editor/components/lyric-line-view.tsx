@@ -54,7 +54,6 @@ import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
-	showEndTimeAsDurationAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
@@ -67,6 +66,18 @@ import LyricWordView from "./lyric-word-view.tsx";
 import { RomanWordView } from "./roman-word-view.tsx";
 
 const isDraggingAtom = atom(false);
+const parseRubyShortcut = (value: string) => {
+	if (value.endsWith("|")) {
+		return {
+			word: value.slice(0, -1),
+			enableRuby: true,
+		};
+	}
+	return {
+		word: value,
+		enableRuby: false,
+	};
+};
 
 const parseLineVocalIds = (value?: string | string[]) => {
 	if (!value) return [];
@@ -184,8 +195,7 @@ const SubLineEdit = memo(
 						const targetLine = state.lyricLines[lineIndex];
 						const previousValue = targetLine[type];
 						targetLine[type] = newValue;
-						if (type === "translatedLyric") {
-							const byLang = targetLine.translatedLyricByLang;
+						const syncByLang = (byLang?: Record<string, string>) => {
 							if (!byLang) return;
 							const keys = Object.keys(byLang);
 							if (keys.length === 1) {
@@ -203,6 +213,12 @@ const SubLineEdit = memo(
 							if (byLang.und !== undefined) {
 								byLang.und = newValue;
 							}
+						};
+						if (type === "translatedLyric") {
+							syncByLang(targetLine.translatedLyricByLang);
+						}
+						if (type === "romanLyric") {
+							syncByLang(targetLine.romanLyricByLang);
 						}
 					});
 				}
@@ -300,7 +316,6 @@ export const LyricLineView: FC<{
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);
-	const showEndTimeAsDuration = useAtomValue(showEndTimeAsDurationAtom);
 	const toolMode = useAtomValue(toolModeAtom);
 	const store = useStore();
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
@@ -338,7 +353,9 @@ export const LyricLineView: FC<{
 	const startTimeRef = useRef<HTMLDivElement>(null);
 	const endTimeRef = useRef<HTMLButtonElement>(null);
 	const [enableInsert, setEnableInsert] = useState(false);
-	const [endTimeLinked, setEndTimeLinked] = useState(false);
+	const [endTimeLinked, setEndTimeLinked] = useState(() =>
+		Boolean(line.endTimeLink),
+	);
 	const originalEndTimeRef = useRef<number | null>(null);
 	const originalNextStartTimeRef = useRef<number | null>(null);
 
@@ -396,7 +413,11 @@ export const LyricLineView: FC<{
 		if (!endTimeLinked) return;
 		const nextLine = lyricLines.lyricLines[lineIndex + 1];
 		if (!nextLine) {
-			setEndTimeLinked(false);
+			editLyricLines((state) => {
+				const targetLine = state.lyricLines[lineIndex];
+				if (!targetLine) return;
+				if (targetLine.endTimeLink) delete targetLine.endTimeLink;
+			});
 			return;
 		}
 		if (nextLine.startTime === line.endTime) return;
@@ -406,6 +427,12 @@ export const LyricLineView: FC<{
 			targetLine.startTime = line.endTime;
 		});
 	}, [endTimeLinked, editLyricLines, line.endTime, lineIndex, lyricLines]);
+
+	useEffect(() => {
+		const linked = Boolean(line.endTimeLink);
+		if (linked === endTimeLinked) return;
+		setEndTimeLinked(linked);
+	}, [endTimeLinked, line.endTimeLink]);
 
 	const suggestedRomans = useMemo(() => {
 		if (!enablePrediction) {
@@ -422,36 +449,57 @@ export const LyricLineView: FC<{
 			const nextLine = lyricLines.lyricLines[lineIndex + 1];
 			if (endTimeLinked) {
 				setEndTimeLinked(false);
-				const originalEndTime = originalEndTimeRef.current;
-				const originalNextStartTime = originalNextStartTimeRef.current;
 				originalEndTimeRef.current = null;
 				originalNextStartTimeRef.current = null;
-				if (originalEndTime === null) return;
 				editLyricLines((state) => {
 					const targetLine = state.lyricLines[lineIndex];
 					if (!targetLine) return;
-					targetLine.endTime = originalEndTime;
-					const nextTarget = state.lyricLines[lineIndex + 1];
-					if (nextTarget && originalNextStartTime !== null) {
-						nextTarget.startTime = originalNextStartTime;
+					const linkInfo = targetLine.endTimeLink;
+					if (!linkInfo) return;
+					if (
+						typeof linkInfo.originalEndTime !== "number" ||
+						!Number.isFinite(linkInfo.originalEndTime)
+					) {
+						delete targetLine.endTimeLink;
+						return;
 					}
+					targetLine.endTime = linkInfo.originalEndTime;
+					const nextTarget = state.lyricLines[lineIndex + 1];
+					if (
+						nextTarget &&
+						Number.isFinite(linkInfo.originalNextStartTime ?? Number.NaN)
+					) {
+						nextTarget.startTime =
+							linkInfo.originalNextStartTime ?? nextTarget.startTime;
+					}
+					delete targetLine.endTimeLink;
 				});
 				return;
 			}
+			// const nextLine = lyricLines.lyricLines[lineIndex + 1];
+			if (!nextLine) return;
 			originalEndTimeRef.current = line.endTime;
 			originalNextStartTimeRef.current = nextLine?.startTime ?? null;
 			editLyricLines((state) => {
 				const targetLine = state.lyricLines[lineIndex];
 				if (!targetLine) return;
 				const nextTarget = state.lyricLines[lineIndex + 1];
-				const desiredEndTime =
-					nextTarget?.startTime ?? targetLine.endTime;
+				if (!nextTarget) return;
+				const originalEndTime =
+					targetLine.endTimeLink?.originalEndTime ?? targetLine.endTime;
+				const originalNextStartTime =
+					targetLine.endTimeLink?.originalNextStartTime ??
+					nextTarget.startTime ??
+					null;
+				const desiredEndTime = nextTarget.startTime ?? targetLine.endTime;
+				targetLine.endTimeLink = {
+					originalEndTime,
+					originalNextStartTime,
+				};
 				targetLine.endTime = desiredEndTime;
-				if (nextTarget) nextTarget.startTime = desiredEndTime;
+				nextTarget.startTime = desiredEndTime;
 			});
-			if (nextLine) {
-				setEndTimeLinked(true);
-			}
+			setEndTimeLinked(true);
 		},
 		[
 			editLyricLines,
@@ -746,10 +794,23 @@ export const LyricLineView: FC<{
 												if (evt.key === "Enter") {
 													evt.preventDefault();
 													evt.stopPropagation();
+													const { word, enableRuby } = parseRubyShortcut(
+														evt.currentTarget.value,
+													);
 													editLyricLines((state) => {
+														const newWord = newLyricWord();
 														state.lyricLines[lineIndex].words.push({
-															...newLyricWord(),
-															word: evt.currentTarget.value,
+															...newWord,
+															word,
+															ruby: enableRuby
+																? [
+																		{
+																			word: "",
+																			startTime: newWord.startTime,
+																			endTime: newWord.endTime,
+																		},
+																	]
+																: undefined,
 														});
 													});
 													evt.currentTarget.value = "";

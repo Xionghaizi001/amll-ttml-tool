@@ -37,4 +37,7 @@ export const notificationCenterStyles = {
 	scrollArea: {
 		maxHeight: "420px",
 	} satisfies CSSProperties,
+	titleText: {
+		overflowWrap: "anywhere",
+	} satisfies CSSProperties,
 };

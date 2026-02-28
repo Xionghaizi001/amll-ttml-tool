@@ -9,6 +9,7 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
+import type { OptimizeLyricOptions } from "@applemusic-like-lyrics/core";
 import type {
 	LyricLine as AMLLLyricLine,
 	LyricWord as AMLLLyricWord,
@@ -31,14 +32,27 @@ export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
+	optimizeOptions?: OptimizeLyricOptions;
+}
+
+export interface LyricWordBase {
+	startTime: number;
+	endTime: number;
+	word: string;
+	emptyBeat?: number;
 }
 
 export interface LyricWord extends AMLLLyricWord {
 	// 用来确定唯一一个单词的标识符，导出时不会保存
 	id: string;
+	startTime: number;
+	endTime: number;
+	word: string;
 	obscene: boolean;
 	emptyBeat: number;
+	romanWord: string;
 	romanWarning?: boolean;
+	ruby?: LyricWordBase[];
 }
 
 export interface TTMLRomanWord {
@@ -61,13 +75,26 @@ export interface LyricLine extends AMLLLyricLine {
 	// 用来确定唯一一个行的标识符，导出时不会保存
 	id: string;
 	words: LyricWord[];
-	// translatedLyric: string;
-	// romanLyric: string;
-	// isBG: boolean;
-	// isDuet: boolean;
-	// startTime: number;
-	// endTime: number;
+	translatedLyric: string;
+	romanLyric: string;
+	isBG: boolean;
+	isDuet: boolean;
+	startTime: number;
+	endTime: number;
 	ignoreSync: boolean;
+	/**
+	 * @description 用于记录时间链接前的原始时间值，便于取消链接时恢复
+	 */
+	endTimeLink?: {
+		/**
+		 * @description 该行原始的结束时间
+		 */
+		originalEndTime: number;
+		/**
+		 * @description 下一行原始的开始时间，没有则为 null
+		 */
+		originalNextStartTime: number | null;
+	};
 	vocal?: string[];
 	translatedLyricByLang?: Record<string, string>;
 	romanLyricByLang?: Record<string, string>;

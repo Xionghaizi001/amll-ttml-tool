@@ -39,7 +39,21 @@
 		"importFile": {
 			"title": "确认导入歌词",
 			"description": "当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？"
+		},
+		"useMetadataName": {
+			"title": "使用元数据命名？",
+			"description": "是否使用\"{name}\"作为文件名？"
 		}
+	},
+	"addLanguageDialog": {
+		"title": "新增语言代码",
+		"add": "新增",
+		"commonCodes": "常用语言代码",
+		"customCode": "自定义语言代码",
+		"customPlaceholder": "输入语言代码（如 en、ja、zh-CN）",
+		"addTranslation": "新增翻译语言",
+		"addRomanization": "新增音译语言",
+		"addWordRomanization": "新增逐字音译语言"
 	},
 	"ribbonBar": {
 		"editMode": {
@@ -65,6 +79,12 @@
 			"secondaryContent": "次要内容",
 			"translatedLyric": "翻译歌词",
 			"romanLyric": "音译歌词",
+			"translation": "翻译",
+			"romanization": "音译",
+			"wordRomanization": "逐字音译",
+			"multilingual": "多语言",
+			"multilingualPlaceholder": "请选择语言",
+			"duration": "持续时间",
 			"layoutMode": "布局模式",
 			"auxiliaryLineDisplay": "辅助行显示"
 		},
@@ -88,10 +108,24 @@
 			"highlightActiveWord": "高亮当前音节",
 			"highlightErrors": "高亮错误",
 			"showPerWordRomanization": "显示逐字音译",
+			"bgLyricIgnoreSync": "背景歌词忽略打轴",
 			"keyBindingReference": "打轴键位速查",
 			"startSync": "起始轴",
 			"continuousSync": "连续轴",
 			"endSync": "结束轴"
+		},
+		"reviewMode": {
+			"avatar": "头像",
+			"user": "用户",
+			"identityUnknown": "未知身份",
+			"identityOwner": "所有者",
+			"identityCollaborator": "协作者",
+			"status": "状态",
+			"pending": "待更新",
+			"updated": "已更新",
+			"labels": "标签",
+			"noLabels": "暂无标签",
+			"noLogin": "未登录"
 		},
 		"loading": "面板载入中…"
 	},
@@ -100,6 +134,11 @@
 		"description": "应用内的通知、错误与提醒会显示在这里",
 		"emptyTitle": "暂无通知",
 		"emptyDescription": "当有新的错误或提示时会自动展示在此处",
+		"clearAll": "全部清除",
+		"clearGroup": "清除该组",
+		"ignore": "忽略",
+		"pendingUpdateGroup": "待更新PR",
+		"pendingUpdateCount": "{count} 条",
 		"level": {
 			"info": "信息",
 			"warning": "警告",
@@ -155,6 +194,79 @@
 				"enable": "启用自动保存",
 				"interval": "保存间隔 (分钟)",
 				"limit": "保留快照数量"
+			},
+			"metaSuggestion": {
+				"title": "管理自动建议项",
+				"desc": "导入或导出元数据自动建议项",
+				"action": "打开管理器"
+			}
+		},
+		"connect": {
+			"title": "连接",
+			"checking": "验证中...",
+			"authorized": "已验证：{login}",
+			"currentUser": "当前账号：{login}",
+			"userMissing": "无法获取用户信息",
+			"userError": "GitHub 接口返回错误：{code}",
+			"networkError": "网络请求失败",
+			"permissionDenied": "PAT 权限不足，无法检查协作者关系",
+			"unauthorized": "该账号不是仓库协作者或所有者",
+			"normalIdentity": "已切换为普通用户",
+			"restoreIdentity": "恢复特权身份",
+			"switchIdentity": "切换为普通用户",
+			"reviewEnabled": "已启用审阅入口，可在标题栏打开",
+			"reviewHiddenLabelsTitle": "审阅隐藏标签",
+			"reviewHiddenLabelsDesc": "点击标签可在未隐藏与已隐藏之间切换",
+			"reviewHiddenLabelsEmpty": "暂无标签",
+			"reviewHiddenLabelsNone": "暂无隐藏标签",
+			"reviewHiddenLabelsHidden": "已隐藏",
+			"reviewHiddenLabelsVisible": "未隐藏",
+			"patLabel": "GitHub PAT",
+			"patPlaceholder": "输入你的 GitHub Personal Access Token",
+			"patHelp": "申请 PAT",
+			"patGuideTitle": "GitHub PAT 申请指引",
+			"patGuideDesc": "按步骤创建访问令牌后粘贴到上方输入框即可。",
+			"emptyPat": "请输入 GitHub PAT",
+			"invalidPat": "PAT 无效或已过期，请检查后重试",
+			"verify": "验证",
+			"clear": "清除",
+			"viewGist": "查看 Gist",
+			"github": {
+				"desc": "用于登录 GitHub 并使用相关能力"
+			},
+			"lyricsSite": "歌词站",
+			"lyricsSiteDesc": "登录歌词站以使用歌词站相关功能",
+			"loginLyricsSite": "登录歌词站",
+			"netease": {
+				"title": "网易云音乐",
+				"desc": "登录后可使用网易云账号相关能力",
+				"login": "登录",
+				"logout": "已退出网易云登录",
+				"logoutAction": "退出登录",
+				"loggingIn": "登录中...",
+				"loginFailed": "登录失败：{message}",
+				"loginSuccess": "欢迎回来，{name}",
+				"notLoggedIn": "未登录",
+				"autoLoginPaused": "自动登录失败次数过多，已暂停自动尝试",
+				"recovered": "网易云登录已恢复",
+				"captchaPlaceholder": "验证码",
+				"captchaSent": "验证码已发送",
+				"captchaFailed": "验证码发送失败：{message}",
+				"sendCaptcha": "发送",
+				"phoneTab": "手机号验证码",
+				"phonePlaceholder": "手机号码",
+				"phoneMissing": "请输入手机号",
+				"phoneIncomplete": "请填写手机号与验证码",
+				"verifying": "验证中...",
+				"verifyLogin": "验证并登录",
+				"cookieTab": "Cookie",
+				"cookiePlaceholder": "MUSIC_U=...;",
+				"cookieMissing": "请输入 Cookie",
+				"cookieHint": "请输入包含 MUSIC_U 的 Cookie",
+				"cookieSuccess": "欢迎回来，{name}",
+				"cookieInvalid": "网易云登录已失效：{message}",
+				"cookieInvalidToast": "Cookie 无效：{message}",
+				"clearCookie": "清除"
 			}
 		},
 		"about": {
@@ -169,7 +281,8 @@
 			"display": "显示",
 			"timing": "打轴",
 			"playback": "播放",
-			"autosave": "自动保存"
+			"autosave": "自动保存",
+			"metaSuggestion": "元数据编辑器"
 		},
 		"spectrogram": {
 			"palette": "配色方案",
@@ -182,7 +295,8 @@
 		"modeBtns": {
 			"edit": "编辑",
 			"sync": "打轴",
-			"preview": "预览"
+			"preview": "预览",
+			"review": "审阅"
 		},
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"notificationCenter": "通知中心",
@@ -208,6 +322,7 @@
 			"tool": "工具",
 			"segmentationTools": "分词",
 			"autoSegment": "一键分词",
+			"rubySegment": "注音分词",
 			"advancedSegment": "高级分词...",
 			"syncLineTimestamps": "同步行时间戳",
 			"perWordRomanization": 
@@ -244,7 +359,8 @@
 			"saving": "正在保存...",
 			"pending": "正在保存...",
 			"savedAt": "已保存",
-			"saved": "已保存"
+			"saved": "已保存",
+			"autoSavedAt": "已自动保存于 {time}"
 		},
 		"popover": {
 			"filename": "文件名",
@@ -320,7 +436,8 @@
 		"tab": {
 			"common": "常规",
 			"keybindings": "按键绑定",
-			"spectrogram": "频谱图"
+			"spectrogram": "频谱图",
+			"connect": "连接"
 		}
 	},
 	"error": {
@@ -332,7 +449,10 @@
 		"playbackRate": "播放速度",
 		"clickToLoadMusic": "点击图标按钮以加载音乐",
 		"playPause": "播放 / 暂停音乐",
-		"expandSpectrogram": "展开 / 收起频谱图"
+		"expandSpectrogram": "展开 / 收起频谱图",
+		"cachedAudioLoaded": "已从缓存加载音频",
+		"cachedAudioMissing": "未找到缓存音频",
+		"cachedAudioFailed": "读取缓存音频失败"
 	},
 	"audio": {
 		"status": {
@@ -358,6 +478,12 @@
 		"autoSegment": "自动分词",
 		"import": "导入歌词"
 	},
+	"ncm": {
+		"selectId": {
+			"title": "选择网易云音乐 ID",
+			"desc": "检测到多个网易云音乐 ID，请选择一个加载音频。"
+		}
+	},
 	"common": {
 		"search": "搜索",
 		"close": "关闭",
@@ -381,14 +507,21 @@
 		"restore": "恢复",
 		"about": "关于",
 		"remove": "移除",
-		"clickToSet": "点击设置"
+		"clickToSet": "点击设置",
+		"selectAll": "全选",
+		"logout": "登出"
+	},
+	"lyricEditor": {
+		"locate": "定位"
 	},
 	"lyricLineView": {
 		"translatedLabel": "翻译：",
 		"romanLabel": "音译：",
 		"empty": "无",
 		"insertLine": "在此插入新行",
-		"insertWord": "插入单词…"
+		"insertWord": "插入单词…",
+		"vocalTagsLabel": "演唱者：",
+		"vocalTagsAll": "全体成员"
 	},
 	"lyricWordView": {
 		"empty": "空白",
@@ -517,8 +650,31 @@
 		"addKeyValue": "添加新键值",
 		"customKey": "自定义键名",
 		"addPresets": "一键添加所有预设键",
+		"pickSuggestion": "选择匹配项",
 		"clear": "清空",
 		"info": "了解详情"
+	},
+	"metaSuggestion": {
+		"dialogTitle": "元数据编辑器",
+		"builtinTitle": "内置建议项",
+		"builtinCount": "共 {count} 项",
+		"emptyBuiltin": "未找到内置建议项",
+		"userTitle": "用户导入项",
+		"emptyUser": "尚未导入建议项",
+		"loading": "加载中...",
+		"import": "导入",
+		"importInvalidZip": "请选择 zip 文件",
+		"importZipFailed": "解包失败",
+		"importMissingIndex": "缺少 index.json",
+		"importEmptyIndex": "index.json 内容无效",
+		"importEmptyItems": "没有可导入的建议项",
+		"importSuccess": "导入完成",
+		"importWarning": "导入完成，但已跳过 {count} 处空值",
+		"export": "导出",
+		"exportEmpty": "没有可导出的建议项",
+		"exportSuccess": "导出完成",
+		"remove": "移除",
+		"removeSuccess": "已移除建议项"
 	},
 	"submitToAMLLDB": {
 		"validation": {
@@ -528,11 +684,17 @@
 			"missingMusicId": "元数据缺少音乐平台对应歌曲 ID"
 		},
 		"defaultReason": "新歌词提交",
+		"error": {
+			"failed": "提交失败，请检查网络或 Token 权限",
+			"noToken": "请先在设置中配置 GitHub Token"
+		},
 		"errors": {
 			"validation": "提交验证失败：\n{errors}",
 			"noLyrics": "歌词还什么都没有呢？",
 			"uploadFailed": "发送上传歌词文件请求失败：{status} {statusText}",
-			"submitFailed": "提交发生错误，请查看控制台确认原因！"
+			"submitFailed": "提交发生错误，请查看控制台确认原因！",
+			"failed": "提交失败，请检查网络或 Token 权限",
+			"noToken": "请先在设置中配置 GitHub Token"
 		},
 		"labels": {
 			"submit": "歌词提交/补正"
@@ -550,7 +712,27 @@
 		"futureUse": "并且歌词将会在以后被 AMLL 系程序作为默认 TTML 歌词源获取！",
 		"rightsWarning": "如果您对歌词所有权比较看重的话，请勿提交歌词哦！",
 		"submitInstructions": "请输入以下提交信息然后跳转到 Github 议题提交页面！",
-		"closeWarning": "关闭上述警告信息"
+		"closeWarning": "关闭上述警告信息",
+		"success": "提交成功！"
+	},
+	"vocalTagsDialog": {
+		"title": "演唱者标签",
+		"mappingTitle": "演唱者标签",
+		"addTag": "添加演唱者标签",
+		"valuePlaceholder": "显示名称",
+		"untitled": "(未命名)",
+		"importFromArtists": "从 artists 导入",
+		"clear": "清空",
+		"clearAssignments": "清空分配",
+		"empty": "暂无演唱者标签。"
+	},
+	"review": {
+		"TimingStash": {
+			"title": "暂存时间轴结果",
+			"empty": "暂无暂存结果",
+			"clear": "清空",
+			"removeSelected": "删除选中"
+		}
 	},
 	"splitWordDialog": {
 		"spaceCount": "空格x{count}",
@@ -612,7 +794,8 @@
 		"appName": "Apple Music-like lyrics TTML Tools",
 		"description": "一个用于 Apple Music-like lyrics 生态的逐词歌词 TTML 编辑和时间轴工具",
 		"buildDate": "构建日期：{date}",
-		"gitCommit": "Git 提交：{commit}"
+		"gitCommit": "Git 提交：{commit}",
+		"unknown": "unknown"
 	},
 	"spectrogram": {
 		"invalidEndTime": "不能选择此结束时间",

@@ -59,6 +59,7 @@ export function useSpectrogramInteraction(
 				return;
 			}
 			event.preventDefault();
+			event.stopPropagation();
 
 			const container = scrollContainerRef.current;
 			const rect = container.getBoundingClientRect();

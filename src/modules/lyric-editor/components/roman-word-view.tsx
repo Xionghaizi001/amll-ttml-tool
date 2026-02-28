@@ -11,6 +11,7 @@ import {
 } from "react";
 import { lyricLinesAtom } from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import styles from "./roman-word-view.module.css";
 
 interface RomanWordViewProps {
@@ -42,6 +43,7 @@ export const RomanWordView = ({
 						const targetWord = line.words.find((w) => w.id === word.id);
 						if (targetWord) {
 							targetWord.romanWord = newValue;
+							applyGeneratedRuby(targetWord);
 							break;
 						}
 					}

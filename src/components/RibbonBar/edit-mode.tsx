@@ -42,6 +42,7 @@ import {
 	showLineTranslationAtom,
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
 	editingTimeFieldAtom,
 	lyricLinesAtom,
@@ -352,6 +353,7 @@ function EditField<
 					size="1"
 					variant="ghost"
 					onClick={() => setShowDurationInput((v) => !v)}
+					style={{ justifyContent: "flex-start" }}
 				>
 					{showDurationInput
 						? t("ribbonBar.editMode.duration", "持续时间")
@@ -928,6 +930,7 @@ const MultilingualField: FC = () => {
 							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						word.romanWord = match?.text ?? "";
+						applyGeneratedRuby(word);
 					}
 				}
 			});

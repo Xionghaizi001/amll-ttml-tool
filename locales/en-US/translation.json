@@ -15,6 +15,10 @@
 		"empty": {
 			"title": "No lyric lines",
 			"description": "Add new lyric lines in the top panel or open/import existing lyrics from the menu"
+		},
+		"useMetadataName": {
+			"title": "Use metadata name?",
+			"description": "Use \"{name}\" as the file name?"
 		}
 	},
 	"confirmDialog": {
@@ -41,6 +45,16 @@
 			"description": "Use \"{name}\" as the file name?"
 		}
 	},
+	"addLanguageDialog": {
+		"title": "Add language code",
+		"add": "Add",
+		"commonCodes": "Common language codes",
+		"customCode": "Custom language code",
+		"customPlaceholder": "Enter language code (e.g. en, ja, zh-CN)",
+		"addTranslation": "Add translation language",
+		"addRomanization": "Add romanization language",
+		"addWordRomanization": "Add word-by-word romanization language"
+	},
 	"ribbonBar": {
 		"editMode": {
 			"multipleValues": "Multiple values…",
@@ -65,6 +79,12 @@
 			"secondaryContent": "Secondary Content",
 			"translatedLyric": "Translation",
 			"romanLyric": "Romanization",
+			"translation": "Translation",
+			"romanization": "Romanization",
+			"wordRomanization": "Word-by-word romanization",
+			"multilingual": "Multilingual",
+			"multilingualPlaceholder": "Select language",
+			"duration": "Duration",
 			"layoutMode": "Layout",
 			"auxiliaryLineDisplay": "Auxiliary Line Display"
 		},
@@ -88,10 +108,24 @@
 			"highlightActiveWord": "Highlight Active Word",
 			"highlightErrors": "Highlight Errors",
 			"showPerWordRomanization": "Show Per-Word Romanization",
+			"bgLyricIgnoreSync": "Ignore sync for background lyrics",
 			"keyBindingReference": "Hotkey Cheatsheet",
 			"startSync": "Mark Begin",
 			"continuousSync": "Commit",
 			"endSync": "Mark End"
+		},
+		"reviewMode": {
+			"avatar": "Avatar",
+			"user": "User",
+			"identityUnknown": "Unknown identity",
+			"identityOwner": "Owner",
+			"identityCollaborator": "Collaborator",
+			"status": "Status",
+			"pending": "Pending",
+			"updated": "Updated",
+			"labels": "Labels",
+			"noLabels": "No labels",
+			"noLogin": "Not logged in"
 		},
 		"loading": "Panel loading…"
 	},
@@ -100,6 +134,11 @@
 		"description": "App notifications, errors, and alerts appear here",
 		"emptyTitle": "No notifications",
 		"emptyDescription": "New errors or tips will automatically show up here",
+		"clearAll": "Clear all",
+		"clearGroup": "Clear group",
+		"ignore": "Ignore",
+		"pendingUpdateGroup": "Pending PR updates",
+		"pendingUpdateCount": "{count} items",
 		"level": {
 			"info": "Info",
 			"warning": "Warning",
@@ -155,6 +194,79 @@
 				"enable": "Enable Autosave",
 				"interval": "Save Interval (minutes)",
 				"limit": "Snapshots to keep"
+			},
+			"metaSuggestion": {
+				"title": "Manage auto suggestions",
+				"desc": "Import or export metadata auto-suggestions",
+				"action": "Open manager"
+			}
+		},
+		"connect": {
+			"title": "Connect",
+			"checking": "Verifying...",
+			"authorized": "Verified: {login}",
+			"currentUser": "Current account: {login}",
+			"userMissing": "Unable to fetch user info",
+			"userError": "GitHub API error: {code}",
+			"networkError": "Network request failed",
+			"permissionDenied": "PAT lacks permissions to check collaborator status",
+			"unauthorized": "Account is not a collaborator or owner",
+			"normalIdentity": "Switched to normal user",
+			"restoreIdentity": "Restore privileged identity",
+			"switchIdentity": "Switch to normal user",
+			"reviewEnabled": "Review entry enabled, open from the title bar",
+			"reviewHiddenLabelsTitle": "Review hidden labels",
+			"reviewHiddenLabelsDesc": "Click labels to toggle hidden and visible",
+			"reviewHiddenLabelsEmpty": "No labels",
+			"reviewHiddenLabelsNone": "No hidden labels",
+			"reviewHiddenLabelsHidden": "Hidden",
+			"reviewHiddenLabelsVisible": "Visible",
+			"patLabel": "GitHub PAT",
+			"patPlaceholder": "Enter your GitHub Personal Access Token",
+			"patHelp": "Get PAT",
+			"patGuideTitle": "GitHub PAT guide",
+			"patGuideDesc": "Create a token following the steps and paste it above.",
+			"emptyPat": "Please enter a GitHub PAT",
+			"invalidPat": "PAT is invalid or expired, please retry",
+			"verify": "Verify",
+			"clear": "Clear",
+			"viewGist": "View Gist",
+			"github": {
+				"desc": "Sign in to GitHub to use related features"
+			},
+			"lyricsSite": "Lyrics site",
+			"lyricsSiteDesc": "Sign in to the lyrics site to use its features",
+			"loginLyricsSite": "Sign in to lyrics site",
+			"netease": {
+				"title": "NetEase Music",
+				"desc": "Sign in to use NetEase account features",
+				"login": "Sign in",
+				"logout": "Signed out of NetEase",
+				"logoutAction": "Sign out",
+				"loggingIn": "Signing in...",
+				"loginFailed": "Sign in failed: {message}",
+				"loginSuccess": "Welcome back, {name}",
+				"notLoggedIn": "Not signed in",
+				"autoLoginPaused": "Too many failed auto logins, auto retry paused",
+				"recovered": "NetEase login restored",
+				"captchaPlaceholder": "Captcha",
+				"captchaSent": "Captcha sent",
+				"captchaFailed": "Failed to send captcha: {message}",
+				"sendCaptcha": "Send",
+				"phoneTab": "Phone code",
+				"phonePlaceholder": "Phone number",
+				"phoneMissing": "Please enter phone number",
+				"phoneIncomplete": "Please enter phone number and verification code",
+				"verifying": "Verifying...",
+				"verifyLogin": "Verify and sign in",
+				"cookieTab": "Cookie",
+				"cookiePlaceholder": "MUSIC_U=...;",
+				"cookieMissing": "Please enter Cookie",
+				"cookieHint": "Enter a Cookie containing MUSIC_U",
+				"cookieSuccess": "Welcome back, {name}",
+				"cookieInvalid": "NetEase login expired: {message}",
+				"cookieInvalidToast": "Cookie invalid: {message}",
+				"clearCookie": "Clear"
 			}
 		},
 		"about": {
@@ -169,7 +281,8 @@
 			"display": "Display",
 			"timing": "Timing",
 			"playback": "Playback",
-			"autosave": "Autosave"
+			"autosave": "Autosave",
+			"metaSuggestion": "Metadata editor"
 		},
 		"spectrogram": {
 			"palette": "Color Palette",
@@ -182,7 +295,8 @@
 		"modeBtns": {
 			"edit": "Edit",
 			"sync": "Time",
-			"preview": "Preview"
+			"preview": "Preview",
+			"review": "Review"
 		},
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"notificationCenter": "Notification Center",
@@ -208,6 +322,7 @@
 			"tool": "Tools",
 			"segmentationTools": "Segmentation Tools",
 			"autoSegment": "Auto Segment",
+			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
 			"syncLineTimestamps": "Sync Line Timestamps",
 			"perWordRomanization":
@@ -244,7 +359,8 @@
 			"saving": "Saving...",
 			"pending": "Saving...",
 			"savedAt": "Last saved at",
-			"saved": "Saved"
+			"saved": "Saved",
+			"autoSavedAt": "Auto-saved at {time}"
 		},
 		"popover": {
 			"filename": "File Name",
@@ -320,7 +436,8 @@
 		"tab": {
 			"common": "General",
 			"keybindings": "Keybindings",
-			"spectrogram": "Spectrogram"
+			"spectrogram": "Spectrogram",
+			"connect": "Connect"
 		}
 	},
 	"error": {
@@ -332,7 +449,10 @@
 		"playbackRate": "Playback rate",
 		"clickToLoadMusic": "Click the icon button to load music",
 		"playPause": "Play / pause music",
-		"expandSpectrogram": "Expand / collapse spectrogram"
+		"expandSpectrogram": "Expand / collapse spectrogram",
+		"cachedAudioLoaded": "Loaded audio from cache",
+		"cachedAudioMissing": "No cached audio found",
+		"cachedAudioFailed": "Failed to load cached audio"
 	},
 	"audio": {
 		"status": {
@@ -358,6 +478,12 @@
 		"autoSegment": "Auto Segment",
 		"import": "Import Lyric"
 	},
+	"ncm": {
+		"selectId": {
+			"title": "Select NetEase Music ID",
+			"desc": "Multiple NetEase Music IDs detected, choose one to load audio."
+		}
+	},
 	"common": {
 		"search": "Search",
 		"close": "Close",
@@ -381,14 +507,21 @@
 		"restore": "Restore",
 		"about": "About",
 		"remove": "Remove",
-		"clickToSet": "Click to set "
+		"clickToSet": "Click to set ",
+		"selectAll": "Select all",
+		"logout": "Log out"
+	},
+	"lyricEditor": {
+		"locate": "Locate"
 	},
 	"lyricLineView": {
 		"translatedLabel": "Translation:",
 		"romanLabel": "Romanization:",
 		"empty": "None",
 		"insertLine": "Insert new line here",
-		"insertWord": "Insert word here…"
+		"insertWord": "Insert word here…",
+		"vocalTagsLabel": "Vocalists:",
+		"vocalTagsAll": "All members"
 	},
 	"lyricWordView": {
 		"empty": "Empty",
@@ -517,8 +650,31 @@
 		"addKeyValue": "Add new key-value",
 		"customKey": "Custom Key",
 		"addPresets": "Add all preset keys",
+		"pickSuggestion": "Select match",
 		"clear": "Clear",
 		"info": "Learn more"
+	},
+	"metaSuggestion": {
+		"dialogTitle": "Metadata editor",
+		"builtinTitle": "Built-in suggestions",
+		"builtinCount": "{count} items",
+		"emptyBuiltin": "No built-in suggestions found",
+		"userTitle": "User imports",
+		"emptyUser": "No suggestions imported yet",
+		"loading": "Loading...",
+		"import": "Import",
+		"importInvalidZip": "Please select a zip file",
+		"importZipFailed": "Failed to unpack",
+		"importMissingIndex": "Missing index.json",
+		"importEmptyIndex": "index.json is invalid",
+		"importEmptyItems": "No suggestions to import",
+		"importSuccess": "Import complete",
+		"importWarning": "Import complete, skipped {count} empty values",
+		"export": "Export",
+		"exportEmpty": "No suggestions to export",
+		"exportSuccess": "Export complete",
+		"remove": "Remove",
+		"removeSuccess": "Suggestion removed"
 	},
 	"submitToAMLLDB": {
 		"validation": {
@@ -528,11 +684,17 @@
 			"missingMusicId": "Metadata missing platform track ID"
 		},
 		"defaultReason": "New lyrics submission",
+		"error": {
+			"failed": "Submission failed, check network or Token permissions",
+			"noToken": "Please configure a GitHub Token in Settings"
+		},
 		"errors": {
 			"validation": "Submission validation failed:\n{errors}",
 			"noLyrics": "There's no lyrics content yet?",
 			"uploadFailed": "Failed to request upload lyrics file: {status} {statusText}",
-			"submitFailed": "Submission failed, check console for reason!"
+			"submitFailed": "Submission failed, check console for reason!",
+			"failed": "Submission failed, check network or Token permissions",
+			"noToken": "Please configure a GitHub Token in Settings"
 		},
 		"labels": {
 			"submit": "Lyrics Submit/Correction"
@@ -550,7 +712,27 @@
 		"futureUse": "And the lyrics will be used as default TTML source by AMLL systems in the future!",
 		"rightsWarning": "If you value retaining ownership, please do NOT submit!",
 		"submitInstructions": "Enter the following info then jump to the GitHub issue submission page!",
-		"closeWarning": "Close warning message"
+		"closeWarning": "Close warning message",
+		"success": "Submitted successfully!"
+	},
+	"vocalTagsDialog": {
+		"title": "Vocal tags",
+		"mappingTitle": "Vocal tags",
+		"addTag": "Add vocalist tag",
+		"valuePlaceholder": "Display name",
+		"untitled": "(Untitled)",
+		"importFromArtists": "Import from artists",
+		"clear": "Clear",
+		"clearAssignments": "Clear assignments",
+		"empty": "No vocalist tags."
+	},
+	"review": {
+		"TimingStash": {
+			"title": "Stashed timing results",
+			"empty": "No stashed results",
+			"clear": "Clear",
+			"removeSelected": "Remove selected"
+		}
 	},
 	"splitWordDialog": {
 		"spaceCount": "Space x{count}",
@@ -612,7 +794,8 @@
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"description": "A Word-by-Word TTML Editing and Timeline Tool for Apple Music-like Lyrics",
 		"buildDate": "Build Date: {date}",
-		"gitCommit": "Git Commit: {commit}"
+		"gitCommit": "Git Commit: {commit}",
+		"unknown": "unknown"
 	},
 	"spectrogram": {
 		"invalidEndTime": "Cannot select this end time",

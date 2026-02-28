@@ -84,15 +84,20 @@ export const TitleBar: FC = () => {
 					setLatestNotification(latest);
 					setShowNotificationContent(true);
 					setHasUnread(true);
-
-					const timer = setTimeout(() => {
-						setShowNotificationContent(false);
-					}, 5000);
-					return () => clearTimeout(timer);
 				}
 			}
 		}
 	}, [notifications, notificationCenterOpen]);
+
+	useEffect(() => {
+		if (!showNotificationContent || notificationCenterOpen) {
+			return;
+		}
+		const timer = setTimeout(() => {
+			setShowNotificationContent(false);
+		}, 5000);
+		return () => clearTimeout(timer);
+	}, [notificationCenterOpen, showNotificationContent]);
 
 	useEffect(() => {
 		if (notificationCenterOpen) {
@@ -259,7 +264,9 @@ export const TitleBar: FC = () => {
 									}}
 									style={{
 										width: showNotificationContent ? 360 : undefined,
+										maxWidth: 360,
 										overflow: "hidden",
+										flexShrink: 0,
 									}}
 								>
 									<Button
@@ -292,7 +299,13 @@ export const TitleBar: FC = () => {
 												stiffness: 500,
 												damping: 30,
 											}}
-											style={{ height: "32px" }}
+											style={{
+												height: "32px",
+												display: "flex",
+												alignItems: "center",
+												gap: "6px",
+												overflow: "hidden",
+											}}
 										>
 											<Alert20Regular />
 											<AnimatePresence mode="wait" initial={false}>
@@ -302,6 +315,13 @@ export const TitleBar: FC = () => {
 														initial={{ opacity: 0, y: 10 }}
 														animate={{ opacity: 1, y: 0 }}
 														exit={{ opacity: 0, y: -10 }}
+														style={{
+															overflow: "hidden",
+															textOverflow: "ellipsis",
+															whiteSpace: "nowrap",
+															display: "inline-block",
+															maxWidth: "100%",
+														}}
 													>
 														{latestNotification?.title}
 													</motion.span>
