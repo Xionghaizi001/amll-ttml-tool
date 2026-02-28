@@ -23,6 +23,7 @@ const FileMenuItems = () => {
 			>
 				<Trans i18nKey="topBar.menu.newLyric">新建 TTML 文件</Trans>
 			</DropdownMenu.Item>
+			<DropdownMenu.Separator />
 			<DropdownMenu.Item
 				onSelect={menu.onOpenFile}
 				shortcut={formatKeyBindings(menu.openFileKey)}
@@ -34,21 +35,21 @@ const FileMenuItems = () => {
 					从剪切板打开 TTML 文件
 				</Trans>
 			</DropdownMenu.Item>
+			<DropdownMenu.Separator />
 			<DropdownMenu.Item
 				onSelect={menu.onSaveFile}
 				shortcut={formatKeyBindings(menu.saveFileKey)}
 			>
 				<Trans i18nKey="topBar.menu.saveLyric">保存 TTML 文件</Trans>
 			</DropdownMenu.Item>
-			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenHistoryRestore}>
-				{t("topBar.menu.restoreFromHistory", "从历史记录恢复...")}
-			</DropdownMenu.Item>
-			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={menu.onSaveFileToClipboard}>
 				<Trans i18nKey="topBar.menu.saveLyricToClipboard">
 					保存 TTML 文件到剪切板
 				</Trans>
+			</DropdownMenu.Item>
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item onSelect={menu.onOpenHistoryRestore}>
+				{t("topBar.menu.restoreFromHistory", "从历史记录恢复...")}
 			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			<ImportExportLyric />
