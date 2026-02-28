@@ -209,7 +209,7 @@ packages:
       ajv: '>=8'
 
   '@applemusic-like-lyrics/core@file:vendor/applemusic-like-lyrics-core-0.2.1.tgz':
-    resolution: {integrity: sha512-V8cuZLe+mmpWJV0+m+ouUrfuRr28fLqrvHJDAJTd874DzSQSj8T4QPUm3DqfjzrjHTFlBp3+J7m3pyQKs6RyBQ==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
+    resolution: {integrity: sha512-Wi8+lXEaO08pa5Xgu/pLmT7JLYn1MsoTCbWtJfwLoIjJSJIq1jpxI6nI3vbQDi3ogqZkMDPwvRaPSjPG9mORVQ==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
     version: 0.2.1
     peerDependencies:
       '@pixi/app': '*'
@@ -225,7 +225,7 @@ packages:
     version: 0.3.0
 
   '@applemusic-like-lyrics/react@file:vendor/applemusic-like-lyrics-react-0.2.1.tgz':
-    resolution: {integrity: sha512-b5UsD/S7P3DQAYVQxmDhZTvCEYrRQvQsyKBltd9Ghb8+uvacTOQHB9VDHOGF8VGqaYGFNqBOk51mmTQq7bxc/A==, tarball: file:vendor/applemusic-like-lyrics-react-0.2.1.tgz}
+    resolution: {integrity: sha512-mo+9c4/iOag5q5XM/KC63rUuCcvOTuEKpMW+NGLDHQYCExGY7w+CvsBc24ql5xUlQG1ZlNT5kBEsXArp99VVgQ==, tarball: file:vendor/applemusic-like-lyrics-react-0.2.1.tgz}
     version: 0.2.1
     peerDependencies:
       '@pixi/app': '*'

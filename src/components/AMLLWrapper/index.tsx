@@ -23,6 +23,14 @@ import {
 	showRomanLinesAtom,
 	showTranslationLinesAtom,
 } from "$/modules/settings/states/preview";
+import {
+	amllCleanUnintentionalOverlapsAtom,
+	amllConvertExcessiveBackgroundLinesAtom,
+	amllNormalizeSpacesAtom,
+	amllResetLineTimestampsAtom,
+	amllSyncMainAndBackgroundLinesAtom,
+	amllTryAdvanceStartTimeAtom,
+} from "$/modules/settings/states/amll";
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
 import styles from "./index.module.css";
 
@@ -76,6 +84,18 @@ export const AMLLWrapper = memo(() => {
 	const showRomanLines = useAtomValue(showRomanLinesAtom);
 	// const hideObsceneWords = useAtomValue(hideObsceneWordsAtom);
 	const wordFadeWidth = useAtomValue(lyricWordFadeWidthAtom);
+	const normalizeSpaces = useAtomValue(amllNormalizeSpacesAtom);
+	const resetLineTimestamps = useAtomValue(amllResetLineTimestampsAtom);
+	const convertExcessiveBackgroundLines = useAtomValue(
+		amllConvertExcessiveBackgroundLinesAtom,
+	);
+	const syncMainAndBackgroundLines = useAtomValue(
+		amllSyncMainAndBackgroundLinesAtom,
+	);
+	const cleanUnintentionalOverlaps = useAtomValue(
+		amllCleanUnintentionalOverlapsAtom,
+	);
+	const tryAdvanceStartTime = useAtomValue(amllTryAdvanceStartTimeAtom);
 	const playerRef = useRef<LyricPlayerRef>(null);
 
 	const lyricLines = useMemo(() => {
@@ -91,6 +111,25 @@ export const AMLLWrapper = memo(() => {
 			})),
 		);
 	}, [originalLyricLines, showTranslationLines, showRomanLines]);
+
+	const optimizeOptions = useMemo(
+		() => ({
+			normalizeSpaces,
+			resetLineTimestamps,
+			convertExcessiveBackgroundLines,
+			syncMainAndBackgroundLines,
+			cleanUnintentionalOverlaps,
+			tryAdvanceStartTime,
+		}),
+		[
+			normalizeSpaces,
+			resetLineTimestamps,
+			convertExcessiveBackgroundLines,
+			syncMainAndBackgroundLines,
+			cleanUnintentionalOverlaps,
+			tryAdvanceStartTime,
+		],
+	);
 
 	useEffect(() => {
 		setTimeout(() => {
@@ -117,6 +156,7 @@ export const AMLLWrapper = memo(() => {
 				// 		? MaskObsceneWordsMode.FullMask
 				// 		: MaskObsceneWordsMode.Disabled
 				// }
+				optimizeOptions={optimizeOptions}
 				wordFadeWidth={wordFadeWidth}
 				ref={playerRef}
 			/>

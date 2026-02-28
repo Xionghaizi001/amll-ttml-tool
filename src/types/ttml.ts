@@ -9,6 +9,7 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
+import type { OptimizeLyricOptions } from "@applemusic-like-lyrics/core";
 import type {
 	LyricLine as AMLLLyricLine,
 	LyricWord as AMLLLyricWord,
@@ -31,6 +32,7 @@ export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
+	optimizeOptions?: OptimizeLyricOptions;
 }
 
 export interface LyricWordBase {
@@ -43,8 +45,12 @@ export interface LyricWordBase {
 export interface LyricWord extends AMLLLyricWord {
 	// 用来确定唯一一个单词的标识符，导出时不会保存
 	id: string;
+	startTime: number;
+	endTime: number;
+	word: string;
 	obscene: boolean;
 	emptyBeat: number;
+	romanWord: string;
 	romanWarning?: boolean;
 	ruby?: LyricWordBase[];
 	rubyPhraseStart: boolean;

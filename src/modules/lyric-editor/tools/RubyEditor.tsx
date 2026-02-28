@@ -197,8 +197,6 @@ export const RubyEditor = ({
 		});
 	}, [editLyricLines, segmentationConfig, store, wordAtom]);
 
-	const ignoreBlurRef = useRef(false);
-
 	if (!forceShow && rubyWords.length === 0) return null;
 
 	return (
