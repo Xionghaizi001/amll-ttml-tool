@@ -21,7 +21,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./i18n/index.ts";
 import "./index.css";
-import "./utils/pwa.tsx";
 import { wasm_start } from "@applemusic-like-lyrics/lyric";
 import { globalStore } from "./states/store.ts";
 

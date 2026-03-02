@@ -803,10 +803,5 @@
 		"noAudioLoaded": "Please load an audio file to render the spectrogram",
 		"loadAudio": "Load an audio file",
 		"showUnselectedLines": "Show unselected lines"
-	},
-	"pwa": {
-		"offlineReady": "Site successfully cached for offline use",
-		"updateRefresh": "Site updated, refresh to use the latest version!",
-		"refresh": "Refresh"
 	}
 }
