@@ -217,27 +217,69 @@ function EditField<
 			try {
 				const selectedItems = store.get(itemAtom);
 				if (fieldName === "endTime" && showDurationInput) {
-					const durationValue = Number(rawValue.trim());
-					if (!Number.isFinite(durationValue) || durationValue <= 0) return;
+					const trimmedValue = rawValue.trim();
+					const isDelta = trimmedValue.startsWith("+") || trimmedValue.startsWith("-");
+					const parsedValue = Number(trimmedValue);
+					if (!Number.isFinite(parsedValue)) return;
+					if (!isDelta && parsedValue <= 0) return;
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
+								const updates = new Map<string, { startTime?: number, endTime?: number }>();
+								
+								// First pass: Calculate all new end times for selected words
 								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
 									const word = line.words[wordIndex];
 									if (!selectedItems.has(word.id)) continue;
+									
 									const nextWord = line.words[wordIndex + 1];
 									const nextStartTime = nextWord?.startTime;
-									const newEndTime = word.startTime + durationValue;
-									if (
-										typeof nextStartTime === "number" &&
-										newEndTime < nextStartTime
-									) {
-										continue;
+									const originalEndTime = word.endTime;
+									
+									// Calculate new end time
+									const newEndTimeRaw = isDelta ? word.endTime + parsedValue : word.startTime + parsedValue;
+									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
+									
+									// Store the update for the current word
+									const wordUpdate = updates.get(word.id) || {};
+									wordUpdate.endTime = newEndTime;
+									updates.set(word.id, wordUpdate);
+									
+									// If it was synchronized, store the start time update for the next word
+									if (isDelta && nextWord && originalEndTime === nextStartTime) {
+										// We only move nextWord's startTime if the new end time doesn't exceed its original end time
+										// to avoid inverting its duration (unless it's also selected, handled below)
+										const nextWordOriginalEndTime = nextWord.endTime;
+										if (newEndTime <= nextWordOriginalEndTime || selectedItems.has(nextWord.id)) {
+											const nextUpdate = updates.get(nextWord.id) || {};
+											nextUpdate.startTime = newEndTime;
+											// Don't auto-fix nextWord.endTime here, let the second pass or its own delta fix it
+											updates.set(nextWord.id, nextUpdate);
+										}
 									}
-									word.endTime = newEndTime;
+								}
+								
+								// Second pass: Apply updates and ensure durations are valid
+								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
+									const word = line.words[wordIndex];
+									const update = updates.get(word.id);
+									
+									if (update) {
+										if (update.startTime !== undefined) {
+											word.startTime = update.startTime;
+										}
+										if (update.endTime !== undefined) {
+											word.endTime = update.endTime;
+										}
+										// Ensure valid duration after applying updates
+										if (word.endTime < word.startTime) {
+											word.endTime = word.startTime;
+										}
+									}
 								}
 							} else if (selectedItems.has(line.id)) {
-								line.endTime = line.startTime + durationValue;
+								const newEndTimeRaw = isDelta ? line.endTime + parsedValue : line.startTime + parsedValue;
+								line.endTime = Math.max(line.startTime, newEndTimeRaw);
 							}
 						}
 						return state;
