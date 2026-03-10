@@ -225,18 +225,56 @@ function EditField<
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
+								const updates = new Map<string, { startTime?: number, endTime?: number }>();
+								
+								// First pass: Calculate all new end times for selected words
 								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
 									const word = line.words[wordIndex];
 									if (!selectedItems.has(word.id)) continue;
+									
 									const nextWord = line.words[wordIndex + 1];
 									const nextStartTime = nextWord?.startTime;
 									const originalEndTime = word.endTime;
+									
+									// Calculate new end time
 									const newEndTimeRaw = isDelta ? word.endTime + parsedValue : word.startTime + parsedValue;
 									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
-									word.endTime = newEndTime;
+									
+									// Store the update for the current word
+									const wordUpdate = updates.get(word.id) || {};
+									wordUpdate.endTime = newEndTime;
+									updates.set(word.id, wordUpdate);
+									
+									// If it was synchronized, store the start time update for the next word
 									if (isDelta && nextWord && originalEndTime === nextStartTime) {
-										nextWord.startTime = newEndTime;
-										nextWord.endTime = Math.max(nextWord.startTime, nextWord.endTime);
+										// We only move nextWord's startTime if the new end time doesn't exceed its original end time
+										// to avoid inverting its duration (unless it's also selected, handled below)
+										const nextWordOriginalEndTime = nextWord.endTime;
+										if (newEndTime <= nextWordOriginalEndTime || selectedItems.has(nextWord.id)) {
+											const nextUpdate = updates.get(nextWord.id) || {};
+											nextUpdate.startTime = newEndTime;
+											// Don't auto-fix nextWord.endTime here, let the second pass or its own delta fix it
+											updates.set(nextWord.id, nextUpdate);
+										}
+									}
+								}
+								
+								// Second pass: Apply updates and ensure durations are valid
+								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
+									const word = line.words[wordIndex];
+									const update = updates.get(word.id);
+									
+									if (update) {
+										if (update.startTime !== undefined) {
+											word.startTime = update.startTime;
+										}
+										if (update.endTime !== undefined) {
+											word.endTime = update.endTime;
+										}
+										// Ensure valid duration after applying updates
+										if (word.endTime < word.startTime) {
+											word.endTime = word.startTime;
+										}
 									}
 								}
 							} else if (selectedItems.has(line.id)) {
