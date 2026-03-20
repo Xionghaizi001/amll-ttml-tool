@@ -24,7 +24,9 @@ import {
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
+	duplicateSongIdDialogAtom,
 } from "$/states/dialogs.ts";
+import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
 	keyDeleteSelectionAtom,
 	keyNewFileAtom,
@@ -67,6 +69,7 @@ export const useTopMenuActions = () => {
 	const store = useStore();
 	const isDirty = useAtomValue(isDirtyAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setDuplicateSongIdDialog = useSetAtom(duplicateSongIdDialogAtom);
 	const setHistoryRestoreDialog = useSetAtom(historyRestoreDialogAtom);
 	const setAdvancedSegmentationDialog = useSetAtom(
 		advancedSegmentationDialogAtom,
@@ -177,15 +180,33 @@ export const useTopMenuActions = () => {
 		}
 	}, [openFile]);
 
-	const onSaveFile = useCallback(() => {
+	const onSaveFile = useCallback(async () => {
 		try {
-			const ttmlText = exportTTMLText(store.get(lyricLinesAtom));
+			const lyric = store.get(lyricLinesAtom);
+
+			// 检查歌曲 ID 是否已存在
+			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
+			if (exists) {
+				setDuplicateSongIdDialog({
+					open: true,
+					existingIds,
+					onConfirm: () => {
+						// 用户确认后执行保存
+						const ttmlText = exportTTMLText(lyric);
+						const b = new Blob([ttmlText], { type: "text/plain" });
+						saveFile(b, saveFileName).catch(error);
+					},
+				});
+				return;
+			}
+
+			const ttmlText = exportTTMLText(lyric);
 			const b = new Blob([ttmlText], { type: "text/plain" });
 			saveFile(b, saveFileName).catch(error);
 		} catch (e) {
 			error("Failed to save TTML file", e);
 		}
-	}, [saveFileName, store]);
+	}, [saveFileName, store, setDuplicateSongIdDialog]);
 
 	const onOpenHistoryRestore = useCallback(() => {
 		setHistoryRestoreDialog(true);
@@ -194,12 +215,28 @@ export const useTopMenuActions = () => {
 	const onSaveFileToClipboard = useCallback(async () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
+
+			// 检查歌曲 ID 是否已存在
+			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
+			if (exists) {
+				setDuplicateSongIdDialog({
+					open: true,
+					existingIds,
+					onConfirm: async () => {
+						// 用户确认后执行保存到剪切板
+						const ttml = exportTTMLText(lyric);
+						await navigator.clipboard.writeText(ttml);
+					},
+				});
+				return;
+			}
+
 			const ttml = exportTTMLText(lyric);
 			await navigator.clipboard.writeText(ttml);
 		} catch (e) {
 			error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store]);
+	}, [store, setDuplicateSongIdDialog]);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);

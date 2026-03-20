@@ -83,6 +83,7 @@ import { verifyGithubAccess } from "./modules/github/services/identity-service.t
 import { useReviewSessionLifecycle } from "./modules/review";
 import { setupDevTestHooks } from "./utils/test.ts";
 import { OAuthCallbackHandler } from "./components/OAuthCallbackHandler";
+import { useRawLyricsIndex } from "./hooks/useRawLyricsIndex.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
@@ -181,6 +182,7 @@ function App() {
 	const startupPendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
 	const startupPendingUpdateSyncedRef = useRef(false);
 	useReviewSessionLifecycle();
+	useRawLyricsIndex();
 
 	useEffect(() => {
 		initCustomBackgroundImage();

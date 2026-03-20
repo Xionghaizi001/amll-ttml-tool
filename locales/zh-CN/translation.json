@@ -55,6 +55,11 @@
 		"addRomanization": "新增音译语言",
 		"addWordRomanization": "新增逐字音译语言"
 	},
+	"duplicateSongIdDialog": {
+		"title": "歌曲 ID 已存在",
+		"description": "以下歌曲 ID 已有提交记录，提交时请记得更改标题为「歌词补正」，在元数据中添加原歌词作者的 Github ID 和用户名，并且提交时在「备注」一栏补充上一次提交的 PR 编号",
+		"confirm": "我已知晓此 ID 为重复提交"
+	},
 	"ribbonBar": {
 		"editMode": {
 			"multipleValues": "多个值…",
