@@ -20,6 +20,7 @@ import {
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
+	reduceStutterDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
@@ -398,6 +399,46 @@ export const useTopMenuActions = () => {
 		});
 	}, [editLyricLines, setConfirmDialog, t]);
 
+	const onAlignEndTimestamps = useCallback(() => {
+		const hasSelection = selectedLineIds.size > 0;
+
+		const action = () => {
+			editLyricLines((draft) => {
+				// 确定要处理的行：如果有选中行就处理选中行，否则处理所有行
+				const linesToProcess = hasSelection
+					? draft.lyricLines.filter((line) => selectedLineIds.has(line.id))
+					: draft.lyricLines;
+
+				for (const line of linesToProcess) {
+					if (line.words.length === 0) continue;
+
+					// 将行内最后一个音节的结束时间设置为行结束时间
+					const lastWord = line.words[line.words.length - 1];
+					lastWord.endTime = line.endTime;
+				}
+			});
+		};
+
+		setConfirmDialog({
+			open: true,
+			title: t("confirmDialog.alignEndTimestamps.title", "确认对齐尾部时间戳"),
+			description: hasSelection
+				? t(
+						"confirmDialog.alignEndTimestamps.descriptionWithSelection",
+						"此操作将把选中行的最后一个音节结束时间设置为行结束时间。确定要继续吗？",
+					)
+				: t(
+						"confirmDialog.alignEndTimestamps.description",
+						"此操作将把每行的最后一个音节结束时间设置为行结束时间。确定要继续吗？",
+					),
+			onConfirm: action,
+		});
+	}, [editLyricLines, setConfirmDialog, t, selectedLineIds]);
+
+	const onReduceStutter = useCallback(() => {
+		store.set(reduceStutterDialogAtom, { open: true });
+	}, [store]);
+
 	const onOpenDistributeRomanization = useCallback(() => {
 		setDistributeRomanizationDialog(true);
 	}, [setDistributeRomanizationDialog]);
@@ -449,6 +490,8 @@ export const useTopMenuActions = () => {
 		onRubySegment,
 		onOpenAdvancedSegmentation,
 		onSyncLineTimestamps,
+		onAlignEndTimestamps,
+		onReduceStutter,
 		onOpenDistributeRomanization,
 		onCheckRomanizationWarnings,
 		onOpenLatencyTest,
