@@ -3,13 +3,16 @@ import {
 	Checkbox,
 	Dialog,
 	Flex,
+	IconButton,
 	ScrollArea,
 	Text,
 } from "@radix-ui/themes";
+import { PlayRegular } from "@fluentui/react-icons";
 import { useAtom, useAtomValue } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { audioEngine } from "$/modules/audio/audio-engine";
 import { reduceStutterDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { LyricWord } from "$/types/ttml";
@@ -108,6 +111,13 @@ export const ReduceStutterDialog = () => {
 		setOpen({ open: false });
 	};
 
+	const handlePlay = (pair: StutterPair) => {
+		// 播放前一个音节的开始-100ms 到后一个音节的结束+100ms
+		const startTime = Math.max(0, pair.prevWord.startTime - 100) / 1000;
+		const endTime = (pair.nextWord.endTime + 100) / 1000;
+		audioEngine.auditionRange(startTime, endTime);
+	};
+
 	return (
 		<Dialog.Root open={open.open} onOpenChange={(v) => setOpen({ open: v })}>
 			<Dialog.Content maxWidth="600px" maxHeight="80vh">
@@ -145,6 +155,14 @@ export const ReduceStutterDialog = () => {
 										checked={selectedPairs.has(index.toString())}
 										onCheckedChange={() => togglePair(index.toString())}
 									/>
+									<IconButton
+										size="1"
+										variant="soft"
+										onClick={() => handlePlay(pair)}
+										title={t("reduceStutterDialog.play", "播放")}
+									>
+										<PlayRegular />
+									</IconButton>
 									<Flex direction="column" style={{ flex: 1 }}>
 										<Text size="2">
 											{pair.prevWord.word} [

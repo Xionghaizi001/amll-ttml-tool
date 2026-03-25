@@ -562,7 +562,8 @@
 	"reduceStutterDialog": {
 		"title": "消减卡顿",
 		"description": "检测到以下音节间隔小于 100ms，选中项将被调整为中间时间点",
-		"noStutter": "未检测到卡顿"
+		"noStutter": "未检测到卡顿",
+		"play": "播放"
 	},
 	"distributeRomanDialog": {
 		"title": "应用逐行音译到逐字",
