@@ -33,13 +33,13 @@ export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
 	pretty = false,
 ): string {
-	const params: LyricLine[][] = [];
 	const lyric = ttmlLyric.lyricLines;
+	const rawParams: LyricLine[][] = [];
 
 	let tmp: LyricLine[] = [];
 	for (const line of lyric) {
 		if (line.words.length === 0 && tmp.length > 0) {
-			params.push(tmp);
+			rawParams.push(tmp);
 			tmp = [];
 		} else {
 			tmp.push(line);
@@ -47,7 +47,49 @@ export default function exportTTMLText(
 	}
 
 	if (tmp.length > 0) {
-		params.push(tmp);
+		rawParams.push(tmp);
+	}
+
+	function normalizeSongPart(songPart: string | undefined): string | undefined {
+		const normalized = songPart?.trim();
+		return normalized ? normalized : undefined;
+	}
+
+	const params: Array<{ lines: LyricLine[]; songPart: string | undefined }> = [];
+	for (const rawParam of rawParams) {
+		let groupedLines: LyricLine[] = [];
+		let groupedSongPart: string | undefined;
+
+		const flushGroup = () => {
+			if (groupedLines.length === 0) return;
+			params.push({ lines: groupedLines, songPart: groupedSongPart });
+			groupedLines = [];
+			groupedSongPart = undefined;
+		};
+
+		for (let lineIndex = 0; lineIndex < rawParam.length; lineIndex++) {
+			const line = rawParam[lineIndex];
+			const blockLines = [line];
+			const nextLine = rawParam[lineIndex + 1];
+			if (!line.isBG && nextLine?.isBG) {
+				blockLines.push(nextLine);
+				lineIndex++;
+			}
+
+			const blockSongPart =
+				normalizeSongPart(line.songPart) ??
+				normalizeSongPart(blockLines[1]?.songPart);
+			if (groupedLines.length > 0 && groupedSongPart !== blockSongPart) {
+				flushGroup();
+			}
+
+			if (groupedLines.length === 0) {
+				groupedSongPart = blockSongPart;
+			}
+			groupedLines.push(...blockLines);
+		}
+
+		flushGroup();
 	}
 
 	const doc = new Document();
@@ -294,15 +336,19 @@ export default function exportTTMLText(
 	);
 
 	for (const param of params) {
+		const paramLines = param.lines;
 		const paramDiv = doc.createElement("div");
-		const beginTime = param[0]?.startTime ?? 0;
-		const endTime = param[param.length - 1]?.endTime ?? 0;
+		const beginTime = paramLines[0]?.startTime ?? 0;
+		const endTime = paramLines[paramLines.length - 1]?.endTime ?? 0;
 
 		paramDiv.setAttribute("begin", msToTimestamp(beginTime));
 		paramDiv.setAttribute("end", msToTimestamp(endTime));
+		if (param.songPart) {
+			paramDiv.setAttribute("itunes:songPart", param.songPart);
+		}
 
-		for (let lineIndex = 0; lineIndex < param.length; lineIndex++) {
-			const line = param[lineIndex];
+		for (let lineIndex = 0; lineIndex < paramLines.length; lineIndex++) {
+			const line = paramLines[lineIndex];
 			const lineP = doc.createElement("p");
 			const beginTime = line.startTime ?? 0;
 			const endTime = line.endTime;
@@ -348,7 +394,7 @@ export default function exportTTMLText(
 				lineP.setAttribute("end", msToTimestamp(word.endTime));
 			}
 
-			const nextLine = param[lineIndex + 1];
+			const nextLine = paramLines[lineIndex + 1];
 			let bgLine: LyricLine | undefined;
 			if (nextLine?.isBG) {
 				lineIndex++;

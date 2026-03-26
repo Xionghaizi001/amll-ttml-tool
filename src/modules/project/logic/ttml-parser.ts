@@ -542,6 +542,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		isDuet = false,
 		parentItunesKey: string | null = null,
 		parentVocal: string | string[] | null = null,
+		parentSongPart: string | undefined = undefined,
 	) {
 		const startTimeAttr = lineEl.getAttribute("begin");
 		const endTimeAttr = lineEl.getAttribute("end");
@@ -573,6 +574,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			ignoreSync: false,
 			vocal: parsedLineVocal,
 		};
+		if (parentSongPart) {
+			line.songPart = parentSongPart;
+		}
 		let haveBg = false;
 
 		const itunesKey = isBG
@@ -664,6 +668,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							line.isDuet,
 							itunesKey,
 							line.vocal?.length ? line.vocal : null,
+							parentSongPart,
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {
@@ -735,8 +740,32 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
-	for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
-		parseLineElement(lineEl, false, false, null, null);
+	const bodyEl = ttmlDoc.querySelector("body");
+	if (bodyEl) {
+		for (const childEl of Array.from(bodyEl.children)) {
+			if (localName(childEl) === "div") {
+				const songPart = getAttr(childEl, "songPart")?.trim() || undefined;
+				for (const lineEl of Array.from(childEl.children)) {
+					if (
+						localName(lineEl) === "p" &&
+						lineEl.hasAttribute("begin") &&
+						lineEl.hasAttribute("end")
+					) {
+						parseLineElement(lineEl, false, false, null, null, songPart);
+					}
+				}
+			} else if (
+				localName(childEl) === "p" &&
+				childEl.hasAttribute("begin") &&
+				childEl.hasAttribute("end")
+			) {
+				parseLineElement(childEl, false, false, null, null, undefined);
+			}
+		}
+	} else {
+		for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
+			parseLineElement(lineEl, false, false, null, null, undefined);
+		}
 	}
 
 	log("finished ttml load", lyricLines, metadata);

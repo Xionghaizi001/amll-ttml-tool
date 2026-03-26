@@ -15,6 +15,7 @@ import {
 	Flex,
 	Grid,
 	RadioGroup,
+	Select,
 	Text,
 	TextField,
 } from "@radix-ui/themes";
@@ -53,6 +54,15 @@ import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
+const SONG_PART_NONE = "__none__";
+const BUILTIN_SONG_PARTS = [
+	"Intro",
+	"Verse",
+	"PreChorus",
+	"Chorus",
+	"Bridge",
+	"Outro",
+] as const;
 
 function EditField<
 	L extends Word extends true ? LyricWord : LyricLine,
@@ -503,6 +513,100 @@ function CheckboxField<
 	);
 }
 
+function SegmentField() {
+	const { t } = useTranslation();
+	const selectedLines = useAtomValue(selectedLinesAtom);
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const store = useStore();
+
+	const currentValueAtom = useMemo(
+		() =>
+			atom((get) => {
+				const selectedItems = get(selectedLinesAtom);
+				if (selectedItems.size === 0) return undefined;
+				const lyricLines = get(lyricLinesAtom);
+				const values = new Set<string>();
+				for (const line of lyricLines.lyricLines) {
+					if (!selectedItems.has(line.id)) continue;
+					values.add(line.songPart?.trim() || "");
+				}
+				if (values.size === 1) {
+					const value = values.values().next().value as string;
+					return value || SONG_PART_NONE;
+				}
+				return MULTIPLE_VALUES;
+			}),
+		[],
+	);
+	const currentValue = useAtomValue(currentValueAtom);
+
+	const customSongPart =
+		typeof currentValue === "string" &&
+		currentValue !== SONG_PART_NONE &&
+		!BUILTIN_SONG_PARTS.includes(currentValue as (typeof BUILTIN_SONG_PARTS)[number])
+			? currentValue
+			: undefined;
+	const triggerPlaceholder =
+		currentValue === MULTIPLE_VALUES
+			? t("ribbonBar.editMode.multipleValues", "多个值...")
+			: undefined;
+	const selectValue = typeof currentValue === "string" ? currentValue : undefined;
+
+	return (
+		<Select.Root
+			size="1"
+			disabled={selectedLines.size === 0}
+			value={selectValue}
+			onValueChange={(value) => {
+				const songPart = value === SONG_PART_NONE ? undefined : value;
+				editLyricLines((state) => {
+					const selectedItems = store.get(selectedLinesAtom);
+					for (const line of state.lyricLines) {
+						if (!selectedItems.has(line.id)) continue;
+						if (songPart) {
+							line.songPart = songPart;
+						} else {
+							delete line.songPart;
+						}
+					}
+					return state;
+				});
+			}}
+		>
+			<Select.Trigger
+				placeholder={triggerPlaceholder}
+				style={{ minWidth: "10em" }}
+			/>
+			<Select.Content>
+				<Select.Item value={SONG_PART_NONE}>
+					{t("ribbonBar.editMode.segmentNone", "无")}
+				</Select.Item>
+				<Select.Item value="Intro">
+					{t("ribbonBar.editMode.segmentIntro", "前奏")}
+				</Select.Item>
+				<Select.Item value="Verse">
+					{t("ribbonBar.editMode.segmentVerse", "主歌")}
+				</Select.Item>
+				<Select.Item value="PreChorus">
+					{t("ribbonBar.editMode.segmentPreChorus", "预副歌")}
+				</Select.Item>
+				<Select.Item value="Chorus">
+					{t("ribbonBar.editMode.segmentChorus", "副歌")}
+				</Select.Item>
+				<Select.Item value="Bridge">
+					{t("ribbonBar.editMode.segmentBridge", "桥段")}
+				</Select.Item>
+				<Select.Item value="Outro">
+					{t("ribbonBar.editMode.segmentOutro", "尾奏")}
+				</Select.Item>
+				{customSongPart ? (
+					<Select.Item value={customSongPart}>{customSongPart}</Select.Item>
+				) : null}
+			</Select.Content>
+		</Select.Root>
+	);
+}
+
 function EditModeField({
 	simpleModeLabel = "简单模式",
 	advanceModeLabel = "高级模式",
@@ -745,6 +849,11 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							fieldName="ignoreSync"
 							defaultValue={false}
 						/>
+					</Grid>
+				</RibbonSection>
+				<RibbonSection label={t("ribbonBar.editMode.segment", "分段")}>
+					<Grid columns="1fr" gap="1" gapY="1" flexGrow="1" align="center">
+						<SegmentField />
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.wordTiming", "词时间戳")}>
