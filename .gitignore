@@ -28,3 +28,8 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+
+# Markdown (prevent local planning/docs files from being committed by default)
+*.md
+!README.md
+!PLUGIN.md
