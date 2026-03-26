@@ -2,6 +2,7 @@ import {
 	Checkmark20Regular,
 	Delete20Regular,
 	Dismiss20Regular,
+	Edit20Regular,
 	LightbulbCheckmark20Regular,
 	Merge20Regular,
 } from "@fluentui/react-icons";
@@ -129,6 +130,9 @@ export const ReviewReportDialog = () => {
 	const [templateLoading, setTemplateLoading] = useState(false);
 	const [templateSaving, setTemplateSaving] = useState(false);
 	const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+	const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+		null,
+	);
 	const [submitPending, setSubmitPending] = useState<
 		"APPROVE" | "REQUEST_CHANGES" | "MERGE" | null
 	>(null);
@@ -318,6 +322,62 @@ export const ReviewReportDialog = () => {
 		} catch {
 			setPushNotification({
 				title: "保存模板失败",
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setTemplateSaving(false);
+		}
+	};
+	const handleDeleteTemplate = async (templateId: string) => {
+		const nextTemplates = customTemplates.filter((t) => t.id !== templateId);
+		setCustomTemplates(nextTemplates);
+		await writeCustomTemplates(nextTemplates);
+		setPushNotification({
+			title: "已删除模板",
+			level: "success",
+			source: "Review",
+		});
+	};
+	const handleStartEdit = (template: ReviewTemplate) => {
+		setEditingTemplateId(template.id);
+		setTemplateTitle(template.title);
+		setTemplateContent(template.content);
+		setShowTemplateEditor(true);
+	};
+	const handleUpdateTemplate = async () => {
+		if (templateSaving || !editingTemplateId) return;
+		const trimmedTitle = templateTitle.trim();
+		const trimmedContent = templateContent.trim();
+		if (!trimmedTitle || !trimmedContent) {
+			setPushNotification({
+				title: "请填写模板标题与内容",
+				level: "warning",
+				source: "Review",
+			});
+			return;
+		}
+		setTemplateSaving(true);
+		try {
+			const nextTemplates = customTemplates.map((t) =>
+				t.id === editingTemplateId
+					? { ...t, title: trimmedTitle, content: trimmedContent }
+					: t,
+			);
+			setCustomTemplates(nextTemplates);
+			await writeCustomTemplates(nextTemplates);
+			setTemplateTitle("");
+			setTemplateContent("");
+			setEditingTemplateId(null);
+			setShowTemplateEditor(false);
+			setPushNotification({
+				title: "已更新模板",
+				level: "success",
+				source: "Review",
+			});
+		} catch {
+			setPushNotification({
+				title: "更新模板失败",
 				level: "error",
 				source: "Review",
 			});
@@ -588,19 +648,52 @@ export const ReviewReportDialog = () => {
 							模板
 						</Text>
 						<Flex wrap="wrap" gap="2">
-							{[...presetTemplates, ...customTemplates].map((template) => (
-								<Button
-									key={template.id}
-									size="1"
-									variant="soft"
-									onClick={() => insertTemplate(template.content)}
-								>
-									<Flex align="center" gap="2">
-										<LightbulbCheckmark20Regular />
-										<Text size="1">{template.title}</Text>
-									</Flex>
-								</Button>
-							))}
+							{[...presetTemplates, ...customTemplates].map((template) => {
+								const isCustom = !template.id.startsWith("preset-");
+								return (
+									<Button
+										key={template.id}
+										size="1"
+										variant="soft"
+										onClick={() => insertTemplate(template.content)}
+									>
+										<Flex align="center" gap="2">
+											<LightbulbCheckmark20Regular />
+											<Text size="1">{template.title}</Text>
+											{isCustom && (
+												<>
+													<Box
+														as="span"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleStartEdit(template);
+														}}
+														style={{ cursor: "pointer", marginLeft: "4px" }}
+														title="编辑模板"
+													>
+														<Edit20Regular
+															style={{ width: "14px", height: "14px" }}
+														/>
+													</Box>
+													<Box
+														as="span"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleDeleteTemplate(template.id);
+														}}
+														style={{ cursor: "pointer", marginLeft: "4px" }}
+														title="删除模板"
+													>
+														<Delete20Regular
+															style={{ width: "14px", height: "14px" }}
+														/>
+													</Box>
+												</>
+											)}
+										</Flex>
+									</Button>
+								);
+							})}
 							{templateLoading && (
 								<Text size="1" color="gray">
 									正在加载模板...
@@ -625,28 +718,33 @@ export const ReviewReportDialog = () => {
 									style={{ minHeight: "120px" }}
 								/>
 								<Flex justify="end" gap="2">
-									<Button
-										size="2"
-										variant="soft"
-										color="gray"
-										onClick={() => {
-											setTemplateTitle("");
-											setTemplateContent("");
-											setShowTemplateEditor(false);
-										}}
-										disabled={templateSaving}
-									>
-										取消
-									</Button>
-									<Button
-										size="2"
-										variant="soft"
-										onClick={handleSaveTemplate}
-										disabled={templateSaving}
-									>
-										保存模板
-									</Button>
-								</Flex>
+								<Button
+									size="2"
+									variant="soft"
+									color="gray"
+									onClick={() => {
+										setTemplateTitle("");
+										setTemplateContent("");
+										setEditingTemplateId(null);
+										setShowTemplateEditor(false);
+									}}
+									disabled={templateSaving}
+								>
+									取消
+								</Button>
+								<Button
+									size="2"
+									variant="soft"
+									onClick={
+										editingTemplateId
+											? handleUpdateTemplate
+											: handleSaveTemplate
+									}
+									disabled={templateSaving}
+								>
+									{editingTemplateId ? "更新模板" : "保存模板"}
+								</Button>
+							</Flex>
 							</Flex>
 						) : (
 							<Flex justify="end">

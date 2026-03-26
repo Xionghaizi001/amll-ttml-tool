@@ -214,7 +214,9 @@ export const TitleBar: FC = () => {
 								value={ToolMode.Review}
 								className={reviewSession ? styles.reviewMenuItem : undefined}
 							>
-								{t("topBar.modeBtns.review", "审阅")}
+								{reviewSession
+									? `#${reviewSession.prNumber}`
+									: t("topBar.modeBtns.review", "审阅")}
 							</SegmentedControl.Item>
 						)}
 					</SegmentedControl.Root>
