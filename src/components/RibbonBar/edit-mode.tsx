@@ -62,6 +62,8 @@ const BUILTIN_SONG_PARTS = [
 	"Chorus",
 	"Bridge",
 	"Outro",
+	"Refrain",
+	"Instrumental",
 ] as const;
 
 function EditField<
@@ -598,6 +600,12 @@ function SegmentField() {
 				</Select.Item>
 				<Select.Item value="Outro">
 					{t("ribbonBar.editMode.segmentOutro", "尾奏")}
+				</Select.Item>
+				<Select.Item value="Refrain">
+					{t("ribbonBar.editMode.segmentRefrain", "叠句")}
+				</Select.Item>
+				<Select.Item value="Instrumental">
+					{t("ribbonBar.editMode.segmentInstrumental", "器乐")}
 				</Select.Item>
 				{customSongPart ? (
 					<Select.Item value={customSongPart}>{customSongPart}</Select.Item>

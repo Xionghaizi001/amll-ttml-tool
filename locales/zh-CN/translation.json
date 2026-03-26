@@ -75,6 +75,8 @@
 			"segmentChorus": "副歌",
 			"segmentBridge": "桥段",
 			"segmentOutro": "尾奏",
+			"segmentRefrain": "叠句",
+			"segmentInstrumental": "器乐",
 			"bgLyric": "背景歌词",
 			"duetLyric": "对唱歌词",
 			"ignoreSync": "忽略打轴",

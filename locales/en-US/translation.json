@@ -75,6 +75,8 @@
 			"segmentChorus": "Chorus",
 			"segmentBridge": "Bridge",
 			"segmentOutro": "Outro",
+			"segmentRefrain": "Refrain",
+			"segmentInstrumental": "Instrumental",
 			"bgLyric": "Background Vocal",
 			"duetLyric": "Duet Vocal",
 			"ignoreSync": "Ignore Sync",
