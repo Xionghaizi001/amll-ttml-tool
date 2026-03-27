@@ -16,7 +16,7 @@ import { useAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { InfoRegular } from "@fluentui/react-icons";
 import { spatialAudioBiasDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 
@@ -70,7 +70,7 @@ export const SpatialAudioBiasDialog = () => {
 				<Flex direction="column" gap="4">
 					<Callout.Root size="1">
 						<Callout.Icon>
-							<InfoCircledIcon />
+							<InfoRegular />
 						</Callout.Icon>
 						<Callout.Text>
 							{t(
