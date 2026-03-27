@@ -113,6 +113,8 @@ export const AMLLWrapper = memo(() => {
 			normalizeSpaces,
 			resetLineTimestamps,
 			convertExcessiveBackgroundLines,
+			// Keep BG lines on their own timeline in preview.
+			syncMainAndBackgroundLines: false,
 			cleanUnintentionalOverlaps,
 			tryAdvanceStartTime,
 		}),

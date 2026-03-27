@@ -12,9 +12,9 @@
 	--amll-lp-sub-opacity-mul-dynamic: 0.442;
 	--amll-lp-sub-opacity-mul-nondynamic: 0.715;
 	/* Keep AMLL blend mode effects, but tune line opacity for editor preview readability. */
-	/* Only force active main lyric to full opacity in preview. */
+	/* Keep active main lyric brighter while avoiding overly white clipping. */
 	& :global(.amll-lyric-player [class*="_lyricMainLine_"][class*="_active_"]) {
-		opacity: 1 !important;
+		opacity: 0.95 !important;
 	}
 
 	&.isDark {
