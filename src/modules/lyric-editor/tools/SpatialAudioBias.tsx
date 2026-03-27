@@ -89,6 +89,7 @@ export const SpatialAudioBiasDialog = () => {
 								variant="soft"
 								onClick={() => adjustBias(-0.01)}
 								title="- 0.01s"
+								style={{ fontSize: "12px" }}
 							>
 								−
 							</IconButton>
@@ -96,6 +97,7 @@ export const SpatialAudioBiasDialog = () => {
 								variant="soft"
 								onClick={() => adjustBias(-0.01)}
 								title="- 0.01s"
+								style={{ fontSize: "12px" }}
 							>
 								-0.01
 							</IconButton>
@@ -110,6 +112,7 @@ export const SpatialAudioBiasDialog = () => {
 								variant="soft"
 								onClick={() => adjustBias(0.01)}
 								title="+ 0.01s"
+								style={{ fontSize: "12px" }}
 							>
 								+0.01
 							</IconButton>
@@ -117,6 +120,7 @@ export const SpatialAudioBiasDialog = () => {
 								variant="soft"
 								onClick={() => adjustBias(0.01)}
 								title="+ 0.01s"
+								style={{ fontSize: "12px" }}
 							>
 								+
 							</IconButton>
