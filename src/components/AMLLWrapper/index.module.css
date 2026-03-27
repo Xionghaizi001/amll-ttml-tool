@@ -3,8 +3,16 @@
 	flex-grow: 1;
 	padding: 0;
 	height: 100%;
+	isolation: isolate;
+	--color-panel: var(--gray-2);
 
 	--amll-lp-color: var(--gray-12);
+	--amll-lp-main-opacity-mul-dynamic: 0.611;
+	--amll-lp-main-opacity-mul-nondynamic: 0.78;
+	--amll-lp-sub-opacity-mul-dynamic: 0.442;
+	--amll-lp-sub-opacity-mul-nondynamic: 0.715;
+	/* Keep AMLL blend mode effects, but tune line opacity for editor preview readability. */
+
 	&.isDark {
 		--amll-lp-color: var(--white-12);
 	}

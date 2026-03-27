@@ -197,7 +197,7 @@ importers:
 packages:
 
   '@applemusic-like-lyrics/core@file:vendor/applemusic-like-lyrics-core-0.2.1.tgz':
-    resolution: {integrity: sha512-Wi8+lXEaO08pa5Xgu/pLmT7JLYn1MsoTCbWtJfwLoIjJSJIq1jpxI6nI3vbQDi3ogqZkMDPwvRaPSjPG9mORVQ==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
+    resolution: {integrity: sha512-K0iFjBRKj2+JWxqfPQYMxhT0uWtwSNzES/R/4v+luHu+GosVs1xbByKM0UpuEOUDbsGfEWi78Nw/uOvFpxMDhQ==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
     version: 0.2.1
     peerDependencies:
       '@pixi/app': '*'

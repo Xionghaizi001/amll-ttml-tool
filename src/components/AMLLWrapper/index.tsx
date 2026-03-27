@@ -28,7 +28,6 @@ import {
 	amllConvertExcessiveBackgroundLinesAtom,
 	amllNormalizeSpacesAtom,
 	amllResetLineTimestampsAtom,
-	amllSyncMainAndBackgroundLinesAtom,
 	amllTryAdvanceStartTimeAtom,
 } from "$/modules/settings/states/amll";
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
@@ -89,9 +88,6 @@ export const AMLLWrapper = memo(() => {
 	const convertExcessiveBackgroundLines = useAtomValue(
 		amllConvertExcessiveBackgroundLinesAtom,
 	);
-	const syncMainAndBackgroundLines = useAtomValue(
-		amllSyncMainAndBackgroundLinesAtom,
-	);
 	const cleanUnintentionalOverlaps = useAtomValue(
 		amllCleanUnintentionalOverlapsAtom,
 	);
@@ -117,7 +113,6 @@ export const AMLLWrapper = memo(() => {
 			normalizeSpaces,
 			resetLineTimestamps,
 			convertExcessiveBackgroundLines,
-			syncMainAndBackgroundLines,
 			cleanUnintentionalOverlaps,
 			tryAdvanceStartTime,
 		}),
@@ -125,7 +120,6 @@ export const AMLLWrapper = memo(() => {
 			normalizeSpaces,
 			resetLineTimestamps,
 			convertExcessiveBackgroundLines,
-			syncMainAndBackgroundLines,
 			cleanUnintentionalOverlaps,
 			tryAdvanceStartTime,
 		],
