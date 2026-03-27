@@ -33,6 +33,11 @@ export interface TTMLLyric {
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
 	optimizeOptions?: OptimizeLyricOptions;
+	/**
+	 * @description 空间音频偏差值（毫秒），对应 iTunesMetadata 中
+	 * `<audio lyricOffset="..." role="spatial"/>` 的 lyricOffset 属性
+	 */
+	spatialAudioBias?: number;
 }
 
 export interface LyricWordBase {

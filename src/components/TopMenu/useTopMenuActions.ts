@@ -22,6 +22,7 @@ import {
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
 	settingsDialogAtom,
+	spatialAudioBiasDialogAtom,
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
@@ -73,6 +74,7 @@ export const useTopMenuActions = () => {
 		advancedSegmentationDialogAtom,
 	);
 	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
+	const setSpatialAudioBiasDialog = useSetAtom(spatialAudioBiasDialogAtom);
 	const { openFile } = useFileOpener();
 	const setProjectId = useSetAtom(projectIdAtom);
 	const { config: segmentationConfig } = useSegmentationConfig();
@@ -358,6 +360,10 @@ export const useTopMenuActions = () => {
 		setTimeShiftDialog(true);
 	}, [setTimeShiftDialog]);
 
+	const onOpenSpatialAudioBias = useCallback(() => {
+		setSpatialAudioBiasDialog(true);
+	}, [setSpatialAudioBiasDialog]);
+
 	const onSyncLineTimestamps = useCallback(() => {
 		const action = () => {
 			editLyricLines((draft) => {
@@ -473,6 +479,7 @@ export const useTopMenuActions = () => {
 		onSelectWordsOfMatchedSelection,
 		onDeleteSelection,
 		onOpenTimeShift,
+		onOpenSpatialAudioBias,
 		onOpenMetadataEditor,
 		onOpenVocalTagsEditor,
 		onOpenSettings,

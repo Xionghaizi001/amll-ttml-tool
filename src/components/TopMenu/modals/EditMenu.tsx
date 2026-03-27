@@ -69,6 +69,9 @@ const EditMenuItems = () => {
 			<DropdownMenu.Item onSelect={menu.onOpenTimeShift}>
 				{t("topBar.menu.timeShift", "平移时间...")}
 			</DropdownMenu.Item>
+			<DropdownMenu.Item onSelect={menu.onOpenSpatialAudioBias}>
+				{t("topBar.menu.spatialAudioBias", "空间音频偏差...")}
+			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={menu.onOpenMetadataEditor}>
 				<Trans i18nKey="topBar.menu.editMetadata">编辑歌词元数据</Trans>

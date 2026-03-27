@@ -1,4 +1,5 @@
 import { LatencyTestDialog } from "$/modules/audio/modals/LatencyTest.tsx";
+import { SpatialAudioBiasDialog } from "$/modules/lyric-editor/tools/SpatialAudioBias.tsx";
 import { ImportFromLRCLIB } from "$/modules/lrclib/modals/ImportDialog.tsx";
 import { ReplaceWordDialog } from "$/modules/lyric-editor/tools/ReplaceWordDialog.tsx";
 import { TimeShiftDialog } from "$/modules/lyric-editor/tools/TimeShift.tsx";
@@ -35,6 +36,7 @@ export const Dialogs = () => {
 			<HistoryRestoreDialog />
 			<AdvancedSegmentationDialog />
 			<TimeShiftDialog />
+			<SpatialAudioBiasDialog />
 			<DistributeRomanizationDialog />
 			<AddLanguageDialog />
 			<NotificationCenterDialog />

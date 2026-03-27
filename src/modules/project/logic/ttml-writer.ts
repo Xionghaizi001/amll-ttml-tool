@@ -295,6 +295,20 @@ export default function exportTTMLText(
 		}
 	}
 
+	// Emit spatial audio bias if set
+	if (ttmlLyric.spatialAudioBias !== undefined) {
+		const iTunesMetadata = doc.createElement("iTunesMetadata");
+		iTunesMetadata.setAttribute(
+			"xmlns",
+			"http://music.apple.com/lyric-ttml-internal",
+		);
+		const audioEl = doc.createElement("audio");
+		audioEl.setAttribute("lyricOffset", String(ttmlLyric.spatialAudioBias));
+		audioEl.setAttribute("role", "spatial");
+		iTunesMetadata.appendChild(audioEl);
+		metadataEl.appendChild(iTunesMetadata);
+	}
+
 	// Append remaining metadata entries (skip songwriter since it's in iTunes format)
 	for (const metadata of ttmlLyric.metadata) {
 		if (metadata.key === "songwriter") continue;

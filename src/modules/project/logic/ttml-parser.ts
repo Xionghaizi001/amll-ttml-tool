@@ -768,11 +768,27 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
+	// Parse spatial audio bias from iTunesMetadata
+	let spatialAudioBias: number | undefined;
+	const spatialAudioEl = ttmlDoc.querySelector(
+		"iTunesMetadata > audio[role='spatial']",
+	);
+	if (spatialAudioEl) {
+		const offsetAttr = spatialAudioEl.getAttribute("lyricOffset");
+		if (offsetAttr !== null) {
+			const parsed = Number(offsetAttr);
+			if (!Number.isNaN(parsed)) {
+				spatialAudioBias = parsed;
+			}
+		}
+	}
+
 	log("finished ttml load", lyricLines, metadata);
 
 	return {
 		metadata,
 		lyricLines: lyricLines,
 		vocalTags,
+		...(spatialAudioBias !== undefined ? { spatialAudioBias } : {}),
 	};
 }

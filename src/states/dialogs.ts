@@ -50,6 +50,7 @@ export const riskConfirmDialogAtom = atom<{
 	open: false,
 });
 export const historyRestoreDialogAtom = atom(false);
+export const spatialAudioBiasDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
 export const reviewReportDialogAtom = atom<{
 	open: boolean;
