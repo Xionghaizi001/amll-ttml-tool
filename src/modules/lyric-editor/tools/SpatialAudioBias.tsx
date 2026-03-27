@@ -75,29 +75,29 @@ export const SpatialAudioBiasDialog = () => {
 						<Callout.Text>
 							{t(
 								"spatialAudioBiasDialog.description",
-								"设置空间音频的歌词时间偏差值（毫秒）。该值将写入 TTML 文件的 iTunesMetadata 块中，对应 <audio lyricOffset=\"...\" role=\"spatial\"/> 标签。",
+								"设置空间音频的歌词时间偏差值（秒）。该值将写入 TTML 文件的 iTunesMetadata 块中，对应 <audio lyricOffset=\"...\" role=\"spatial\"/> 标签。",
 							)}
 						</Callout.Text>
 					</Callout.Root>
 
 					<Flex direction="column" gap="1">
 						<Text size="2" weight="bold">
-							{t("spatialAudioBiasDialog.lyricOffset", "lyricOffset (ms)")}
+							{t("spatialAudioBiasDialog.lyricOffset", "lyricOffset (s)")}
 						</Text>
 						<Flex gap="2" align="center">
 							<IconButton
 								variant="soft"
-								onClick={() => adjustBias(-50)}
-								title="- 50ms"
+								onClick={() => adjustBias(-0.01)}
+								title="- 0.01s"
 							>
 								−
 							</IconButton>
 							<IconButton
 								variant="soft"
-								onClick={() => adjustBias(-10)}
-								title="- 10ms"
+								onClick={() => adjustBias(-0.01)}
+								title="- 0.01s"
 							>
-								-10
+								-0.01
 							</IconButton>
 							<TextField.Root
 								type="number"
@@ -108,15 +108,15 @@ export const SpatialAudioBiasDialog = () => {
 							/>
 							<IconButton
 								variant="soft"
-								onClick={() => adjustBias(10)}
-								title="+ 10ms"
+								onClick={() => adjustBias(0.01)}
+								title="+ 0.01s"
 							>
-								+10
+								+0.01
 							</IconButton>
 							<IconButton
 								variant="soft"
-								onClick={() => adjustBias(50)}
-								title="+ 50ms"
+								onClick={() => adjustBias(0.01)}
+								title="+ 0.01s"
 							>
 								+
 							</IconButton>
