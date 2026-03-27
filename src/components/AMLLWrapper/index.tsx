@@ -33,6 +33,8 @@ import {
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
 import styles from "./index.module.css";
 
+const PREVIEW_BG_ADVANCE_MS = 300;
+
 const parseLineVocalIds = (value?: string | string[]) => {
 	if (!value) return [];
 	const parts = Array.isArray(value) ? value : value.split(/[\s,]+/);
@@ -99,12 +101,34 @@ export const AMLLWrapper = memo(() => {
 			(originalLyricLines.vocalTags ?? []).map((tag) => [tag.key, tag.value]),
 		);
 		return structuredClone(
-			originalLyricLines.lyricLines.map((line) => ({
-				...line,
-				translatedLyric: showTranslationLines ? line.translatedLyric : "",
-				romanLyric: showRomanLines ? line.romanLyric : "",
-				vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
-			})),
+			originalLyricLines.lyricLines.map((line) => {
+				const nextLine = {
+					...line,
+					translatedLyric: showTranslationLines ? line.translatedLyric : "",
+					romanLyric: showRomanLines ? line.romanLyric : "",
+					vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
+				};
+				if (nextLine.isBG) {
+					const minTimestamp = Math.min(
+						nextLine.startTime,
+						nextLine.endTime,
+						...nextLine.words.flatMap((word) => [word.startTime, word.endTime]),
+					);
+					const advanceMs = Number.isFinite(minTimestamp)
+						? Math.max(0, Math.min(PREVIEW_BG_ADVANCE_MS, minTimestamp))
+						: 0;
+					if (advanceMs > 0) {
+						nextLine.startTime -= advanceMs;
+						nextLine.endTime -= advanceMs;
+						nextLine.words = nextLine.words.map((word) => ({
+							...word,
+							startTime: word.startTime - advanceMs,
+							endTime: word.endTime - advanceMs,
+						}));
+					}
+				}
+				return nextLine;
+			}),
 		);
 	}, [originalLyricLines, showTranslationLines, showRomanLines]);
 
