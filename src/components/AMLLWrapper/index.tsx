@@ -33,7 +33,7 @@ import {
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
 import styles from "./index.module.css";
 
-const PREVIEW_BG_ADVANCE_MS = 300;
+const PREVIEW_BG_ADVANCE_MS = 500;
 
 const parseLineVocalIds = (value?: string | string[]) => {
 	if (!value) return [];
