@@ -109,22 +109,11 @@ export const AMLLWrapper = memo(() => {
 					vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
 				};
 				if (nextLine.isBG) {
-					const minTimestamp = Math.min(
-						nextLine.startTime,
-						nextLine.endTime,
-						...nextLine.words.flatMap((word) => [word.startTime, word.endTime]),
-					);
-					const advanceMs = Number.isFinite(minTimestamp)
-						? Math.max(0, Math.min(PREVIEW_BG_ADVANCE_MS, minTimestamp))
+					const advanceMs = Number.isFinite(nextLine.startTime)
+						? Math.max(0, Math.min(PREVIEW_BG_ADVANCE_MS, nextLine.startTime))
 						: 0;
 					if (advanceMs > 0) {
 						nextLine.startTime -= advanceMs;
-						nextLine.endTime -= advanceMs;
-						nextLine.words = nextLine.words.map((word) => ({
-							...word,
-							startTime: word.startTime - advanceMs,
-							endTime: word.endTime - advanceMs,
-						}));
 					}
 				}
 				return nextLine;
