@@ -6,14 +6,22 @@
 	isolation: isolate;
 	--color-panel: var(--gray-2);
 
-	--amll-lp-color: var(--gray-12);
-	--amll-lp-main-opacity-mul-dynamic: 0.690;
-	--amll-lp-main-opacity-mul-nondynamic: 0.890;
-	--amll-lp-sub-opacity-mul-dynamic: 0.520;
-	--amll-lp-sub-opacity-mul-nondynamic: 0.780;
-	/* Keep AMLL blend mode effects, but tune line opacity for editor preview readability. */
+	--amll-lp-color: var(--gray-11);
+	--amll-lp-main-opacity-mul-dynamic: 0.570;
+	--amll-lp-main-opacity-mul-nondynamic: 0.780;
+	--amll-lp-sub-opacity-mul-dynamic: 0.430;
+	--amll-lp-sub-opacity-mul-nondynamic: 0.650;
+	/* In light preview, disable plus-lighter so lyrics stay neutral gray on panel backgrounds. */
 
 	&.isDark {
 		--amll-lp-color: var(--white-12);
+		--amll-lp-main-opacity-mul-dynamic: 0.690;
+		--amll-lp-main-opacity-mul-nondynamic: 0.890;
+		--amll-lp-sub-opacity-mul-dynamic: 0.520;
+		--amll-lp-sub-opacity-mul-nondynamic: 0.780;
 	}
+}
+
+.amllWrapper:not(.isDark) :global(.amll-lyric-player) {
+	mix-blend-mode: normal;
 }
