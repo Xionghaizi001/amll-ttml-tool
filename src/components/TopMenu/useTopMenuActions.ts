@@ -7,6 +7,8 @@ import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import {
 	segmentLyricLines,
@@ -16,10 +18,10 @@ import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentat
 import {
 	advancedSegmentationDialogAtom,
 	confirmDialogAtom,
-	distributeRomanizationDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
+	reduceStutterDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
@@ -77,9 +79,6 @@ export const useTopMenuActions = () => {
 	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
 	const { openFile } = useFileOpener();
 	const setProjectId = useSetAtom(projectIdAtom);
-	const setDistributeRomanizationDialog = useSetAtom(
-		distributeRomanizationDialogAtom,
-	);
 	const { config: segmentationConfig } = useSegmentationConfig();
 	const newFileKey = useAtomValue(keyNewFileAtom);
 	const openFileKey = useAtomValue(keyOpenFileAtom);
@@ -435,9 +434,82 @@ export const useTopMenuActions = () => {
 		});
 	}, [editLyricLines, setConfirmDialog, t]);
 
+	const onAlignEndTimestamps = useCallback(() => {
+		const hasSelection = selectedLineIds.size > 0;
+
+		const action = () => {
+			editLyricLines((draft) => {
+				// 确定要处理的行：如果有选中行就处理选中行，否则处理所有行
+				const linesToProcess = hasSelection
+					? draft.lyricLines.filter((line) => selectedLineIds.has(line.id))
+					: draft.lyricLines;
+
+				for (const line of linesToProcess) {
+					if (line.words.length === 0) continue;
+
+					// 将行内最后一个音节的结束时间设置为行结束时间
+					const lastWord = line.words[line.words.length - 1];
+					lastWord.endTime = line.endTime;
+				}
+			});
+		};
+
+		setConfirmDialog({
+			open: true,
+			title: t("confirmDialog.alignEndTimestamps.title", "确认对齐尾部时间戳"),
+			description: hasSelection
+				? t(
+						"confirmDialog.alignEndTimestamps.descriptionWithSelection",
+						"此操作将把选中行的最后一个音节结束时间设置为行结束时间。确定要继续吗？",
+					)
+				: t(
+						"confirmDialog.alignEndTimestamps.description",
+						"此操作将把每行的最后一个音节结束时间设置为行结束时间。确定要继续吗？",
+					),
+			onConfirm: action,
+		});
+	}, [editLyricLines, setConfirmDialog, t, selectedLineIds]);
+
+	const onReduceStutter = useCallback(() => {
+		store.set(reduceStutterDialogAtom, { open: true });
+	}, [store]);
+
 	const onOpenDistributeRomanization = useCallback(() => {
-		setDistributeRomanizationDialog(true);
-	}, [setDistributeRomanizationDialog]);
+		const selectedLines = store.get(selectedLinesAtom);
+		const hasSelection = selectedLines.size > 0;
+		editLyricLines((draft) => {
+			draft.lyricLines.forEach((line) => {
+				if (hasSelection && !selectedLines.has(line.id)) return;
+				const fullRoman = line.romanLyric || "";
+				if (line.words.length === 0 || fullRoman.trim() === "") return;
+				try {
+					const results = predictLineRomanization(line.words, fullRoman);
+					line.words.forEach((word, wordIndex) => {
+						if (!results[wordIndex]) return;
+						word.romanWord = results[wordIndex];
+					});
+					applyRomanizationWarnings(line.words);
+				} catch (e) {
+					error("Failed to distribute romanization", e);
+				}
+			});
+		});
+	}, [editLyricLines, store]);
+
+	const onAutoRuby = useCallback(() => {
+		const selectedLines = store.get(selectedLinesAtom);
+		const hasSelection = selectedLines.size > 0;
+		editLyricLines((draft) => {
+			draft.lyricLines.forEach((line) => {
+				if (hasSelection && !selectedLines.has(line.id)) return;
+				if (line.words.length === 0) return;
+				line.words.forEach((word) => {
+					if (!word.romanWord || word.romanWord.trim() === "") return;
+					applyGeneratedRuby(word);
+				});
+			});
+		});
+	}, [editLyricLines, store]);
 
 	const onCheckRomanizationWarnings = useCallback(() => {
 		editLyricLines((draft) => {
@@ -486,7 +558,10 @@ export const useTopMenuActions = () => {
 		onRubySegment,
 		onOpenAdvancedSegmentation,
 		onSyncLineTimestamps,
+		onAlignEndTimestamps,
+		onReduceStutter,
 		onOpenDistributeRomanization,
+		onAutoRuby,
 		onCheckRomanizationWarnings,
 		onOpenLatencyTest,
 		onOpenGitHub,

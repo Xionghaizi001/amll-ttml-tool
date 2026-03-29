@@ -324,12 +324,17 @@
 			"autoSegment": "Auto Segment",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
-			"syncLineTimestamps": "Sync Line Timestamps",
+			"timestampTools": {
+				"index": "Timestamp",
+				"syncLineTimestamps": "Sync Line Timestamps",
+				"reduceStutter": "Reduce Stutter"
+			},
 			"perWordRomanization":
 			{
 				"index": "Per-Word Romanization",
 				"check": "Check Per-Word Romanization",
-				"distribute": "Distribute Romanization..."
+				"distribute": "Distribute Romanization...",
+				"autoRuby": "Auto Ruby"
 			},
 			"help": "Help",
 			"helpDoc": "Documentation (CN)",
@@ -802,10 +807,5 @@
 		"noAudioLoaded": "Please load an audio file to render the spectrogram",
 		"loadAudio": "Load an audio file",
 		"showUnselectedLines": "Show unselected lines"
-	},
-	"pwa": {
-		"offlineReady": "Site successfully cached for offline use",
-		"updateRefresh": "Site updated, refresh to use the latest version!",
-		"refresh": "Refresh"
 	}
 }
