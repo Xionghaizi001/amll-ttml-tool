@@ -48,6 +48,9 @@ const ToolMenuItems = () => {
 					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
+			<DropdownMenu.Item onSelect={menu.onAutoRuby}>
+				{t("topBar.menu.perWordRomanization.autoRuby", "自动注音")}
+			</DropdownMenu.Item>
 			<DropdownMenu.Item onSelect={menu.onOpenLatencyTest}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
 			</DropdownMenu.Item>

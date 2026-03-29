@@ -17,6 +17,7 @@ import {
 	type PropsWithChildren,
 	useImperativeHandle,
 	useRef,
+	useCallback,
 } from "react";
 
 export const RibbonSection: FC<PropsWithChildren<{ label: string }>> = ({
@@ -53,6 +54,14 @@ export const RibbonFrame = forwardRef<HTMLDivElement, PropsWithChildren>(
 
 		useImperativeHandle(ref, () => frameRef.current as HTMLDivElement, []);
 
+		// 处理鼠标滚轮横向滚动
+		const handleWheel = useCallback((e: React.WheelEvent) => {
+			if (frameRef.current) {
+				e.preventDefault();
+				frameRef.current.scrollLeft += e.deltaY;
+			}
+		}, []);
+
 		return (
 			<Flex
 				p="3"
@@ -72,6 +81,7 @@ export const RibbonFrame = forwardRef<HTMLDivElement, PropsWithChildren>(
 					exit={{ x: -10, opacity: 0 }}
 					layout
 					ref={frameRef}
+					onWheel={handleWheel}
 				>
 					{children}
 				</motion.div>

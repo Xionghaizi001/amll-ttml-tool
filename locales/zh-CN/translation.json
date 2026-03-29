@@ -329,7 +329,8 @@
 			{
 				"index": "逐字音译",
 				"check": "检查逐字音译一致性",
-				"distribute": "自动分配罗马音..."
+				"distribute": "自动分配罗马音...",
+				"autoRuby": "自动注音"
 			},
 			"help": "帮助",
 			"helpDoc": "使用说明",
@@ -802,10 +803,5 @@
 		"noAudioLoaded": "请先加载一个音频文件来渲染频谱图哦",
 		"loadAudio": "加载音频文件",
 		"showUnselectedLines": "显示未选中行"
-	},
-	"pwa": {
-		"offlineReady": "网站已成功离线缓存，后续可离线访问本网页",
-		"updateRefresh": "网站已更新，刷新网页以使用最新版本！",
-		"refresh": "刷新"
 	}
 }

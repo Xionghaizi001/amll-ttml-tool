@@ -7,6 +7,8 @@ import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import {
 	segmentLyricLines,
@@ -16,7 +18,6 @@ import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentat
 import {
 	advancedSegmentationDialogAtom,
 	confirmDialogAtom,
-	distributeRomanizationDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
@@ -74,9 +75,6 @@ export const useTopMenuActions = () => {
 	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
 	const { openFile } = useFileOpener();
 	const setProjectId = useSetAtom(projectIdAtom);
-	const setDistributeRomanizationDialog = useSetAtom(
-		distributeRomanizationDialogAtom,
-	);
 	const { config: segmentationConfig } = useSegmentationConfig();
 	const newFileKey = useAtomValue(keyNewFileAtom);
 	const openFileKey = useAtomValue(keyOpenFileAtom);
@@ -399,8 +397,41 @@ export const useTopMenuActions = () => {
 	}, [editLyricLines, setConfirmDialog, t]);
 
 	const onOpenDistributeRomanization = useCallback(() => {
-		setDistributeRomanizationDialog(true);
-	}, [setDistributeRomanizationDialog]);
+		const selectedLines = store.get(selectedLinesAtom);
+		const hasSelection = selectedLines.size > 0;
+		editLyricLines((draft) => {
+			draft.lyricLines.forEach((line) => {
+				if (hasSelection && !selectedLines.has(line.id)) return;
+				const fullRoman = line.romanLyric || "";
+				if (line.words.length === 0 || fullRoman.trim() === "") return;
+				try {
+					const results = predictLineRomanization(line.words, fullRoman);
+					line.words.forEach((word, wordIndex) => {
+						if (!results[wordIndex]) return;
+						word.romanWord = results[wordIndex];
+					});
+					applyRomanizationWarnings(line.words);
+				} catch (e) {
+					error("Failed to distribute romanization", e);
+				}
+			});
+		});
+	}, [editLyricLines, store]);
+
+	const onAutoRuby = useCallback(() => {
+		const selectedLines = store.get(selectedLinesAtom);
+		const hasSelection = selectedLines.size > 0;
+		editLyricLines((draft) => {
+			draft.lyricLines.forEach((line) => {
+				if (hasSelection && !selectedLines.has(line.id)) return;
+				if (line.words.length === 0) return;
+				line.words.forEach((word) => {
+					if (!word.romanWord || word.romanWord.trim() === "") return;
+					applyGeneratedRuby(word);
+				});
+			});
+		});
+	}, [editLyricLines, store]);
 
 	const onCheckRomanizationWarnings = useCallback(() => {
 		editLyricLines((draft) => {
@@ -450,6 +481,7 @@ export const useTopMenuActions = () => {
 		onOpenAdvancedSegmentation,
 		onSyncLineTimestamps,
 		onOpenDistributeRomanization,
+		onAutoRuby,
 		onCheckRomanizationWarnings,
 		onOpenLatencyTest,
 		onOpenGitHub,
