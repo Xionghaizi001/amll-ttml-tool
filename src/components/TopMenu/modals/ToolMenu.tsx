@@ -32,9 +32,19 @@ const ToolMenuItems = () => {
 					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
-			<DropdownMenu.Item onSelect={menu.onSyncLineTimestamps}>
-				{t("topBar.menu.syncLineTimestamps", "同步行时间戳")}
-			</DropdownMenu.Item>
+			<DropdownMenu.Sub>
+				<DropdownMenu.SubTrigger>
+					{t("topBar.menu.timestampTools.index", "时间戳")}
+				</DropdownMenu.SubTrigger>
+				<DropdownMenu.SubContent>
+					<DropdownMenu.Item onSelect={menu.onSyncLineTimestamps}>
+					{t("topBar.menu.timestampTools.syncLineTimestamps", "同步行时间戳")}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={menu.onReduceStutter}>
+					{t("topBar.menu.timestampTools.reduceStutter", "消减卡顿")}
+				</DropdownMenu.Item>
+				</DropdownMenu.SubContent>
+			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger>
 					{t("topBar.menu.perWordRomanization.index", "逐字音译")}

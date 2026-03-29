@@ -64,3 +64,21 @@ export const reviewReportDialogAtom = atom<{
 	report: "",
 	draftId: null,
 });
+
+// 歌曲 ID 重复警告对话框
+export const duplicateSongIdDialogAtom = atom<{
+	open: boolean;
+	existingIds: { type: string; id: string }[];
+	onConfirm?: () => void;
+	onCancel?: () => void;
+}>({
+	open: false,
+	existingIds: [],
+});
+
+// 消减卡顿对话框
+export const reduceStutterDialogAtom = atom<{
+	open: boolean;
+}>({
+	open: false,
+});

@@ -324,7 +324,11 @@
 			"autoSegment": "一键分词",
 			"rubySegment": "注音分词",
 			"advancedSegment": "高级分词...",
-			"syncLineTimestamps": "同步行时间戳",
+			"timestampTools": {
+				"index": "时间戳",
+				"syncLineTimestamps": "同步行时间戳",
+				"reduceStutter": "消减卡顿"
+			},
 			"perWordRomanization": 
 			{
 				"index": "逐字音译",
@@ -555,6 +559,12 @@
 		"fromLine": "从",
 		"toLine": "行 到",
 		"line": "行"
+	},
+	"reduceStutterDialog": {
+		"title": "消减卡顿",
+		"description": "检测到以下音节间隔小于 100ms，选中项将被调整为中间时间点",
+		"noStutter": "未检测到卡顿",
+		"play": "播放"
 	},
 	"distributeRomanDialog": {
 		"title": "应用逐行音译到逐字",

@@ -324,7 +324,11 @@
 			"autoSegment": "Auto Segment",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
-			"syncLineTimestamps": "Sync Line Timestamps",
+			"timestampTools": {
+				"index": "Timestamp",
+				"syncLineTimestamps": "Sync Line Timestamps",
+				"reduceStutter": "Reduce Stutter"
+			},
 			"perWordRomanization":
 			{
 				"index": "Per-Word Romanization",
