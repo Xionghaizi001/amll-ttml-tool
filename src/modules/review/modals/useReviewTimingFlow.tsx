@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
@@ -24,7 +24,6 @@ import {
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric } from "$/types/ttml";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { requestFileUpdatePush } from "$/modules/user/services/request-file-update-push";
 import { ReviewActionGroup } from "$/components/TitleBar/modals/ReviewActionGroup";
@@ -37,8 +36,12 @@ import {
 	type SyncChangeCandidate,
 	type TimingStashItem,
 } from "$/modules/review/services/report-service";
-import { fetchPullRequestDetail } from "$/modules/github/services/PR-service";
-import { parseReviewMetadata } from "$/modules/review/services/card-service";
+import {
+	buildStashKey,
+	buildTimingStashCards,
+	buildTimingStashGroups,
+} from "$/modules/review/services/stash-service";
+import { useNcmAudioSwitch } from "$/modules/review/services/ncm-audio-service";
 import { StashDialog } from "./StashDialog";
 
 export const useReviewTimingFlow = () => {
@@ -78,17 +81,20 @@ export const useReviewTimingFlow = () => {
 	const [TimingStashSelected, setTimingStashSelected] = useState<Set<string>>(
 		new Set(),
 	);
-	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
-		null,
-	);
-	const [, setLastNeteaseIdByPr] = useState<Record<number, string>>({});
-	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
-		open: boolean;
-		ids: string[];
-	}>({ open: false, ids: [] });
-	const neteaseIdResolveRef = useRef<((id: string | null) => void) | null>(
-		null,
-	);
+	const {
+		neteaseIdDialog,
+		closeNeteaseIdDialog,
+		handleSelectNeteaseId,
+		onSwitchAudio,
+		switchAudioEnabled,
+	} = useNcmAudioSwitch({
+		pat,
+		canReview,
+		neteaseCookie,
+		reviewSession,
+		openFile,
+		pushNotification: setPushNotification,
+	});
 
 	const TimingCandidateMap = useMemo(() => {
 		const map = new Map<string, SyncChangeCandidate>();
@@ -98,24 +104,10 @@ export const useReviewTimingFlow = () => {
 		return map;
 	}, [TimingCandidates]);
 
-	const TimingStashGroups = useMemo(() => {
-		const grouped = new Map<
-			number,
-			Array<{ label: string; field: string; wordId: string }>
-		>();
-		TimingStashItems.forEach((stashItem) => {
-			const candidate = TimingCandidateMap.get(stashItem.wordId);
-			if (!candidate) return;
-			const list = grouped.get(candidate.lineNumber) ?? [];
-			list.push({
-				label: `${candidate.word || "（空白）"}`,
-				field: stashItem.field,
-				wordId: stashItem.wordId,
-			});
-			grouped.set(candidate.lineNumber, list);
-		});
-		return Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
-	}, [TimingCandidateMap, TimingStashItems]);
+	const TimingStashGroups = useMemo(
+		() => buildTimingStashGroups(TimingCandidateMap, TimingStashItems),
+		[TimingCandidateMap, TimingStashItems],
+	);
 
 	const TimingOrderMap = useMemo(() => {
 		const source = reviewFreeze?.data ?? lyricLines;
@@ -130,10 +122,7 @@ export const useReviewTimingFlow = () => {
 		return map;
 	}, [lyricLines, reviewFreeze]);
 
-	const stashKey = useMemo(() => {
-		if (!reviewSession) return "";
-		return `${reviewSession.prNumber}:${reviewSession.fileName}`;
-	}, [reviewSession]);
+	const stashKey = useMemo(() => buildStashKey(reviewSession), [reviewSession]);
 
 	const displayItems = useMemo(() => {
 		const items: Array<{
@@ -162,41 +151,10 @@ export const useReviewTimingFlow = () => {
 			.sort((a, b) => a.orderIndex - b.orderIndex);
 	}, [TimingOrderMap, TimingStashGroups]);
 
-	const TimingStashCards = useMemo(() => {
-		const cards: Array<{
-			lines: number[];
-			items: Array<{ label: string; wordId: string }>;
-		}> = [];
-		let index = 0;
-		while (index < displayItems.length) {
-			const a = displayItems[index];
-			const b = displayItems[index + 1];
-			const adjacent = Boolean(a && b) && b.orderIndex === a.orderIndex + 1;
-			if (a && b && adjacent) {
-				const lines =
-					a.lineNumber === b.lineNumber
-						? [a.lineNumber]
-						: [a.lineNumber, b.lineNumber];
-				cards.push({
-					lines,
-					items: [
-						{ label: a.label, wordId: a.wordId },
-						{ label: b.label, wordId: b.wordId },
-					],
-				});
-				index += 2;
-				continue;
-			}
-			if (a) {
-				cards.push({
-					lines: [a.lineNumber],
-					items: [{ label: a.label, wordId: a.wordId }],
-				});
-			}
-			index += 1;
-		}
-		return cards;
-	}, [displayItems]);
+	const TimingStashCards = useMemo(
+		() => buildTimingStashCards(displayItems),
+		[displayItems],
+	);
 
 	useEffect(() => {
 		if (!stashKey || !TimingStashOpen) return;
@@ -287,114 +245,6 @@ export const useReviewTimingFlow = () => {
 			return next;
 		});
 	}, [TimingStashItems]);
-
-	const closeNeteaseIdDialog = useCallback(() => {
-		if (neteaseIdResolveRef.current) {
-			neteaseIdResolveRef.current(null);
-			neteaseIdResolveRef.current = null;
-		}
-		setNeteaseIdDialog({ open: false, ids: [] });
-	}, []);
-
-	const handleSelectNeteaseId = useCallback((id: string) => {
-		if (neteaseIdResolveRef.current) {
-			neteaseIdResolveRef.current(id);
-			neteaseIdResolveRef.current = null;
-		}
-		setNeteaseIdDialog({ open: false, ids: [] });
-	}, []);
-
-	const requestNeteaseId = useCallback((ids: string[]) => {
-		if (ids.length <= 1) {
-			return ids[0] ?? null;
-		}
-		if (neteaseIdResolveRef.current) {
-			neteaseIdResolveRef.current(null);
-		}
-		setNeteaseIdDialog({ open: true, ids });
-		return new Promise<string | null>((resolve) => {
-			neteaseIdResolveRef.current = resolve;
-		});
-	}, []);
-
-	useEffect(() => {
-		if (reviewSession || !neteaseIdDialog.open) return;
-		closeNeteaseIdDialog();
-	}, [closeNeteaseIdDialog, neteaseIdDialog.open, reviewSession]);
-
-	const onSwitchAudio = useCallback(async () => {
-		if (!reviewSession?.prNumber) {
-			setPushNotification({
-				title: "当前文件没有关联 PR，无法切换音频",
-				level: "warning",
-				source: "review",
-			});
-			return;
-		}
-		if (!canReview) {
-			setPushNotification({
-				title: "当前账号无权限切换音频",
-				level: "error",
-				source: "review",
-			});
-			return;
-		}
-		const token = pat.trim();
-		if (!token) {
-			setPushNotification({
-				title: "请先在设置中登录以切换音频",
-				level: "error",
-				source: "review",
-			});
-			return;
-		}
-		const cookie = neteaseCookie.trim();
-		if (!cookie) {
-			setPushNotification({
-				title: "请先登录网易云音乐以切换音频",
-				level: "error",
-				source: "ncm",
-			});
-			return;
-		}
-		if (audioLoadPendingId) return;
-		const detail = await fetchPullRequestDetail({
-			token,
-			prNumber: reviewSession.prNumber,
-		});
-		const metadata = detail?.body ? parseReviewMetadata(detail.body) : null;
-		const cleanedIds =
-			metadata?.ncmId.map((id) => id.trim()).filter(Boolean) ?? [];
-		if (cleanedIds.length === 0) {
-			setPushNotification({
-				title: "未找到可切换的网易云音乐 ID",
-				level: "warning",
-				source: "review",
-			});
-			return;
-		}
-		const selectedId = await requestNeteaseId(cleanedIds);
-		if (!selectedId) return;
-		await loadNeteaseAudio({
-			prNumber: reviewSession.prNumber,
-			id: selectedId,
-			pendingId: audioLoadPendingId,
-			setPendingId: setAudioLoadPendingId,
-			setLastNeteaseIdByPr,
-			openFile,
-			pushNotification: setPushNotification,
-			cookie,
-		});
-	}, [
-		audioLoadPendingId,
-		canReview,
-		neteaseCookie,
-		openFile,
-		pat,
-		reviewSession,
-		requestNeteaseId,
-		setPushNotification,
-	]);
 
 	const requestUpdatePush = useCallback(
 		(session: NonNullable<typeof reviewSession>, lyric: TTMLLyric) => {
@@ -698,7 +548,7 @@ export const useReviewTimingFlow = () => {
 		onReviewCancel,
 		onReviewComplete,
 		onSwitchAudio,
-		switchAudioEnabled: Boolean(reviewSession?.prNumber) && !audioLoadPendingId,
+		switchAudioEnabled,
 		canReview,
 	};
 };
