@@ -1,7 +1,7 @@
 import { Button, DropdownMenu } from "@radix-ui/themes";
 import type { CSSProperties } from "react";
 import { Toolbar } from "radix-ui";
-import { Trans, useTranslation } from "react-i18next";
+import { Trans } from "react-i18next";
 import { formatKeyBindings } from "$/utils/keybindings";
 import { useTopMenuActions } from "../useTopMenuActions";
 
@@ -12,7 +12,6 @@ type EditMenuProps = {
 };
 
 const EditMenuItems = () => {
-	const { t } = useTranslation();
 	const menu = useTopMenuActions();
 
 	return (
@@ -64,10 +63,6 @@ const EditMenuItems = () => {
 				shortcut={formatKeyBindings(menu.deleteSelectionKey)}
 			>
 				<Trans i18nKey="contextMenu.deleteWords">删除选定单词</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenTimeShift}>
-				{t("topBar.menu.timeShift", "平移时间...")}
 			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={menu.onOpenMetadataEditor}>

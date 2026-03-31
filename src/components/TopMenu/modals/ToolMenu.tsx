@@ -38,11 +38,14 @@ const ToolMenuItems = () => {
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
 					<DropdownMenu.Item onSelect={menu.onSyncLineTimestamps}>
-					{t("topBar.menu.timestampTools.syncLineTimestamps", "同步行时间戳")}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item onSelect={menu.onReduceStutter}>
-					{t("topBar.menu.timestampTools.reduceStutter", "消减卡顿")}
-				</DropdownMenu.Item>
+						{t("topBar.menu.timestampTools.syncLineTimestamps", "同步行时间戳")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onReduceStutter}>
+						{t("topBar.menu.timestampTools.reduceStutter", "消减卡顿")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onOpenTimeShift}>
+						{t("topBar.menu.timeShift", "平移时间...")}
+					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>
