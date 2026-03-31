@@ -172,10 +172,10 @@ function createWordFromSpanElement(wordEl: Element): LyricWord | null {
 		const rubyWords: LyricWordBase[] = rubyTextSpans.map((rubySpan) => {
 			const rubyBegin = rubySpan.begin
 				? parseTimespan(rubySpan.begin)
-				: containerStart ?? 0;
+				: (containerStart ?? 0);
 			const rubyEnd = rubySpan.end
 				? parseTimespan(rubySpan.end)
-				: containerEnd ?? 0;
+				: (containerEnd ?? 0);
 			return {
 				word: flattenSpanInnerText(rubySpan, skipRoles),
 				startTime: rubyBegin,
@@ -516,11 +516,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					} else if (role === "x-translation") {
 						// 没有 Apple Music 样式翻译时才使用内嵌翻译
 						if (!line.translatedLyric) {
-							line.translatedLyric = wordEl.innerHTML;
+							line.translatedLyric = wordEl.textContent ?? "";
 						}
 					} else if (role === "x-roman") {
 						if (!line.romanLyric) {
-							line.romanLyric = wordEl.innerHTML;
+							line.romanLyric = wordEl.textContent ?? "";
 						}
 					}
 				} else {
