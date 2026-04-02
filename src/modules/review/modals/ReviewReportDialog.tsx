@@ -26,7 +26,7 @@ import {
 } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { githubPatAtom } from "$/modules/settings/states";
-import { reviewReportDialogAtom } from "$/states/dialogs";
+import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
 	reviewReportDraftsAtom,
 	reviewReviewedPrsAtom,
@@ -121,6 +121,7 @@ export const ReviewReportDialog = () => {
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const removeNotification = useSetAtom(removeNotificationAtom);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
@@ -784,51 +785,71 @@ export const ReviewReportDialog = () => {
 							</Flex>
 						</Button>
 						<Flex align="center" justify="end" gap="2">
-							<Button
-								size="2"
-								variant="soft"
-								color="green"
-								onClick={() => submitReview("APPROVE")}
-								disabled={approvedByUser || submitPending !== null}
-							>
-								<Flex align="center" gap="2">
-									<Checkmark20Regular />
-									<Text size="2">接受</Text>
-								</Flex>
-							</Button>
-							<Button
-								size="2"
-								variant="soft"
-								color="red"
-								onClick={() => submitReview("REQUEST_CHANGES")}
-								disabled={
-									submitPending !== null ||
-									getCleanReport().length === 0
-								}
-							>
-								<Flex align="center" gap="2">
-									<Dismiss20Regular />
-									<Text size="2">需要修改</Text>
-								</Flex>
-							</Button>
-							<Button
-								size="2"
-								variant="soft"
-								color="gray"
-								onClick={submitMerge}
-								disabled={submitPending !== null}
-							>
-								<Flex align="center" gap="2">
-									<Merge20Regular />
-									<Text size="2">合并</Text>
-								</Flex>
-							</Button>
-						</Flex>
+						<Button
+							size="2"
+							variant="soft"
+							color="green"
+							onClick={() =>
+								setConfirmDialog({
+									open: true,
+									title: "确认接受",
+									description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+									onConfirm: () => submitReview("APPROVE"),
+								})
+							}
+							disabled={approvedByUser || submitPending !== null}
+						>
+							<Flex align="center" gap="2">
+								<Checkmark20Regular />
+								<Text size="2">接受</Text>
+							</Flex>
+						</Button>
+						<Button
+							size="2"
+							variant="soft"
+							color="red"
+							onClick={() =>
+								setConfirmDialog({
+									open: true,
+									title: "确认需要修改",
+									description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
+									onConfirm: () => submitReview("REQUEST_CHANGES"),
+								})
+							}
+							disabled={
+								submitPending !== null || getCleanReport().length === 0
+							}
+						>
+							<Flex align="center" gap="2">
+								<Dismiss20Regular />
+								<Text size="2">需要修改</Text>
+							</Flex>
+						</Button>
+						<Button
+							size="2"
+							variant="soft"
+							color="gray"
+							onClick={() =>
+								setConfirmDialog({
+									open: true,
+									title: "确认合并",
+									description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+									onConfirm: submitMerge,
+								})
+							}
+							disabled={submitPending !== null}
+						>
+							<Flex align="center" gap="2">
+								<Merge20Regular />
+								<Text size="2">合并</Text>
+							</Flex>
+						</Button>
 					</Flex>
 				</Flex>
-			</Dialog.Content>
-		</Dialog.Root>
-	);
+			</Flex>
+		</Dialog.Content>
+	</Dialog.Root>
+);
 };
 
 export default ReviewReportDialog;
