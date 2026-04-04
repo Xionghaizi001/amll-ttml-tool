@@ -17,6 +17,10 @@
 	],
 	"rewrites": [
 		{
+			"source": "/callback",
+			"destination": "/index.html"
+		},
+		{
 			"source": "/api/github",
 			"has": [
 				{
