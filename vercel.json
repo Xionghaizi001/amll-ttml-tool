@@ -18,7 +18,7 @@
 	"rewrites": [
 		{
 			"source": "/callback",
-			"destination": "/index.html"
+			"destination": "/"
 		},
 		{
 			"source": "/api/github",
