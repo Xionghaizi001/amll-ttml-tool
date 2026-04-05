@@ -1,6 +1,6 @@
 import type { AudioProvider, AudioProviderOptions, AudioLoadResult, AudioSourceInfo } from "./audio-provider";
-import { fetchAudioFileContent } from "$/modules/review/services/lyrics-site-service";
-import { lyricsSiteTokenAtom } from "$/modules/settings/states";
+import { getAudioFileUrl } from "$/modules/review/services/lyrics-site-service";
+import { lyricsSiteTokenAtom, audioProxyUrlAtom } from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 import { audioEngine } from "$/modules/audio/audio-engine";
 
@@ -41,16 +41,13 @@ export const createLyricsSiteAudioProvider = (config: LyricsSiteAudioProviderCon
 			}
 
 			try {
-				const audioBlob = await fetchAudioFileContent(token, audioFileName);
-				if (!audioBlob) {
-					throw new Error("无法获取音频文件");
-				}
+				const audioUrl = getAudioFileUrl(audioFileName);
+				const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
+				const fetchUrl = proxyBase
+					? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
+					: audioUrl;
 
-				const audioFile = new File([audioBlob], audioFileName, {
-					type: audioBlob.type || "audio/*",
-				});
-
-				await audioEngine.loadMusic(audioFile);
+				await audioEngine.loadMusicFromUrl(fetchUrl);
 
 				options.pushNotification({
 					title: `已加载用户上传音频：${audioTitle || audioFileName}`,
