@@ -79,9 +79,9 @@ export const useReviewTimingFlow = () => {
 	const [TimingStashItems, setTimingStashItems] = useState<TimingStashItem[]>(
 		[],
 	);
-	const [TimingStashSelected, setTimingStashSelected] = useState<Set<string>>(
-		new Set(),
-	);
+	const [TimingStashSelected, setTimingStashSelected] = useState<
+		Map<string, "startTime" | "endTime">
+	>(new Map());
 	const {
 		neteaseIdDialog,
 		closeNeteaseIdDialog,
@@ -168,11 +168,11 @@ export const useReviewTimingFlow = () => {
 		setTimingStashSelected((prev) => {
 			if (
 				prev.size === lastSelection.length &&
-				lastSelection.every((id) => prev.has(id))
+				lastSelection.every(([id, field]) => prev.get(id) === field)
 			) {
 				return prev;
 			}
-			return new Set(lastSelection);
+			return new Map(lastSelection);
 		});
 	}, [reviewStashLastSelection, stashKey, TimingStashOpen]);
 
@@ -180,7 +180,7 @@ export const useReviewTimingFlow = () => {
 		if (!reviewSession || !reviewFreeze) {
 			setTimingCandidates([]);
 			setTimingStashItems([]);
-			setTimingStashSelected(new Set());
+			setTimingStashSelected(new Map());
 			return;
 		}
 		const freezeData = reviewFreeze.data;
@@ -224,7 +224,7 @@ export const useReviewTimingFlow = () => {
 		if (!TimingStashSelected.size) return;
 		setReviewStashLastSelection((prev) => ({
 			...prev,
-			[stashKey]: Array.from(TimingStashSelected),
+			[stashKey]: Array.from(TimingStashSelected.entries()),
 		}));
 	}, [
 		setReviewStashLastSelection,
@@ -238,10 +238,10 @@ export const useReviewTimingFlow = () => {
 		setTimingStashSelected((prev) => {
 			if (prev.size === 0) return prev;
 			let changed = false;
-			const next = new Set<string>();
-			prev.forEach((id) => {
+			const next = new Map<string, "startTime" | "endTime">();
+			prev.forEach((field, id) => {
 				if (available.has(id)) {
-					next.add(id);
+					next.set(id, field);
 					return;
 				}
 				changed = true;
@@ -267,7 +267,7 @@ export const useReviewTimingFlow = () => {
 					setTimingStashItems([]);
 					setTimingStashOpen(false);
 					setTimingCandidates([]);
-					setTimingStashSelected(new Set());
+					setTimingStashSelected(new Map());
 					setReviewSession(null);
 					setToolMode(canReview ? ToolMode.Review : ToolMode.Edit);
 				},
@@ -359,7 +359,7 @@ export const useReviewTimingFlow = () => {
 				setTimingStashItems([]);
 				setTimingStashOpen(false);
 				setTimingCandidates([]);
-				setTimingStashSelected(new Set());
+				setTimingStashSelected(new Map());
 			} else {
 				const report = editReport;
 				const mergedReport = mergeReports([...baseReports, report]);
@@ -409,11 +409,11 @@ export const useReviewTimingFlow = () => {
 	}, []);
 
 	const onToggleStashItem = useCallback(
-		(wordId: string) => {
+		(wordId: string, field: "startTime" | "endTime") => {
 			setTimingStashSelected((prev) => {
-				const next = new Set(prev);
-				if (next.has(wordId)) next.delete(wordId);
-				else next.add(wordId);
+				const next = new Map(prev);
+				if (next.get(wordId) === field) next.delete(wordId);
+				else next.set(wordId, field);
 				return next;
 			});
 			setSelectedWords((o) => {
@@ -428,7 +428,7 @@ export const useReviewTimingFlow = () => {
 		if (stashKey) {
 			setReviewStashRemovedOrder((prev) => {
 				const existing = new Set(prev[stashKey] ?? []);
-				TimingStashSelected.forEach((wordId) => {
+				TimingStashSelected.forEach((_field, wordId) => {
 					const orderIndex = TimingOrderMap.get(wordId);
 					if (orderIndex !== undefined) existing.add(orderIndex);
 				});
@@ -457,7 +457,7 @@ export const useReviewTimingFlow = () => {
 			});
 		}
 		setTimingStashItems([]);
-		setTimingStashSelected(new Set());
+		setTimingStashSelected(new Map());
 	}, [
 		stashKey,
 		setReviewStashRemovedOrder,
@@ -465,10 +465,24 @@ export const useReviewTimingFlow = () => {
 		TimingStashItems,
 	]);
 
+	const onSelectAllStash = useCallback(
+		(field: "startTime" | "endTime") => {
+			setTimingStashSelected(() => {
+				const next = new Map<string, "startTime" | "endTime">();
+				displayItems.forEach((item) => {
+					next.set(item.wordId, field);
+				});
+				return next;
+			});
+		},
+		[displayItems],
+	);
+
 	const onConfirmStash = useCallback(() => {
-		const selected = TimingStashItems.filter((item) =>
-			TimingStashSelected.has(item.wordId),
-		);
+		const selected: TimingStashItem[] = [];
+		TimingStashSelected.forEach((field, wordId) => {
+			selected.push({ wordId, field });
+		});
 		if (selected.length === 0) return;
 		const report = buildSyncReportFromStash(TimingCandidates, selected);
 		const prNumber = reviewSession?.prNumber ?? null;
@@ -495,7 +509,7 @@ export const useReviewTimingFlow = () => {
 			}));
 			setReviewStashLastSelection((prev) => ({
 				...prev,
-				[stashKey]: Array.from(TimingStashSelected),
+				[stashKey]: Array.from(TimingStashSelected.entries()),
 			}));
 		}
 		setReviewReportDialog({
@@ -513,7 +527,7 @@ export const useReviewTimingFlow = () => {
 			submissionId: reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
 		setTimingStashItems([]);
-		setTimingStashSelected(new Set());
+		setTimingStashSelected(new Map());
 		setTimingStashOpen(false);
 	}, [
 		reviewReportDialog,
@@ -525,7 +539,6 @@ export const useReviewTimingFlow = () => {
 		setReviewStashSubmitted,
 		stashKey,
 		TimingCandidates,
-		TimingStashItems,
 		TimingStashSelected,
 	]);
 
@@ -538,6 +551,7 @@ export const useReviewTimingFlow = () => {
 				selectedIds={TimingStashSelected}
 				stashItemsCount={TimingStashItems.length}
 				onToggleItem={onToggleStashItem}
+				onSelectAll={onSelectAllStash}
 				onClose={() => setTimingStashOpen(false)}
 				onRemoveSelected={onRemoveStashSelected}
 				onClear={onClearStash}

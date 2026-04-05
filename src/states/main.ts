@@ -187,7 +187,7 @@ export const reviewStashSubmittedAtom = atomWithStorage<Record<string, string[]>
 	{},
 );
 export const reviewStashLastSelectionAtom = atomWithStorage<
-	Record<string, string[]>
+	Record<string, Array<[string, "startTime" | "endTime"]>>
 >("reviewStashLastSelection", {});
 export const reviewStashRemovedOrderAtom = atomWithStorage<
 	Record<string, number[]>

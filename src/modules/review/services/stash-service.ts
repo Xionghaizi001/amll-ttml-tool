@@ -18,7 +18,7 @@ export type TimingStashDisplayItem = {
 };
 
 export type TimingStashCard = {
-	lines: number[];
+	line: number;
 	items: Array<{ label: string; wordId: string }>;
 };
 
@@ -47,34 +47,13 @@ export const buildStashKey = (reviewSession: ReviewSession | null) => {
 };
 
 export const buildTimingStashCards = (displayItems: TimingStashDisplayItem[]) => {
-	const cards: TimingStashCard[] = [];
-	let index = 0;
-	while (index < displayItems.length) {
-		const a = displayItems[index];
-		const b = displayItems[index + 1];
-		const adjacent = Boolean(a && b) && b.orderIndex === a.orderIndex + 1;
-		if (a && b && adjacent) {
-			const lines =
-				a.lineNumber === b.lineNumber
-					? [a.lineNumber]
-					: [a.lineNumber, b.lineNumber];
-			cards.push({
-				lines,
-				items: [
-					{ label: a.label, wordId: a.wordId },
-					{ label: b.label, wordId: b.wordId },
-				],
-			});
-			index += 2;
-			continue;
-		}
-		if (a) {
-			cards.push({
-				lines: [a.lineNumber],
-				items: [{ label: a.label, wordId: a.wordId }],
-			});
-		}
-		index += 1;
+	const lineMap = new Map<number, Array<{ label: string; wordId: string }>>();
+	for (const item of displayItems) {
+		const list = lineMap.get(item.lineNumber) ?? [];
+		list.push({ label: item.label, wordId: item.wordId });
+		lineMap.set(item.lineNumber, list);
 	}
-	return cards;
+	return Array.from(lineMap.entries())
+		.sort((a, b) => a[0] - b[0])
+		.map(([line, items]) => ({ line, items } satisfies TimingStashCard));
 };
