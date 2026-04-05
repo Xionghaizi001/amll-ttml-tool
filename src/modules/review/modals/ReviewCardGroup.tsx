@@ -592,11 +592,6 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 									专辑: {options.item.audio.album}
 								</Text>
 							)}
-							<audio
-								controls
-								src={getAudioFileUrl(options.item.audio.fileName)}
-								className={options.styles.audioPlayer}
-							/>
 						</Flex>
 					</Box>
 				)}
