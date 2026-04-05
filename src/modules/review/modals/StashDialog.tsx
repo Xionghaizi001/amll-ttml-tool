@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { Box, Button, Dialog, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Dialog, DropdownMenu, Flex, Text } from "@radix-ui/themes";
 import {
 	Checkmark20Regular,
 	Delete20Regular,
@@ -9,7 +9,7 @@ import {
 } from "@fluentui/react-icons";
 
 type StashCard = {
-	lines: number[];
+	line: number;
 	items: Array<{ label: string; wordId: string }>;
 };
 
@@ -17,9 +17,10 @@ export type StashDialogProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	stashCards: StashCard[];
-	selectedIds: Set<string>;
+	selectedIds: Map<string, "startTime" | "endTime">;
 	stashItemsCount: number;
-	onToggleItem: (wordId: string) => void;
+	onToggleItem: (wordId: string, field: "startTime" | "endTime") => void;
+	onSelectAll: (field: "startTime" | "endTime") => void;
 	onClose: () => void;
 	onRemoveSelected: () => void;
 	onClear: () => void;
@@ -34,6 +35,7 @@ export const StashDialog = ({
 	selectedIds,
 	stashItemsCount,
 	onToggleItem,
+	onSelectAll,
 	onClose,
 	onRemoveSelected,
 	onClear,
@@ -43,9 +45,19 @@ export const StashDialog = ({
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Content maxWidth="520px">
-				<Dialog.Title>
-					{t("review.TimingStash.title", "暂存时间轴结果")}
-				</Dialog.Title>
+				<Flex align="center" gap="3" mb="3">
+					<Dialog.Title mb="0" size="6">
+						{t("review.TimingStash.title", "暂存时间轴结果")}
+					</Dialog.Title>
+					<Flex direction="column" gap="1">
+						<Text size="1" color="blue">
+							{t("review.TimingStash.hintLeft", "左键 = 标记起始时间")}
+						</Text>
+						<Text size="1" color="green">
+							{t("review.TimingStash.hintRight", "右键 = 标记结束时间")}
+						</Text>
+					</Flex>
+				</Flex>
 				<Flex direction="row" gap="3" align="start" wrap="wrap">
 					{stashCards.length === 0 ? (
 						<Text size="2" color="gray">
@@ -53,75 +65,44 @@ export const StashDialog = ({
 						</Text>
 					) : (
 						stashCards.map((card) => {
-							const key = card.items.map((item) => item.wordId).join("-");
-							const hasCrossLine = Boolean(card.lines[1]);
+							const key = `line-${card.line}`;
 							return (
 								<Box
 									key={key}
 									style={{
-										display: "inline-grid",
-										gridTemplateColumns: hasCrossLine
-											? "max-content max-content max-content"
-											: "max-content",
-										rowGap: "6px",
-										columnGap: "6px",
 										borderRadius: "12px",
 										border: "1px solid var(--gray-a6)",
 										padding: "10px 12px",
 										backgroundColor: "var(--gray-a2)",
 									}}
 								>
-									{hasCrossLine ? (
-										<>
-											<Text
-												size="2"
-												weight="bold"
-												style={{ gridColumn: "1 / 2", justifySelf: "center" }}
-											>
-												{`第 ${card.lines[0]} 行`}
-											</Text>
-											<Text
-												size="2"
-												color="gray"
-												style={{ gridColumn: "2 / 3", justifySelf: "center" }}
-											>
-												|
-											</Text>
-											<Text
-												size="2"
-												color="gray"
-												style={{ gridColumn: "3 / 4", justifySelf: "center" }}
-											>
-												{`第 ${card.lines[1]} 行`}
-											</Text>
-										</>
-									) : (
-										<Text
-											size="2"
-											weight="bold"
-											style={{ gridColumn: "1 / -1", justifySelf: "center" }}
-										>
-											{`第 ${card.lines[0]} 行`}
-										</Text>
-									)}
-									<Flex
-										align="center"
-										wrap="wrap"
-										gap="1"
-										style={{
-											gridColumn: hasCrossLine ? "1 / 2" : "1 / -1",
-											justifySelf: "center",
-										}}
+									<Text
+										size="2"
+										weight="bold"
+										style={{ display: "block", marginBottom: "6px" }}
 									>
+										{`第 ${card.line} 行`}
+									</Text>
+									<Flex align="center" wrap="wrap" gap="1">
 										{card.items.map((item, index) => {
-											const checked = selectedIds.has(item.wordId);
+											const field = selectedIds.get(item.wordId);
+											const checked = field !== undefined;
+											const color = field === "startTime"
+												? "blue"
+												: field === "endTime"
+													? "green"
+													: "gray";
 											return (
 												<Flex key={`${item.wordId}-${index}`} align="center" gap="1">
 													<Button
 														size="1"
 														variant={checked ? "solid" : "soft"}
-														color={checked ? "orange" : "gray"}
-														onClick={() => onToggleItem(item.wordId)}
+														color={color}
+														onClick={() => onToggleItem(item.wordId, "startTime")}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															onToggleItem(item.wordId, "endTime");
+														}}
 														asChild
 													>
 														<span>{item.label}</span>
@@ -148,25 +129,32 @@ export const StashDialog = ({
 					)}
 				</Flex>
 				<Flex gap="3" mt="4" justify="end">
-					<Button
-						variant="soft"
-						color="gray"
-						onClick={() => {
-							const allIds = new Set<string>();
-							stashCards.forEach((card) => {
-								card.items.forEach((it) => {
-									allIds.add(it.wordId);
-								});
-							});
-							allIds.forEach((id) => {
-								if (!selectedIds.has(id)) onToggleItem(id);
-							});
-						}}
-						disabled={stashItemsCount === selectedIds.size || stashItemsCount === 0}
-					>
-						<SelectAllOn20Regular />
-						{t("common.selectAll", "全选")}
-					</Button>
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger disabled={stashItemsCount === 0}>
+							<Button
+								variant="soft"
+								color="gray"
+								disabled={stashItemsCount === 0}
+							>
+								<SelectAllOn20Regular />
+								{t("common.selectAll", "全选")}
+							</Button>
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content>
+							<DropdownMenu.Item
+								color="blue"
+								onClick={() => onSelectAll("startTime")}
+							>
+								{t("review.TimingStash.selectAllStart", "全选起始时间")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item
+								color="green"
+								onClick={() => onSelectAll("endTime")}
+							>
+								{t("review.TimingStash.selectAllEnd", "全选结束时间")}
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 					<Button variant="soft" color="gray" onClick={onClose}>
 						<Dismiss20Regular />
 						{t("common.close", "关闭")}
