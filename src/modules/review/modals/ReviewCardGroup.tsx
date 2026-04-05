@@ -30,7 +30,6 @@ import {
 	type ReviewPullRequest,
 } from "$/modules/review/services/card-service";
 import type { LyricsSiteSubmission } from "$/modules/review/services/lyrics-site-service";
-import { getAudioFileUrl } from "$/modules/review/services/lyrics-site-service";
 
 type GitHubExpandedContentProps = {
 	item: ReviewPullRequest;
@@ -374,8 +373,6 @@ type LyricsSiteExpandedContentProps = {
 
 const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 	const [openFilePending, setOpenFilePending] = useState(false);
-	const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-	const audioRef = useState<HTMLAudioElement | null>(null);
 
 	const handleOpenFile = useCallback(async () => {
 		if (openFilePending) return;
@@ -386,12 +383,6 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 			setOpenFilePending(false);
 		}
 	}, [openFilePending, options]);
-
-	const handlePlayAudio = useCallback(() => {
-		if (options.item.audio?.fileName) {
-			setIsPlayingAudio(!isPlayingAudio);
-		}
-	}, [isPlayingAudio, options.item.audio?.fileName]);
 
 	const platformItems = [
 		{
