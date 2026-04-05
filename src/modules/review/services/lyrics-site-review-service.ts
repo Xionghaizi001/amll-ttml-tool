@@ -8,17 +8,13 @@ import {
 import { ToolMode, reviewSessionAtom, toolModeAtom, type AudioSource } from "$/states/main";
 import {
 	fetchPendingSubmissions,
-	fetchSubmissionDetail,
 	fetchLyricFileContent,
-	fetchAudioFileContent,
-	getLyricFileUrl,
 	submitReview,
 	type LyricsSiteSubmission,
 	type ReviewAction,
 } from "./lyrics-site-service";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
-import { audioEngine } from "$/modules/audio/audio-engine";
+import { createAudioSelector } from "$/modules/audio/services/audio-selector";
 import type { NotificationLevel } from "$/states/notifications";
 
 export const useLyricsSiteReviewService = () => {
@@ -174,6 +170,13 @@ export const useLyricsSiteReviewService = () => {
 				return;
 			}
 
+			const notificationId = `lyrics-site-open-${submission.id}`;
+			setPushNotification({
+				id: notificationId,
+				type: "loading",
+				content: "正在打开文件...",
+			});
+
 			try {
 				const content = await fetchLyricFileContent(token, submission.fileName);
 				if (content) {
@@ -196,90 +199,43 @@ export const useLyricsSiteReviewService = () => {
 					});
 					openFile(file);
 					setToolMode(ToolMode.Edit);
+					setRemoveNotification(notificationId);
 
 					if (audioLoadPendingId) return;
 
-					if (submission.audio?.fileName) {
-						setAudioLoadPendingId(`user-${submission.audio.fileName}`);
-						try {
-							const audioBlob = await fetchAudioFileContent(token, submission.audio.fileName);
-							if (audioBlob) {
-								const audioFile = new File([audioBlob], submission.audio.fileName, {
-									type: audioBlob.type || "audio/*",
-								});
-								await audioEngine.loadMusic(audioFile);
-								setReviewSession((prev) => prev ? { ...prev, audioSource: "user-upload" as AudioSource } : prev);
+					const selector = createAudioSelector({
+						lyricsSiteConfig: submission.audio?.fileName ? {
+							audioFileName: submission.audio.fileName,
+							audioTitle: submission.audio.title,
+						} : undefined,
+						neteaseConfig: ncmIds.length > 0 ? {
+							ncmIds,
+							prNumber,
+						} : undefined,
+					});
+
+					setAudioLoadPendingId("loading");
+					try {
+						const result = await selector.loadFirstAvailable({
+							pushNotification: (payload) => {
 								setPushNotification({
-									id: `user-audio-loaded-${submission.id}`,
-									level: "success",
-									title: `已加载用户上传音频：${submission.audio.title || submission.audio.fileName}`,
-									source: "audio",
+									id: `audio-load-${submission.id}`,
+									level: payload.level,
+									title: payload.title,
+									source: payload.source,
 								});
-							} else {
-								throw new Error("无法获取音频文件");
-							}
-						} catch (error) {
-							console.error("加载用户上传音频失败:", error);
-							setPushNotification({
-								id: `user-audio-error-${submission.id}`,
-								level: "warning",
-								title: "加载用户上传音频失败，尝试加载网易云音频",
-								source: "audio",
-							});
-							if (ncmIds.length > 0) {
-								const ncmId = ncmIds[0];
-								setAudioLoadPendingId(ncmId);
-								try {
-									await loadNeteaseAudio({
-										prNumber,
-										id: ncmId,
-										pendingId: null,
-										setPendingId: setAudioLoadPendingId,
-										setLastNeteaseIdByPr: () => {},
-										openFile,
-										pushNotification: (payload) => {
-											setPushNotification({
-												id: `ncm-audio-${ncmId}`,
-												level: payload.level,
-												title: payload.title,
-												source: payload.source,
-											});
-										},
-										cookie: neteaseCookie,
-									});
-									setReviewSession((prev) => prev ? { ...prev, audioSource: "netease" as AudioSource } : prev);
-								} catch (ncmError) {
-									console.error("加载网易云音频失败:", ncmError);
-								}
-							}
-						} finally {
-							setAudioLoadPendingId(null);
+							},
+						});
+
+						if (result.success && result.selectedSource) {
+							const audioSource: AudioSource = 
+								result.selectedSource === "lyrics-site" ? "user-upload" : "netease";
+							setReviewSession((prev) => prev ? { ...prev, audioSource } : prev);
 						}
-					} else if (ncmIds.length > 0) {
-						const ncmId = ncmIds[0];
-						setAudioLoadPendingId(ncmId);
-						try {
-							await loadNeteaseAudio({
-								prNumber,
-								id: ncmId,
-								pendingId: null,
-								setPendingId: setAudioLoadPendingId,
-								setLastNeteaseIdByPr: () => {},
-								openFile,
-								pushNotification: (payload) => {
-									setPushNotification({
-										id: `ncm-audio-${ncmId}`,
-										level: payload.level,
-										title: payload.title,
-										source: payload.source,
-									});
-								},
-								cookie: neteaseCookie,
-							});
-							setReviewSession((prev) => prev ? { ...prev, audioSource: "netease" as AudioSource } : prev);
-						} catch (error) {
-							console.error("加载音频失败:", error);
-						}
+					} catch (error) {
+						console.error("加载音频失败:", error);
+					} finally {
+						setAudioLoadPendingId(null);
 					}
 				} else {
 					throw new Error("无法获取文件内容");
@@ -301,7 +257,6 @@ export const useLyricsSiteReviewService = () => {
 			setReviewSession,
 			setToolMode,
 			audioLoadPendingId,
-			neteaseCookie,
 		],
 	);
 
