@@ -10,19 +10,28 @@ import {
 } from "react";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
-import { renderCardContent, type ReviewPullRequest } from "./card-service";
+import {
+	renderCardContent,
+	isGitHubPullRequest,
+	isLyricsSiteSubmission,
+	getReviewItemId,
+	getReviewItemCreatedAt,
+	type ReviewItem,
+	type ReviewPullRequest,
+} from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
+import { useLyricsSiteReviewService } from "./lyrics-site-review-service";
 import styles from "../index.module.css";
 
 const ReviewPage = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const closeTimerRef = useRef<number | null>(null);
-	const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-	const cardRectsRef = useRef<Map<number, DOMRect>>(new Map());
-	const cardAnimationsRef = useRef<Map<number, Animation>>(new Map());
+	const cardRefs = useRef<Map<string | number, HTMLDivElement>>(new Map());
+	const cardRectsRef = useRef<Map<string | number, DOMRect>>(new Map());
+	const cardAnimationsRef = useRef<Map<string | number, Animation>>(new Map());
 	const [expandedCard, setExpandedCard] = useState<{
-		pr: ReviewPullRequest;
+		item: ReviewItem;
 		from: DOMRect;
 		to: DOMRect;
 		phase: "opening" | "open" | "closing";
@@ -44,6 +53,8 @@ const ReviewPage = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		sourceFilter,
+		setSourceFilter,
 	} = useReviewPageLogic();
 	const {
 		user: lyricsSiteUser,
@@ -52,23 +63,24 @@ const ReviewPage = () => {
 		initiateLogin: initiateLyricsSiteLogin,
 		logout: logoutLyricsSite,
 	} = useLyricsSiteAuth();
+	const { openSubmissionFile } = useLyricsSiteReviewService();
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
-		const itemsWithPriority = filteredItems.map((pr, index) => ({
-			pr,
-			index,
-			hasPriorityLabel: pr.labels.some(
+		const itemsWithMeta = filteredItems.map((item) => ({
+			item,
+			createdAt: new Date(getReviewItemCreatedAt(item)).getTime(),
+			hasPriorityLabel: isGitHubPullRequest(item) && item.labels.some(
 				(label) => label.name.trim() === priorityLabelName,
 			),
 		}));
-		itemsWithPriority.sort((a, b) => {
-			if (a.hasPriorityLabel === b.hasPriorityLabel) {
-				return a.index - b.index;
+		itemsWithMeta.sort((a, b) => {
+			if (a.hasPriorityLabel !== b.hasPriorityLabel) {
+				return a.hasPriorityLabel ? -1 : 1;
 			}
-			return a.hasPriorityLabel ? -1 : 1;
+			return b.createdAt - a.createdAt;
 		});
-		return itemsWithPriority.map((item) => item.pr);
+		return itemsWithMeta.map((meta) => meta.item);
 	}, [filteredItems]);
 
 	const closeExpanded = useCallback(() => {
@@ -86,11 +98,11 @@ const ReviewPage = () => {
 	}, [expandedCard]);
 
 	const setCardRef = useCallback(
-		(prNumber: number) => (node: HTMLDivElement | null) => {
+		(itemId: string | number) => (node: HTMLDivElement | null) => {
 			if (node) {
-				cardRefs.current.set(prNumber, node);
+				cardRefs.current.set(itemId, node);
 			} else {
-				cardRefs.current.delete(prNumber);
+				cardRefs.current.delete(itemId);
 			}
 		},
 		[],
@@ -109,7 +121,7 @@ const ReviewPage = () => {
 	}, []);
 
 	const openExpanded = useCallback(
-		(pr: ReviewPullRequest, rect: DOMRect) => {
+		(item: ReviewItem, rect: DOMRect) => {
 			if (closeTimerRef.current) {
 				window.clearTimeout(closeTimerRef.current);
 				closeTimerRef.current = null;
@@ -145,7 +157,7 @@ const ReviewPage = () => {
 					: Math.min(Math.max(centerY - targetHeight / 2, minTop), maxTop);
 			const toRect = new DOMRect(left, top, targetWidth, targetHeight);
 			setExpandedCard({
-				pr,
+				item,
 				from: rect,
 				to: toRect,
 				phase: "opening",
@@ -163,13 +175,26 @@ const ReviewPage = () => {
 	);
 
 	const handleCardClick = useCallback(
-		(pr: ReviewPullRequest, event: MouseEvent<HTMLDivElement>) => {
+		(item: ReviewItem, event: MouseEvent<HTMLDivElement>) => {
 			event.stopPropagation();
-			void refreshReviewTimeline(pr.number);
+			if (isGitHubPullRequest(item)) {
+				void refreshReviewTimeline(item.number);
+			}
 			const rect = event.currentTarget.getBoundingClientRect();
-			openExpanded(pr, rect);
+			openExpanded(item, rect);
 		},
 		[openExpanded, refreshReviewTimeline],
+	);
+
+	const handleOpenFile = useCallback(
+		async (item: ReviewItem, ids?: string[]) => {
+			if (isLyricsSiteSubmission(item)) {
+				await openSubmissionFile(item);
+			} else if (isGitHubPullRequest(item)) {
+				await openReviewFile(item, ids || []);
+			}
+		},
+		[openSubmissionFile, openReviewFile],
 	);
 
 	useLayoutEffect(() => {
@@ -184,7 +209,7 @@ const ReviewPage = () => {
 		const maxAnimated = 80;
 		let animatedCount = 0;
 		const previousRects = cardRectsRef.current;
-		const nextRects = new Map<number, DOMRect>();
+		const nextRects = new Map<string | number, DOMRect>();
 		cardRefs.current.forEach((node, key) => {
 			if (!node) return;
 			const rect = node.getBoundingClientRect();
@@ -237,7 +262,6 @@ const ReviewPage = () => {
 		};
 	}, []);
 
-	// 检查是否有权限（GitHub PAT 或歌词站登录）
 	const hasReviewAccess = hasAccess || hasLyricsSiteReviewPermission;
 
 	if (!hasReviewAccess) {
@@ -272,7 +296,6 @@ const ReviewPage = () => {
 
 	return (
 		<Box className={styles.container} ref={containerRef}>
-			{/* 用户信息栏 */}
 			<Flex align="center" justify="between" className={styles.userBar}>
 				<Flex align="center" gap="2">
 					{isLyricsSiteLoggedIn && lyricsSiteUser ? (
@@ -306,13 +329,42 @@ const ReviewPage = () => {
 						</Button>
 					)}
 				</Flex>
+				<Flex align="center" gap="2">
+					<Text size="2" color="gray">
+						来源筛选:
+					</Text>
+					<Button
+						size="1"
+						variant={sourceFilter === "all" ? "solid" : "soft"}
+						color={sourceFilter === "all" ? "blue" : "gray"}
+						onClick={() => setSourceFilter("all")}
+					>
+						全部
+					</Button>
+					<Button
+						size="1"
+						variant={sourceFilter === "github" ? "solid" : "soft"}
+						color={sourceFilter === "github" ? "green" : "gray"}
+						onClick={() => setSourceFilter("github")}
+					>
+						GitHub
+					</Button>
+					<Button
+						size="1"
+						variant={sourceFilter === "lyrics-site" ? "solid" : "soft"}
+						color={sourceFilter === "lyrics-site" ? "violet" : "gray"}
+						onClick={() => setSourceFilter("lyrics-site")}
+					>
+						歌词站
+					</Button>
+				</Flex>
 			</Flex>
 
 			{loading && items.length === 0 && (
 				<Flex align="center" gap="2" className={styles.loading}>
 					<Spinner size="2" />
 					<Text size="2" color="gray">
-						正在获取 PR 列表...
+						正在获取稿件列表...
 					</Text>
 				</Flex>
 			)}
@@ -349,8 +401,9 @@ const ReviewPage = () => {
 				</Flex>
 			)}
 			<Box className={styles.grid}>
-				{sortedItems.map((pr) => {
-					const isExpanded = expandedCard?.pr.number === pr.number;
+				{sortedItems.map((item) => {
+					const itemId = getReviewItemId(item);
+					const isExpanded = expandedCard && getReviewItemId(expandedCard.item) === itemId;
 					const isPlaceholder =
 						isExpanded && expandedCard?.phase === "open";
 					const placeholderStyle =
@@ -359,21 +412,21 @@ const ReviewPage = () => {
 							: undefined;
 					return (
 						<Card
-							key={pr.number}
+							key={itemId}
 							className={`${styles.card} ${
-								reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
+								isGitHubPullRequest(item) && reviewSession?.prNumber === item.number ? styles.reviewCard : ""
 							} ${isPlaceholder ? styles.cardPlaceholder : ""}`}
-							onClick={(event) => handleCardClick(pr, event)}
-							ref={setCardRef(pr.number)}
+							onClick={(event) => handleCardClick(item, event)}
+							ref={setCardRef(itemId)}
 							style={placeholderStyle}
 						>
 							{isPlaceholder
 								? null
 								: renderCardContent({
-										pr,
+										item,
 										hiddenLabelSet,
 										styles,
-										reviewedByUser: reviewedByUserMap[pr.number] === true,
+										reviewedByUser: isGitHubPullRequest(item) && reviewedByUserMap[item.number] === true,
 										onSelectUser: (user) =>
 											setSelectedUser((prev) => (prev === user ? null : user)),
 								  })}
@@ -410,12 +463,12 @@ const ReviewPage = () => {
 						onClick={(event) => event.stopPropagation()}
 					>
 						<ReviewExpandedContent
-							pr={expandedCard.pr}
+							item={expandedCard.item}
 							hiddenLabelSet={hiddenLabelSet}
 							audioLoadPendingId={audioLoadPendingId}
 							lastNeteaseIdByPr={lastNeteaseIdByPr}
-							onOpenFile={openReviewFile}
-							reviewedByUser={reviewedByUserMap[expandedCard.pr.number] === true}
+							onOpenFile={handleOpenFile}
+							reviewedByUser={isGitHubPullRequest(expandedCard.item) && reviewedByUserMap[expandedCard.item.number] === true}
 							repoOwner="Steve-xmh"
 							repoName="amll-ttml-db"
 							styles={styles}

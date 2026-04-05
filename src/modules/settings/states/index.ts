@@ -131,3 +131,5 @@ export type LyricsSiteUser = {
 export const lyricsSiteTokenAtom = atomWithStorage<string>("lyricsSiteToken", "");
 export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>("lyricsSiteUser", null);
 export const lyricsSiteLoginPendingAtom = atomWithStorage<boolean>("lyricsSiteLoginPending", false);
+
+export const audioProxyUrlAtom = atomWithStorage<string>("audioProxyUrl", "https://tooldl.bikonoo.com");

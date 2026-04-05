@@ -4,6 +4,7 @@ import {
 	Person20Regular,
 } from "@fluentui/react-icons";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import type { LyricsSiteSubmission } from "./lyrics-site-service";
 
 export type ReviewLabel = {
 	name: string;
@@ -16,6 +17,36 @@ export type ReviewPullRequest = {
 	body: string;
 	createdAt: string;
 	labels: ReviewLabel[];
+	source: "github";
+};
+
+export type ReviewItem = ReviewPullRequest | LyricsSiteSubmission;
+
+export const isLyricsSiteSubmission = (
+	item: ReviewItem,
+): item is LyricsSiteSubmission => {
+	return item.source === "lyrics-site";
+};
+
+export const isGitHubPullRequest = (
+	item: ReviewItem,
+): item is ReviewPullRequest => {
+	return item.source === "github";
+};
+
+export const getReviewItemId = (item: ReviewItem): string | number => {
+	return isLyricsSiteSubmission(item) ? item.id : item.number;
+};
+
+export const getReviewItemTitle = (item: ReviewItem): string => {
+	return item.title;
+};
+
+export const getReviewItemCreatedAt = (item: ReviewItem): string => {
+	if (isLyricsSiteSubmission(item)) {
+		return new Date(item.createdAt).toISOString();
+	}
+	return item.createdAt;
 };
 
 type ReviewMetadata = {
@@ -218,47 +249,90 @@ export const renderMetaValues = (
 };
 
 export const renderCardContent = (options: {
-	pr: ReviewPullRequest;
+	item: ReviewItem;
 	hiddenLabelSet: Set<string>;
 	styles: Record<string, string>;
 	reviewedByUser?: boolean;
 	onSelectUser?: (user: string) => void;
 }) => {
-	const mentions = extractMentions(options.pr.body);
-	const visibleLabels = options.pr.labels.filter(
-		(label) => !options.hiddenLabelSet.has(label.name.toLowerCase()),
-	);
+	const { item, hiddenLabelSet, styles, reviewedByUser, onSelectUser } = options;
+	const isLyricsSite = isLyricsSiteSubmission(item);
+	const id = getReviewItemId(item);
+	const createdAt = getReviewItemCreatedAt(item);
+	
+	const visibleLabels = isGitHubPullRequest(item)
+		? item.labels.filter(
+				(label) => !hiddenLabelSet.has(label.name.toLowerCase()),
+			)
+		: [];
+	
+	const mentions = isGitHubPullRequest(item) ? extractMentions(item.body) : [];
+	const submitter = isLyricsSite ? item.submitter : null;
+
 	return (
 		<Flex direction="column" gap="2">
 			<Flex align="center" justify="between">
 				<Flex align="center" gap="1">
 					<Text size="2" weight="medium">
-						#{options.pr.number}
+						{isLyricsSite ? `#${id}` : `#${id}`}
 					</Text>
-					{options.reviewedByUser && (
-						<Checkmark20Regular className={options.styles.icon} />
+					<Box
+						className={styles.sourceLabel}
+						style={{
+							backgroundColor: isLyricsSite ? "#8b5cf6" : "#238636",
+						}}
+					>
+						<Text size="1">{isLyricsSite ? "歌词站" : "GitHub"}</Text>
+					</Box>
+					{reviewedByUser && (
+						<Checkmark20Regular className={styles.icon} />
 					)}
 				</Flex>
-				<Flex align="center" gap="1" className={options.styles.meta}>
-					<Clock20Regular className={options.styles.icon} />
-					<Text size="1" color="gray" className={options.styles.timeText}>
-						{formatTimeAgo(options.pr.createdAt)}
+				<Flex align="center" gap="1" className={styles.meta}>
+					<Clock20Regular className={styles.icon} />
+					<Text size="1" color="gray" className={styles.timeText}>
+						{formatTimeAgo(createdAt)}
 					</Text>
 				</Flex>
 			</Flex>
 			<Text
 				size="3"
-				className={options.styles.title}
-				title={options.pr.title}
+				className={styles.title}
+				title={item.title}
 			>
-				{options.pr.title}
+				{item.title}
 			</Text>
-			<Flex align="center" gap="2" className={options.styles.mentions}>
-				<Person20Regular className={options.styles.icon} />
-				{mentions.length > 0 ? (
+			{isLyricsSite && item.artist && (
+				<Text size="2" color="gray" className={styles.artistText}>
+					{item.artist}
+					{item.album && ` - ${item.album}`}
+				</Text>
+			)}
+			<Flex align="center" gap="2" className={styles.mentions}>
+				<Person20Regular className={styles.icon} />
+				{submitter ? (
+					onSelectUser ? (
+						<Button
+							size="1"
+							variant="soft"
+							color="gray"
+							onClick={(event) => {
+								event.stopPropagation();
+								onSelectUser(submitter);
+							}}
+							asChild
+						>
+							<span>@{submitter}</span>
+						</Button>
+					) : (
+						<Text size="2" color="gray">
+							@{submitter}
+						</Text>
+					)
+				) : mentions.length > 0 ? (
 					<Flex align="center" gap="1" wrap="wrap">
 						{mentions.map((name) =>
-							options.onSelectUser ? (
+							onSelectUser ? (
 								<Button
 									key={name}
 									size="1"
@@ -266,7 +340,7 @@ export const renderCardContent = (options: {
 									color="gray"
 									onClick={(event) => {
 										event.stopPropagation();
-										options.onSelectUser?.(name);
+										onSelectUser(name);
 									}}
 									asChild
 								>
@@ -285,26 +359,35 @@ export const renderCardContent = (options: {
 					</Text>
 				)}
 			</Flex>
-			<Flex wrap="wrap" gap="2">
-				{visibleLabels.length > 0 ? (
-					visibleLabels.map((label) => (
-						<Box
-							key={label.name}
-							className={options.styles.label}
-							style={{
-								backgroundColor: `#${label.color}`,
-								color: getLabelTextColor(label.color),
-							}}
-						>
-							<Text size="1">{label.name}</Text>
-						</Box>
-					))
-				) : (
-					<Text size="1" color="gray">
-						无标签
+			{isGitHubPullRequest(item) && (
+				<Flex wrap="wrap" gap="2">
+					{visibleLabels.length > 0 ? (
+						visibleLabels.map((label) => (
+							<Box
+								key={label.name}
+								className={styles.label}
+								style={{
+									backgroundColor: `#${label.color}`,
+									color: getLabelTextColor(label.color),
+								}}
+							>
+								<Text size="1">{label.name}</Text>
+							</Box>
+						))
+					) : (
+						<Text size="1" color="gray">
+							无标签
+						</Text>
+					)}
+				</Flex>
+			)}
+			{isLyricsSite && item.audio && (
+				<Flex align="center" gap="1" className={styles.audioIndicator}>
+					<Text size="1" color="green">
+						已上传音频
 					</Text>
-				)}
-			</Flex>
+				</Flex>
+			)}
 		</Flex>
 	);
 };

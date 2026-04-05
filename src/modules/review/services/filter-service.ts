@@ -1,7 +1,13 @@
-import { extractMentions, type ReviewLabel, type ReviewPullRequest } from "./card-service";
+import {
+	extractMentions,
+	isGitHubPullRequest,
+	isLyricsSiteSubmission,
+	type ReviewItem,
+	type ReviewLabel,
+} from "./card-service";
 
 export const applyReviewFilters = (options: {
-	items: ReviewPullRequest[];
+	items: ReviewItem[];
 	hiddenLabelSet: Set<string>;
 	pendingChecked: boolean;
 	updatedChecked: boolean;
@@ -10,16 +16,21 @@ export const applyReviewFilters = (options: {
 	selectedLabels: string[];
 	selectedUser: string | null;
 }) => {
-	const visibleItems = options.items.filter(
-		(pr) =>
-			!pr.labels.some((label) =>
+	const visibleItems = options.items.filter((item) => {
+		if (isGitHubPullRequest(item)) {
+			return !item.labels.some((label) =>
 				options.hiddenLabelSet.has(label.name.toLowerCase()),
-			),
-	);
-	const statusFilteredItems = visibleItems.filter((pr) => {
+			);
+		}
+		return true;
+	});
+
+	const statusFilteredItems = visibleItems.filter((item) => {
 		if (!options.pendingChecked && !options.updatedChecked) return true;
-		const isPending = options.hasPendingLabel(pr.labels);
-		const isUpdated = isPending && options.postPendingCommitMap[pr.number] === true;
+		if (!isGitHubPullRequest(item)) return true;
+		
+		const isPending = options.hasPendingLabel(item.labels);
+		const isUpdated = isPending && options.postPendingCommitMap[item.number] === true;
 		const pendingMatch = isPending && !isUpdated;
 		const updatedMatch = isUpdated;
 		if (options.pendingChecked && options.updatedChecked) return pendingMatch || updatedMatch;
@@ -27,22 +38,32 @@ export const applyReviewFilters = (options: {
 		if (options.updatedChecked) return updatedMatch;
 		return true;
 	});
+
 	const labelFilteredItems =
 		options.selectedLabels.length === 0
 			? statusFilteredItems
-			: statusFilteredItems.filter((pr) => {
+			: statusFilteredItems.filter((item) => {
+					if (!isGitHubPullRequest(item)) return true;
 					const selectedSet = new Set(
 						options.selectedLabels.map((label) => label.toLowerCase()),
 					);
-					return pr.labels.some((label) =>
+					return item.labels.some((label) =>
 						selectedSet.has(label.name.toLowerCase()),
 					);
 			  });
+
 	if (!options.selectedUser) return labelFilteredItems;
 	const selectedUserLower = options.selectedUser.toLowerCase();
-	return labelFilteredItems.filter((pr) =>
-		extractMentions(pr.body).some(
-			(name) => name.toLowerCase() === selectedUserLower,
-		),
-	);
+	
+	return labelFilteredItems.filter((item) => {
+		if (isLyricsSiteSubmission(item)) {
+			return item.submitter?.toLowerCase() === selectedUserLower;
+		}
+		if (isGitHubPullRequest(item)) {
+			return extractMentions(item.body).some(
+				(name) => name.toLowerCase() === selectedUserLower,
+			);
+		}
+		return false;
+	});
 };

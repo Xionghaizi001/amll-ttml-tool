@@ -43,6 +43,7 @@ import {
 } from "$/modules/review/services/stash-service";
 import { useNcmAudioSwitch } from "$/modules/review/services/ncm-audio-service";
 import { StashDialog } from "./StashDialog";
+import { AudioSourceSelectDialog } from "./AudioSourceSelectDialog";
 
 export const useReviewTimingFlow = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
@@ -85,6 +86,9 @@ export const useReviewTimingFlow = () => {
 		neteaseIdDialog,
 		closeNeteaseIdDialog,
 		handleSelectNeteaseId,
+		audioSourceDialog,
+		closeAudioSourceDialog,
+		handleSelectAudioSource,
 		onSwitchAudio,
 		switchAudioEnabled,
 	} = useNcmAudioSwitch({
@@ -94,6 +98,7 @@ export const useReviewTimingFlow = () => {
 		reviewSession,
 		openFile,
 		pushNotification: setPushNotification,
+		setReviewSession,
 	});
 
 	const TimingCandidateMap = useMemo(() => {
@@ -348,6 +353,8 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
+					source: activeSession.source,
+					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
 				});
 				setTimingStashItems([]);
 				setTimingStashOpen(false);
@@ -367,6 +374,8 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
+					source: activeSession.source,
+					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
 				});
 			}
 		}
@@ -500,6 +509,8 @@ export const useReviewTimingFlow = () => {
 					reviewReportDialog.draftId) ||
 				draftMatch?.id ||
 				null,
+			source: reviewSession?.source,
+			submissionId: reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
 		setTimingStashItems([]);
 		setTimingStashSelected(new Set());
@@ -538,6 +549,14 @@ export const useReviewTimingFlow = () => {
 				ids={neteaseIdDialog.ids}
 				onSelect={handleSelectNeteaseId}
 				onClose={closeNeteaseIdDialog}
+			/>
+			<AudioSourceSelectDialog
+				open={audioSourceDialog.open}
+				options={audioSourceDialog.options}
+				currentSource={audioSourceDialog.currentSource}
+				audioTitle={audioSourceDialog.audioTitle}
+				onSelect={handleSelectAudioSource}
+				onClose={closeAudioSourceDialog}
 			/>
 		</>
 	);

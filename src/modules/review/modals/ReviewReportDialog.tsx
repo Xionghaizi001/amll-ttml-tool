@@ -5,6 +5,7 @@ import {
 	Edit20Regular,
 	LightbulbCheckmark20Regular,
 	Merge20Regular,
+	MusicNote220Regular,
 } from "@fluentui/react-icons";
 import {
 	Box,
@@ -25,7 +26,7 @@ import {
 	mergePullRequest,
 } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
-import { githubPatAtom } from "$/modules/settings/states";
+import { githubPatAtom, lyricsSiteTokenAtom } from "$/modules/settings/states";
 import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
 	reviewReportDraftsAtom,
@@ -37,6 +38,7 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
+import { submitReview as submitLyricsSiteReview } from "$/modules/review/services/lyrics-site-service";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
@@ -123,6 +125,7 @@ export const ReviewReportDialog = () => {
 	const removeNotification = useSetAtom(removeNotificationAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const pat = useAtomValue(githubPatAtom);
+	const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
 	const [customTemplates, setCustomTemplates] = useState<ReviewTemplate[]>([]);
@@ -138,10 +141,11 @@ export const ReviewReportDialog = () => {
 		"APPROVE" | "REQUEST_CHANGES" | "MERGE" | null
 	>(null);
 	const titleText = useMemo(() => {
-		if (!dialog.prNumber) return "对当前 PR 做出的审阅结果如下：";
+		if (!dialog.prNumber) return "对当前稿件做出的审阅结果如下：";
 		const title = dialog.prTitle?.trim() ? ` ${dialog.prTitle}` : "";
-		return `对 PR#${dialog.prNumber}${title} 做出的审阅结果如下：`;
-	}, [dialog.prNumber, dialog.prTitle]);
+		const prefix = dialog.source === "lyrics-site" ? "歌词站稿件" : `PR#${dialog.prNumber}`;
+		return `对${prefix}${title} 做出的审阅结果如下：`;
+	}, [dialog.prNumber, dialog.prTitle, dialog.source]);
 
 	useEffect(() => {
 		if (dialog.open) {
@@ -433,23 +437,15 @@ export const ReviewReportDialog = () => {
 		return userLogin;
 	};
 	const submitReview = async (event: "APPROVE" | "REQUEST_CHANGES") => {
-		if (!dialog.prNumber) {
+		if (!dialog.prNumber && !dialog.submissionId) {
 			setPushNotification({
-				title: "无法提交审阅结果：缺少 PR 编号",
+				title: "无法提交审阅结果：缺少稿件编号",
 				level: "error",
 				source: "Review",
 			});
 			return;
 		}
-		const token = pat.trim();
-		if (!token) {
-			setPushNotification({
-				title: "请先在设置中登录以提交审阅结果",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
+		
 		const reportBody = getCleanReport();
 		if (event === "REQUEST_CHANGES" && !reportBody) {
 			setPushNotification({
@@ -459,52 +455,96 @@ export const ReviewReportDialog = () => {
 			});
 			return;
 		}
+		
 		setSubmitPending(event);
 		try {
-			const userLogin = await ensureAssigned(token, dialog.prNumber);
-			if (!userLogin) return;
-			const result = await submitReviewService({
-				token,
-				prNumber: dialog.prNumber,
-				event,
-				reportBody,
-				repoOwner: REPO_OWNER,
-				repoName: REPO_NAME,
-				pendingLabelName: PENDING_LABEL_NAME,
-			});
-			if (!result.ok) {
+			if (dialog.source === "lyrics-site") {
+				const token = lyricsSiteToken?.trim();
+				if (!token) {
+					setPushNotification({
+						title: "请先登录歌词站以提交审阅结果",
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+				
+				const submissionId = dialog.submissionId || String(dialog.prNumber);
+				const action = event === "APPROVE" ? "approve" : "revision";
+				
+				await submitLyricsSiteReview(token, submissionId, action, reportBody);
+				
+				if (event === "APPROVE") {
+					setApprovedByUser(true);
+				}
 				setPushNotification({
-					title: `提交审阅结果失败：${result.status ?? "未知"}`,
-					level: "error",
+					title: "已提交审阅结果",
+					level: "success",
 					source: "Review",
 				});
-				return;
-			}
-			if (result.labelStatus) {
+				setReviewReviewedPrs((prev) =>
+					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+				);
+				if (dialog.prNumber) {
+					setReviewSingleRefresh(dialog.prNumber);
+				}
+				submitAndClose();
+			} else {
+				const token = pat.trim();
+				if (!token) {
+					setPushNotification({
+						title: "请先在设置中登录以提交审阅结果",
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+				
+				const userLogin = await ensureAssigned(token, dialog.prNumber!);
+				if (!userLogin) return;
+				const result = await submitReviewService({
+					token,
+					prNumber: dialog.prNumber!,
+					event,
+					reportBody,
+					repoOwner: REPO_OWNER,
+					repoName: REPO_NAME,
+					pendingLabelName: PENDING_LABEL_NAME,
+				});
+				if (!result.ok) {
+					setPushNotification({
+						title: `提交审阅结果失败：${result.status ?? "未知"}`,
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+				if (result.labelStatus) {
+					setPushNotification({
+						title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
+						level: "warning",
+						source: "Review",
+					});
+				}
+				if (event === "APPROVE") {
+					setApprovedByUser(true);
+				}
 				setPushNotification({
-					title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
-					level: "warning",
+					title: "已提交审阅结果",
+					level: "success",
 					source: "Review",
 				});
+				setReviewReviewedPrs((prev) =>
+					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+				);
+				if (dialog.prNumber) {
+					setReviewSingleRefresh(dialog.prNumber);
+				}
+				submitAndClose();
 			}
-			if (event === "APPROVE") {
-				setApprovedByUser(true);
-			}
+		} catch (error) {
 			setPushNotification({
-				title: "已提交审阅结果",
-				level: "success",
-				source: "Review",
-			});
-			setReviewReviewedPrs((prev) =>
-				dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
-			);
-			if (dialog.prNumber) {
-				setReviewSingleRefresh(dialog.prNumber);
-			}
-			submitAndClose();
-		} catch {
-			setPushNotification({
-				title: "提交审阅结果失败：网络错误",
+				title: `提交审阅结果失败：${error instanceof Error ? error.message : "网络错误"}`,
 				level: "error",
 				source: "Review",
 			});
@@ -512,6 +552,49 @@ export const ReviewReportDialog = () => {
 			setSubmitPending(null);
 		}
 	};
+	
+	const submitMissingAudio = async () => {
+		if (!dialog.submissionId && !dialog.prNumber) {
+			setPushNotification({
+				title: "无法提交：缺少稿件编号",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+		
+		const token = lyricsSiteToken?.trim();
+		if (!token) {
+			setPushNotification({
+				title: "请先登录歌词站",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+		
+		setSubmitPending("MERGE" as any);
+		try {
+			const submissionId = dialog.submissionId || String(dialog.prNumber);
+			await submitLyricsSiteReview(token, submissionId, "missing_audio", getCleanReport());
+			
+			setPushNotification({
+				title: "已标记为缺少音源",
+				level: "success",
+				source: "Review",
+			});
+			submitAndClose();
+		} catch (error) {
+			setPushNotification({
+				title: `标记失败：${error instanceof Error ? error.message : "网络错误"}`,
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setSubmitPending(null);
+		}
+	};
+	
 	const submitMerge = async () => {
 		if (!dialog.prNumber) {
 			setPushNotification({
@@ -825,25 +908,48 @@ export const ReviewReportDialog = () => {
 								<Text size="2">需要修改</Text>
 							</Flex>
 						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="gray"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认合并",
-									description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: submitMerge,
-								})
-							}
-							disabled={submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Merge20Regular />
-								<Text size="2">合并</Text>
-							</Flex>
-						</Button>
+						{dialog.source === "lyrics-site" && (
+							<Button
+								size="2"
+								variant="soft"
+								color="orange"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认标记缺少音源",
+										description: `确定要标记稿件"${dialog.prTitle}"为缺少音源吗？`,
+										onConfirm: submitMissingAudio,
+									})
+								}
+								disabled={submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<MusicNote220Regular />
+									<Text size="2">缺少音源</Text>
+								</Flex>
+							</Button>
+						)}
+						{dialog.source !== "lyrics-site" && (
+							<Button
+								size="2"
+								variant="soft"
+								color="gray"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认合并",
+										description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+										onConfirm: submitMerge,
+									})
+								}
+								disabled={submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Merge20Regular />
+									<Text size="2">合并</Text>
+								</Flex>
+							</Button>
+						)}
 					</Flex>
 				</Flex>
 			</Flex>

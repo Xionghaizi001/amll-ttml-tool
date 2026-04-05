@@ -139,13 +139,18 @@ export const editingTimeFieldAtom = atom<EditingTimeFieldState | null>(null);
 
 export const requestFocusAtom = atom<string | null>(null);
 
-export type ReviewSessionSource = "review" | "update";
+export type ReviewSessionSource = "review" | "update" | "lyrics-site";
+
+export type AudioSource = "user-upload" | "netease";
 
 export type ReviewSession = {
 	prNumber: number;
 	prTitle: string;
 	fileName: string;
 	source: ReviewSessionSource;
+	audioSource?: AudioSource;
+	audioFileName?: string;
+	ncmIds?: string[];
 };
 
 export const reviewSessionAtom = atom<ReviewSession | null>(null);
@@ -168,6 +173,7 @@ export type ReviewReportDraft = {
 	prTitle: string;
 	report: string;
 	createdAt: string;
+	source?: "github" | "lyrics-site";
 };
 export const reviewReportDraftsAtom = atom<ReviewReportDraft[]>([]);
 export const reviewReviewedPrsAtom = atomWithStorage<Record<number, boolean>>(

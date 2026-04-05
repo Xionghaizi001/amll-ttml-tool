@@ -44,6 +44,8 @@ export const createReviewReportDraftHandler =
 			prTitle: draft.prTitle,
 			report: draft.report,
 			draftId: draft.id,
+			source: draft.source ?? "github",
+			submissionId: draft.source === "lyrics-site" ? String(draft.prNumber) : undefined,
 		});
 		options.onClose();
 	};

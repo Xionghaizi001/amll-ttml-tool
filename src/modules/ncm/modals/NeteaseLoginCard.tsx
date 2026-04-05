@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NeteaseAuthClient, NeteaseAutoLoginGuard } from "$/modules/ncm/services";
 import {
+	audioProxyUrlAtom,
 	githubAmlldbAccessAtom,
 	neteaseCookieAtom,
 	neteaseRiskConfirmedAtom,
@@ -28,6 +29,7 @@ export const NeteaseLoginCard = () => {
 	const [neteaseCookie, setNeteaseCookie] = useAtom(neteaseCookieAtom);
 	const [neteaseUser, setNeteaseUser] = useAtom(neteaseUserAtom);
 	const [riskConfirmed, setRiskConfirmed] = useAtom(neteaseRiskConfirmedAtom);
+	const [audioProxyUrl, setAudioProxyUrl] = useAtom(audioProxyUrlAtom);
 	const [neteasePhone, setNeteasePhone] = useState("");
 	const [neteaseCaptcha, setNeteaseCaptcha] = useState("");
 	const [neteaseCookieInput, setNeteaseCookieInput] = useState("");
@@ -469,6 +471,26 @@ export const NeteaseLoginCard = () => {
 						</Box>
 					</Tabs.Root>
 				)}
+
+				<Flex direction="column" gap="2" mt="4">
+					<Text size="2" weight="medium">
+						{t("settings.connect.netease.proxyTitle", "音频代理服务器")}
+					</Text>
+					<Text size="1" color="gray">
+						{t(
+							"settings.connect.netease.proxyDesc",
+							"设置代理服务器地址以解决音频加载失败问题（CORS）",
+						)}
+					</Text>
+					<TextField.Root
+						placeholder={t(
+							"settings.connect.netease.proxyPlaceholder",
+							"https://tooldl.bikonoo.com",
+						)}
+						value={audioProxyUrl}
+						onChange={(event) => setAudioProxyUrl(event.currentTarget.value)}
+					/>
+				</Flex>
 			</Flex>
 		</Card>
 	);
