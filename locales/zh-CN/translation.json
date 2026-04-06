@@ -610,6 +610,15 @@
 			"title": "删除项目记录",
 			"description": "确定要删除该项目的所有自动保存记录吗？此操作无法撤销。"
 		},
+		"deleteVersion": {
+			"title": "删除版本",
+			"description": "确定要删除此历史版本吗？此操作无法撤销。"
+		},
+		"deleteLatest": {
+			"title": "删除最新版本",
+			"description": "确定要删除此最新版本吗？此操作无法撤销。",
+			"button": "删除此版本"
+		},
 		"projects": "最近项目",
 		"noProjects": "暂无自动保存记录",
 		"latestState": "最新版本",

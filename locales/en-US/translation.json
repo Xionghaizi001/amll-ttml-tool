@@ -599,6 +599,15 @@
 			"title": "Delete project history",
 			"description": "Are you sure you want to delete all autosaved records for this project? This action cannot be undone."
 		},
+		"deleteVersion": {
+			"title": "Delete Version",
+			"description": "Are you sure you want to delete this history version? This action cannot be undone."
+		},
+		"deleteLatest": {
+			"title": "Delete Latest Version",
+			"description": "Are you sure you want to delete this latest version? This action cannot be undone.",
+			"button": "Delete this version"
+		},
 		"projects": "Recent Projects",
 		"noProjects": "No records were automatically saved.",
 		"latestState": "Latest version",
