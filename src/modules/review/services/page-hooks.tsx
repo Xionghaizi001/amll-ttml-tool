@@ -323,6 +323,7 @@ export const useReviewPageLogic = () => {
 		Record<number, boolean>
 	>({});
 	const lastRefreshTokenRef = useRef(refreshToken);
+	const lastLyricsSiteRefreshTokenRef = useRef(refreshToken);
 
 	const hasPendingLabel = useCallback(
 		(labels: ReviewLabel[]) =>
@@ -866,12 +867,14 @@ export const useReviewPageLogic = () => {
 			return;
 		}
 
+		const refreshChanged = refreshToken !== lastLyricsSiteRefreshTokenRef.current;
+		lastLyricsSiteRefreshTokenRef.current = refreshToken;
 		let cancelled = false;
 
 		const load = async () => {
 			setLyricsSiteLoading(true);
 			try {
-				const cached = await readLyricsSiteCache();
+				const cached = refreshChanged ? null : await readLyricsSiteCache();
 				if (cached?.items?.length) {
 					const cacheAge = Date.now() - cached.cachedAt;
 					if (cacheAge < LYRICS_SITE_CACHE_TTL) {
@@ -901,7 +904,7 @@ export const useReviewPageLogic = () => {
 		return () => {
 			cancelled = true;
 		};
-	}, [hasLyricsSiteReviewAccess, lyricsSiteToken]);
+	}, [hasLyricsSiteReviewAccess, lyricsSiteToken, refreshToken]);
 
 	const loading = githubLoading || lyricsSiteLoading;
 
