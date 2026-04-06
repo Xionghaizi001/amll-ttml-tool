@@ -86,7 +86,16 @@
 			"multilingualPlaceholder": "Select language",
 			"duration": "Duration",
 			"layoutMode": "Layout",
-			"auxiliaryLineDisplay": "Auxiliary Line Display"
+			"auxiliaryLineDisplay": "Auxiliary Line Display",
+			"grouping": "Grouping",
+			"amllTags": "AM Tags",
+			"songPart": "Song Part",
+			"agent": "Agent",
+			"noAgents": "No agents available",
+			"none": "None",
+			"noSelection": "No selection",
+			"addCustomPart": "Add custom",
+			"customPartPlaceholder": "Custom Part"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
@@ -319,6 +328,7 @@
 			"timeShift": "Time Shift...",
 			"editMetadata": "Edit lyrics metadata…",
 			"editVocalTags": "Edit Vocal Tags…",
+			"manageAgents": "Manage Agents",
 			"tool": "Tools",
 			"segmentationTools": "Segmentation Tools",
 			"autoSegment": "Auto Segment",
@@ -514,7 +524,19 @@
 		"remove": "Remove",
 		"clickToSet": "Click to set ",
 		"selectAll": "Select all",
-		"logout": "Log out"
+		"logout": "Log out",
+		"add": "Add",
+		"save": "Save",
+		"edit": "Edit"
+	},
+	"agentManager": {
+		"title": "Manage Agents",
+		"agentsList": "Agents List",
+		"add": "Add",
+		"empty": "No agents available.",
+		"idPlaceholder": "e.g. v1",
+		"namePlaceholder": "Name",
+		"addName": "Add Name"
 	},
 	"lyricEditor": {
 		"locate": "Locate"

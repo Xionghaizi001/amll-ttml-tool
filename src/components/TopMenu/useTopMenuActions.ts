@@ -27,6 +27,7 @@ import {
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
 	duplicateSongIdDialogAtom,
+	agentManagerDialogAtom,
 } from "$/states/dialogs.ts";
 import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
@@ -66,6 +67,7 @@ export const useTopMenuActions = () => {
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setVocalTagsEditorOpened = useSetAtom(vocalTagsEditorDialogAtom);
+	const setAgentManagerOpened = useSetAtom(agentManagerDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
 	const undoLyricLines = useAtomValue(undoableLyricLinesAtom);
 	const store = useStore();
@@ -248,6 +250,10 @@ export const useTopMenuActions = () => {
 	const onOpenVocalTagsEditor = useCallback(() => {
 		setVocalTagsEditorOpened(true);
 	}, [setVocalTagsEditorOpened]);
+
+	const onOpenAgentManager = useCallback(() => {
+		setAgentManagerOpened(true);
+	}, [setAgentManagerOpened]);
 
 	const onOpenSettings = useCallback(() => {
 		setSettingsDialogOpened(true);
@@ -435,6 +441,7 @@ export const useTopMenuActions = () => {
 	}, [editLyricLines, setConfirmDialog, t]);
 
 	const onAlignEndTimestamps = useCallback(() => {
+		const selectedLineIds = store.get(selectedLinesAtom);
 		const hasSelection = selectedLineIds.size > 0;
 
 		const action = () => {
@@ -468,7 +475,7 @@ export const useTopMenuActions = () => {
 					),
 			onConfirm: action,
 		});
-	}, [editLyricLines, setConfirmDialog, t, selectedLineIds]);
+	}, [editLyricLines, setConfirmDialog, t, store]);
 
 	const onReduceStutter = useCallback(() => {
 		store.set(reduceStutterDialogAtom, { open: true });
@@ -553,6 +560,7 @@ export const useTopMenuActions = () => {
 		onOpenTimeShift,
 		onOpenMetadataEditor,
 		onOpenVocalTagsEditor,
+		onOpenAgentManager,
 		onOpenSettings,
 		onAutoSegment,
 		onRubySegment,

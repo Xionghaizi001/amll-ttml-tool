@@ -21,6 +21,7 @@ import type {
 	LyricLine,
 	LyricWord,
 	LyricWordBase,
+	TTMLAgent,
 	TTMLLyric,
 	TTMLMetadata,
 	TTMLRomanWord,
@@ -168,10 +169,10 @@ function createWordFromSpanElement(wordEl: Element): LyricWord | null {
 		const rubyWords: LyricWordBase[] = rubyTextSpans.map((rubySpan) => {
 			const rubyBegin = rubySpan.begin
 				? parseTimespan(rubySpan.begin)
-				: containerStart ?? 0;
+				: (containerStart ?? 0);
 			const rubyEnd = rubySpan.end
 				? parseTimespan(rubySpan.end)
-				: containerEnd ?? 0;
+				: (containerEnd ?? 0);
 			return {
 				word: flattenSpanInnerText(rubySpan, skipRoles),
 				startTime: rubyBegin,
@@ -277,8 +278,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					if (nestedSpans.length > 0) {
 						isWordByWord = true;
 						nestedSpans.forEach((span) => {
-							let bgWordText = span.textContent ?? "";
-							bgWordText = bgWordText
+							const rawText = span.textContent ?? "";
+							const bgWordText = rawText
 								.trim()
 								.replace(/^[（(]/, "")
 								.replace(/[)）]$/, "")
@@ -419,12 +420,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const lang = langAttr || "und";
 		const lineRomanMap = useFallback
 			? fallbackLineRomanizations
-			: itunesLineRomanizationsByLang.get(lang) ??
-				itunesLineRomanizationsByLang.set(lang, new Map()).get(lang);
+			: (itunesLineRomanizationsByLang.get(lang) ??
+				itunesLineRomanizationsByLang.set(lang, new Map()).get(lang));
 		const wordRomanMap = useFallback
 			? fallbackWordRomanizations
-			: itunesWordRomanizationsByLang.get(lang) ??
-				itunesWordRomanizationsByLang.set(lang, new Map()).get(lang);
+			: (itunesWordRomanizationsByLang.get(lang) ??
+				itunesWordRomanizationsByLang.set(lang, new Map()).get(lang));
 		if (!lineRomanMap || !wordRomanMap) continue;
 
 		for (const textEl of transliterationEl.querySelectorAll("text[for]")) {
@@ -465,8 +466,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			itunesTranslations.delete(key);
 		}
 	});
-
-	let mainAgentId = "v1";
 
 	const metadata: TTMLMetadata[] = [];
 	for (const meta of ttmlDoc.querySelectorAll("meta")) {
@@ -524,17 +523,54 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
-	for (const agent of ttmlDoc.querySelectorAll("ttm\\:agent")) {
-		if (agent.getAttribute("type") === "person") {
-			const id = agent.getAttribute("xml:id");
-			if (id) {
-				mainAgentId = id;
-				break;
+	// 解析所有 ttm:agent 元素
+	const agents: TTMLAgent[] = [];
+	let mainAgentId = "v1";
+	let foundFirstPerson = false; // 标记是否已找到第一个 person 类型的 agent
+
+	// 使用 getElementsByTagNameNS 或遍历所有元素来查找 ttm:agent
+	// 因为 querySelectorAll 在处理 XML 命名空间时可能不一致
+	const allElements = ttmlDoc.getElementsByTagName("*");
+	for (const el of allElements) {
+		// 检查标签名是否以 ttm:agent 结尾（处理命名空间前缀）
+		const tagName = el.tagName;
+		if (tagName !== "ttm:agent" && !tagName.endsWith(":agent")) continue;
+
+		const id = el.getAttribute("xml:id");
+		const type = el.getAttribute("type") as "person" | "group" | "other" | null;
+		if (!id || !type) continue;
+
+		// 收集所有 ttm:name 子元素
+		const names: string[] = [];
+		for (const child of el.getElementsByTagName("*")) {
+			const childTagName = child.tagName;
+			if (childTagName !== "ttm:name" && !childTagName.endsWith(":name")) continue;
+			const name = child.textContent?.trim();
+			if (name) {
+				names.push(name);
 			}
+		}
+
+		agents.push({ id, type, names });
+
+		// 找到第一个 person 类型的 agent 作为主歌手
+		if (type === "person" && !foundFirstPerson) {
+			mainAgentId = id;
+			foundFirstPerson = true;
 		}
 	}
 
+	// 创建 agent 查找映射，用于快速获取 agent 类型
+	const agentMap = new Map<string, TTMLAgent>();
+	for (const agent of agents) {
+		agentMap.set(agent.id, agent);
+	}
+
 	const lyricLines: LyricLine[] = [];
+
+	// 对唱判断相关变量
+	let currentAgentId = mainAgentId; // 变量 a：当前 agent id，默认为主歌手
+	let duetToggle = false; // 变量 b：对唱切换状态，默认为 false
 
 	function parseLineElement(
 		lineEl: Element,
@@ -542,6 +578,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		isDuet = false,
 		parentItunesKey: string | null = null,
 		parentVocal: string | string[] | null = null,
+		songPart: string | null = null,
 	) {
 		const startTimeAttr = lineEl.getAttribute("begin");
 		const endTimeAttr = lineEl.getAttribute("end");
@@ -558,21 +595,51 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			lineEl.getAttribute("amll:vocal") ?? lineEl.getAttribute("vocal");
 		const lineVocal = lineVocalAttr ?? (isBG ? parentVocal : null);
 		const parsedLineVocal = parseVocalValue(lineVocal);
+
+		// 获取行的 agent id
+		const lineAgentId = lineEl.getAttribute("ttm:agent");
+
+		// 计算当前行的对唱状态
+		let lineIsDuet: boolean;
+		if (isBG) {
+			// 背景行继承主行的对唱状态
+			lineIsDuet = isDuet;
+		} else {
+			// 使用可复用的对唱状态计算函数
+			const result = calculateDuetState(
+				lineAgentId ?? undefined,
+				agentMap,
+				mainAgentId,
+				currentAgentId,
+				duetToggle,
+			);
+			lineIsDuet = result.isDuet;
+			currentAgentId = result.newCurrentAgentId;
+			duetToggle = result.newDuetToggle;
+		}
+
 		const line: LyricLine = {
 			id: uid(),
 			words: [],
 			translatedLyric: "",
 			romanLyric: "",
 			isBG,
-			isDuet: isBG
-				? isDuet
-				: !!lineEl.getAttribute("ttm:agent") &&
-					lineEl.getAttribute("ttm:agent") !== mainAgentId,
+			isDuet: lineIsDuet,
 			startTime: parsedStartTime,
 			endTime: parsedEndTime,
 			ignoreSync: false,
 			vocal: parsedLineVocal,
 		};
+
+		// 如果是该 div 的第一个非背景行，且存在 songPart，则设置到行对象中
+		if (songPart && !isBG) {
+			line.songPart = songPart;
+		}
+
+		// 保存行的 agent 信息
+		if (lineAgentId && !isBG) {
+			line.agent = lineAgentId;
+		}
 		let haveBg = false;
 
 		const itunesKey = isBG
@@ -609,8 +676,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					timedTranslations?.get(itunesKey) ?? translations.get(itunesKey);
 				if (!langTrans) continue;
 				translatedLyricByLang[lang] = isBG
-					? langTrans.bg ?? ""
-					: langTrans.main ?? "";
+					? (langTrans.bg ?? "")
+					: (langTrans.main ?? "");
 			}
 			if (Object.keys(translatedLyricByLang).length > 0) {
 				line.translatedLyricByLang = translatedLyricByLang;
@@ -621,8 +688,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				const langRoman = romanizations.get(itunesKey);
 				if (!langRoman) continue;
 				romanLyricByLang[lang] = isBG
-					? langRoman.bg ?? ""
-					: langRoman.main ?? "";
+					? (langRoman.bg ?? "")
+					: (langRoman.main ?? "");
 			}
 			if (Object.keys(romanLyricByLang).length > 0) {
 				line.romanLyricByLang = romanLyricByLang;
@@ -664,6 +731,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							line.isDuet,
 							itunesKey,
 							line.vocal?.length ? line.vocal : null,
+							null, // 背景行不传递 songPart
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {
@@ -735,8 +803,35 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
-	for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
-		parseLineElement(lineEl, false, false, null, null);
+	// 先遍历所有 div，解析 song-part 属性，然后处理其中的 p 标签
+	const divElements = ttmlDoc.querySelectorAll("body div[begin][end]");
+	if (divElements.length > 0) {
+		// 存在 div 结构，按 div 分组解析
+		for (const divEl of divElements) {
+			// 获取 div 的 song-part 属性（支持 itunes:song-part、itunes:songPart、songPart 和 song-part）
+			const songPart =
+				divEl.getAttribute("itunes:song-part") ??
+				divEl.getAttribute("itunes:songPart") ??
+				divEl.getAttribute("songPart") ??
+				divEl.getAttribute("song-part") ??
+				null;
+			// 标记是否是该 div 的第一个非背景行
+			let isFirstLineInDiv = true;
+			for (const lineEl of divEl.querySelectorAll("p[begin][end]")) {
+				// 只将 songPart 传递给该 div 的第一个非背景行
+				const songPartToPass = isFirstLineInDiv ? songPart : null;
+				parseLineElement(lineEl, false, false, null, null, songPartToPass);
+				// 如果当前行不是背景行，则后续行不再传递 songPart
+				if (!lineEl.getAttribute("ttm:role") || lineEl.getAttribute("ttm:role") !== "x-bg") {
+					isFirstLineInDiv = false;
+				}
+			}
+		}
+	} else {
+		// 没有 div 结构，直接解析 body 下的 p 标签
+		for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
+			parseLineElement(lineEl, false, false, null, null, null);
+		}
 	}
 
 	log("finished ttml load", lyricLines, metadata);
@@ -745,5 +840,65 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		metadata,
 		lyricLines: lyricLines,
 		vocalTags,
+		agents,
+	};
+}
+
+/**
+ * 计算行的对唱状态
+ * @param agentId - 行的 agent ID
+ * @param agentMap - agent 查找映射
+ * @param mainAgentId - 主歌手 agent ID
+ * @param currentAgentId - 当前 agent ID（用于切换判断）
+ * @param duetToggle - 当前对唱切换状态
+ * @returns 包含 isDuet、newCurrentAgentId、newDuetToggle 的对象
+ */
+export function calculateDuetState(
+	agentId: string | undefined,
+	agentMap: Map<string, TTMLAgent>,
+	mainAgentId: string,
+	currentAgentId: string,
+	duetToggle: boolean,
+): {
+	isDuet: boolean;
+	newCurrentAgentId: string;
+	newDuetToggle: boolean;
+} {
+	if (!agentId) {
+		return {
+			isDuet: agentId !== 'v1',
+			newCurrentAgentId: currentAgentId,
+			newDuetToggle: duetToggle,
+		};
+	}
+
+	const agent = agentMap.get(agentId);
+
+	if (agent?.type === "group") {
+		// 如果 agent 类型为 group，直接判定为对唱
+		return {
+			isDuet: true,
+			newCurrentAgentId: currentAgentId,
+			newDuetToggle: duetToggle,
+		};
+	}
+
+	if (agent?.type === "person" || agent?.type === "other") {
+		// 如果为 person 或 other，与 currentAgentId 比较
+		if (agentId !== currentAgentId) {
+			duetToggle = !duetToggle;
+		}
+		return {
+			isDuet: duetToggle,
+			newCurrentAgentId: agentId,
+			newDuetToggle: duetToggle,
+		};
+	}
+
+	// 找不到 agent 信息，使用原来的逻辑
+	return {
+		isDuet: agentId !== mainAgentId,
+		newCurrentAgentId: agentId,
+		newDuetToggle: agentId !== mainAgentId,
 	};
 }

@@ -42,6 +42,7 @@ export const lyricLinesAtom = atom({
 	lyricLines: [],
 	metadata: [],
 	vocalTags: [],
+	agents: [],
 } as TTMLLyric);
 
 /**
@@ -111,6 +112,7 @@ export const newLyricLinesAtom = atom(
 			lyricLines: [],
 			metadata: [],
 			vocalTags: [],
+			agents: [],
 		},
 	) => {
 		set(lyricLinesAtom, newState);

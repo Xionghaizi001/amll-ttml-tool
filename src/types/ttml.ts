@@ -28,10 +28,17 @@ export interface TTMLVocalTag {
 	value: string;
 }
 
+export interface TTMLAgent {
+	id: string;
+	type: "person" | "group" | "other";
+	names: string[];
+}
+
 export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
+	agents: TTMLAgent[];
 	optimizeOptions?: OptimizeLyricOptions;
 }
 
@@ -99,6 +106,8 @@ export interface LyricLine extends AMLLLyricLine {
 	translatedLyricByLang?: Record<string, string>;
 	romanLyricByLang?: Record<string, string>;
 	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
+	songPart?: string;
+	agent?: string;
 }
 
 export const newLyricLine = (): LyricLine => ({

@@ -9,6 +9,7 @@ export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
 export const latencyTestDialogAtom = atom(false);
 export const submitToAMLLDBDialogAtom = atom(false);
+export const agentManagerDialogAtom = atom(false);
 export const splitWordDialogAtom = atom(false);
 export const replaceWordDialogAtom = atom(false);
 export const advancedSegmentationDialogAtom = atom(false);

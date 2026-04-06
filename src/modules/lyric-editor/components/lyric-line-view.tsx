@@ -58,6 +58,7 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
 import { LyricLineMenu } from "./lyric-line-menu.tsx";
@@ -135,8 +136,9 @@ const LyricLineScroller = ({
 	const scrollToIndex = useAtomValue(scrollToIndexAtom);
 
 	useEffect(() => {
-		const targetIndex =
-			!Number.isNaN(scrollToIndex) ? scrollToIndex : editingRomanWordIndex;
+		const targetIndex = !Number.isNaN(scrollToIndex)
+			? scrollToIndex
+			: editingRomanWordIndex;
 		if (targetIndex === null || Number.isNaN(targetIndex)) return;
 		// console.log({ scrollToIndex, wordsContainer });
 		if (!wordsContainer) return;
@@ -340,6 +342,32 @@ export const LyricLineView: FC<{
 		return false;
 	}, [line.startTime, line.endTime, line.words]);
 
+	// 检查是否需要 Agent 警告：如果歌词有 Agent，但该行没有设置 Agent，则显示警告
+	const hasAgentWarning = useMemo(() => {
+		// 如果歌词没有定义任何 Agent，不需要警告
+		if (!lyricLines.agents || lyricLines.agents.length === 0) {
+			return false;
+		}
+		// 如果该行没有设置 Agent，显示警告
+		return !line.agent;
+	}, [lyricLines.agents, line.agent]);
+
+	const hasRadical = useMemo(() => {
+		for (const word of line.words) {
+			if (containsRadicalChar(word.word)) {
+				return true;
+			}
+			if (word.ruby) {
+				for (const ruby of word.ruby) {
+					if (containsRadicalChar(ruby.word)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}, [line.words]);
+
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
@@ -501,13 +529,7 @@ export const LyricLineView: FC<{
 			});
 			setEndTimeLinked(true);
 		},
-		[
-			editLyricLines,
-			endTimeLinked,
-			line.endTime,
-			lineIndex,
-			lyricLines,
-		],
+		[editLyricLines, endTimeLinked, line.endTime, lineIndex, lyricLines],
 	);
 
 	return (
@@ -558,6 +580,8 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
+							hasAgentWarning && toolMode === ToolMode.Edit && styles.agentWarning,
+							hasRadical && styles.radical,
 						)}
 						align="center"
 						gapX="4"
@@ -828,88 +852,105 @@ export const LyricLineView: FC<{
 												type="translatedLyric"
 											/>
 										)}
-									{showRomanization && (
-										<SubLineEdit
-											lineAtom={lineAtom}
-											lineIndex={lineIndex}
-											type="romanLyric"
-										/>
-									)}
-									{vocalTagIds.length > 0 && (
-										<Flex align="center" gap="2" className={styles.vocalTagsRow}>
-											<Text size="2">
-												{t("lyricLineView.vocalTagsLabel", "演唱者：")}
-											</Text>
-											<Flex gap="1" wrap="wrap" className={styles.vocalTagsButtons}>
-												{(() => {
-													const selectedIds = parseLineVocalIds(line.vocal);
-													const selectedSet = new Set(selectedIds);
-													const allSelected =
-														vocalTagIds.length > 0 &&
-														vocalTagIds.every((id) => selectedSet.has(id));
-													const orderedIds = [
-														...selectedIds.filter((id) => vocalTagIds.includes(id)),
-														...vocalTagIds.filter((id) => !selectedSet.has(id)),
-													];
-													return [
-														...orderedIds.map((id) => {
-														const isActive = selectedSet.has(id);
-														const tagName = vocalTagMap.get(id);
-														return (
+										{showRomanization && (
+											<SubLineEdit
+												lineAtom={lineAtom}
+												lineIndex={lineIndex}
+												type="romanLyric"
+											/>
+										)}
+										{vocalTagIds.length > 0 && (
+											<Flex
+												align="center"
+												gap="2"
+												className={styles.vocalTagsRow}
+											>
+												<Text size="2">
+													{t("lyricLineView.vocalTagsLabel", "演唱者：")}
+												</Text>
+												<Flex
+													gap="1"
+													wrap="wrap"
+													className={styles.vocalTagsButtons}
+												>
+													{(() => {
+														const selectedIds = parseLineVocalIds(line.vocal);
+														const selectedSet = new Set(selectedIds);
+														const allSelected =
+															vocalTagIds.length > 0 &&
+															vocalTagIds.every((id) => selectedSet.has(id));
+														const orderedIds = [
+															...selectedIds.filter((id) =>
+																vocalTagIds.includes(id),
+															),
+															...vocalTagIds.filter(
+																(id) => !selectedSet.has(id),
+															),
+														];
+														return [
+															...orderedIds.map((id) => {
+																const isActive = selectedSet.has(id);
+																const tagName = vocalTagMap.get(id);
+																return (
+																	<Button
+																		key={`line-${lineIndex}-vocal-${id}`}
+																		size="1"
+																		variant={isActive ? "solid" : "soft"}
+																		color={isActive ? "green" : "gray"}
+																		className={styles.vocalTagButton}
+																		title={tagName || undefined}
+																		onClick={(evt) => {
+																			evt.stopPropagation();
+																			editLyricLines((state) => {
+																				const targetLine =
+																					state.lyricLines[lineIndex];
+																				const currentIds = parseLineVocalIds(
+																					targetLine.vocal,
+																				);
+																				const existingIndex =
+																					currentIds.indexOf(id);
+																				if (existingIndex > -1) {
+																					currentIds.splice(existingIndex, 1);
+																				} else {
+																					currentIds.push(id);
+																				}
+																				targetLine.vocal = currentIds;
+																			});
+																		}}
+																	>
+																		{tagName || id}
+																	</Button>
+																);
+															}),
 															<Button
-																key={`line-${lineIndex}-vocal-${id}`}
+																key={`line-${lineIndex}-vocal-all`}
 																size="1"
-																variant={isActive ? "solid" : "soft"}
-																color={isActive ? "green" : "gray"}
+																variant={allSelected ? "solid" : "soft"}
+																color={allSelected ? "green" : "gray"}
 																className={styles.vocalTagButton}
-																title={tagName || undefined}
 																onClick={(evt) => {
 																	evt.stopPropagation();
 																	editLyricLines((state) => {
-																		const targetLine = state.lyricLines[lineIndex];
-																		const currentIds = parseLineVocalIds(
-																			targetLine.vocal,
-																		);
-																		const existingIndex = currentIds.indexOf(id);
-																		if (existingIndex > -1) {
-																			currentIds.splice(existingIndex, 1);
-																		} else {
-																			currentIds.push(id);
-																		}
-																		targetLine.vocal = currentIds;
+																		const targetLine =
+																			state.lyricLines[lineIndex];
+																		targetLine.vocal = allSelected
+																			? []
+																			: [...vocalTagIds];
 																	});
 																}}
 															>
-															{tagName || id}
-														</Button>
-														);
-													}),
-														<Button
-															key={`line-${lineIndex}-vocal-all`}
-															size="1"
-															variant={allSelected ? "solid" : "soft"}
-															color={allSelected ? "green" : "gray"}
-															className={styles.vocalTagButton}
-															onClick={(evt) => {
-																evt.stopPropagation();
-																editLyricLines((state) => {
-																	const targetLine = state.lyricLines[lineIndex];
-																	targetLine.vocal = allSelected ? [] : [...vocalTagIds];
-																});
-															}}
-														>
-															<Flex align="center" gap="1">
-																<People24Regular />
-																{t("lyricLineView.vocalTagsAll", "全体成员")}
-															</Flex>
-														</Button>,
-													];
-												})()}
+																<Flex align="center" gap="1">
+																	<People24Regular />
+																	{t("lyricLineView.vocalTagsAll", "全体成员")}
+																</Flex>
+															</Button>,
+														];
+													})()}
+												</Flex>
 											</Flex>
-										</Flex>
-									)}
-								</>
-							)}
+										)}
+									</>
+								)}
 							</div>
 							{toolMode === ToolMode.Edit && (
 								<Flex p="3">
