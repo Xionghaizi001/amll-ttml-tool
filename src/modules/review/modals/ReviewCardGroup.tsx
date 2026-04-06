@@ -31,6 +31,68 @@ import {
 } from "$/modules/review/services/card-service";
 import type { LyricsSiteSubmission } from "$/modules/review/services/lyrics-site-service";
 
+type PlatformItem = {
+	ids: string[];
+	label: string;
+	icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+	url: string | null;
+};
+
+const buildPlatformItems = (ids: {
+	ncmId?: string | string[];
+	qqId?: string | string[];
+	spotifyId?: string | string[];
+	amId?: string | string[];
+}): PlatformItem[] => {
+	const toIds = (id: string | string[] | undefined): string[] => {
+		if (!id) return [];
+		if (Array.isArray(id)) return id.filter(Boolean);
+		return id ? [id] : [];
+	};
+
+	const ncmIds = toIds(ids.ncmId);
+	const qqIds = toIds(ids.qqId);
+	const spotifyIds = toIds(ids.spotifyId);
+	const amIds = toIds(ids.amId);
+
+	return [
+		{
+			ids: ncmIds,
+			label: "网易云音乐",
+			icon: NeteaseIcon,
+			url: ncmIds[0]
+				? `https://music.163.com/#/song?id=${ncmIds[0]}`
+				: null,
+		},
+		{
+			ids: qqIds,
+			label: "QQ音乐",
+			icon: QQMusicIcon,
+			url: qqIds[0]
+				? `https://y.qq.com/n/ryqq/songDetail/${qqIds[0]}`
+				: null,
+		},
+		{
+			ids: spotifyIds,
+			label: "Spotify",
+			icon: SpotifyIcon,
+			url: spotifyIds[0]
+				? `https://open.spotify.com/track/${spotifyIds[0]}`
+				: null,
+		},
+		{
+			ids: amIds,
+			label: "Apple Music",
+			icon: AppleMusicIcon,
+			url: amIds[0]
+				? `https://music.apple.com/song/${amIds[0]}`
+				: null,
+		},
+	].filter((item) =>
+		item.ids.length > 0 && (item.label === "网易云音乐" || item.url),
+	);
+};
+
 type GitHubExpandedContentProps = {
 	item: ReviewPullRequest;
 	hiddenLabelSet: Set<string>;
@@ -62,42 +124,14 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 			setOpenFilePending(false);
 		}
 	}, [neteaseIds, openFilePending, options]);
-	const platformItems = [
-		{
-			ids: neteaseIds,
-			label: "网易云音乐",
-			icon: NeteaseIcon,
-			url: neteaseIds[0]
-				? `https://music.163.com/#/song?id=${neteaseIds[0]}`
-				: null,
-		},
-		{
-			ids: metadata.qqMusicId[0] ? [metadata.qqMusicId[0]] : [],
-			label: "QQ音乐",
-			icon: QQMusicIcon,
-			url: metadata.qqMusicId[0]
-				? `https://y.qq.com/n/ryqq/songDetail/${metadata.qqMusicId[0]}`
-				: null,
-		},
-		{
-			ids: metadata.spotifyId[0] ? [metadata.spotifyId[0]] : [],
-			label: "Spotify",
-			icon: SpotifyIcon,
-			url: metadata.spotifyId[0]
-				? `https://open.spotify.com/track/${metadata.spotifyId[0]}`
-				: null,
-		},
-		{
-			ids: metadata.appleMusicId[0] ? [metadata.appleMusicId[0]] : [],
-			label: "Apple Music",
-			icon: AppleMusicIcon,
-			url: metadata.appleMusicId[0]
-				? `https://music.apple.com/song/${metadata.appleMusicId[0]}`
-				: null,
-		},
-	].filter((item) =>
-		item.ids.length > 0 && (item.label === "网易云音乐" || item.url),
-	);
+
+	const platformItems = buildPlatformItems({
+		ncmId: metadata.ncmId,
+		qqId: metadata.qqMusicId,
+		spotifyId: metadata.spotifyId,
+		amId: metadata.appleMusicId,
+	});
+
 	const prUrl = `https://github.com/${options.repoOwner}/${options.repoName}/pull/${options.item.number}`;
 	const mentionUrl = mention ? `https://github.com/${mention}` : null;
 	return (
@@ -384,40 +418,12 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 		}
 	}, [openFilePending, options]);
 
-	const platformItems = [
-		{
-			id: options.item.ids.ncmId,
-			label: "网易云音乐",
-			icon: NeteaseIcon,
-			url: options.item.ids.ncmId
-				? `https://music.163.com/#/song?id=${options.item.ids.ncmId}`
-				: null,
-		},
-		{
-			id: options.item.ids.qqId,
-			label: "QQ音乐",
-			icon: QQMusicIcon,
-			url: options.item.ids.qqId
-				? `https://y.qq.com/n/ryqq/songDetail/${options.item.ids.qqId}`
-				: null,
-		},
-		{
-			id: options.item.ids.spotifyId,
-			label: "Spotify",
-			icon: SpotifyIcon,
-			url: options.item.ids.spotifyId
-				? `https://open.spotify.com/track/${options.item.ids.spotifyId}`
-				: null,
-		},
-		{
-			id: options.item.ids.amId,
-			label: "Apple Music",
-			icon: AppleMusicIcon,
-			url: options.item.ids.amId
-				? `https://music.apple.com/song/${options.item.ids.amId}`
-				: null,
-		},
-	].filter((item) => item.id && item.url);
+	const platformItems = buildPlatformItems({
+		ncmId: options.item.ids.ncmId,
+		qqId: options.item.ids.qqId,
+		spotifyId: options.item.ids.spotifyId,
+		amId: options.item.ids.amId,
+	});
 
 	return (
 		<Flex direction="column" className={options.styles.overlayCardInner}>
@@ -577,32 +583,46 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 							className={options.styles.platformList}
 						>
 							{platformItems.map((item) => {
-								const Icon = item.icon;
-								return (
-									<Flex
-										key={item.label}
-										align="center"
-										justify="between"
-										className={options.styles.platformItem}
-									>
-										<Flex align="center" gap="2">
-											<Icon className={options.styles.platformIcon} />
-											<Text size="2" weight="bold">
-												{item.label}
-											</Text>
-										</Flex>
-										<Button asChild size="1" variant="soft" color="gray">
-											<a
-												href={item.url ?? undefined}
-												target="_blank"
-												rel="noreferrer"
-											>
-												{item.id}
-											</a>
-										</Button>
+							const Icon = item.icon;
+							const isNetease = item.label === "网易云音乐";
+							const idText = item.ids[0] ?? "";
+							return (
+								<Flex
+									key={item.label}
+									align="center"
+									justify="between"
+									className={options.styles.platformItem}
+								>
+									<Flex align="center" gap="2">
+										<Icon className={options.styles.platformIcon} />
+										<Text size="2" weight="bold">
+											{item.label}
+										</Text>
 									</Flex>
-								);
-							})}
+									<Button asChild size="1" variant="soft" color="gray">
+										<a
+											href={item.url ?? undefined}
+											target="_blank"
+											rel="noreferrer"
+										>
+											{idText}
+										</a>
+									</Button>
+									{isNetease && (
+										<Button
+											size="1"
+											variant="soft"
+											color="blue"
+											onClick={() =>
+												options.onLoadNeteaseAudio?.(options.item, [idText])
+											}
+										>
+											加载
+										</Button>
+									)}
+								</Flex>
+							);
+						})}
 						</Flex>
 					</Box>
 				)}
