@@ -106,6 +106,10 @@ export const reviewHiddenUsersAtom = atomWithStorage<string[]>(
 	"reviewHiddenUsers",
 	[],
 );
+export const reviewHiddenUsersModeAtom = atomWithStorage<"any" | "all">(
+	"reviewHiddenUsersMode",
+	"all",
+);
 export const reviewSelectedLabelsAtom = atomWithStorage<string[]>(
 	"reviewSelectedLabels",
 	[],

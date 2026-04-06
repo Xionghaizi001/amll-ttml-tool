@@ -8,6 +8,7 @@ import {
 	neteaseCookieAtom,
 	reviewHiddenLabelsAtom,
 	reviewHiddenUsersAtom,
+	reviewHiddenUsersModeAtom,
 	reviewLabelsAtom,
 	reviewPendingFilterAtom,
 	reviewRefreshTokenAtom,
@@ -219,6 +220,7 @@ export const useReviewPageLogic = () => {
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
 	const hiddenUsers = useAtomValue(reviewHiddenUsersAtom);
+	const hiddenUsersMode = useAtomValue(reviewHiddenUsersModeAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
 	const updatedChecked = useAtomValue(reviewUpdatedFilterAtom);
@@ -828,6 +830,7 @@ export const useReviewPageLogic = () => {
 				items,
 				hiddenLabelSet,
 				hiddenUserSet,
+				hiddenUserMode: hiddenUsersMode,
 				pendingChecked,
 				updatedChecked,
 				hasPendingLabel,
@@ -839,6 +842,7 @@ export const useReviewPageLogic = () => {
 			items,
 			hiddenLabelSet,
 			hiddenUserSet,
+			hiddenUsersMode,
 			pendingChecked,
 			updatedChecked,
 			hasPendingLabel,

@@ -4,6 +4,7 @@ export const applyReviewFilters = (options: {
 	items: ReviewPullRequest[];
 	hiddenLabelSet: Set<string>;
 	hiddenUserSet: Set<string>;
+	hiddenUserMode: "any" | "all";
 	pendingChecked: boolean;
 	updatedChecked: boolean;
 	hasPendingLabel: (labels: ReviewLabel[]) => boolean;
@@ -45,6 +46,13 @@ export const applyReviewFilters = (options: {
 			: labelFilteredItems.filter((pr) => {
 					const mentions = extractMentions(pr.body);
 					if (mentions.length === 0) return true;
+					if (options.hiddenUserMode === "any") {
+						// 只要包含该用户就隐藏
+						return !mentions.some((name) =>
+							options.hiddenUserSet.has(name.toLowerCase()),
+						);
+					}
+					// 只包含该用户才隐藏（默认）
 					return !mentions.every((name) =>
 						options.hiddenUserSet.has(name.toLowerCase()),
 					);

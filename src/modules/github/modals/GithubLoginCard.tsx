@@ -22,6 +22,7 @@ import {
 	githubRiskConfirmedAtom,
 	reviewHiddenLabelsAtom,
 	reviewHiddenUsersAtom,
+	reviewHiddenUsersModeAtom,
 	reviewLabelsAtom,
 } from "$/modules/settings/states";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
@@ -42,6 +43,7 @@ export const GithubLoginCard = () => {
 	const [hiddenLabels, setHiddenLabels] = useAtom(reviewHiddenLabelsAtom);
 	const [labels, setLabels] = useAtom(reviewLabelsAtom);
 	const [hiddenUsers, setHiddenUsers] = useAtom(reviewHiddenUsersAtom);
+	const [hiddenUsersMode, setHiddenUsersMode] = useAtom(reviewHiddenUsersModeAtom);
 	const [newHiddenUser, setNewHiddenUser] = useState("");
 	const [status, setStatus] = useState<AuthStatus>("idle");
 	const [message, setMessage] = useState("");
@@ -606,7 +608,7 @@ export const GithubLoginCard = () => {
 									</Button>
 								</Flex>
 								{hiddenUsers.length > 0 && (
-									<Flex gap="2" wrap="wrap">
+									<Flex gap="2" wrap="wrap" align="center">
 										{hiddenUsers.map((user) => (
 											<Button
 												key={user}
@@ -618,6 +620,26 @@ export const GithubLoginCard = () => {
 												@{user}
 											</Button>
 										))}
+										<Button
+											size="1"
+											variant="outline"
+											color="gray"
+											onClick={() =>
+												setHiddenUsersMode((prev) =>
+													prev === "any" ? "all" : "any",
+												)
+											}
+										>
+											{hiddenUsersMode === "any"
+												? t(
+														"settings.connect.reviewHiddenUsersModeAny",
+														"包含即隐藏",
+													)
+												: t(
+														"settings.connect.reviewHiddenUsersModeAll",
+														"全含才隐藏",
+													)}
+										</Button>
 									</Flex>
 								)}
 							</Flex>
