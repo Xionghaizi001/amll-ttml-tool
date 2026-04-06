@@ -9,6 +9,8 @@ import {
 export const applyReviewFilters = (options: {
 	items: ReviewItem[];
 	hiddenLabelSet: Set<string>;
+	hiddenUserSet: Set<string>;
+	hiddenUserMode: "any" | "all";
 	pendingChecked: boolean;
 	updatedChecked: boolean;
 	hasPendingLabel: (labels: ReviewLabel[]) => boolean;
@@ -51,29 +53,49 @@ export const applyReviewFilters = (options: {
 					return item.labels.some((label) =>
 						selectedSet.has(label.name.toLowerCase()),
 					);
-			  });
+		});
 
-	const userFilteredItems = !options.selectedUser
+const userFilteredItems =
+	// 先处理隐藏用户过滤
+	options.hiddenUserSet.size === 0
 		? labelFilteredItems
 		: labelFilteredItems.filter((item) => {
-				const selectedUserLower = options.selectedUser.toLowerCase();
-				if (isLyricsSiteSubmission(item)) {
-					return item.submitter?.toLowerCase() === selectedUserLower;
-				}
-				if (isGitHubPullRequest(item)) {
-					return extractMentions(item.body).some(
-						(name) => name.toLowerCase() === selectedUserLower,
+				const mentions = extractMentions(item.body);
+				if (mentions.length === 0) return true;
+				if (options.hiddenUserMode === "any") {
+					// 只要包含该用户就隐藏
+					return !mentions.some((name) =>
+						options.hiddenUserSet.has(name.toLowerCase()),
 					);
 				}
-				return false;
+				// 只包含该用户才隐藏
+				return !mentions.every((name) =>
+					options.hiddenUserSet.has(name.toLowerCase()),
+				);
 		  });
 
-	if (!options.selectedLanguage) return userFilteredItems;
-
+// 选中用户过滤
+if (options.selectedUser) {
+	const selectedUserLower = options.selectedUser.toLowerCase();
 	return userFilteredItems.filter((item) => {
 		if (isLyricsSiteSubmission(item)) {
-			return item.language === options.selectedLanguage;
+			return item.submitter?.toLowerCase() === selectedUserLower;
 		}
-		return true;
+		if (isGitHubPullRequest(item)) {
+			return extractMentions(item.body).some(
+				(name) => name.toLowerCase() === selectedUserLower,
+			);
+		}
+		return false;
 	});
-};
+}
+
+// 语言过滤
+if (!options.selectedLanguage) return userFilteredItems;
+
+return userFilteredItems.filter((item) => {
+	if (isLyricsSiteSubmission(item)) {
+		return item.language === options.selectedLanguage;
+	}
+	return true;
+});
