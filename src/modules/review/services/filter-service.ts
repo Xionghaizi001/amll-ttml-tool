@@ -15,6 +15,7 @@ export const applyReviewFilters = (options: {
 	postPendingCommitMap: Record<number, boolean>;
 	selectedLabels: string[];
 	selectedUser: string | null;
+	selectedLanguage: string | null;
 }) => {
 	const visibleItems = options.items.filter((item) => {
 		if (isGitHubPullRequest(item)) {
@@ -52,18 +53,27 @@ export const applyReviewFilters = (options: {
 					);
 			  });
 
-	if (!options.selectedUser) return labelFilteredItems;
-	const selectedUserLower = options.selectedUser.toLowerCase();
-	
-	return labelFilteredItems.filter((item) => {
+	const userFilteredItems = !options.selectedUser
+		? labelFilteredItems
+		: labelFilteredItems.filter((item) => {
+				const selectedUserLower = options.selectedUser.toLowerCase();
+				if (isLyricsSiteSubmission(item)) {
+					return item.submitter?.toLowerCase() === selectedUserLower;
+				}
+				if (isGitHubPullRequest(item)) {
+					return extractMentions(item.body).some(
+						(name) => name.toLowerCase() === selectedUserLower,
+					);
+				}
+				return false;
+		  });
+
+	if (!options.selectedLanguage) return userFilteredItems;
+
+	return userFilteredItems.filter((item) => {
 		if (isLyricsSiteSubmission(item)) {
-			return item.submitter?.toLowerCase() === selectedUserLower;
+			return item.language === options.selectedLanguage;
 		}
-		if (isGitHubPullRequest(item)) {
-			return extractMentions(item.body).some(
-				(name) => name.toLowerCase() === selectedUserLower,
-			);
-		}
-		return false;
+		return true;
 	});
 };

@@ -1,4 +1,4 @@
-import { Box, Button, Card, Flex, Spinner, Text, Avatar } from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Spinner, Text, Avatar, Select } from "@radix-ui/themes";
 import {
 	type MouseEvent,
 	useCallback,
@@ -53,6 +53,8 @@ const ReviewPage = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		selectedLanguage,
+		setSelectedLanguage,
 		sourceFilter,
 		setSourceFilter,
 	} = useReviewPageLogic();
@@ -295,7 +297,7 @@ const ReviewPage = () => {
 	}
 
 	return (
-		<Box className={styles.container} ref={containerRef}>
+		<Box className={styles.wrapper}>
 			<Flex align="center" justify="between" className={styles.userBar}>
 				<Flex align="center" gap="2">
 					{isLyricsSiteLoggedIn && lyricsSiteUser ? (
@@ -329,38 +331,60 @@ const ReviewPage = () => {
 						</Button>
 					)}
 				</Flex>
-				<Flex align="center" gap="2">
-					<Text size="2" color="gray">
-						来源筛选:
-					</Text>
-					<Button
-						size="1"
-						variant={sourceFilter === "all" ? "solid" : "soft"}
-						color={sourceFilter === "all" ? "blue" : "gray"}
-						onClick={() => setSourceFilter("all")}
-					>
-						全部
-					</Button>
-					<Button
-						size="1"
-						variant={sourceFilter === "github" ? "solid" : "soft"}
-						color={sourceFilter === "github" ? "green" : "gray"}
-						onClick={() => setSourceFilter("github")}
-					>
-						GitHub
-					</Button>
-					<Button
-						size="1"
-						variant={sourceFilter === "lyrics-site" ? "solid" : "soft"}
-						color={sourceFilter === "lyrics-site" ? "violet" : "gray"}
-						onClick={() => setSourceFilter("lyrics-site")}
-					>
-						歌词站
-					</Button>
+				<Flex align="center" gap="4">
+					<Flex align="center" gap="2">
+						<Text size="2" color="gray">
+							语言筛选:
+						</Text>
+						<Select.Root
+							value={selectedLanguage || "all"}
+							onValueChange={(value) => setSelectedLanguage(value === "all" ? null : value)}
+						>
+							<Select.Trigger variant="soft" size="1" />
+							<Select.Content>
+								<Select.Item value="all">全部</Select.Item>
+								<Select.Item value="ja">日语</Select.Item>
+								<Select.Item value="zh">中文</Select.Item>
+								<Select.Item value="en">英语</Select.Item>
+								<Select.Item value="ko">韩语</Select.Item>
+								<Select.Item value="others">其他</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</Flex>
+					<Flex align="center" gap="2">
+						<Text size="2" color="gray">
+							来源筛选:
+						</Text>
+						<Button
+							size="1"
+							variant={sourceFilter === "all" ? "solid" : "soft"}
+							color={sourceFilter === "all" ? "blue" : "gray"}
+							onClick={() => setSourceFilter("all")}
+						>
+							全部
+						</Button>
+						<Button
+							size="1"
+							variant={sourceFilter === "github" ? "solid" : "soft"}
+							color={sourceFilter === "github" ? "green" : "gray"}
+							onClick={() => setSourceFilter("github")}
+						>
+							GitHub
+						</Button>
+						<Button
+							size="1"
+							variant={sourceFilter === "lyrics-site" ? "solid" : "soft"}
+							color={sourceFilter === "lyrics-site" ? "violet" : "gray"}
+							onClick={() => setSourceFilter("lyrics-site")}
+						>
+							歌词站
+						</Button>
+					</Flex>
 				</Flex>
 			</Flex>
 
-			{loading && items.length === 0 && (
+			<Box className={styles.container} ref={containerRef}>
+				{loading && items.length === 0 && (
 				<Flex align="center" gap="2" className={styles.loading}>
 					<Spinner size="2" />
 					<Text size="2" color="gray">
@@ -476,6 +500,7 @@ const ReviewPage = () => {
 					</Card>
 				</Box>
 			)}
+			</Box>
 			<NeteaseIdSelectDialog
 				open={neteaseIdDialog.open}
 				ids={neteaseIdDialog.ids}

@@ -388,6 +388,26 @@ export const renderCardContent = (options: {
 					</Text>
 				</Flex>
 			)}
+			{isLyricsSite && (item.language || (item.tags && item.tags.length > 0)) && (
+				<Flex wrap="wrap" gap="1" align="center">
+					{item.language && (
+						<Text size="1" color="gray">
+							语言：{item.language === 'ja' ? '日语' :
+							 item.language === 'zh' ? '中文' :
+							 item.language === 'en' ? '英语' :
+							 item.language === 'ko' ? '韩语' : item.language}
+						</Text>
+					)}
+					{item.tags && item.tags.length > 0 && item.language && (
+						<Text size="1" color="gray">|</Text>
+					)}
+					{item.tags?.map((tag) => (
+						<Box key={tag} className={styles.label} style={{ backgroundColor: "#3b82f6", color: "#fff" }}>
+							<Text size="1">{tag}</Text>
+						</Box>
+					))}
+				</Flex>
+			)}
 		</Flex>
 	);
 };

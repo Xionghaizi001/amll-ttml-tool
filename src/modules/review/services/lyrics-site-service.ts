@@ -33,6 +33,8 @@ export type LyricsSiteSubmission = {
 		avatar: string;
 	};
 	createdAt: number;
+	language?: string;
+	tags?: string[];
 	metadata?: {
 		musicName?: string[];
 		artists?: string[];

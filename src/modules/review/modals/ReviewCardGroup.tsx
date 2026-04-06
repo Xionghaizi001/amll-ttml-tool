@@ -513,6 +513,55 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								</Flex>
 							</Flex>
 						)}
+						{options.item.language && (
+							<Flex
+								direction="column"
+								gap="1"
+								className={options.styles.metaSection}
+							>
+								<Flex
+									align="center"
+									gap="2"
+									className={options.styles.metaRow}
+								>
+									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+										语言
+									</Text>
+								</Flex>
+								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+									<Text size="2" className={options.styles.metaChip}>
+										{options.item.language === 'ja' ? '日语' :
+										 options.item.language === 'zh' ? '中文' :
+										 options.item.language === 'en' ? '英语' :
+										 options.item.language === 'ko' ? '韩语' : options.item.language}
+									</Text>
+								</Flex>
+							</Flex>
+						)}
+						{options.item.tags && options.item.tags.length > 0 && (
+							<Flex
+								direction="column"
+								gap="1"
+								className={options.styles.metaSection}
+							>
+								<Flex
+									align="center"
+									gap="2"
+									className={options.styles.metaRow}
+								>
+									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+										标签
+									</Text>
+								</Flex>
+								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+									{options.item.tags.map((tag) => (
+										<Text key={tag} size="2" className={options.styles.metaChip}>
+											{tag}
+										</Text>
+									))}
+								</Flex>
+							</Flex>
+						)}
 					</Flex>
 				</Box>
 				{platformItems.length > 0 && (

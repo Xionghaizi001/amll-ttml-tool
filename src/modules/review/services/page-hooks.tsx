@@ -287,6 +287,7 @@ export const useReviewPageLogic = () => {
 	>({});
 	const timelineCacheRef = useRef<TimelineCacheRecord["items"]>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
+	const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
 	);
@@ -935,6 +936,7 @@ export const useReviewPageLogic = () => {
 				postPendingCommitMap,
 				selectedLabels,
 				selectedUser,
+				selectedLanguage,
 			}),
 		[
 			allItems,
@@ -945,6 +947,7 @@ export const useReviewPageLogic = () => {
 			postPendingCommitMap,
 			selectedLabels,
 			selectedUser,
+			selectedLanguage,
 		],
 	);
 
@@ -970,6 +973,8 @@ export const useReviewPageLogic = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		selectedLanguage,
+		setSelectedLanguage,
 		sourceFilter,
 		setSourceFilter,
 	};
