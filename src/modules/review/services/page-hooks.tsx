@@ -7,6 +7,7 @@ import {
 	githubPatAtom,
 	neteaseCookieAtom,
 	reviewHiddenLabelsAtom,
+	reviewHiddenUsersAtom,
 	reviewLabelsAtom,
 	reviewPendingFilterAtom,
 	reviewRefreshTokenAtom,
@@ -217,6 +218,7 @@ export const useReviewPageLogic = () => {
 	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
+	const hiddenUsers = useAtomValue(reviewHiddenUsersAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
 	const updatedChecked = useAtomValue(reviewUpdatedFilterAtom);
@@ -268,6 +270,16 @@ export const useReviewPageLogic = () => {
 					.filter((label) => label.length > 0),
 			),
 		[hiddenLabels],
+	);
+
+	const hiddenUserSet = useMemo(
+		() =>
+			new Set(
+				hiddenUsers
+					.map((user) => user.trim().toLowerCase())
+					.filter((user) => user.length > 0),
+			),
+		[hiddenUsers],
 	);
 
 	const [items, setItems] = useState<ReviewPullRequest[]>([]);
@@ -815,6 +827,7 @@ export const useReviewPageLogic = () => {
 			applyReviewFilters({
 				items,
 				hiddenLabelSet,
+				hiddenUserSet,
 				pendingChecked,
 				updatedChecked,
 				hasPendingLabel,
@@ -825,6 +838,7 @@ export const useReviewPageLogic = () => {
 		[
 			items,
 			hiddenLabelSet,
+			hiddenUserSet,
 			pendingChecked,
 			updatedChecked,
 			hasPendingLabel,

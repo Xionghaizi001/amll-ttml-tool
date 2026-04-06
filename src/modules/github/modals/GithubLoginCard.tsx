@@ -21,6 +21,7 @@ import {
 	githubPatAtom,
 	githubRiskConfirmedAtom,
 	reviewHiddenLabelsAtom,
+	reviewHiddenUsersAtom,
 	reviewLabelsAtom,
 } from "$/modules/settings/states";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
@@ -40,6 +41,8 @@ export const GithubLoginCard = () => {
 	const [riskConfirmed, setRiskConfirmed] = useAtom(githubRiskConfirmedAtom);
 	const [hiddenLabels, setHiddenLabels] = useAtom(reviewHiddenLabelsAtom);
 	const [labels, setLabels] = useAtom(reviewLabelsAtom);
+	const [hiddenUsers, setHiddenUsers] = useAtom(reviewHiddenUsersAtom);
+	const [newHiddenUser, setNewHiddenUser] = useState("");
 	const [status, setStatus] = useState<AuthStatus>("idle");
 	const [message, setMessage] = useState("");
 	const [hasPrivilegedAccess, setHasPrivilegedAccess] = useState(false);
@@ -272,6 +275,26 @@ export const GithubLoginCard = () => {
 			);
 		},
 		[setHiddenLabels],
+	);
+
+	const addHiddenUser = useCallback(() => {
+		const trimmed = newHiddenUser.trim();
+		if (!trimmed) return;
+		setHiddenUsers((prev) => {
+			if (prev.some((u) => u.toLowerCase() === trimmed.toLowerCase()))
+				return prev;
+			return [...prev, trimmed];
+		});
+		setNewHiddenUser("");
+	}, [newHiddenUser, setHiddenUsers]);
+
+	const removeHiddenUser = useCallback(
+		(name: string) => {
+			setHiddenUsers((prev) =>
+				prev.filter((u) => u.toLowerCase() !== name.toLowerCase()),
+			);
+		},
+		[setHiddenUsers],
 	);
 
 	const toggleIdentity = useCallback(() => {
@@ -542,6 +565,64 @@ export const GithubLoginCard = () => {
 							</details>
 						</Box>
 					)}
+					<Box asChild>
+						<details>
+							<Text asChild size="2">
+								<summary style={{ cursor: "pointer" }}>
+									{t(
+										"settings.connect.reviewHiddenUsersTitle",
+										"隐藏指定用户",
+									)}
+								</summary>
+							</Text>
+							<Flex direction="column" gap="3" mt="2">
+								<Text size="1" color="gray">
+									{t(
+										"settings.connect.reviewHiddenUsersDesc",
+										"稿件所属用户在隐藏列表中时，该稿件不会在审阅页面显示",
+									)}
+								</Text>
+								<Flex align="center" gap="2">
+									<TextField.Root
+										placeholder={t(
+											"settings.connect.reviewHiddenUsersPlaceholder",
+											"输入 GitHub 用户名",
+										)}
+										value={newHiddenUser}
+										onChange={(e) => setNewHiddenUser(e.currentTarget.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") addHiddenUser();
+										}}
+										autoComplete="off"
+										style={{ flex: 1 }}
+									/>
+									<Button
+										size="2"
+										variant="soft"
+										onClick={addHiddenUser}
+										disabled={!newHiddenUser.trim()}
+									>
+										{t("settings.connect.reviewHiddenUsersAdd", "添加")}
+									</Button>
+								</Flex>
+								{hiddenUsers.length > 0 && (
+									<Flex gap="2" wrap="wrap">
+										{hiddenUsers.map((user) => (
+											<Button
+												key={user}
+												size="1"
+												variant="soft"
+												color="red"
+												onClick={() => removeHiddenUser(user)}
+											>
+												@{user}
+											</Button>
+										))}
+									</Flex>
+								)}
+							</Flex>
+						</details>
+					</Box>
 					{(hasPrivilegedAccess || useNormalIdentity) && (
 						<Button variant="soft" onClick={toggleIdentity}>
 							{useNormalIdentity

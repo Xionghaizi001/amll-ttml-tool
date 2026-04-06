@@ -102,6 +102,10 @@ export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",
 	[],
 );
+export const reviewHiddenUsersAtom = atomWithStorage<string[]>(
+	"reviewHiddenUsers",
+	[],
+);
 export const reviewSelectedLabelsAtom = atomWithStorage<string[]>(
 	"reviewSelectedLabels",
 	[],

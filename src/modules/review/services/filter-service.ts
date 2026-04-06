@@ -3,6 +3,7 @@ import { extractMentions, type ReviewLabel, type ReviewPullRequest } from "./car
 export const applyReviewFilters = (options: {
 	items: ReviewPullRequest[];
 	hiddenLabelSet: Set<string>;
+	hiddenUserSet: Set<string>;
 	pendingChecked: boolean;
 	updatedChecked: boolean;
 	hasPendingLabel: (labels: ReviewLabel[]) => boolean;
@@ -38,9 +39,19 @@ export const applyReviewFilters = (options: {
 						selectedSet.has(label.name.toLowerCase()),
 					);
 			  });
-	if (!options.selectedUser) return labelFilteredItems;
+	const userFilteredItems =
+		options.hiddenUserSet.size === 0
+			? labelFilteredItems
+			: labelFilteredItems.filter((pr) => {
+					const mentions = extractMentions(pr.body);
+					if (mentions.length === 0) return true;
+					return !mentions.every((name) =>
+						options.hiddenUserSet.has(name.toLowerCase()),
+					);
+			  });
+	if (!options.selectedUser) return userFilteredItems;
 	const selectedUserLower = options.selectedUser.toLowerCase();
-	return labelFilteredItems.filter((pr) =>
+	return userFilteredItems.filter((pr) =>
 		extractMentions(pr.body).some(
 			(name) => name.toLowerCase() === selectedUserLower,
 		),
