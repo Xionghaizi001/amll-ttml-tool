@@ -195,6 +195,7 @@ export const useLyricsSiteReviewService = () => {
 						fileName: submission.fileName,
 						source: "lyrics-site",
 						audioFileName: submission.audio?.fileName,
+						audioTitle: submission.audio?.title,
 						ncmIds,
 					});
 					openFile(file);

@@ -11,11 +11,14 @@ export const AudioSourceSelectDialog = ({
 	open,
 	options,
 	currentSource,
-	audioTitle,
+	audioSourceInfos,
 	onSelect,
 	onClose,
 }: AudioSourceSelectDialogProps) => {
 	const { t } = useTranslation();
+
+	const lyricsSiteInfo = audioSourceInfos?.find(info => info.type === "lyrics-site");
+	const neteaseInfo = audioSourceInfos?.find(info => info.type === "netease");
 
 	return (
 		<Dialog.Root open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -30,20 +33,20 @@ export const AudioSourceSelectDialog = ({
 					)}
 				</Dialog.Description>
 				<Flex direction="column" gap="2" mt="3">
-					{options.includes("user-upload") && (
+					{options.includes("lyrics-site") && (
 						<Button
 							variant={currentSource === "user-upload" ? "solid" : "soft"}
 							color={currentSource === "user-upload" ? "green" : undefined}
-							onClick={() => onSelect("user-upload")}
+							onClick={() => onSelect("lyrics-site")}
 						>
 							<Flex direction="row" align="center" justify="between" style={{ width: "100%" }}>
 								<Flex direction="column" align="start" gap="1">
 									<Text>
 										{t("audio.source.userUpload", "用户上传音频")}
 									</Text>
-									{audioTitle && (
+									{lyricsSiteInfo?.description && (
 										<Text size="1" color="gray">
-											{audioTitle}
+											{lyricsSiteInfo.description}
 										</Text>
 									)}
 								</Flex>
@@ -58,15 +61,22 @@ export const AudioSourceSelectDialog = ({
 					{options.includes("netease") && (
 						<Button
 							variant={currentSource === "netease" ? "solid" : "soft"}
-							color={currentSource === "netease" ? "blue" : undefined}
+							color={currentSource === "netease" ? "green" : undefined}
 							onClick={() => onSelect("netease")}
 						>
 							<Flex direction="row" align="center" justify="between" style={{ width: "100%" }}>
-								<Text>
-									{t("audio.source.netease", "网易云音乐")}
-								</Text>
+								<Flex direction="column" align="start" gap="1">
+									<Text>
+										{t("audio.source.netease", "网易云音乐")}
+									</Text>
+									{neteaseInfo?.description && (
+										<Text size="1" color="gray">
+											{neteaseInfo.description}
+										</Text>
+									)}
+								</Flex>
 								{currentSource === "netease" && (
-									<Text size="1" color="blue" weight="medium">
+									<Text size="1" color="green" weight="medium">
 										{t("audio.source.current", "当前")}
 									</Text>
 								)}

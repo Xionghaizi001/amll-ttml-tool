@@ -150,6 +150,7 @@ export type ReviewSession = {
 	source: ReviewSessionSource;
 	audioSource?: AudioSource;
 	audioFileName?: string;
+	audioTitle?: string;
 	ncmIds?: string[];
 };
 

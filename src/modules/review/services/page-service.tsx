@@ -313,8 +313,8 @@ const ReviewPage = () => {
 								<Text size="1" color="gray">
 									@{lyricsSiteUser.username}
 									{lyricsSiteUser.reviewPermission === 1 && (
-										<span style={{ color: "var(--green-9)", marginLeft: "8px" }}>
-											✓ 审核员
+										<span style={{ marginLeft: "8px" }}>
+											审核员
 										</span>
 									)}
 								</Text>

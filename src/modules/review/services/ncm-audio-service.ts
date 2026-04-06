@@ -134,6 +134,7 @@ export const useAudioSwitch = (options: {
 		return createAudioSelector({
 			lyricsSiteConfig: reviewSession.source === "lyrics-site" && reviewSession.audioFileName ? {
 				audioFileName: reviewSession.audioFileName,
+				audioTitle: reviewSession.audioTitle,
 			} : undefined,
 			neteaseConfig: reviewSession.ncmIds && reviewSession.ncmIds.length > 0 ? {
 				ncmIds: reviewSession.ncmIds,
