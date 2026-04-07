@@ -17,7 +17,6 @@ import {
 	getReviewItemId,
 	getReviewItemCreatedAt,
 	type ReviewItem,
-	type ReviewPullRequest,
 } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";

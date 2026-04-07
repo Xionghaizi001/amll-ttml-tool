@@ -11,7 +11,6 @@ import {
 	fetchLyricFileContent,
 	submitReview,
 	type LyricsSiteSubmission,
-	type ReviewAction,
 } from "./lyrics-site-service";
 import { useFileOpener } from "$/hooks/useFileOpener";
 import { createAudioSelector } from "$/modules/audio/services/audio-selector";
@@ -19,7 +18,7 @@ import type { NotificationLevel } from "$/states/notifications";
 
 export const useLyricsSiteReviewService = () => {
 	const token = useAtomValue(lyricsSiteTokenAtom);
-	const neteaseCookie = useAtomValue(neteaseCookieAtom);
+	const _neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setRemoveNotification = useSetAtom(removeNotificationAtom);
 	const { openFile } = useFileOpener();
@@ -27,7 +26,7 @@ export const useLyricsSiteReviewService = () => {
 	const setToolMode = useSetAtom(toolModeAtom);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(null);
 
-	const notify = useCallback(
+	const _notify = useCallback(
 		(type: NotificationLevel, content: string, id?: string) => {
 			setPushNotification({
 				id,

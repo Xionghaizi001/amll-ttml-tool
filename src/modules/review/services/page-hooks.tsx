@@ -45,12 +45,11 @@ import {
 } from "$/modules/github/services/label-services";
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
 import type { ReviewLabel, ReviewPullRequest, ReviewItem } from "./card-service";
-import { isLyricsSiteSubmission, isGitHubPullRequest } from "./card-service";
+import { isGitHubPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
 import { useRemoteReviewService } from "./remote-service";
 import {
 	fetchPendingSubmissions,
-	AuthExpiredError,
 	type LyricsSiteSubmission,
 } from "./lyrics-site-service";
 
