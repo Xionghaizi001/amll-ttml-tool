@@ -13,8 +13,8 @@ import {
 	type LyricsSiteSubmission,
 } from "../index";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { createAudioSelector } from "$/modules/audio/services/audio-selector";
-import type { NotificationLevel } from "$/states/notifications";
+import { loadLyricsSiteAudio } from "$/modules/lyrics-site/services/audio-provider";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 
 export const useLyricsSiteReviewService = () => {
 	const token = useAtomValue(lyricsSiteTokenAtom);
@@ -171,10 +171,21 @@ export const useLyricsSiteReviewService = () => {
 						type: "application/ttml+xml",
 					});
 					const prNumber = parseInt(submission.id, 10) || 0;
-					const ncmIds = [
-						submission.ids?.ncmId,
-						...(submission.metadata?.ncmMusicId || []),
-					].filter(Boolean);
+					const rawNcmMusicId = submission.metadata?.ncmMusicId;
+					const ncmMusicIdArray = Array.isArray(rawNcmMusicId)
+						? rawNcmMusicId
+						: rawNcmMusicId
+							? [rawNcmMusicId]
+							: [];
+					
+					const ncmIds = Array.from(
+						new Set(
+							[
+								submission.ids?.ncmId,
+								...ncmMusicIdArray,
+							].filter(Boolean) as string[]
+						)
+					);
 					
 					setReviewSession({
 						prNumber,
@@ -190,38 +201,71 @@ export const useLyricsSiteReviewService = () => {
 					setRemoveNotification(notificationId);
 
 					if (audioLoadPendingId) return;
-
-					const selector = createAudioSelector({
-						lyricsSiteConfig: submission.audio?.fileName ? {
-							audioFileName: submission.audio.fileName,
-							audioTitle: submission.audio.title,
-						} : undefined,
-						neteaseConfig: ncmIds.length > 0 ? {
-							ncmIds,
-							prNumber,
-						} : undefined,
-					});
-
 					setAudioLoadPendingId("loading");
-					try {
-						const result = await selector.loadFirstAvailable({
-							pushNotification: (payload) => {
-								setPushNotification({
-									id: `audio-load-${submission.id}`,
-									level: payload.level,
-									title: payload.title,
-									source: payload.source,
-								});
-							},
-						});
 
-						if (result.success && result.selectedSource) {
-							const audioSource: AudioSource = 
-								result.selectedSource === "lyrics-site" ? "user-upload" : "netease";
+					try {
+						let success = false;
+						let selectedSource: string | null = null;
+
+						if (submission.audio?.fileName) {
+							const result = await loadLyricsSiteAudio({
+								audioFileName: submission.audio.fileName,
+								audioTitle: submission.audio.title,
+								pushNotification: (payload) => {
+									setPushNotification({
+										id: `audio-load-${submission.id}`,
+										level: payload.level,
+										title: payload.title,
+										source: payload.source,
+									});
+								},
+							});
+							if (result.success) {
+								success = true;
+								selectedSource = "lyrics-site";
+							}
+						}
+
+						if (!success && ncmIds.length > 0) {
+							try {
+								await loadNeteaseAudio({
+									prNumber,
+									id: ncmIds[0],
+									pendingId: null,
+									setPendingId: () => {},
+									setLastNeteaseIdByPr: () => {},
+									openFile: openFile,
+									pushNotification: (payload) => {
+										setPushNotification({
+											id: `audio-load-${submission.id}`,
+											level: payload.level,
+											title: payload.title,
+											source: payload.source,
+										});
+									},
+									cookie: _neteaseCookie || "",
+								});
+								success = true;
+								selectedSource = "netease";
+							} catch (e) {
+								console.error("网易云加载失败:", e);
+							}
+						}
+
+						if (success && selectedSource) {
+							const audioSource: AudioSource =
+								selectedSource === "lyrics-site" ? "user-upload" : "netease";
 							setReviewSession((prev) => prev ? { ...prev, audioSource } : prev);
+						} else {
+							setPushNotification({
+								id: `audio-load-${submission.id}-fail`,
+								level: "warning",
+								title: "没有可用的音源",
+								source: "review",
+							});
 						}
 					} catch (error) {
-						console.error("加载音频失败:", error);
+						console.error("加载音频异常:", error);
 					} finally {
 						setAudioLoadPendingId(null);
 					}
@@ -245,6 +289,7 @@ export const useLyricsSiteReviewService = () => {
 			setReviewSession,
 			setToolMode,
 			audioLoadPendingId,
+			_neteaseCookie,
 		],
 	);
 

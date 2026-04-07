@@ -1,6 +1,6 @@
 import { Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
-import type { AudioSourceOption, AudioSourceDialogState } from "$/modules/review/services/ncm-audio-service";
+import type { AudioSourceOption, AudioSourceDialogState } from "$/modules/review/services/audio-switch";
 
 type AudioSourceSelectDialogProps = AudioSourceDialogState & {
 	onSelect: (source: AudioSourceOption) => void;

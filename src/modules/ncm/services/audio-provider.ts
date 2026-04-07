@@ -2,7 +2,7 @@ import { openDB } from "idb";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppNotification } from "$/states/notifications";
 import { requestNetease } from "./index";
-import { audioProxyUrlAtom } from "$/modules/settings/states";
+import { audioProxyUrlAtom, neteaseCookieAtom } from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 import { audioEngine } from "$/modules/audio/audio-engine";
 
@@ -276,4 +276,16 @@ export const loadNeteaseAudio = async (options: {
 	} finally {
 		options.setPendingId(null);
 	}
+};
+
+export const getNeteaseAudioSourceInfo = async (ncmIds: string[]) => {
+	const cookie = globalStore.get(neteaseCookieAtom)?.trim();
+	const available = ncmIds.length > 0 && !!cookie;
+
+	return {
+		type: "netease" as const,
+		name: "网易云音乐",
+		available,
+		description: available ? `共 ${ncmIds.length} 个 ID` : "未登录或无 ID",
+	};
 };

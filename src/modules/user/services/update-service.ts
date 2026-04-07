@@ -7,7 +7,7 @@ import type { AppNotification } from "$/states/notifications";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import { ToolMode, type FileUpdateSession } from "$/states/main";
 import { parseLyric } from "$/modules/project/logic/ttml-parser";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import type { Dispatch, SetStateAction } from "react";
 import { log } from "$/utils/logging";
 

@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReviewSession, AudioSource } from "$/states/main";
 import type { AppNotification } from "$/states/notifications";
-import { createAudioSelector, type AudioSelector } from "$/modules/audio/services/audio-selector";
-import type { AudioSourceType, AudioSourceInfo } from "$/modules/audio/services/audio-provider";
+import { loadLyricsSiteAudio, getLyricsSiteAudioSourceInfo } from "$/modules/lyrics-site/services/audio-provider";
+import { loadNeteaseAudio, getNeteaseAudioSourceInfo } from "$/modules/ncm/services/audio-provider";
 
-type PushNotification = (
-	payload: Omit<AppNotification, "id" | "createdAt">,
-) => void;
-
+export type AudioSourceType = "netease" | "lyrics-site";
 export type AudioSourceOption = AudioSourceType;
+
+export type AudioSourceInfo = {
+	type: AudioSourceType;
+	name: string;
+	available: boolean;
+	description?: string;
+};
 
 export type AudioSourceDialogState = {
 	open: boolean;
@@ -16,6 +20,10 @@ export type AudioSourceDialogState = {
 	currentSource?: AudioSource;
 	audioSourceInfos?: AudioSourceInfo[];
 };
+
+type PushNotification = (
+	payload: Omit<AppNotification, "id" | "createdAt">,
+) => void;
 
 export const useAudioSwitch = (options: {
 	pat: string;
@@ -43,7 +51,6 @@ export const useAudioSwitch = (options: {
 	});
 	const neteaseIdResolveRef = useRef<((id: string | null) => void) | null>(null);
 	const audioSourceResolveRef = useRef<((source: AudioSourceOption | null) => void) | null>(null);
-	const audioSelectorRef = useRef<AudioSelector | null>(null);
 
 	const closeNeteaseIdDialog = useCallback(() => {
 		if (neteaseIdResolveRef.current) {
@@ -125,24 +132,8 @@ export const useAudioSwitch = (options: {
 		closeAudioSourceDialog();
 	}, [audioSourceDialog.open, closeAudioSourceDialog, reviewSession]);
 
-	const createAudioSelectorForSession = useCallback(() => {
-		if (!reviewSession) return null;
-
-		return createAudioSelector({
-			lyricsSiteConfig: reviewSession.source === "lyrics-site" && reviewSession.audioFileName ? {
-				audioFileName: reviewSession.audioFileName,
-				audioTitle: reviewSession.audioTitle,
-			} : undefined,
-			neteaseConfig: reviewSession.ncmIds && reviewSession.ncmIds.length > 0 ? {
-				ncmIds: reviewSession.ncmIds,
-				prNumber: reviewSession.prNumber,
-				onSelectId: requestNeteaseId,
-			} : undefined,
-		});
-	}, [reviewSession, requestNeteaseId]);
-
 	const onSwitchAudio = useCallback(async () => {
-		if (!reviewSession?.prNumber) {
+		if (!reviewSession?.prNumber && reviewSession?.source !== "lyrics-site") {
 			pushNotification({
 				title: "当前文件没有关联 PR，无法切换音频",
 				level: "warning",
@@ -160,43 +151,93 @@ export const useAudioSwitch = (options: {
 		}
 		if (audioLoadPendingId) return;
 
-		const selector = createAudioSelectorForSession();
-		if (!selector) return;
+		const audioSourceInfos: AudioSourceInfo[] = [];
 
-		audioSelectorRef.current = selector;
+		if (reviewSession.source === "lyrics-site" && reviewSession.audioFileName) {
+			audioSourceInfos.push(await getLyricsSiteAudioSourceInfo(reviewSession.audioFileName, reviewSession.audioTitle));
+		}
 
-		const audioSourceInfos = await selector.getAudioSourceInfos();
+		if (reviewSession.ncmIds && reviewSession.ncmIds.length > 0) {
+			audioSourceInfos.push(await getNeteaseAudioSourceInfo(reviewSession.ncmIds));
+		}
+
+		if (audioSourceInfos.length === 0) {
+			pushNotification({
+				title: "没有可用的音源",
+				level: "warning",
+				source: "review",
+			});
+			return;
+		}
+
 		const selectedSource = await requestAudioSource(audioSourceInfos, reviewSession.audioSource);
 
 		if (!selectedSource) return;
 
 		setAudioLoadPendingId(selectedSource);
 		try {
-			const result = await selector.loadFromSource(selectedSource, {
-				pushNotification,
-			});
-
-			if (result.success) {
-				setReviewSession({
-					...reviewSession,
-					audioSource: selectedSource === "lyrics-site" ? "user-upload" : selectedSource,
+			if (selectedSource === "lyrics-site") {
+				const result = await loadLyricsSiteAudio({
+					audioFileName: reviewSession.audioFileName,
+					audioTitle: reviewSession.audioTitle,
+					pushNotification,
 				});
+				if (result.success) {
+					setReviewSession({
+						...reviewSession,
+						audioSource: "user-upload",
+					});
+				}
+			} else if (selectedSource === "netease") {
+				const ncmIds = reviewSession.ncmIds || [];
+				let selectedId = ncmIds[0];
+				if (ncmIds.length > 1) {
+					const id = await requestNeteaseId(ncmIds);
+					if (!id) return;
+					selectedId = id;
+				}
+
+				if (selectedId) {
+					await loadNeteaseAudio({
+						prNumber: reviewSession.prNumber || 0,
+						id: selectedId,
+						pendingId: null,
+						setPendingId: () => {},
+						setLastNeteaseIdByPr: () => {},
+						openFile: options.openFile,
+						pushNotification,
+						cookie: options.neteaseCookie,
+					});
+					setReviewSession({
+						...reviewSession,
+						audioSource: "netease",
+					});
+				}
 			}
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : "未知错误";
+			pushNotification({
+				title: `切换音频失败：${errorMsg}`,
+				level: "error",
+				source: "review",
+			});
 		} finally {
 			setAudioLoadPendingId(null);
 		}
 	}, [
 		audioLoadPendingId,
 		canReview,
-		createAudioSelectorForSession,
+		options.openFile,
+		options.neteaseCookie,
 		pushNotification,
 		requestAudioSource,
+		requestNeteaseId,
 		reviewSession,
 		setReviewSession,
 	]);
 
 	const switchAudioEnabled =
-		Boolean(reviewSession?.prNumber) && !audioLoadPendingId;
+		Boolean(reviewSession?.prNumber || reviewSession?.source === "lyrics-site") && !audioLoadPendingId;
 
 	return {
 		neteaseIdDialog,

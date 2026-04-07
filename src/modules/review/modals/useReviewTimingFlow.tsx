@@ -41,7 +41,7 @@ import {
 	buildTimingStashCards,
 	buildTimingStashGroups,
 } from "$/modules/review/services/stash-service";
-import { useNcmAudioSwitch } from "$/modules/review/services/ncm-audio-service";
+import { useNcmAudioSwitch } from "$/modules/review/services/audio-switch";
 import { StashDialog } from "./StashDialog";
 import { AudioSourceSelectDialog } from "./AudioSourceSelectDialog";
 

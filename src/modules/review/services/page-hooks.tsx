@@ -31,7 +31,7 @@ import {
 	toolModeAtom,
 } from "$/states/main";
 import { log } from "$/utils/logging";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import {
 	fetchOpenPullRequestPage,
