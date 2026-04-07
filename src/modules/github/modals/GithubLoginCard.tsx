@@ -588,7 +588,7 @@ export const GithubLoginCard = () => {
 									<TextField.Root
 										placeholder={t(
 											"settings.connect.reviewHiddenUsersPlaceholder",
-											"输入 GitHub 用户名",
+											"输入 GitHub 或歌词站用户名",
 										)}
 										value={newHiddenUser}
 										onChange={(e) => setNewHiddenUser(e.currentTarget.value)}

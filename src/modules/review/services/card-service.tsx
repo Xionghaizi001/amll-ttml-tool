@@ -60,7 +60,8 @@ type ReviewMetadata = {
 	remark: string[];
 };
 
-export const extractMentions = (body: string) => {
+export const extractMentions = (body: string | undefined | null) => {
+	if (!body) return [];
 	const matches = [...body.matchAll(/@([a-zA-Z0-9-]+)/g)];
 	const names = matches.map((match) => match[1]).filter(Boolean);
 	return Array.from(new Set(names));

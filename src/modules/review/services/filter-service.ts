@@ -56,22 +56,30 @@ export const applyReviewFilters = (options: {
 		});
 
 const userFilteredItems =
-	// 先处理隐藏用户过滤
 	options.hiddenUserSet.size === 0
 		? labelFilteredItems
 		: labelFilteredItems.filter((item) => {
-				const mentions = extractMentions(item.body);
-				if (mentions.length === 0) return true;
-				if (options.hiddenUserMode === "any") {
-					// 只要包含该用户就隐藏
-					return !mentions.some((name) =>
+				if (isLyricsSiteSubmission(item)) {
+					const submitter = item.submitter?.toLowerCase();
+					if (!submitter) return true;
+					if (options.hiddenUserMode === "any") {
+						return !options.hiddenUserSet.has(submitter);
+					}
+					return !options.hiddenUserSet.has(submitter);
+				}
+				if (isGitHubPullRequest(item)) {
+					const mentions = extractMentions(item.body);
+					if (mentions.length === 0) return true;
+					if (options.hiddenUserMode === "any") {
+						return !mentions.some((name) =>
+							options.hiddenUserSet.has(name.toLowerCase()),
+						);
+					}
+					return !mentions.every((name) =>
 						options.hiddenUserSet.has(name.toLowerCase()),
 					);
 				}
-				// 只包含该用户才隐藏
-				return !mentions.every((name) =>
-					options.hiddenUserSet.has(name.toLowerCase()),
-				);
+				return true;
 		  });
 
 // 选中用户过滤
