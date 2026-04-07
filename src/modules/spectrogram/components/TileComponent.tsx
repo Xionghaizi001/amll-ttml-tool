@@ -23,7 +23,7 @@ export const TileComponent = memo(
 		const currentBitmapRef = useRef<ImageBitmap | undefined>(undefined);
 
 		useEffect(() => {
-			if (bitmap !== currentBitmapRef.current) {
+		if (bitmap !== currentBitmapRef.current) {
 				if (currentBitmapRef.current) {
 					currentBitmapRef.current.close();
 				}
@@ -31,11 +31,17 @@ export const TileComponent = memo(
 			}
 
 			if (bitmap && canvasRef.current) {
-				const canvas = canvasRef.current;
-				if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
-				if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
-				const ctx = canvas.getContext("2d");
-				ctx?.drawImage(bitmap, 0, 0);
+				try {
+					const canvas = canvasRef.current;
+					if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
+					if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
+					const ctx = canvas.getContext("2d");
+					if (ctx) {
+						ctx.drawImage(bitmap, 0, 0);
+					}
+				} catch {
+					// bitmap may have been closed
+				}
 			}
 		}, [bitmap]);
 

@@ -70,19 +70,22 @@ class AudioEngine extends EventTarget {
 	// Since an element is required to sync with waveform.js,
 	// all audio playback is done through this element
 	private _audioEl: HTMLAudioElement | null = null;
+	private _mediaElementSource: MediaElementAudioSourceNode | null = null;
 	get audioEl() {
 		if (this._audioEl) return this._audioEl;
 		this._audioEl = document.createElement("audio");
 		this._audioEl.preload = "metadata";
+		this._audioEl.crossOrigin = "anonymous";
 		return this._audioEl;
 	}
 
 	/** Connect AudioElement to AudioContext, called after load finished */
 	private connectAudioToContext() {
 		if (!this._audioEl || !this.ctx || this._audioEl.src === "") return;
+		if (this._mediaElementSource) return;
 		try {
-			const source = this.ctx.createMediaElementSource(this._audioEl);
-			source?.connect(this.gain);
+			this._mediaElementSource = this.ctx.createMediaElementSource(this._audioEl);
+			this._mediaElementSource.connect(this.gain);
 			log("AudioElement connected to AudioContext");
 		} catch (e) {
 			log("Failed to connect AudioElement:", e);
@@ -267,6 +270,66 @@ class AudioEngine extends EventTarget {
 
 	//#region Load sound
 	private musicBuffer: AudioBuffer | null = null;
+
+	async loadMusicFromUrl(url: string): Promise<HTMLAudioElement> {
+		const audioEl = this.audioEl;
+
+		if (this.musicBuffer) {
+			this.pauseMusic();
+			this.musicBuffer = null;
+			globalStore.set(audioBufferAtom, null);
+			audioEl.src = "";
+			this.dispatchEvent(new Event("music-unload"));
+		}
+		this.dispatchEvent(new Event("music-loading"));
+
+		return new Promise((resolve, reject) => {
+			audioEl.onloadedmetadata = null;
+			audioEl.onerror = null;
+
+			audioEl.onerror = (e: Event | string) => {
+				const error = audioEl.error;
+				const msg = error?.message || e.toString();
+				this.dispatchEvent(new Event("music-load-error"));
+				reject(new Error(`Audio load error: ${msg}`));
+			};
+
+			audioEl.onloadedmetadata = async () => {
+				this.connectAudioToContext();
+				this.setupAudioListeners();
+
+				audioEl.onloadedmetadata = null;
+				audioEl.onerror = null;
+
+				this.dispatchEvent(new Event("music-load"));
+				resolve(audioEl);
+
+				this.decodeAudioFromUrl(url).catch((err) => {
+					console.warn("[AudioEngine] Background decode failed:", err);
+				});
+			};
+
+			audioEl.src = url;
+			audioEl.load();
+		});
+	}
+
+	private async decodeAudioFromUrl(url: string): Promise<void> {
+		try {
+			const response = await fetch(url, {
+				mode: 'cors',
+				cache: 'no-cache',
+			});
+			if (!response.ok) return;
+			
+			const audioData = await response.arrayBuffer();
+			this.musicBuffer = await this.ctx.decodeAudioData(audioData);
+			globalStore.set(audioBufferAtom, this.musicBuffer);
+			log("Audio decoded in background");
+		} catch (err) {
+			console.warn("[AudioEngine] decodeAudioFromUrl failed:", err);
+		}
+	}
 
 	async loadMusic(src: Blob, isRetry = false): Promise<HTMLAudioElement> {
 		const audioEl = this.audioEl;

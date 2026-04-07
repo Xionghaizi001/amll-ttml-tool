@@ -2,6 +2,9 @@ import { openDB } from "idb";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppNotification } from "$/states/notifications";
 import { requestNetease } from "./index";
+import { audioProxyUrlAtom } from "$/modules/settings/states";
+import { globalStore } from "$/states/store";
+import { audioEngine } from "$/modules/audio/audio-engine";
 
 const AUDIO_CACHE_DB = "amll-audio-cache";
 const AUDIO_CACHE_STORE = "audio-files";
@@ -149,6 +152,19 @@ const buildAudioFileName = (
 	return `${sanitizeFileName(baseName)}.${ext}`;
 };
 
+export const getNeteaseAudioUrl = async (
+	id: string,
+	cookie?: string,
+): Promise<string | null> => {
+	const audioUrl = await fetchNeteaseAudioUrl(id, cookie);
+	if (!audioUrl) return null;
+	
+	const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
+	return proxyBase
+		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
+		: audioUrl;
+};
+
 export const cacheNeteaseAudioToIndexedDb = async (
 	id: string,
 	cookie?: string,
@@ -162,11 +178,31 @@ export const cacheNeteaseAudioToIndexedDb = async (
 	if (!audioUrl) {
 		throw new Error("找不到音频 URL，可能需要 VIP？");
 	}
-	const response = await fetch(audioUrl);
+	const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
+	const fetchUrl = proxyBase
+		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
+		: audioUrl;
+	
+	let response: Response;
+	try {
+		response = await fetch(fetchUrl, {
+			mode: 'cors',
+			cache: 'no-cache',
+		});
+	} catch (fetchError) {
+		throw new Error(`网络请求失败: ${fetchError instanceof Error ? fetchError.message : '未知错误'}`);
+	}
+	
 	if (!response.ok) {
 		throw new Error(`音频下载失败：${response.status}`);
 	}
-	const blob = await response.blob();
+	
+	let blob: Blob;
+	try {
+		blob = await response.blob();
+	} catch (blobError) {
+		throw new Error(`读取响应失败: ${blobError instanceof Error ? blobError.message : '未知错误'}`);
+	}
 	const responseType = response.headers.get("content-type");
 	const contentType = blob.type || responseType;
 	if (isImageContentType(contentType) || isImageContentType(responseType)) {
@@ -204,22 +240,34 @@ export const loadNeteaseAudio = async (options: {
 	}));
 	try {
 		const trimmedCookie = options.cookie.trim();
-		const file = await cacheNeteaseAudioToIndexedDb(
+		const cached = await readAudioCache(options.id);
+		if (cached) {
+			options.openFile(cached);
+			options.pushNotification({
+				title: `已从缓存加载音频：${cached.name}`,
+				level: "success",
+				source: "audio",
+			});
+			return;
+		}
+
+		const audioUrl = await getNeteaseAudioUrl(
 			options.id,
 			trimmedCookie.length > 0 ? trimmedCookie : undefined,
 		);
-		if (!file) {
-			throw new Error("音频内容异常（疑似图片），已忽略");
+		if (!audioUrl) {
+			throw new Error("找不到音频 URL，可能需要 VIP？");
 		}
-		options.openFile(file);
+
+		await audioEngine.loadMusicFromUrl(audioUrl);
 		options.pushNotification({
-			title: `已加载音频并缓存：${file.name}`,
+			title: `已加载音频`,
 			level: "success",
 			source: "audio",
 		});
 	} catch (error) {
 		options.pushNotification({
-			title: `缓存音频失败：${
+			title: `加载音频失败：${
 				error instanceof Error ? error.message : "未知错误"
 			}`,
 			level: "error",
