@@ -342,15 +342,19 @@ export const LyricLineView: FC<{
 		return false;
 	}, [line.startTime, line.endTime, line.words]);
 
-	// 检查是否需要 Agent 警告：如果歌词有 Agent，但该行没有设置 Agent，则显示警告
+	// 检查是否需要 Agent 警告：如果歌词有 Agent，但该行没有设置 Agent，则显示警告（背景行除外）
 	const hasAgentWarning = useMemo(() => {
+		// 背景行不需要检查 Agent
+		if (line.isBG) {
+			return false;
+		}
 		// 如果歌词没有定义任何 Agent，不需要警告
 		if (!lyricLines.agents || lyricLines.agents.length === 0) {
 			return false;
 		}
 		// 如果该行没有设置 Agent，显示警告
 		return !line.agent;
-	}, [lyricLines.agents, line.agent]);
+	}, [lyricLines.agents, line.agent, line.isBG]);
 
 	const hasRadical = useMemo(() => {
 		for (const word of line.words) {

@@ -835,13 +835,23 @@ const AgentField: FC = () => {
 		return { person, group, other };
 	}, [lyricLines.agents]);
 
-	// 获取当前选中行的 agent 值
+	// 检查选中的行是否包含背景行
+	const hasSelectedBGLine = useMemo(() => {
+		for (const line of lyricLines.lyricLines) {
+			if (selectedLines.has(line.id) && line.isBG) {
+				return true;
+			}
+		}
+		return false;
+	}, [selectedLines, lyricLines]);
+
+	// 获取当前选中行的 agent 值（只检查非背景行）
 	const currentAgent = useMemo(() => {
 		if (selectedLines.size === 0) return undefined;
 		const values = new Set<string | undefined>();
 		for (const line of lyricLines.lyricLines) {
-			if (selectedLines.has(line.id)) {
-				// 从行的 agent 字段获取值
+			if (selectedLines.has(line.id) && !line.isBG) {
+				// 从行的 agent 字段获取值（背景行不参与）
 				values.add(line.agent);
 			}
 		}
@@ -877,17 +887,17 @@ const AgentField: FC = () => {
 					}
 				}
 
-				// 首先更新选中行的 agent
+				// 首先更新选中行的 agent（跳过背景行）
 				for (const line of state.lyricLines) {
-					if (selectedLines.has(line.id)) {
+					if (selectedLines.has(line.id) && !line.isBG) {
 						line.agent = value === NONE_VALUE ? undefined : value;
 					}
 				}
 
-				// 找到第一个选中的行索引，用于向前查找 lastAgentId
+				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
 				let firstSelectedIndex = -1;
 				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (selectedLines.has(state.lyricLines[i].id)) {
+					if (selectedLines.has(state.lyricLines[i].id) && !state.lyricLines[i].isBG) {
 						firstSelectedIndex = i;
 						break;
 					}
@@ -1006,6 +1016,8 @@ const AgentField: FC = () => {
 	const agentsList = lyricLines.agents ?? [];
 	const hasAgents = agentsList.length > 0;
 
+	const isAgentSelectDisabled = selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
+
 	return (
 		<>
 			<Text size="1" id={agentLabelId}>
@@ -1015,6 +1027,7 @@ const AgentField: FC = () => {
 				value={displayValue}
 				onValueChange={handleAgentChange}
 				size="1"
+				disabled={isAgentSelectDisabled}
 			>
 				<Select.Trigger
 					placeholder={
@@ -1022,30 +1035,27 @@ const AgentField: FC = () => {
 							? t("ribbonBar.editMode.noAgents", "No agents")
 							: selectedLines.size === 0
 								? t("ribbonBar.editMode.noSelection", "No selection")
-								: t("ribbonBar.editMode.none", "None")
+								: hasSelectedBGLine
+									? t("ribbonBar.editMode.bgLineDisabled", "BG line selected")
+									: t("ribbonBar.editMode.none", "None")
 					}
-					disabled={selectedLines.size === 0 || !hasAgents}
 					aria-labelledby={agentLabelId}
 				/>
 				<Select.Content>
-					<Select.Item value={NONE_VALUE}>
-						{t("ribbonBar.editMode.none", "None")}
-					</Select.Item>
-					<Select.Separator />
 					{agentOptions.map((option) =>
 						option.type === "separator" ? (
 							<Select.Separator key={option.value} />
 						) : (
 							<Tooltip
-							key={option.value}
-							content={option.names.join(", ") || option.value}
-							side="left"
-							align="center"
-						>
-							<Select.Item value={option.value}>
-								{option.label}
-							</Select.Item>
-						</Tooltip>
+								key={option.value}
+								content={option.names.join(", ") || option.value}
+								side="left"
+								align="center"
+							>
+								<Select.Item value={option.value}>
+									{option.label}
+								</Select.Item>
+							</Tooltip>
 						)
 					)}
 				</Select.Content>
