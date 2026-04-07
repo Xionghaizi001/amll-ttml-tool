@@ -29,7 +29,7 @@ import {
 	type ReviewItem,
 	type ReviewPullRequest,
 } from "$/modules/review/services/card-service";
-import type { LyricsSiteSubmission } from "$/modules/review/services/lyrics-site-service";
+import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 
 type PlatformItem = {
 	ids: string[];

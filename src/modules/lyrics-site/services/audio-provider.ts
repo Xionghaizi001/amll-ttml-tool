@@ -1,5 +1,5 @@
-import type { AudioProvider, AudioProviderOptions, AudioLoadResult, AudioSourceInfo } from "./audio-provider";
-import { getAudioFileUrl } from "$/modules/review/services/lyrics-site-service";
+import type { AudioProvider, AudioProviderOptions, AudioLoadResult, AudioSourceInfo } from "$/modules/audio/services/audio-provider";
+import { getAudioFileUrl } from "../index";
 import { lyricsSiteTokenAtom, audioProxyUrlAtom } from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 import { audioEngine } from "$/modules/audio/audio-engine";

@@ -11,7 +11,7 @@ import {
 	fetchLyricFileContent,
 	submitReview,
 	type LyricsSiteSubmission,
-} from "./lyrics-site-service";
+} from "../index";
 import { useFileOpener } from "$/hooks/useFileOpener";
 import { createAudioSelector } from "$/modules/audio/services/audio-selector";
 import type { NotificationLevel } from "$/states/notifications";
@@ -26,25 +26,13 @@ export const useLyricsSiteReviewService = () => {
 	const setToolMode = useSetAtom(toolModeAtom);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(null);
 
-	const _notify = useCallback(
-		(type: NotificationLevel, content: string, id?: string) => {
-			setPushNotification({
-				id,
-				type,
-				level: type,
-				title: content,
-			});
-		},
-		[setPushNotification],
-	);
-
 	const approveSubmission = useCallback(
 		async (submissionId: string, comment?: string) => {
 			if (!token) {
 				setPushNotification({
 					id: "lyrics-site-review-error",
-					type: "error",
-					content: "未登录歌词站",
+					level: "error",
+					title: "未登录歌词站",
 				});
 				return false;
 			}
@@ -52,8 +40,8 @@ export const useLyricsSiteReviewService = () => {
 			const notificationId = `lyrics-site-approve-${submissionId}`;
 			setPushNotification({
 				id: notificationId,
-				type: "loading",
-				content: "正在通过审核...",
+				level: "info",
+				title: "正在通过审核...",
 			});
 
 			try {
@@ -61,16 +49,16 @@ export const useLyricsSiteReviewService = () => {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-approve-success-${submissionId}`,
-					type: "success",
-					content: "审核通过",
+					level: "success",
+					title: "审核通过",
 				});
 				return true;
 			} catch (error) {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-approve-error-${submissionId}`,
-					type: "error",
-					content: `审核失败: ${error instanceof Error ? error.message : "未知错误"}`,
+					level: "error",
+					title: `审核失败: ${error instanceof Error ? error.message : "未知错误"}`,
 				});
 				return false;
 			}
@@ -83,8 +71,8 @@ export const useLyricsSiteReviewService = () => {
 			if (!token) {
 				setPushNotification({
 					id: "lyrics-site-review-error",
-					type: "error",
-					content: "未登录歌词站",
+					level: "error",
+					title: "未登录歌词站",
 				});
 				return false;
 			}
@@ -92,8 +80,8 @@ export const useLyricsSiteReviewService = () => {
 			const notificationId = `lyrics-site-revision-${submissionId}`;
 			setPushNotification({
 				id: notificationId,
-				type: "loading",
-				content: "正在请求修改...",
+				level: "info",
+				title: "正在请求修改...",
 			});
 
 			try {
@@ -101,16 +89,16 @@ export const useLyricsSiteReviewService = () => {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-revision-success-${submissionId}`,
-					type: "success",
-					content: "已请求修改",
+					level: "success",
+					title: "已请求修改",
 				});
 				return true;
 			} catch (error) {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-revision-error-${submissionId}`,
-					type: "error",
-					content: `请求修改失败: ${error instanceof Error ? error.message : "未知错误"}`,
+					level: "error",
+					title: `请求修改失败: ${error instanceof Error ? error.message : "未知错误"}`,
 				});
 				return false;
 			}
@@ -123,8 +111,8 @@ export const useLyricsSiteReviewService = () => {
 			if (!token) {
 				setPushNotification({
 					id: "lyrics-site-review-error",
-					type: "error",
-					content: "未登录歌词站",
+					level: "error",
+					title: "未登录歌词站",
 				});
 				return false;
 			}
@@ -132,8 +120,8 @@ export const useLyricsSiteReviewService = () => {
 			const notificationId = `lyrics-site-missing-audio-${submissionId}`;
 			setPushNotification({
 				id: notificationId,
-				type: "loading",
-				content: "正在标记缺少音源...",
+				level: "info",
+				title: "正在标记缺少音源...",
 			});
 
 			try {
@@ -141,16 +129,16 @@ export const useLyricsSiteReviewService = () => {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-missing-audio-success-${submissionId}`,
-					type: "success",
-					content: "已标记缺少音源",
+					level: "success",
+					title: "已标记缺少音源",
 				});
 				return true;
 			} catch (error) {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-missing-audio-error-${submissionId}`,
-					type: "error",
-					content: `标记失败: ${error instanceof Error ? error.message : "未知错误"}`,
+					level: "error",
+					title: `标记失败: ${error instanceof Error ? error.message : "未知错误"}`,
 				});
 				return false;
 			}
@@ -163,8 +151,8 @@ export const useLyricsSiteReviewService = () => {
 			if (!token) {
 				setPushNotification({
 					id: "lyrics-site-open-error",
-					type: "error",
-					content: "未登录歌词站",
+					level: "error",
+					title: "未登录歌词站",
 				});
 				return;
 			}
@@ -172,8 +160,8 @@ export const useLyricsSiteReviewService = () => {
 			const notificationId = `lyrics-site-open-${submission.id}`;
 			setPushNotification({
 				id: notificationId,
-				type: "loading",
-				content: "正在打开文件...",
+				level: "info",
+				title: "正在打开文件...",
 			});
 
 			try {
@@ -244,8 +232,8 @@ export const useLyricsSiteReviewService = () => {
 				setRemoveNotification(notificationId);
 				setPushNotification({
 					id: `lyrics-site-open-error-${submission.id}`,
-					type: "error",
-					content: `打开文件失败: ${error instanceof Error ? error.message : "未知错误"}`,
+					level: "error",
+					title: `打开文件失败: ${error instanceof Error ? error.message : "未知错误"}`,
 				});
 			}
 		},

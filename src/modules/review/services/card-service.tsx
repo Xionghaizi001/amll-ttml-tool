@@ -4,7 +4,7 @@ import {
 	Person20Regular,
 } from "@fluentui/react-icons";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
-import type { LyricsSiteSubmission } from "./lyrics-site-service";
+import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 
 export type ReviewLabel = {
 	name: string;

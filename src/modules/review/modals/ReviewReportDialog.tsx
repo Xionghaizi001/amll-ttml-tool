@@ -38,7 +38,7 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
-import { submitReview as submitLyricsSiteReview } from "$/modules/review/services/lyrics-site-service";
+import { submitReview as submitLyricsSiteReview } from "$/modules/lyrics-site";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";

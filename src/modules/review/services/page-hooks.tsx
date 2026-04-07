@@ -51,7 +51,7 @@ import { useRemoteReviewService } from "./remote-service";
 import {
 	fetchPendingSubmissions,
 	type LyricsSiteSubmission,
-} from "./lyrics-site-service";
+} from "$/modules/lyrics-site";
 
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";

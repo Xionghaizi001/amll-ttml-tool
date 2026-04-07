@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReviewSession, AudioSource } from "$/states/main";
 import type { AppNotification } from "$/states/notifications";
-import { fetchPullRequestDetail } from "$/modules/github/services/PR-service";
-import { parseReviewMetadata } from "$/modules/review/services/card-service";
 import { createAudioSelector, type AudioSelector } from "$/modules/audio/services/audio-selector";
 import type { AudioSourceType, AudioSourceInfo } from "$/modules/audio/services/audio-provider";
 
@@ -29,7 +27,6 @@ export const useAudioSwitch = (options: {
 	setReviewSession: (session: ReviewSession | null) => void;
 }) => {
 	const {
-		pat,
 		canReview,
 		reviewSession,
 		pushNotification,

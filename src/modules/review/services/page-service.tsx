@@ -20,7 +20,7 @@ import {
 } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
-import { useLyricsSiteReviewService } from "./lyrics-site-review-service";
+import { useLyricsSiteReviewService } from "$/modules/lyrics-site";
 import styles from "../index.module.css";
 
 const ReviewPage = () => {

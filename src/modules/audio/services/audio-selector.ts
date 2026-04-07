@@ -1,8 +1,8 @@
 import type { AudioProvider, AudioProviderOptions, AudioLoadResult, AudioSourceInfo, AudioSourceType } from "./audio-provider";
 import type { NeteaseAudioProviderConfig } from "./netease-audio-provider";
-import type { LyricsSiteAudioProviderConfig } from "./lyrics-site-audio-provider";
+import type { LyricsSiteAudioProviderConfig } from "$/modules/lyrics-site";
 import { createNeteaseAudioProvider, getNeteaseAudioSourceInfo } from "./netease-audio-provider";
-import { createLyricsSiteAudioProvider, getLyricsSiteAudioSourceInfo } from "./lyrics-site-audio-provider";
+import { createLyricsSiteAudioProvider, getLyricsSiteAudioSourceInfo } from "$/modules/lyrics-site";
 
 export type AudioSelectorConfig = {
 	neteaseConfig?: NeteaseAudioProviderConfig;
