@@ -930,7 +930,21 @@ export const MetadataEditor = () => {
 	return (
 		<Dialog.Root
 			open={metadataEditorDialog}
-			onOpenChange={setMetadataEditorDialog}
+			onOpenChange={(open) => {
+				setMetadataEditorDialog(open);
+				if (!open) {
+					// 弹窗关闭时清理 trim 后为空的元数据
+					setLyricLines((prev) => {
+						// 清理每个元数据条目中的空值
+						prev.metadata = prev.metadata
+							.map((entry) => ({
+								...entry,
+								value: entry.value.filter((v) => v.trim() !== ""),
+							}))
+							.filter((entry) => entry.value.length > 0);
+					});
+				}
+			}}
 		>
 			<Dialog.Content className={styles.dialogContent}>
 				<div className={styles.dialogHeader}>
