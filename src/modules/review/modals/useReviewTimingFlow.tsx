@@ -72,9 +72,9 @@ export const useReviewTimingFlow = () => {
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const { openFile } = useFileOpener();
 	const { t } = useTranslation();
-	const [TimingCandidates, setTimingCandidates] = useState<SyncChangeCandidate[]>(
-		[],
-	);
+	const [TimingCandidates, setTimingCandidates] = useState<
+		SyncChangeCandidate[]
+	>([]);
 	const [TimingStashOpen, setTimingStashOpen] = useState(false);
 	const [TimingStashItems, setTimingStashItems] = useState<TimingStashItem[]>(
 		[],
@@ -188,10 +188,10 @@ export const useReviewTimingFlow = () => {
 		const candidates = buildSyncChanges(freezeData, stagedData);
 		setTimingCandidates(candidates);
 		const submittedSet = new Set(
-			stashKey ? reviewStashSubmitted[stashKey] ?? [] : [],
+			stashKey ? (reviewStashSubmitted[stashKey] ?? []) : [],
 		);
 		const removedOrderSet = new Set(
-			stashKey ? reviewStashRemovedOrder[stashKey] ?? [] : [],
+			stashKey ? (reviewStashRemovedOrder[stashKey] ?? []) : [],
 		);
 		const nextStash: TimingStashItem[] = [];
 		for (const candidate of candidates) {
@@ -353,8 +353,12 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
-					source: activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
-					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
+					source:
+						activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
+					submissionId:
+						activeSession.source === "lyrics-site"
+							? String(activeSession.prNumber)
+							: undefined,
 				});
 				setTimingStashItems([]);
 				setTimingStashOpen(false);
@@ -374,8 +378,12 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
-					source: activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
-					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
+					source:
+						activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
+					submissionId:
+						activeSession.source === "lyrics-site"
+							? String(activeSession.prNumber)
+							: undefined,
 				});
 			}
 		}
@@ -458,12 +466,7 @@ export const useReviewTimingFlow = () => {
 		}
 		setTimingStashItems([]);
 		setTimingStashSelected(new Map());
-	}, [
-		stashKey,
-		setReviewStashRemovedOrder,
-		TimingOrderMap,
-		TimingStashItems,
-	]);
+	}, [stashKey, setReviewStashRemovedOrder, TimingOrderMap, TimingStashItems]);
 
 	const onSelectAllStash = useCallback(
 		(field: "startTime" | "endTime") => {
@@ -523,8 +526,14 @@ export const useReviewTimingFlow = () => {
 					reviewReportDialog.draftId) ||
 				draftMatch?.id ||
 				null,
-			source: reviewSession?.source === "lyrics-site" ? "lyrics-site" : reviewSession?.source ? "github" : undefined,
-			submissionId: reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
+			source:
+				reviewSession?.source === "lyrics-site"
+					? "lyrics-site"
+					: reviewSession?.source
+						? "github"
+						: undefined,
+			submissionId:
+				reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
 		setTimingStashItems([]);
 		setTimingStashSelected(new Map());

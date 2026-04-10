@@ -2,7 +2,10 @@ import { openDB } from "idb";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppNotification } from "$/states/notifications";
 import { requestNetease } from "./index";
-import { audioProxyUrlAtom, neteaseCookieAtom } from "$/modules/settings/states";
+import {
+	audioProxyUrlAtom,
+	neteaseCookieAtom,
+} from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 const AUDIO_CACHE_DB = "amll-audio-cache";
 const AUDIO_CACHE_STORE = "audio-files";
@@ -85,12 +88,14 @@ const readAudioCache = async (id: string) => {
 	}
 };
 
-
 const fetchNeteaseSongDetail = async (id: string, cookie?: string) => {
-	const res = await requestNetease<{ songs?: RawNeteaseSong[] }>("/song/detail", {
-		params: { ids: id },
-		cookie,
-	});
+	const res = await requestNetease<{ songs?: RawNeteaseSong[] }>(
+		"/song/detail",
+		{
+			params: { ids: id },
+			cookie,
+		},
+	);
 	const song = res.songs?.[0];
 	if (!song) return null;
 	return {
@@ -156,7 +161,7 @@ export const getNeteaseAudioUrl = async (
 ): Promise<string | null> => {
 	const audioUrl = await fetchNeteaseAudioUrl(id, cookie);
 	if (!audioUrl) return null;
-	
+
 	const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
 	return proxyBase
 		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
@@ -180,26 +185,30 @@ export const cacheNeteaseAudioToIndexedDb = async (
 	const fetchUrl = proxyBase
 		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
 		: audioUrl;
-	
+
 	let response: Response;
 	try {
 		response = await fetch(fetchUrl, {
-			mode: 'cors',
-			cache: 'no-cache',
+			mode: "cors",
+			cache: "no-cache",
 		});
 	} catch (fetchError) {
-		throw new Error(`网络请求失败: ${fetchError instanceof Error ? fetchError.message : '未知错误'}`);
+		throw new Error(
+			`网络请求失败: ${fetchError instanceof Error ? fetchError.message : "未知错误"}`,
+		);
 	}
-	
+
 	if (!response.ok) {
 		throw new Error(`音频下载失败：${response.status}`);
 	}
-	
+
 	let blob: Blob;
 	try {
 		blob = await response.blob();
 	} catch (blobError) {
-		throw new Error(`读取响应失败: ${blobError instanceof Error ? blobError.message : '未知错误'}`);
+		throw new Error(
+			`读取响应失败: ${blobError instanceof Error ? blobError.message : "未知错误"}`,
+		);
 	}
 	const responseType = response.headers.get("content-type");
 	const contentType = blob.type || responseType;
@@ -249,7 +258,10 @@ export const loadNeteaseAudio = async (options: {
 			return;
 		}
 
-		const file = await cacheNeteaseAudioToIndexedDb(options.id, trimmedCookie.length > 0 ? trimmedCookie : undefined);
+		const file = await cacheNeteaseAudioToIndexedDb(
+			options.id,
+			trimmedCookie.length > 0 ? trimmedCookie : undefined,
+		);
 		if (!file) {
 			throw new Error("下载音频失败");
 		}

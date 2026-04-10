@@ -1,5 +1,9 @@
 import type { AppNotification } from "$/states/notifications";
-import type { FileUpdateSession, ReviewReportDraft, ToolMode } from "$/states/main";
+import type {
+	FileUpdateSession,
+	ReviewReportDraft,
+	ToolMode,
+} from "$/states/main";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -47,24 +51,26 @@ export const createReviewReportDraftHandler =
 			report: draft.report,
 			draftId: draft.id,
 			source: draft.source ?? "github",
-			submissionId: draft.source === "lyrics-site" ? String(draft.prNumber) : undefined,
+			submissionId:
+				draft.source === "lyrics-site" ? String(draft.prNumber) : undefined,
 		});
 		options.onClose();
 	};
 
-export const createReviewUpdateNotificationHandler = (options: {
-	pat: string;
-	openFile: OpenFile;
-	setFileUpdateSession: (value: FileUpdateSession | null) => void;
-	setToolMode: (mode: ToolMode) => void;
-	pushNotification: PushNotification;
-	neteaseCookie: string;
-	pendingId: string | null;
-	setPendingId: (value: string | null) => void;
-	setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
-	selectNeteaseId?: (ids: string[]) => Promise<string | null> | string | null;
-	onClose: () => void;
-}) =>
+export const createReviewUpdateNotificationHandler =
+	(options: {
+		pat: string;
+		openFile: OpenFile;
+		setFileUpdateSession: (value: FileUpdateSession | null) => void;
+		setToolMode: (mode: ToolMode) => void;
+		pushNotification: PushNotification;
+		neteaseCookie: string;
+		pendingId: string | null;
+		setPendingId: (value: string | null) => void;
+		setLastNeteaseIdByPr: Dispatch<SetStateAction<Record<number, string>>>;
+		selectNeteaseId?: (ids: string[]) => Promise<string | null> | string | null;
+		onClose: () => void;
+	}) =>
 	async (payload: ReviewUpdatePayload) => {
 		const token = options.pat.trim();
 		if (!token) {

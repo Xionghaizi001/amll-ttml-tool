@@ -253,13 +253,7 @@ export const useFileOpener = () => {
 				run();
 			}
 		},
-		[
-			fileUpdateSession,
-			isDirty,
-			performOpenFile,
-			setConfirmDialog,
-			t,
-		],
+		[fileUpdateSession, isDirty, performOpenFile, setConfirmDialog, t],
 	);
 
 	const openCachedAudio = useCallback(async () => {

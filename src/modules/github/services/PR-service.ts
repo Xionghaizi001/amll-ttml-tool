@@ -36,7 +36,9 @@ type PullRequestPageResult = {
 	items: PullRequestDetail[];
 };
 
-const mapPullRequestListItem = (item: PullRequestListItem): PullRequestDetail => ({
+const mapPullRequestListItem = (
+	item: PullRequestListItem,
+): PullRequestDetail => ({
 	number: item.number,
 	title: item.title ?? "",
 	body: item.body ?? "",
@@ -52,7 +54,7 @@ const mapPullRequestListItem = (item: PullRequestListItem): PullRequestDetail =>
 
 export const fetchPendingUpdatePullRequest = async (
 	token: string,
-	login: string
+	login: string,
 ): Promise<PendingUpdatePullRequest | null> => {
 	const trimmedLogin = login.trim();
 	if (!token.trim() || !trimmedLogin) return null;
@@ -99,14 +101,17 @@ export const fetchOpenPullRequestPage = async (options: {
 	if (options.etag) {
 		headers["If-None-Match"] = options.etag;
 	}
-	const response = await githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
-		params: {
-			state: "open",
-			per_page: options.perPage,
-			page: options.page,
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/pulls`,
+		{
+			params: {
+				state: "open",
+				per_page: options.perPage,
+				page: options.page,
+			},
+			init: { headers },
 		},
-		init: { headers },
-	});
+	);
 	const etag = response.headers.get("etag");
 	if (!response.ok) {
 		return {
@@ -210,7 +215,9 @@ export const fetchPullRequestAssignees = async (options: {
 	if (!response.ok) {
 		return { ok: false, status: response.status, assignees: [] as string[] };
 	}
-	const assignees = ((await response.json()) as Array<{ login?: string | null }>)
+	const assignees = (
+		(await response.json()) as Array<{ login?: string | null }>
+	)
 		.map((user) => user.login?.trim())
 		.filter((login): login is string => Boolean(login));
 	return { ok: true, assignees };
@@ -264,7 +271,7 @@ export const ensurePullRequestAssigned = async (options: {
 	const alreadyAssigned =
 		assigneeResult.ok &&
 		assigneeResult.assignees.some(
-		(login) => login.toLowerCase() === normalizedLogin,
+			(login) => login.toLowerCase() === normalizedLogin,
 		);
 	if (alreadyAssigned) {
 		return { ok: true, assigned: true, changed: false };
@@ -326,7 +333,8 @@ export const fetchPullRequestTimelinePage = async (options: {
 	page: number;
 }) => {
 	const headers: Record<string, string> = {
-		Accept: "application/vnd.github+json, application/vnd.github.mockingbird-preview+json",
+		Accept:
+			"application/vnd.github+json, application/vnd.github.mockingbird-preview+json",
 		Authorization: `Bearer ${options.token}`,
 	};
 	const response = await githubFetch(
@@ -350,19 +358,22 @@ export const mergePullRequest = async (options: {
 	prNumber: number;
 	mergeMethod?: "merge" | "squash" | "rebase";
 }) =>
-	githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${options.prNumber}/merge`, {
-		init: {
-			method: "PUT",
-			headers: {
-				Accept: "application/vnd.github+json",
-				Authorization: `Bearer ${options.token}`,
-				"Content-Type": "application/json",
+	githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${options.prNumber}/merge`,
+		{
+			init: {
+				method: "PUT",
+				headers: {
+					Accept: "application/vnd.github+json",
+					Authorization: `Bearer ${options.token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					merge_method: options.mergeMethod ?? "squash",
+				}),
 			},
-			body: JSON.stringify({
-				merge_method: options.mergeMethod ?? "squash",
-			}),
 		},
-	});
+	);
 
 export const fetchPullRequestStatus = async (options: {
 	token: string;

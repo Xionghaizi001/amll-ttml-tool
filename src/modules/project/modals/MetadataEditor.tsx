@@ -155,7 +155,14 @@ const MetadataValueRow = ({
 		return () => {
 			active = false;
 		};
-	}, [entry.autoSuggested, index, option?.suggestion, setLyricLines, value, valueIndex]);
+	}, [
+		entry.autoSuggested,
+		index,
+		option?.suggestion,
+		setLyricLines,
+		value,
+		valueIndex,
+	]);
 
 	const hasSuggestion = suggestions.length > 0;
 	const canFetchNeteaseMeta =
@@ -206,7 +213,10 @@ const MetadataValueRow = ({
 									prev.metadata[index].value.splice(valueIndex + 1, 0, "");
 								});
 								setFocusIndex(valueIndex + 1);
-							} else if (e.key === "Backspace" && e.currentTarget.value === "") {
+							} else if (
+								e.key === "Backspace" &&
+								e.currentTarget.value === ""
+							) {
 								if (e.repeat) return;
 
 								e.preventDefault();
@@ -365,11 +375,7 @@ const MetadataValueRow = ({
 							title={t("metadataDialog.openLink", "打开链接")}
 						>
 							{isButtonEnabled ? (
-								<a
-									href={url || ""}
-									target="_blank"
-									rel="noopener noreferrer"
-								>
+								<a href={url || ""} target="_blank" rel="noopener noreferrer">
 									<Open16Regular />
 								</a>
 							) : (
@@ -621,9 +627,7 @@ export const MetadataEditor = () => {
 	const [customKey, setCustomKey] = useState("");
 	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
 	const addKeyButtonRef = useRef<HTMLButtonElement | null>(null);
-	const neteaseMetaCacheRef = useRef<Map<string, NeteaseSongMeta>>(
-		new Map(),
-	);
+	const neteaseMetaCacheRef = useRef<Map<string, NeteaseSongMeta>>(new Map());
 
 	const { t } = useTranslation();
 	const appendMetadataValues = useCallback(
@@ -674,8 +678,7 @@ export const MetadataEditor = () => {
 			if (!trimmed) return;
 			const cached = neteaseMetaCacheRef.current.get(trimmed);
 			const meta =
-				cached ??
-				(await fetchNeteaseSongMeta(trimmed).catch(() => null));
+				cached ?? (await fetchNeteaseSongMeta(trimmed).catch(() => null));
 			if (!meta) return;
 			if (!cached) {
 				neteaseMetaCacheRef.current.set(trimmed, meta);
@@ -716,9 +719,7 @@ export const MetadataEditor = () => {
 				]);
 			}
 			if (typeof result.profile.id === "number") {
-				appendMetadataValues("ttmlAuthorGithub", [
-					String(result.profile.id),
-				]);
+				appendMetadataValues("ttmlAuthorGithub", [String(result.profile.id)]);
 			}
 		};
 		void loadGithubIdentity();

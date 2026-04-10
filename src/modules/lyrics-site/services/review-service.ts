@@ -1,11 +1,19 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
-import { lyricsSiteTokenAtom, neteaseCookieAtom } from "$/modules/settings/states";
+import {
+	lyricsSiteTokenAtom,
+	neteaseCookieAtom,
+} from "$/modules/settings/states";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 } from "$/states/notifications";
-import { ToolMode, reviewSessionAtom, toolModeAtom, type AudioSource } from "$/states/main";
+import {
+	ToolMode,
+	reviewSessionAtom,
+	toolModeAtom,
+	type AudioSource,
+} from "$/states/main";
 import {
 	fetchPendingSubmissions,
 	fetchLyricFileContent,
@@ -24,7 +32,9 @@ export const useLyricsSiteReviewService = () => {
 	const { openFile } = useFileOpener();
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
-	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(null);
+	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
+		null,
+	);
 
 	const approveSubmission = useCallback(
 		async (submissionId: string, comment?: string) => {
@@ -177,16 +187,15 @@ export const useLyricsSiteReviewService = () => {
 						: rawNcmMusicId
 							? [rawNcmMusicId]
 							: [];
-					
+
 					const ncmIds = Array.from(
 						new Set(
-							[
-								submission.ids?.ncmId,
-								...ncmMusicIdArray,
-							].filter(Boolean) as string[]
-						)
+							[submission.ids?.ncmId, ...ncmMusicIdArray].filter(
+								Boolean,
+							) as string[],
+						),
 					);
-					
+
 					setReviewSession({
 						prNumber,
 						prTitle: submission.title,
@@ -256,7 +265,9 @@ export const useLyricsSiteReviewService = () => {
 						if (success && selectedSource) {
 							const audioSource: AudioSource =
 								selectedSource === "lyrics-site" ? "user-upload" : "netease";
-							setReviewSession((prev) => prev ? { ...prev, audioSource } : prev);
+							setReviewSession((prev) =>
+								prev ? { ...prev, audioSource } : prev,
+							);
 						} else {
 							setPushNotification({
 								id: `audio-load-${submission.id}-fail`,

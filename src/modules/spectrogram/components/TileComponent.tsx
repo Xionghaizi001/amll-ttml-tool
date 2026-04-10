@@ -23,7 +23,7 @@ export const TileComponent = memo(
 		const currentBitmapRef = useRef<ImageBitmap | undefined>(undefined);
 
 		useEffect(() => {
-		if (bitmap !== currentBitmapRef.current) {
+			if (bitmap !== currentBitmapRef.current) {
 				if (currentBitmapRef.current) {
 					currentBitmapRef.current.close();
 				}

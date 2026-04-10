@@ -168,10 +168,10 @@ function createWordFromSpanElement(wordEl: Element): LyricWord | null {
 		const rubyWords: LyricWordBase[] = rubyTextSpans.map((rubySpan) => {
 			const rubyBegin = rubySpan.begin
 				? parseTimespan(rubySpan.begin)
-				: containerStart ?? 0;
+				: (containerStart ?? 0);
 			const rubyEnd = rubySpan.end
 				? parseTimespan(rubySpan.end)
-				: containerEnd ?? 0;
+				: (containerEnd ?? 0);
 			return {
 				word: flattenSpanInnerText(rubySpan, skipRoles),
 				startTime: rubyBegin,
@@ -232,7 +232,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	log("ttml document parsed", ttmlDoc);
 
-	const parseTranslationTextElement = (textEl: Element): LineMetadata | null => {
+	const parseTranslationTextElement = (
+		textEl: Element,
+	): LineMetadata | null => {
 		let main = "";
 		let bg = "";
 
@@ -399,13 +401,18 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	});
 
-	const itunesLineRomanizationsByLang = new Map<string, Map<string, LineMetadata>>();
+	const itunesLineRomanizationsByLang = new Map<
+		string,
+		Map<string, LineMetadata>
+	>();
 	const itunesWordRomanizationsByLang = new Map<
 		string,
 		Map<string, WordRomanMetadata>
 	>();
 	const transliterationElements = Array.from(
-		ttmlDoc.querySelectorAll("iTunesMetadata > transliterations > transliteration"),
+		ttmlDoc.querySelectorAll(
+			"iTunesMetadata > transliterations > transliteration",
+		),
 	);
 	const hasLangTransliteration = transliterationElements.some(
 		(el) => (el.getAttribute("xml:lang") ?? "").trim().length > 0,
@@ -419,12 +426,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const lang = langAttr || "und";
 		const lineRomanMap = useFallback
 			? fallbackLineRomanizations
-			: itunesLineRomanizationsByLang.get(lang) ??
-				itunesLineRomanizationsByLang.set(lang, new Map()).get(lang);
+			: (itunesLineRomanizationsByLang.get(lang) ??
+				itunesLineRomanizationsByLang.set(lang, new Map()).get(lang));
 		const wordRomanMap = useFallback
 			? fallbackWordRomanizations
-			: itunesWordRomanizationsByLang.get(lang) ??
-				itunesWordRomanizationsByLang.set(lang, new Map()).get(lang);
+			: (itunesWordRomanizationsByLang.get(lang) ??
+				itunesWordRomanizationsByLang.set(lang, new Map()).get(lang));
 		if (!lineRomanMap || !wordRomanMap) continue;
 
 		for (const textEl of transliterationEl.querySelectorAll("text[for]")) {
@@ -609,27 +616,33 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					timedTranslations?.get(itunesKey) ?? translations.get(itunesKey);
 				if (!langTrans) continue;
 				translatedLyricByLang[lang] = isBG
-					? langTrans.bg ?? ""
-					: langTrans.main ?? "";
+					? (langTrans.bg ?? "")
+					: (langTrans.main ?? "");
 			}
 			if (Object.keys(translatedLyricByLang).length > 0) {
 				line.translatedLyricByLang = translatedLyricByLang;
 			}
 
 			const romanLyricByLang: Record<string, string> = {};
-			for (const [lang, romanizations] of itunesLineRomanizationsByLang.entries()) {
+			for (const [
+				lang,
+				romanizations,
+			] of itunesLineRomanizationsByLang.entries()) {
 				const langRoman = romanizations.get(itunesKey);
 				if (!langRoman) continue;
 				romanLyricByLang[lang] = isBG
-					? langRoman.bg ?? ""
-					: langRoman.main ?? "";
+					? (langRoman.bg ?? "")
+					: (langRoman.main ?? "");
 			}
 			if (Object.keys(romanLyricByLang).length > 0) {
 				line.romanLyricByLang = romanLyricByLang;
 			}
 
 			const wordRomanizationByLang: Record<string, TTMLRomanWord[]> = {};
-			for (const [lang, romanizations] of itunesWordRomanizationsByLang.entries()) {
+			for (const [
+				lang,
+				romanizations,
+			] of itunesWordRomanizationsByLang.entries()) {
 				const langRoman = romanizations.get(itunesKey);
 				const romanList = isBG ? langRoman?.bg : langRoman?.main;
 				if (!romanList || romanList.length === 0) continue;

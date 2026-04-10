@@ -46,7 +46,9 @@ export const buildStashKey = (reviewSession: ReviewSession | null) => {
 	return `${reviewSession.prNumber}:${reviewSession.fileName}`;
 };
 
-export const buildTimingStashCards = (displayItems: TimingStashDisplayItem[]) => {
+export const buildTimingStashCards = (
+	displayItems: TimingStashDisplayItem[],
+) => {
 	const lineMap = new Map<number, Array<{ label: string; wordId: string }>>();
 	for (const item of displayItems) {
 		const list = lineMap.get(item.lineNumber) ?? [];
@@ -55,5 +57,5 @@ export const buildTimingStashCards = (displayItems: TimingStashDisplayItem[]) =>
 	}
 	return Array.from(lineMap.entries())
 		.sort((a, b) => a[0] - b[0])
-		.map(([line, items]) => ({ line, items } satisfies TimingStashCard));
+		.map(([line, items]) => ({ line, items }) satisfies TimingStashCard);
 };

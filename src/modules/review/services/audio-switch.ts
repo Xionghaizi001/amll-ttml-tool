@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReviewSession, AudioSource } from "$/states/main";
 import type { AppNotification } from "$/states/notifications";
-import { loadLyricsSiteAudio, getLyricsSiteAudioSourceInfo } from "$/modules/lyrics-site/services/audio-provider";
-import { loadNeteaseAudio, getNeteaseAudioSourceInfo } from "$/modules/ncm/services/audio-provider";
+import {
+	loadLyricsSiteAudio,
+	getLyricsSiteAudioSourceInfo,
+} from "$/modules/lyrics-site/services/audio-provider";
+import {
+	loadNeteaseAudio,
+	getNeteaseAudioSourceInfo,
+} from "$/modules/ncm/services/audio-provider";
 
 export type AudioSourceType = "netease" | "lyrics-site";
 export type AudioSourceOption = AudioSourceType;
@@ -34,23 +40,26 @@ export const useAudioSwitch = (options: {
 	pushNotification: PushNotification;
 	setReviewSession: (session: ReviewSession | null) => void;
 }) => {
-	const {
-		canReview,
-		reviewSession,
-		pushNotification,
-		setReviewSession,
-	} = options;
-	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(null);
+	const { canReview, reviewSession, pushNotification, setReviewSession } =
+		options;
+	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
+		null,
+	);
 	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
 		open: boolean;
 		ids: string[];
 	}>({ open: false, ids: [] });
-	const [audioSourceDialog, setAudioSourceDialog] = useState<AudioSourceDialogState>({
-		open: false,
-		options: [],
-	});
-	const neteaseIdResolveRef = useRef<((id: string | null) => void) | null>(null);
-	const audioSourceResolveRef = useRef<((source: AudioSourceOption | null) => void) | null>(null);
+	const [audioSourceDialog, setAudioSourceDialog] =
+		useState<AudioSourceDialogState>({
+			open: false,
+			options: [],
+		});
+	const neteaseIdResolveRef = useRef<((id: string | null) => void) | null>(
+		null,
+	);
+	const audioSourceResolveRef = useRef<
+		((source: AudioSourceOption | null) => void) | null
+	>(null);
 
 	const closeNeteaseIdDialog = useCallback(() => {
 		if (neteaseIdResolveRef.current) {
@@ -97,30 +106,38 @@ export const useAudioSwitch = (options: {
 		});
 	}, []);
 
-	const requestAudioSource = useCallback(async (audioSourceInfos: AudioSourceInfo[], currentSource?: AudioSource) => {
-		const availableSources = audioSourceInfos.filter(info => info.available).map(info => info.type);
-		
-		if (availableSources.length === 0) {
-			return null;
-		}
-		
-		if (availableSources.length === 1) {
-			return availableSources[0];
-		}
+	const requestAudioSource = useCallback(
+		async (
+			audioSourceInfos: AudioSourceInfo[],
+			currentSource?: AudioSource,
+		) => {
+			const availableSources = audioSourceInfos
+				.filter((info) => info.available)
+				.map((info) => info.type);
 
-		if (audioSourceResolveRef.current) {
-			audioSourceResolveRef.current(null);
-		}
-		setAudioSourceDialog({
-			open: true,
-			options: availableSources,
-			currentSource,
-			audioSourceInfos,
-		});
-		return new Promise<AudioSourceOption | null>((resolve) => {
-			audioSourceResolveRef.current = resolve;
-		});
-	}, []);
+			if (availableSources.length === 0) {
+				return null;
+			}
+
+			if (availableSources.length === 1) {
+				return availableSources[0];
+			}
+
+			if (audioSourceResolveRef.current) {
+				audioSourceResolveRef.current(null);
+			}
+			setAudioSourceDialog({
+				open: true,
+				options: availableSources,
+				currentSource,
+				audioSourceInfos,
+			});
+			return new Promise<AudioSourceOption | null>((resolve) => {
+				audioSourceResolveRef.current = resolve;
+			});
+		},
+		[],
+	);
 
 	useEffect(() => {
 		if (reviewSession || !neteaseIdDialog.open) return;
@@ -154,11 +171,18 @@ export const useAudioSwitch = (options: {
 		const audioSourceInfos: AudioSourceInfo[] = [];
 
 		if (reviewSession.source === "lyrics-site" && reviewSession.audioFileName) {
-			audioSourceInfos.push(await getLyricsSiteAudioSourceInfo(reviewSession.audioFileName, reviewSession.audioTitle));
+			audioSourceInfos.push(
+				await getLyricsSiteAudioSourceInfo(
+					reviewSession.audioFileName,
+					reviewSession.audioTitle,
+				),
+			);
 		}
 
 		if (reviewSession.ncmIds && reviewSession.ncmIds.length > 0) {
-			audioSourceInfos.push(await getNeteaseAudioSourceInfo(reviewSession.ncmIds));
+			audioSourceInfos.push(
+				await getNeteaseAudioSourceInfo(reviewSession.ncmIds),
+			);
 		}
 
 		if (audioSourceInfos.length === 0) {
@@ -170,7 +194,10 @@ export const useAudioSwitch = (options: {
 			return;
 		}
 
-		const selectedSource = await requestAudioSource(audioSourceInfos, reviewSession.audioSource);
+		const selectedSource = await requestAudioSource(
+			audioSourceInfos,
+			reviewSession.audioSource,
+		);
 
 		if (!selectedSource) return;
 
@@ -238,7 +265,9 @@ export const useAudioSwitch = (options: {
 	]);
 
 	const switchAudioEnabled =
-		Boolean(reviewSession?.prNumber || reviewSession?.source === "lyrics-site") && !audioLoadPendingId;
+		Boolean(
+			reviewSession?.prNumber || reviewSession?.source === "lyrics-site",
+		) && !audioLoadPendingId;
 
 	return {
 		neteaseIdDialog,

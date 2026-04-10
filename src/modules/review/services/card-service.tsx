@@ -256,17 +256,18 @@ export const renderCardContent = (options: {
 	reviewedByUser?: boolean;
 	onSelectUser?: (user: string) => void;
 }) => {
-	const { item, hiddenLabelSet, styles, reviewedByUser, onSelectUser } = options;
+	const { item, hiddenLabelSet, styles, reviewedByUser, onSelectUser } =
+		options;
 	const isLyricsSite = isLyricsSiteSubmission(item);
 	const id = getReviewItemId(item);
 	const createdAt = getReviewItemCreatedAt(item);
-	
+
 	const visibleLabels = isGitHubPullRequest(item)
 		? item.labels.filter(
 				(label) => !hiddenLabelSet.has(label.name.toLowerCase()),
 			)
 		: [];
-	
+
 	const mentions = isGitHubPullRequest(item) ? extractMentions(item.body) : [];
 	const submitter = isLyricsSite ? item.submitter : null;
 
@@ -285,9 +286,7 @@ export const renderCardContent = (options: {
 					>
 						<Text size="1">{isLyricsSite ? "歌词站" : "GitHub"}</Text>
 					</Box>
-					{reviewedByUser && (
-						<Checkmark20Regular className={styles.icon} />
-					)}
+					{reviewedByUser && <Checkmark20Regular className={styles.icon} />}
 				</Flex>
 				<Flex align="center" gap="1" className={styles.meta}>
 					<Clock20Regular className={styles.icon} />
@@ -296,11 +295,7 @@ export const renderCardContent = (options: {
 					</Text>
 				</Flex>
 			</Flex>
-			<Text
-				size="3"
-				className={styles.title}
-				title={item.title}
-			>
+			<Text size="3" className={styles.title} title={item.title}>
 				{item.title}
 			</Text>
 			{isLyricsSite && item.artist && (
@@ -389,26 +384,39 @@ export const renderCardContent = (options: {
 					</Text>
 				</Flex>
 			)}
-			{isLyricsSite && (item.language || (item.tags && item.tags.length > 0)) && (
-				<Flex wrap="wrap" gap="1" align="center">
-					{item.language && (
-						<Text size="1" color="gray">
-							语言：{item.language === 'ja' ? '日语' :
-							 item.language === 'zh' ? '中文' :
-							 item.language === 'en' ? '英语' :
-							 item.language === 'ko' ? '韩语' : item.language}
-						</Text>
-					)}
-					{item.tags && item.tags.length > 0 && item.language && (
-						<Text size="1" color="gray">|</Text>
-					)}
-					{item.tags?.map((tag) => (
-						<Box key={tag} className={styles.label} style={{ backgroundColor: "#3b82f6", color: "#fff" }}>
-							<Text size="1">{tag}</Text>
-						</Box>
-					))}
-				</Flex>
-			)}
+			{isLyricsSite &&
+				(item.language || (item.tags && item.tags.length > 0)) && (
+					<Flex wrap="wrap" gap="1" align="center">
+						{item.language && (
+							<Text size="1" color="gray">
+								语言：
+								{item.language === "ja"
+									? "日语"
+									: item.language === "zh"
+										? "中文"
+										: item.language === "en"
+											? "英语"
+											: item.language === "ko"
+												? "韩语"
+												: item.language}
+							</Text>
+						)}
+						{item.tags && item.tags.length > 0 && item.language && (
+							<Text size="1" color="gray">
+								|
+							</Text>
+						)}
+						{item.tags?.map((tag) => (
+							<Box
+								key={tag}
+								className={styles.label}
+								style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+							>
+								<Text size="1">{tag}</Text>
+							</Box>
+						))}
+					</Flex>
+				)}
 		</Flex>
 	);
 };

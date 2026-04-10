@@ -44,7 +44,11 @@ import {
 	refreshPendingLabels as refreshPendingLabelsService,
 } from "$/modules/github/services/label-services";
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
-import type { ReviewLabel, ReviewPullRequest, ReviewItem } from "./card-service";
+import type {
+	ReviewLabel,
+	ReviewPullRequest,
+	ReviewItem,
+} from "./card-service";
 import { isGitHubPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
 import { useRemoteReviewService } from "./remote-service";
@@ -285,9 +289,7 @@ export const useReviewPageLogic = () => {
 	const pendingReviewModeSwitchRef = useRef(false);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
-	const pendingCommitCacheRef = useRef<
-		PendingCommitCacheRecord["items"]
-	>({});
+	const pendingCommitCacheRef = useRef<PendingCommitCacheRecord["items"]>({});
 	const timelineCacheRef = useRef<TimelineCacheRecord["items"]>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
@@ -306,7 +308,9 @@ export const useReviewPageLogic = () => {
 		prNumber: null,
 		ids: [],
 	});
-	const [sourceFilter, setSourceFilter] = useState<"all" | "github" | "lyrics-site">("all");
+	const [sourceFilter, setSourceFilter] = useState<
+		"all" | "github" | "lyrics-site"
+	>("all");
 
 	const hiddenLabelSet = useMemo(
 		() =>
@@ -329,7 +333,9 @@ export const useReviewPageLogic = () => {
 	);
 
 	const [githubItems, setGithubItems] = useState<ReviewPullRequest[]>([]);
-	const [lyricsSiteItems, setLyricsSiteItems] = useState<LyricsSiteSubmission[]>([]);
+	const [lyricsSiteItems, setLyricsSiteItems] = useState<
+		LyricsSiteSubmission[]
+	>([]);
 	const [githubLoading, setGithubLoading] = useState(false);
 	const [lyricsSiteLoading, setLyricsSiteLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -424,9 +430,7 @@ export const useReviewPageLogic = () => {
 				if (reviewed || response.items.length < perPage) break;
 			}
 			setReviewReviewedPrs((prev) =>
-				Number.isFinite(prNumber)
-					? { ...prev, [prNumber]: reviewed }
-					: prev,
+				Number.isFinite(prNumber) ? { ...prev, [prNumber]: reviewed } : prev,
 			);
 			const now = Date.now();
 			const nextCache = {
@@ -583,27 +587,22 @@ export const useReviewPageLogic = () => {
 				});
 				if (cancelled) return;
 				pendingUpdateNoticeIdsRef.current = nextIds;
-			} catch {
-			}
+			} catch {}
 		};
 		void run();
 		return () => {
 			cancelled = true;
 		};
-	}, [
-		hasAccess,
-		login,
-		pat,
-		setRemoveNotification,
-		setUpsertNotification,
-	]);
+	}, [hasAccess, login, pat, setRemoveNotification, setUpsertNotification]);
 
 	useEffect(() => {
 		if (!updatedChecked) return;
 		const token = pat.trim();
 		if (!token) return;
 		let cancelled = false;
-		const pendingItems = githubItems.filter((item) => hasPendingLabel(item.labels));
+		const pendingItems = githubItems.filter((item) =>
+			hasPendingLabel(item.labels),
+		);
 		const unknownItems = pendingItems.filter(
 			(item) => postPendingCommitMap[item.number] === undefined,
 		);
@@ -820,10 +819,14 @@ export const useReviewPageLogic = () => {
 						token,
 						perPage,
 						page,
-						etag: page === 1 ? cached?.etag ?? null : null,
+						etag: page === 1 ? (cached?.etag ?? null) : null,
 					});
 					log("review list response", listResponse.status);
-					if (page === 1 && listResponse.status === 304 && cached?.items?.length) {
+					if (
+						page === 1 &&
+						listResponse.status === 304 &&
+						cached?.items?.length
+					) {
 						const refreshed = await refreshPendingLabels(token, cached.items);
 						if (!cancelled) {
 							setGithubItems(refreshed);
@@ -846,7 +849,9 @@ export const useReviewPageLogic = () => {
 					if (pageList.length === 0) {
 						break;
 					}
-					result.push(...pageList.map((pr) => ({ ...pr, source: "github" as const })));
+					result.push(
+						...pageList.map((pr) => ({ ...pr, source: "github" as const })),
+					);
 					if (cancelled) return;
 					setGithubItems([...result]);
 					if (pageList.length < perPage) {
@@ -882,7 +887,8 @@ export const useReviewPageLogic = () => {
 			return;
 		}
 
-		const refreshChanged = refreshToken !== lastLyricsSiteRefreshTokenRef.current;
+		const refreshChanged =
+			refreshToken !== lastLyricsSiteRefreshTokenRef.current;
 		lastLyricsSiteRefreshTokenRef.current = refreshToken;
 		let cancelled = false;
 
@@ -929,7 +935,7 @@ export const useReviewPageLogic = () => {
 			source: "github" as const,
 		}));
 		const lyricsSite: ReviewItem[] = lyricsSiteItems;
-		
+
 		if (sourceFilter === "github") {
 			return github;
 		}

@@ -1,10 +1,16 @@
 import { getAudioFileUrl } from "../index";
-import { lyricsSiteTokenAtom, audioProxyUrlAtom } from "$/modules/settings/states";
+import {
+	lyricsSiteTokenAtom,
+	audioProxyUrlAtom,
+} from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 import type { AppNotification } from "$/states/notifications";
 import { audioEngine } from "$/modules/audio/audio-engine";
 
-export const getLyricsSiteAudioSourceInfo = async (audioFileName?: string, audioTitle?: string) => {
+export const getLyricsSiteAudioSourceInfo = async (
+	audioFileName?: string,
+	audioTitle?: string,
+) => {
 	const token = globalStore.get(lyricsSiteTokenAtom)?.trim();
 	const available = !!audioFileName && !!token;
 
@@ -12,7 +18,9 @@ export const getLyricsSiteAudioSourceInfo = async (audioFileName?: string, audio
 		type: "lyrics-site" as const,
 		name: "用户上传音频",
 		available,
-		description: available ? (audioTitle || audioFileName || "未知") : "无音频或未登录",
+		description: available
+			? audioTitle || audioFileName || "未知"
+			: "无音频或未登录",
 	};
 };
 
@@ -20,7 +28,9 @@ export const loadLyricsSiteAudio = async (options: {
 	audioFileName?: string;
 	audioTitle?: string;
 	openFile: (file: File) => void;
-	pushNotification: (payload: Omit<AppNotification, "id" | "createdAt">) => void;
+	pushNotification: (
+		payload: Omit<AppNotification, "id" | "createdAt">,
+	) => void;
 }) => {
 	const { audioFileName, audioTitle, openFile, pushNotification } = options;
 	const token = globalStore.get(lyricsSiteTokenAtom)?.trim();
@@ -67,8 +77,12 @@ export const loadLyricsSiteAudio = async (options: {
 		openFile(file);
 
 		await new Promise<void>((resolve) => {
-			audioEngine.addEventListener("music-load", () => resolve(), { once: true });
-			audioEngine.addEventListener("music-load-error", () => resolve(), { once: true });
+			audioEngine.addEventListener("music-load", () => resolve(), {
+				once: true,
+			});
+			audioEngine.addEventListener("music-load-error", () => resolve(), {
+				once: true,
+			});
 		});
 
 		pushNotification({

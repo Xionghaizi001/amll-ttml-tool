@@ -84,7 +84,9 @@ class AudioEngine extends EventTarget {
 		if (!this._audioEl || !this.ctx || this._audioEl.src === "") return;
 		if (this._mediaElementSource) return;
 		try {
-			this._mediaElementSource = this.ctx.createMediaElementSource(this._audioEl);
+			this._mediaElementSource = this.ctx.createMediaElementSource(
+				this._audioEl,
+			);
 			this._mediaElementSource.connect(this.gain);
 			log("AudioElement connected to AudioContext");
 		} catch (e) {

@@ -170,8 +170,7 @@ export const ReduceStutterDialog = () => {
 											{msToTimestamp(pair.prevWord.endTime)}] -{" "}
 											{pair.nextWord.word} [
 											{msToTimestamp(pair.nextWord.startTime)}~
-											{msToTimestamp(pair.nextWord.endTime)}] :{" "}
-											{pair.gap} ms
+											{msToTimestamp(pair.nextWord.endTime)}] : {pair.gap} ms
 										</Text>
 									</Flex>
 								</Flex>

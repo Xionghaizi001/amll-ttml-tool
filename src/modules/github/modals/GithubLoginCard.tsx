@@ -43,7 +43,9 @@ export const GithubLoginCard = () => {
 	const [hiddenLabels, setHiddenLabels] = useAtom(reviewHiddenLabelsAtom);
 	const [labels, setLabels] = useAtom(reviewLabelsAtom);
 	const [hiddenUsers, setHiddenUsers] = useAtom(reviewHiddenUsersAtom);
-	const [hiddenUsersMode, setHiddenUsersMode] = useAtom(reviewHiddenUsersModeAtom);
+	const [hiddenUsersMode, setHiddenUsersMode] = useAtom(
+		reviewHiddenUsersModeAtom,
+	);
 	const [newHiddenUser, setNewHiddenUser] = useState("");
 	const [status, setStatus] = useState<AuthStatus>("idle");
 	const [message, setMessage] = useState("");
@@ -99,9 +101,7 @@ export const GithubLoginCard = () => {
 			if (useNormalIdentity) {
 				setHasAccess(false);
 				setStatus("unauthorized");
-				setMessage(
-					t("settings.connect.normalIdentity", "已切换为普通用户"),
-				);
+				setMessage(t("settings.connect.normalIdentity", "已切换为普通用户"));
 				setLabels([]);
 			} else {
 				setHasAccess(true);
@@ -571,10 +571,7 @@ export const GithubLoginCard = () => {
 						<details>
 							<Text asChild size="2">
 								<summary style={{ cursor: "pointer" }}>
-									{t(
-										"settings.connect.reviewHiddenUsersTitle",
-										"隐藏指定用户",
-									)}
+									{t("settings.connect.reviewHiddenUsersTitle", "隐藏指定用户")}
 								</summary>
 							</Text>
 							<Flex direction="column" gap="3" mt="2">

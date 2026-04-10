@@ -153,7 +153,9 @@ function App() {
 	const customBackgroundOpacity = useAtomValue(customBackgroundOpacityAtom);
 	const customBackgroundMask = useAtomValue(customBackgroundMaskAtom);
 	const customBackgroundBlur = useAtomValue(customBackgroundBlurAtom);
-	const customBackgroundBrightness = useAtomValue(customBackgroundBrightnessAtom);
+	const customBackgroundBrightness = useAtomValue(
+		customBackgroundBrightnessAtom,
+	);
 	const [hasBackground, setHasBackground] = useState(false);
 	const [startupWarningOpen, setStartupWarningOpen] = useState(true);
 	const [startupWarningReady, setStartupWarningReady] = useState(false);
@@ -243,8 +245,7 @@ function App() {
 				if (cancelled) return;
 				startupPendingUpdateNoticeIdsRef.current = nextIds;
 				startupPendingUpdateSyncedRef.current = true;
-			} catch {
-			}
+			} catch {}
 		};
 		void run();
 		return () => {
@@ -452,7 +453,8 @@ function App() {
 								<Heading size="6">警告</Heading>
 								<Text size="3" style={{ textAlign: "center" }}>
 									你正在使用测试版分支，可能会随时推送更新，也可能有未知的BUG或漏洞。
-								</Text><Text size="5" style={{ textAlign: "center" }}>
+								</Text>
+								<Text size="5" style={{ textAlign: "center" }}>
 									请在使用时随时注意保存你的文件，避免造成数据丢失。
 								</Text>
 								<Button
@@ -475,9 +477,8 @@ function App() {
 						<TitleBar />
 						<RibbonBar />
 						<Box flexGrow="1" overflow="hidden">
-						<AnimatePresence mode="wait">
-							{(toolMode === ToolMode.Edit ||
-								toolMode === ToolMode.Sync) && (
+							<AnimatePresence mode="wait">
+								{(toolMode === ToolMode.Edit || toolMode === ToolMode.Sync) && (
 									<SuspensePlaceHolder key="edit">
 										<motion.div
 											layout="position"
@@ -494,7 +495,7 @@ function App() {
 										</motion.div>
 									</SuspensePlaceHolder>
 								)}
-							{toolMode === ToolMode.Preview && (
+								{toolMode === ToolMode.Preview && (
 									<SuspensePlaceHolder key="amll-preview">
 										<Box height="100%" key="amll-preview" p="2" asChild>
 											<motion.div
@@ -508,20 +509,20 @@ function App() {
 										</Box>
 									</SuspensePlaceHolder>
 								)}
-							{toolMode === ToolMode.Review && (
-								<SuspensePlaceHolder key="review">
-									<Box height="100%" key="review" p="2" asChild>
-										<motion.div
-											layout="position"
-											initial={{ opacity: 0 }}
-											animate={{ opacity: 1 }}
-											exit={{ opacity: 0 }}
-										>
-											<ReviewPage />
-										</motion.div>
-									</Box>
-								</SuspensePlaceHolder>
-							)}
+								{toolMode === ToolMode.Review && (
+									<SuspensePlaceHolder key="review">
+										<Box height="100%" key="review" p="2" asChild>
+											<motion.div
+												layout="position"
+												initial={{ opacity: 0 }}
+												animate={{ opacity: 1 }}
+												exit={{ opacity: 0 }}
+											>
+												<ReviewPage />
+											</motion.div>
+										</Box>
+									</SuspensePlaceHolder>
+								)}
 							</AnimatePresence>
 						</Box>
 						{showTouchSyncPanel && toolMode === ToolMode.Sync && (

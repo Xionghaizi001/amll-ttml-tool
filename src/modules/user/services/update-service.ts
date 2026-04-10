@@ -135,7 +135,9 @@ export const getReviewUpdateAction = (item: AppNotification) =>
 	item.action?.type === "open-review-update" ? item.action : null;
 
 export const createReviewUpdateActionHandler =
-	(options: { onOpenUpdate: (payload: ReviewUpdateAction["payload"]) => void }) =>
+	(options: {
+		onOpenUpdate: (payload: ReviewUpdateAction["payload"]) => void;
+	}) =>
 	(action: ReviewUpdateAction | null) => {
 		if (!action) return;
 		options.onOpenUpdate(action.payload);
@@ -168,16 +170,13 @@ export const pollFileUpdateStatus = (options: {
 	const run = async () => {
 		if (stopped) return;
 		try {
-			const comments = await fetchPullRequestComments(
-				{
-					token: options.token,
-					prNumber: options.prNumber,
-					since: options.startedAt,
-				},
-			);
+			const comments = await fetchPullRequestComments({
+				token: options.token,
+				prNumber: options.prNumber,
+				since: options.startedAt,
+			});
 			const failure = comments.find(
-				(comment) =>
-					comment.user?.login?.toLowerCase() === "github-actions",
+				(comment) => comment.user?.login?.toLowerCase() === "github-actions",
 			);
 			if (failure?.body) {
 				const firstLine = failure.body.split(/\r?\n/)[0]?.trim();
@@ -188,12 +187,12 @@ export const pollFileUpdateStatus = (options: {
 					return;
 				}
 			}
-		} catch {
-		}
+		} catch {}
 		try {
-			const detail = await fetchPullRequestDetail(
-				{ token: options.token, prNumber: options.prNumber },
-			);
+			const detail = await fetchPullRequestDetail({
+				token: options.token,
+				prNumber: options.prNumber,
+			});
 			const headSha = detail?.headSha ?? null;
 			if (headSha) {
 				if (!lastHeadSha) {
@@ -204,8 +203,7 @@ export const pollFileUpdateStatus = (options: {
 					return;
 				}
 			}
-		} catch {
-		}
+		} catch {}
 		timer = window.setTimeout(run, 20000);
 	};
 	timer = window.setTimeout(run, 20000);

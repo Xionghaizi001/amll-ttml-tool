@@ -65,9 +65,7 @@ export const I18nEditor: FC = () => {
 		const languages = new Set<string>();
 		for (const line of lyricLines.lyricLines) {
 			if (!line.wordRomanizationByLang) continue;
-			for (const [lang, words] of Object.entries(
-				line.wordRomanizationByLang,
-			)) {
+			for (const [lang, words] of Object.entries(line.wordRomanizationByLang)) {
 				if (words.length > 0) {
 					languages.add(lang);
 				}
@@ -246,7 +244,8 @@ export const I18nEditor: FC = () => {
 							continue;
 						}
 						const match = romanWords.find(
-							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
+							(r) =>
+								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						word.romanWord = match?.text ?? "";
 					}
@@ -389,7 +388,10 @@ export const I18nEditor: FC = () => {
 				variant="soft"
 				size="1"
 				onClick={openAddWordRomanizationDialog}
-				aria-label={t("addLanguageDialog.addWordRomanization", "新增逐字音译语言")}
+				aria-label={t(
+					"addLanguageDialog.addWordRomanization",
+					"新增逐字音译语言",
+				)}
 			>
 				<Add16Regular />
 			</IconButton>

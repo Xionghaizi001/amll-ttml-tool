@@ -3,9 +3,7 @@ import { useAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
 
-const RISK_CONFIRM_PHRASES = [
-	"我确定我要登录该应用"
-];
+const RISK_CONFIRM_PHRASES = ["我确定我要登录该应用"];
 
 const CONSOLE_HANDLER_KEY = "amllRiskConfirm";
 
@@ -15,7 +13,8 @@ export const RiskConfirmationDialog = () => {
 	const progressRef = useRef(0);
 
 	const progressText = useMemo(
-		() => `${Math.min(progressIndex, RISK_CONFIRM_PHRASES.length)}/${RISK_CONFIRM_PHRASES.length}`,
+		() =>
+			`${Math.min(progressIndex, RISK_CONFIRM_PHRASES.length)}/${RISK_CONFIRM_PHRASES.length}`,
 		[progressIndex],
 	);
 

@@ -47,7 +47,7 @@ const SUBMIT_LYRIC_TEMPLATE = {
 	},
 	labels: ["歌词提交/补正"],
 	assignees: ["Steve-xmh"],
-	body: {}
+	body: {},
 };
 
 const resolveTitlePrefix = (input: SubmitLyricIssueInput) => {
@@ -70,9 +70,7 @@ const buildTitle = (rawTitle: string, prefix: string) => {
 	return `${prefix}${trimmed}`;
 };
 
-export const buildSubmitLyricIssueJson = (
-	input: SubmitLyricIssueInput,
-) => {
+export const buildSubmitLyricIssueJson = (input: SubmitLyricIssueInput) => {
 	const payload: SubmitLyricIssuePayload = {
 		name: SUBMIT_LYRIC_TEMPLATE.name,
 		description: SUBMIT_LYRIC_TEMPLATE.description,
@@ -104,9 +102,7 @@ export const buildSubmitLyricIssueJson = (
 	return JSON.stringify(payload);
 };
 
-export const buildSubmitLyricIssueContent = (
-	input: SubmitLyricIssueInput,
-) => {
+export const buildSubmitLyricIssueContent = (input: SubmitLyricIssueInput) => {
 	const title = buildTitle(input.title, resolveTitlePrefix(input));
 	const comment = input.comment?.trim() ?? "";
 	const body = [
@@ -127,9 +123,10 @@ export const buildSubmitLyricIssueContent = (
 	return {
 		title,
 		body,
-		labels: input.includeLabels ?? true
-			? input.labels ?? SUBMIT_LYRIC_TEMPLATE.labels
-			: undefined,
+		labels:
+			(input.includeLabels ?? true)
+				? (input.labels ?? SUBMIT_LYRIC_TEMPLATE.labels)
+				: undefined,
 		assignees: input.assignees ?? SUBMIT_LYRIC_TEMPLATE.assignees,
 	};
 };

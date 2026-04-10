@@ -1,4 +1,7 @@
-import { type LyricsSiteUser, audioProxyUrlAtom } from "$/modules/settings/states";
+import {
+	type LyricsSiteUser,
+	audioProxyUrlAtom,
+} from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
 
 const LYRICS_SITE_URL = "https://amlldb.bikonoo.com";
@@ -115,7 +118,9 @@ const fetchWithAuth = async <T>(
 		if (response.status === 401) {
 			throw new AuthExpiredError();
 		}
-		throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`API request failed: ${response.status} ${response.statusText}`,
+		);
 	}
 
 	return response.json() as Promise<T>;
@@ -162,17 +167,20 @@ export const submitReview = async (
 	action: ReviewAction,
 	comment?: string,
 ): Promise<{ success: boolean }> => {
-	const response = await fetch(`${LYRICS_SITE_URL}/api/submissions/${submissionId}`, {
-		method: "PATCH",
-		headers: {
-			Authorization: `Bearer ${token}`,
-			"Content-Type": "application/json",
+	const response = await fetch(
+		`${LYRICS_SITE_URL}/api/submissions/${submissionId}`,
+		{
+			method: "PATCH",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				action,
+				comment: comment || "",
+			}),
 		},
-		body: JSON.stringify({
-			action,
-			comment: comment || "",
-		}),
-	});
+	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
@@ -222,8 +230,8 @@ export const fetchAudioFileContent = async (
 			: audioUrl;
 
 		const response = await fetch(fetchUrl, {
-			mode: 'cors',
-			cache: 'no-cache',
+			mode: "cors",
+			cache: "no-cache",
 		});
 
 		if (!response.ok) {

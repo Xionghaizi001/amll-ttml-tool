@@ -13,7 +13,10 @@ import {
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NeteaseAuthClient, NeteaseAutoLoginGuard } from "$/modules/ncm/services";
+import {
+	NeteaseAuthClient,
+	NeteaseAutoLoginGuard,
+} from "$/modules/ncm/services";
 import {
 	audioProxyUrlAtom,
 	githubAmlldbAccessAtom,
@@ -21,7 +24,7 @@ import {
 	neteaseRiskConfirmedAtom,
 	neteaseUserAtom,
 } from "$/modules/settings/states";
-import { riskConfirmDialogAtom } from "$/states/dialogs";	
+import { riskConfirmDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 
 export const NeteaseLoginCard = () => {
@@ -312,12 +315,7 @@ export const NeteaseLoginCard = () => {
 			level: "info",
 			source: "ncm",
 		});
-	}, [
-		setNeteaseCookie,
-		setNeteaseUser,
-		setPushNotification,
-		t,
-	]);
+	}, [setNeteaseCookie, setNeteaseUser, setPushNotification, t]);
 
 	return (
 		<Card>
@@ -406,9 +404,7 @@ export const NeteaseLoginCard = () => {
 											variant="soft"
 											onClick={handleSendCaptcha}
 											disabled={
-												neteaseCountdown > 0 ||
-												neteaseLoading ||
-												!neteasePhone
+												neteaseCountdown > 0 || neteaseLoading || !neteasePhone
 											}
 											style={{ minWidth: "104px" }}
 										>
@@ -449,10 +445,7 @@ export const NeteaseLoginCard = () => {
 											disabled={neteaseLoading}
 										>
 											{neteaseLoading
-												? t(
-														"settings.connect.netease.verifying",
-														"验证中...",
-													)
+												? t("settings.connect.netease.verifying", "验证中...")
 												: t(
 														"settings.connect.netease.verifyLogin",
 														"验证并登录",

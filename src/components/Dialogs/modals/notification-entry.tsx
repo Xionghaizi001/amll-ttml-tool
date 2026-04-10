@@ -3,7 +3,10 @@ import { open } from "@tauri-apps/plugin-shell";
 import { motion } from "framer-motion";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import { notificationCenterDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
+import {
+	notificationCenterDialogAtom,
+	reviewReportDialogAtom,
+} from "$/states/dialogs";
 import {
 	removeNotificationAtom,
 	type AppNotification,
@@ -93,7 +96,10 @@ export const NotificationEntry = ({
 			exit={{ opacity: 0, y: -8 }}
 			transition={{ duration: 0.18 }}
 		>
-			<Card onClick={canOpenAction ? handleOpenAction : undefined} style={cardStyle}>
+			<Card
+				onClick={canOpenAction ? handleOpenAction : undefined}
+				style={cardStyle}
+			>
 				<Flex align="start" justify="between" gap="3">
 					<Flex
 						direction="column"
@@ -124,7 +130,12 @@ export const NotificationEntry = ({
 							</Text>
 						)}
 					</Flex>
-					<Flex direction="column" align="end" gap="2" style={notificationCenterStyles.actionColumn}>
+					<Flex
+						direction="column"
+						align="end"
+						gap="2"
+						style={notificationCenterStyles.actionColumn}
+					>
 						<Text size="1" color="gray" wrap="nowrap">
 							{formatTime(item.createdAt)}
 						</Text>

@@ -183,10 +183,9 @@ export const reviewReviewedPrsAtom = atomWithStorage<Record<number, boolean>>(
 );
 export const reviewSingleRefreshAtom = atom<number | null>(null);
 
-export const reviewStashSubmittedAtom = atomWithStorage<Record<string, string[]>>(
-	"reviewStashSubmitted",
-	{},
-);
+export const reviewStashSubmittedAtom = atomWithStorage<
+	Record<string, string[]>
+>("reviewStashSubmitted", {});
 export const reviewStashLastSelectionAtom = atomWithStorage<
 	Record<string, Array<[string, "startTime" | "endTime"]>>
 >("reviewStashLastSelection", {});

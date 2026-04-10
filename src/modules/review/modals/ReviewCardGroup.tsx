@@ -34,7 +34,10 @@ import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 type PlatformItem = {
 	ids: string[];
 	label: string;
-	icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+	icon: React.ComponentType<{
+		className?: string;
+		style?: React.CSSProperties;
+	}>;
 	url: string | null;
 };
 
@@ -60,17 +63,13 @@ const buildPlatformItems = (ids: {
 			ids: ncmIds,
 			label: "网易云音乐",
 			icon: NeteaseIcon,
-			url: ncmIds[0]
-				? `https://music.163.com/#/song?id=${ncmIds[0]}`
-				: null,
+			url: ncmIds[0] ? `https://music.163.com/#/song?id=${ncmIds[0]}` : null,
 		},
 		{
 			ids: qqIds,
 			label: "QQ音乐",
 			icon: QQMusicIcon,
-			url: qqIds[0]
-				? `https://y.qq.com/n/ryqq/songDetail/${qqIds[0]}`
-				: null,
+			url: qqIds[0] ? `https://y.qq.com/n/ryqq/songDetail/${qqIds[0]}` : null,
 		},
 		{
 			ids: spotifyIds,
@@ -84,12 +83,10 @@ const buildPlatformItems = (ids: {
 			ids: amIds,
 			label: "Apple Music",
 			icon: AppleMusicIcon,
-			url: amIds[0]
-				? `https://music.apple.com/song/${amIds[0]}`
-				: null,
+			url: amIds[0] ? `https://music.apple.com/song/${amIds[0]}` : null,
 		},
-	].filter((item) =>
-		item.ids.length > 0 && (item.label === "网易云音乐" || item.url),
+	].filter(
+		(item) => item.ids.length > 0 && (item.label === "网易云音乐" || item.url),
 	);
 };
 
@@ -228,17 +225,21 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 							gap="1"
 							className={options.styles.metaSection}
 						>
-							<Flex
-								align="center"
-								gap="2"
-								className={options.styles.metaRow}
-							>
+							<Flex align="center" gap="2" className={options.styles.metaRow}>
 								<Record20Regular className={options.styles.icon} />
-								<Text size="2" weight="bold" className={options.styles.metaLabel}>
+								<Text
+									size="2"
+									weight="bold"
+									className={options.styles.metaLabel}
+								>
 									音乐名称
 								</Text>
 							</Flex>
-							<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+							<Flex
+								wrap="wrap"
+								gap="2"
+								className={options.styles.metaValuesRow}
+							>
 								{renderMetaValues(metadata.musicName, options.styles)}
 							</Flex>
 						</Flex>
@@ -247,17 +248,21 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 							gap="1"
 							className={options.styles.metaSection}
 						>
-							<Flex
-								align="center"
-								gap="2"
-								className={options.styles.metaRow}
-							>
+							<Flex align="center" gap="2" className={options.styles.metaRow}>
 								<PersonCircle20Regular className={options.styles.icon} />
-								<Text size="2" weight="bold" className={options.styles.metaLabel}>
+								<Text
+									size="2"
+									weight="bold"
+									className={options.styles.metaLabel}
+								>
 									音乐作者
 								</Text>
 							</Flex>
-							<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+							<Flex
+								wrap="wrap"
+								gap="2"
+								className={options.styles.metaValuesRow}
+							>
 								{renderMetaValues(metadata.artists, options.styles)}
 							</Flex>
 						</Flex>
@@ -266,17 +271,21 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 							gap="1"
 							className={options.styles.metaSection}
 						>
-							<Flex
-								align="center"
-								gap="2"
-								className={options.styles.metaRow}
-							>
+							<Flex align="center" gap="2" className={options.styles.metaRow}>
 								<Stack20Regular className={options.styles.icon} />
-								<Text size="2" weight="bold" className={options.styles.metaLabel}>
+								<Text
+									size="2"
+									weight="bold"
+									className={options.styles.metaLabel}
+								>
 									音乐专辑
 								</Text>
 							</Flex>
-							<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+							<Flex
+								wrap="wrap"
+								gap="2"
+								className={options.styles.metaValuesRow}
+							>
 								{renderMetaValues(metadata.album, options.styles)}
 							</Flex>
 						</Flex>
@@ -286,7 +295,11 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 					<Box
 						className={`${options.styles.contentBlock} ${options.styles.metaBlockPanel}`}
 					>
-						<Text size="2" weight="medium" className={options.styles.blockTitle}>
+						<Text
+							size="2"
+							weight="medium"
+							className={options.styles.blockTitle}
+						>
 							平台关联ID
 						</Text>
 						<Flex
@@ -316,7 +329,8 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 												{item.ids.map((id) => {
 													const isLoading = options.audioLoadPendingId === id;
 													const isLastOpened =
-														options.lastNeteaseIdByPr[options.item.number] === id;
+														options.lastNeteaseIdByPr[options.item.number] ===
+														id;
 													return (
 														<Button
 															key={id}
@@ -355,7 +369,11 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 					<Box
 						className={`${options.styles.contentBlock} ${options.styles.metaBlockPanel}`}
 					>
-						<Flex align="center" gap="2" className={options.styles.remarkHeader}>
+						<Flex
+							align="center"
+							gap="2"
+							className={options.styles.remarkHeader}
+						>
 							<Comment20Regular className={options.styles.icon} />
 							<Text size="2" weight="medium">
 								备注
@@ -386,9 +404,7 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 							{openFilePending ? (
 								<Spinner size="1" />
 							) : (
-								<ArrowSquareUpRight20Regular
-									className={options.styles.icon}
-								/>
+								<ArrowSquareUpRight20Regular className={options.styles.icon} />
 							)}
 							<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
 						</Flex>
@@ -451,7 +467,8 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 							提交者:
 						</Text>
 						<Text size="2" weight="medium">
-							{options.item.submitterInfo?.displayName || options.item.submitter}
+							{options.item.submitterInfo?.displayName ||
+								options.item.submitter}
 						</Text>
 					</Flex>
 				</Flex>
@@ -479,17 +496,21 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								gap="1"
 								className={options.styles.metaSection}
 							>
-								<Flex
-									align="center"
-									gap="2"
-									className={options.styles.metaRow}
-								>
+								<Flex align="center" gap="2" className={options.styles.metaRow}>
 									<PersonCircle20Regular className={options.styles.icon} />
-									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+									<Text
+										size="2"
+										weight="bold"
+										className={options.styles.metaLabel}
+									>
 										艺术家
 									</Text>
 								</Flex>
-								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+								<Flex
+									wrap="wrap"
+									gap="2"
+									className={options.styles.metaValuesRow}
+								>
 									<Text size="2" className={options.styles.metaChip}>
 										{options.item.artist}
 									</Text>
@@ -502,17 +523,21 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								gap="1"
 								className={options.styles.metaSection}
 							>
-								<Flex
-									align="center"
-									gap="2"
-									className={options.styles.metaRow}
-								>
+								<Flex align="center" gap="2" className={options.styles.metaRow}>
 									<Stack20Regular className={options.styles.icon} />
-									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+									<Text
+										size="2"
+										weight="bold"
+										className={options.styles.metaLabel}
+									>
 										专辑
 									</Text>
 								</Flex>
-								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+								<Flex
+									wrap="wrap"
+									gap="2"
+									className={options.styles.metaValuesRow}
+								>
 									<Text size="2" className={options.styles.metaChip}>
 										{options.item.album}
 									</Text>
@@ -525,21 +550,30 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								gap="1"
 								className={options.styles.metaSection}
 							>
-								<Flex
-									align="center"
-									gap="2"
-									className={options.styles.metaRow}
-								>
-									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+								<Flex align="center" gap="2" className={options.styles.metaRow}>
+									<Text
+										size="2"
+										weight="bold"
+										className={options.styles.metaLabel}
+									>
 										语言
 									</Text>
 								</Flex>
-								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+								<Flex
+									wrap="wrap"
+									gap="2"
+									className={options.styles.metaValuesRow}
+								>
 									<Text size="2" className={options.styles.metaChip}>
-										{options.item.language === 'ja' ? '日语' :
-										 options.item.language === 'zh' ? '中文' :
-										 options.item.language === 'en' ? '英语' :
-										 options.item.language === 'ko' ? '韩语' : options.item.language}
+										{options.item.language === "ja"
+											? "日语"
+											: options.item.language === "zh"
+												? "中文"
+												: options.item.language === "en"
+													? "英语"
+													: options.item.language === "ko"
+														? "韩语"
+														: options.item.language}
 									</Text>
 								</Flex>
 							</Flex>
@@ -550,18 +584,26 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								gap="1"
 								className={options.styles.metaSection}
 							>
-								<Flex
-									align="center"
-									gap="2"
-									className={options.styles.metaRow}
-								>
-									<Text size="2" weight="bold" className={options.styles.metaLabel}>
+								<Flex align="center" gap="2" className={options.styles.metaRow}>
+									<Text
+										size="2"
+										weight="bold"
+										className={options.styles.metaLabel}
+									>
 										标签
 									</Text>
 								</Flex>
-								<Flex wrap="wrap" gap="2" className={options.styles.metaValuesRow}>
+								<Flex
+									wrap="wrap"
+									gap="2"
+									className={options.styles.metaValuesRow}
+								>
 									{options.item.tags.map((tag) => (
-										<Text key={tag} size="2" className={options.styles.metaChip}>
+										<Text
+											key={tag}
+											size="2"
+											className={options.styles.metaChip}
+										>
 											{tag}
 										</Text>
 									))}
@@ -574,7 +616,11 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 					<Box
 						className={`${options.styles.contentBlock} ${options.styles.metaBlockPanel}`}
 					>
-						<Text size="2" weight="medium" className={options.styles.blockTitle}>
+						<Text
+							size="2"
+							weight="medium"
+							className={options.styles.blockTitle}
+						>
 							平台关联ID
 						</Text>
 						<Flex
@@ -583,33 +629,33 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 							className={options.styles.platformList}
 						>
 							{platformItems.map((item) => {
-							const Icon = item.icon;
-							const idText = item.ids[0] ?? "";
-							return (
-								<Flex
-									key={item.label}
-									align="center"
-									justify="between"
-									className={options.styles.platformItem}
-								>
-									<Flex align="center" gap="2">
-										<Icon className={options.styles.platformIcon} />
-										<Text size="2" weight="bold">
-											{item.label}
-										</Text>
+								const Icon = item.icon;
+								const idText = item.ids[0] ?? "";
+								return (
+									<Flex
+										key={item.label}
+										align="center"
+										justify="between"
+										className={options.styles.platformItem}
+									>
+										<Flex align="center" gap="2">
+											<Icon className={options.styles.platformIcon} />
+											<Text size="2" weight="bold">
+												{item.label}
+											</Text>
+										</Flex>
+										<Button asChild size="1" variant="soft" color="gray">
+											<a
+												href={item.url ?? undefined}
+												target="_blank"
+												rel="noreferrer"
+											>
+												{idText}
+											</a>
+										</Button>
 									</Flex>
-									<Button asChild size="1" variant="soft" color="gray">
-										<a
-											href={item.url ?? undefined}
-											target="_blank"
-											rel="noreferrer"
-										>
-											{idText}
-										</a>
-									</Button>
-								</Flex>
-							);
-						})}
+								);
+							})}
 						</Flex>
 					</Box>
 				)}
@@ -623,21 +669,19 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 								用户上传音频
 							</Text>
 						</Flex>
-						<Flex direction="column" gap="2" className={options.styles.audioInfo}>
+						<Flex
+							direction="column"
+							gap="2"
+							className={options.styles.audioInfo}
+						>
 							{options.item.audio.title && (
-								<Text size="2">
-									标题: {options.item.audio.title}
-								</Text>
+								<Text size="2">标题: {options.item.audio.title}</Text>
 							)}
 							{options.item.audio.artist && (
-								<Text size="2">
-									艺术家: {options.item.audio.artist}
-								</Text>
+								<Text size="2">艺术家: {options.item.audio.artist}</Text>
 							)}
 							{options.item.audio.album && (
-								<Text size="2">
-									专辑: {options.item.audio.album}
-								</Text>
+								<Text size="2">专辑: {options.item.audio.album}</Text>
 							)}
 						</Flex>
 					</Box>
@@ -646,7 +690,11 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 					<Box
 						className={`${options.styles.contentBlock} ${options.styles.metaBlockPanel}`}
 					>
-						<Flex align="center" gap="2" className={options.styles.remarkHeader}>
+						<Flex
+							align="center"
+							gap="2"
+							className={options.styles.remarkHeader}
+						>
 							<Comment20Regular className={options.styles.icon} />
 							<Text size="2" weight="medium">
 								备注
@@ -677,9 +725,7 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 							{openFilePending ? (
 								<Spinner size="1" />
 							) : (
-								<ArrowSquareUpRight20Regular
-									className={options.styles.icon}
-								/>
+								<ArrowSquareUpRight20Regular className={options.styles.icon} />
 							)}
 							<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
 						</Flex>
