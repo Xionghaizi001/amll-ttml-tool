@@ -94,7 +94,9 @@
 }
 
 .overlayFooter {
-	margin-top: auto;
+	padding: var(--space-3);
+	padding-top: 0;
+	flex-shrink: 0;
 }
 
 .overlayTitle {

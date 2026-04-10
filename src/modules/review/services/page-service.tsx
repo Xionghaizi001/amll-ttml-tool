@@ -44,6 +44,7 @@ const ReviewPage = () => {
 		to: DOMRect;
 		phase: "opening" | "open" | "closing";
 		overlayTopInset: number;
+		overlayBottomInset: number;
 	} | null>(null);
 	const {
 		audioLoadPendingId,
@@ -128,6 +129,18 @@ const ReviewPage = () => {
 		return 52;
 	}, []);
 
+	const getOverlayBottomInset = useCallback(() => {
+		if (typeof document === "undefined") return 0;
+		const audioControls = document.querySelector("[data-audio-controls]");
+		if (audioControls instanceof HTMLElement) {
+			const height = audioControls.getBoundingClientRect().height;
+			if (Number.isFinite(height) && height > 0) {
+				return Math.round(height);
+			}
+		}
+		return 0;
+	}, []);
+
 	const openExpanded = useCallback(
 		(item: ReviewItem, rect: DOMRect) => {
 			if (closeTimerRef.current) {
@@ -135,12 +148,16 @@ const ReviewPage = () => {
 				closeTimerRef.current = null;
 			}
 			const overlayTopInset = getOverlayTopInset();
-			const containerRect = new DOMRect(
-				0,
-				overlayTopInset,
-				window.innerWidth,
-				Math.max(0, window.innerHeight - overlayTopInset),
-			);
+			const overlayBottomInset = getOverlayBottomInset();
+			const containerEl = containerRef.current;
+			const containerRect = containerEl
+				? containerEl.getBoundingClientRect()
+				: new DOMRect(
+						0,
+						overlayTopInset,
+						window.innerWidth,
+						Math.max(0, window.innerHeight - overlayTopInset - overlayBottomInset),
+					);
 			const padding = 24;
 			const maxWidth = Math.max(0, containerRect.width - padding * 2);
 			const maxHeight = Math.max(0, containerRect.height - padding * 2);
@@ -167,6 +184,7 @@ const ReviewPage = () => {
 				to: toRect,
 				phase: "opening",
 				overlayTopInset,
+				overlayBottomInset,
 			});
 			requestAnimationFrame(() => {
 				setExpandedCard((prev) =>
@@ -174,7 +192,7 @@ const ReviewPage = () => {
 				);
 			});
 		},
-		[getOverlayTopInset],
+		[getOverlayTopInset, getOverlayBottomInset],
 	);
 
 	const handleCardClick = useCallback(
@@ -483,7 +501,7 @@ const ReviewPage = () => {
 							expandedCard.phase === "open" ? styles.overlayVisible : ""
 						}`}
 						style={{
-							inset: `${expandedCard.overlayTopInset}px 0 0 0`,
+							inset: `${expandedCard.overlayTopInset}px 0 ${expandedCard.overlayBottomInset}px 0`,
 						}}
 						onClick={closeExpanded}
 					>

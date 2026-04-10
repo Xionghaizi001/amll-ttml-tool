@@ -393,24 +393,24 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 						</Box>
 					</Box>
 				)}
-				<Flex
-					align="center"
-					justify="end"
-					gap="2"
-					className={options.styles.overlayFooter}
-				>
-					<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
-						<Flex align="center" gap="2">
-							{openFilePending ? (
-								<Spinner size="1" />
-							) : (
-								<ArrowSquareUpRight20Regular className={options.styles.icon} />
-							)}
-							<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
-						</Flex>
-					</Button>
-				</Flex>
 			</Box>
+			<Flex
+				align="center"
+				justify="end"
+				gap="2"
+				className={options.styles.overlayFooter}
+			>
+				<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
+					<Flex align="center" gap="2">
+						{openFilePending ? (
+							<Spinner size="1" />
+						) : (
+							<ArrowSquareUpRight20Regular className={options.styles.icon} />
+						)}
+						<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
+					</Flex>
+				</Button>
+			</Flex>
 		</Flex>
 	);
 };
@@ -714,24 +714,24 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 						</Box>
 					</Box>
 				)}
-				<Flex
-					align="center"
-					justify="end"
-					gap="2"
-					className={options.styles.overlayFooter}
-				>
-					<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
-						<Flex align="center" gap="2">
-							{openFilePending ? (
-								<Spinner size="1" />
-							) : (
-								<ArrowSquareUpRight20Regular className={options.styles.icon} />
-							)}
-							<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
-						</Flex>
-					</Button>
-				</Flex>
 			</Box>
+			<Flex
+				align="center"
+				justify="end"
+				gap="2"
+				className={options.styles.overlayFooter}
+			>
+				<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
+					<Flex align="center" gap="2">
+						{openFilePending ? (
+							<Spinner size="1" />
+						) : (
+							<ArrowSquareUpRight20Regular className={options.styles.icon} />
+						)}
+						<Text size="2">{openFilePending ? "打开中..." : "打开文件"}</Text>
+					</Flex>
+				</Button>
+			</Flex>
 		</Flex>
 	);
 };

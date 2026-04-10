@@ -528,9 +528,21 @@ function App() {
 						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
 							<TouchSyncPanel />
 						)}
-						<Box flexShrink="0">
-							<AudioControls />
-						</Box>
+						<AnimatePresence initial={false}>
+							{toolMode !== ToolMode.Review && (
+								<motion.div
+									key="audio-controls"
+									style={{ flexShrink: 0, overflow: "hidden" }}
+									initial={{ height: 0, opacity: 0, y: 20 }}
+									animate={{ height: "auto", opacity: 1, y: 0 }}
+									exit={{ height: 0, opacity: 0, y: 20 }}
+									transition={{ duration: 0.22, ease: "easeInOut" }}
+									data-audio-controls
+								>
+									<AudioControls />
+								</motion.div>
+							)}
+						</AnimatePresence>
 					</Flex>
 					<Suspense fallback={null}>
 						<Dialogs />
