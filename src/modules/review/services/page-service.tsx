@@ -339,7 +339,7 @@ const ReviewPage = () => {
 							value={selectedLanguage || "all"}
 							onValueChange={(value) => setSelectedLanguage(value === "all" ? null : value)}
 						>
-							<Select.Trigger variant="soft" size="1" />
+							<Select.Trigger variant="soft" />
 							<Select.Content>
 								<Select.Item value="all">全部</Select.Item>
 								<Select.Item value="ja">日语</Select.Item>

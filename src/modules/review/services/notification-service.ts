@@ -17,6 +17,8 @@ type ReviewReportDialogState = {
 	prTitle: string;
 	report: string;
 	draftId: string | null;
+	source?: "github" | "lyrics-site";
+	submissionId?: string;
 };
 type ReviewReportDraftAction = Extract<
 	NonNullable<AppNotification["action"]>,

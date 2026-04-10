@@ -353,7 +353,7 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
-					source: activeSession.source,
+					source: activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
 					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
 				});
 				setTimingStashItems([]);
@@ -374,7 +374,7 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
-					source: activeSession.source,
+					source: activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
 					submissionId: activeSession.source === "lyrics-site" ? String(activeSession.prNumber) : undefined,
 				});
 			}
@@ -523,7 +523,7 @@ export const useReviewTimingFlow = () => {
 					reviewReportDialog.draftId) ||
 				draftMatch?.id ||
 				null,
-			source: reviewSession?.source,
+			source: reviewSession?.source === "lyrics-site" ? "lyrics-site" : reviewSession?.source ? "github" : undefined,
 			submissionId: reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
 		setTimingStashItems([]);
@@ -568,7 +568,6 @@ export const useReviewTimingFlow = () => {
 				open={audioSourceDialog.open}
 				options={audioSourceDialog.options}
 				currentSource={audioSourceDialog.currentSource}
-				audioTitle={audioSourceDialog.audioTitle}
 				onSelect={handleSelectAudioSource}
 				onClose={closeAudioSourceDialog}
 			/>

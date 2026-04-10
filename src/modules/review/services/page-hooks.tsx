@@ -444,9 +444,10 @@ export const useReviewPageLogic = () => {
 			if (!token) return;
 			const detail = await fetchPullRequestDetail({ token, prNumber });
 			if (!detail) return;
-			const refreshedItems = await refreshPendingLabels(token, [detail]);
-			const refreshedItem = refreshedItems[0] ?? detail;
-			setItems((prev) => {
+			const detailAsPr: ReviewPullRequest = { ...detail, source: "github" };
+			const refreshedItems = await refreshPendingLabels(token, [detailAsPr]);
+			const refreshedItem = refreshedItems[0] ?? detailAsPr;
+			setGithubItems((prev) => {
 				const index = prev.findIndex((pr) => pr.number === prNumber);
 				if (index < 0) return prev;
 				const next = [...prev];
@@ -845,7 +846,7 @@ export const useReviewPageLogic = () => {
 					if (pageList.length === 0) {
 						break;
 					}
-					result.push(...pageList);
+					result.push(...pageList.map((pr) => ({ ...pr, source: "github" as const })));
 					if (cancelled) return;
 					setGithubItems([...result]);
 					if (pageList.length < perPage) {

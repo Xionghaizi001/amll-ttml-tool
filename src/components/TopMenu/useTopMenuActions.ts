@@ -435,6 +435,7 @@ export const useTopMenuActions = () => {
 	}, [editLyricLines, setConfirmDialog, t]);
 
 	const onAlignEndTimestamps = useCallback(() => {
+		const selectedLineIds = store.get(selectedLinesAtom);
 		const hasSelection = selectedLineIds.size > 0;
 
 		const action = () => {
@@ -468,7 +469,7 @@ export const useTopMenuActions = () => {
 					),
 			onConfirm: action,
 		});
-	}, [editLyricLines, setConfirmDialog, t, selectedLineIds]);
+	}, [editLyricLines, setConfirmDialog, t, store]);
 
 	const onReduceStutter = useCallback(() => {
 		store.set(reduceStutterDialogAtom, { open: true });

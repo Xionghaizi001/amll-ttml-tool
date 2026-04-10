@@ -584,7 +584,6 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 						>
 							{platformItems.map((item) => {
 							const Icon = item.icon;
-							const isNetease = item.label === "网易云音乐";
 							const idText = item.ids[0] ?? "";
 							return (
 								<Flex
@@ -608,18 +607,6 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 											{idText}
 										</a>
 									</Button>
-									{isNetease && (
-										<Button
-											size="1"
-											variant="soft"
-											color="blue"
-											onClick={() =>
-												options.onLoadNeteaseAudio?.(options.item, [idText])
-											}
-										>
-											加载
-										</Button>
-									)}
 								</Flex>
 							);
 						})}
