@@ -4,8 +4,6 @@ import type { AppNotification } from "$/states/notifications";
 import { requestNetease } from "./index";
 import { audioProxyUrlAtom, neteaseCookieAtom } from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
-import { audioEngine } from "$/modules/audio/audio-engine";
-
 const AUDIO_CACHE_DB = "amll-audio-cache";
 const AUDIO_CACHE_STORE = "audio-files";
 const AUDIO_CACHE_KEY = "last-audio";
@@ -251,15 +249,11 @@ export const loadNeteaseAudio = async (options: {
 			return;
 		}
 
-		const audioUrl = await getNeteaseAudioUrl(
-			options.id,
-			trimmedCookie.length > 0 ? trimmedCookie : undefined,
-		);
-		if (!audioUrl) {
-			throw new Error("找不到音频 URL，可能需要 VIP？");
+		const file = await cacheNeteaseAudioToIndexedDb(options.id, trimmedCookie.length > 0 ? trimmedCookie : undefined);
+		if (!file) {
+			throw new Error("下载音频失败");
 		}
-
-		await audioEngine.loadMusicFromUrl(audioUrl);
+		options.openFile(file);
 		options.pushNotification({
 			title: `已加载音频`,
 			level: "success",

@@ -1,8 +1,8 @@
 import { getAudioFileUrl } from "../index";
 import { lyricsSiteTokenAtom, audioProxyUrlAtom } from "$/modules/settings/states";
 import { globalStore } from "$/states/store";
-import { audioEngine } from "$/modules/audio/audio-engine";
 import type { AppNotification } from "$/states/notifications";
+import { audioEngine } from "$/modules/audio/audio-engine";
 
 export const getLyricsSiteAudioSourceInfo = async (audioFileName?: string, audioTitle?: string) => {
 	const token = globalStore.get(lyricsSiteTokenAtom)?.trim();
@@ -19,9 +19,10 @@ export const getLyricsSiteAudioSourceInfo = async (audioFileName?: string, audio
 export const loadLyricsSiteAudio = async (options: {
 	audioFileName?: string;
 	audioTitle?: string;
+	openFile: (file: File) => void;
 	pushNotification: (payload: Omit<AppNotification, "id" | "createdAt">) => void;
 }) => {
-	const { audioFileName, audioTitle, pushNotification } = options;
+	const { audioFileName, audioTitle, openFile, pushNotification } = options;
 	const token = globalStore.get(lyricsSiteTokenAtom)?.trim();
 
 	if (!token) {
@@ -49,10 +50,29 @@ export const loadLyricsSiteAudio = async (options: {
 			? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
 			: audioUrl;
 
-		await audioEngine.loadMusicFromUrl(fetchUrl);
+		pushNotification({
+			title: `正在加载用户上传音频：${audioTitle || audioFileName}`,
+			level: "info",
+			source: "audio",
+		});
+
+		const response = await fetch(fetchUrl, { mode: "cors" });
+		if (!response.ok) {
+			throw new Error(`下载失败：${response.status}`);
+		}
+		const blob = await response.blob();
+		const fileName = audioFileName.split("/").pop() ?? audioFileName;
+		const file = new File([blob], fileName, { type: blob.type || "audio/*" });
+
+		openFile(file);
+
+		await new Promise<void>((resolve) => {
+			audioEngine.addEventListener("music-load", () => resolve(), { once: true });
+			audioEngine.addEventListener("music-load-error", () => resolve(), { once: true });
+		});
 
 		pushNotification({
-			title: `已加载用户上传音频：${audioTitle || audioFileName}`,
+			title: `已加载用户上传音频：${audioTitle || fileName}`,
 			level: "success",
 			source: "audio",
 		});

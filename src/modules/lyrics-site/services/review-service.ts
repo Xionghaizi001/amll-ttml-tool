@@ -211,6 +211,7 @@ export const useLyricsSiteReviewService = () => {
 							const result = await loadLyricsSiteAudio({
 								audioFileName: submission.audio.fileName,
 								audioTitle: submission.audio.title,
+								openFile,
 								pushNotification: (payload) => {
 									setPushNotification({
 										id: `audio-load-${submission.id}`,

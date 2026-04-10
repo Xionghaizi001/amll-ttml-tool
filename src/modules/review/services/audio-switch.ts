@@ -180,6 +180,7 @@ export const useAudioSwitch = (options: {
 				const result = await loadLyricsSiteAudio({
 					audioFileName: reviewSession.audioFileName,
 					audioTitle: reviewSession.audioTitle,
+					openFile: options.openFile,
 					pushNotification,
 				});
 				if (result.success) {
