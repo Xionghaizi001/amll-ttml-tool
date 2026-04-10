@@ -682,6 +682,31 @@ export const ReviewReportDialog = () => {
 				}
 				setApprovedByUser(true);
 			}
+			const reportBody = getCleanReport();
+			if (reportBody) {
+				const commentResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${dialog.prNumber}/comments`,
+					{
+						init: {
+							method: "POST",
+							headers: {
+								Accept: "application/vnd.github+json",
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({ body: reportBody }),
+						},
+					},
+				);
+				if (commentResponse.status !== 201) {
+					setPushNotification({
+						title: `发送评论失败：${commentResponse.status}`,
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+			}
 			const response = await mergePullRequest({
 				token,
 				prNumber: dialog.prNumber,
