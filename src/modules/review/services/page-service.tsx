@@ -256,7 +256,7 @@ const ReviewPage = () => {
 				.catch(() => {});
 		});
 		cardRectsRef.current = nextRects;
-	});
+	}, [sortedItems]);
 
 	useEffect(() => {
 		return () => {
