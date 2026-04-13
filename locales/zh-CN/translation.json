@@ -100,7 +100,8 @@
 			"none": "无",
 			"noSelection": "未选择",
 			"addCustomPart": "添加自定义",
-			"customPartPlaceholder": "自定义 Part"
+			"customPartPlaceholder": "自定义 Part",
+			"selectTarget": "选择目标"
 		},
 		"previewMode": {
 			"lyrics": "歌词",

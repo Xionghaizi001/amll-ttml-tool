@@ -40,6 +40,10 @@ export interface TTMLLyric {
 	vocalTags?: TTMLVocalTag[];
 	agents: TTMLAgent[];
 	optimizeOptions?: OptimizeLyricOptions;
+	/**
+	 * @description 存储文件中出现的但不在预设列表中的自定义 song-part 值
+	 */
+	customSongParts?: string[];
 }
 
 export interface LyricWordBase {

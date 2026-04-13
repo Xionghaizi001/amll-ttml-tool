@@ -21,7 +21,7 @@ import {
 	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
-import { Add16Regular } from "@fluentui/react-icons";
+import { Add16Regular, ArrowSwap16Regular, Edit16Regular } from "@fluentui/react-icons";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
@@ -694,6 +694,7 @@ const SongPartField: FC = () => {
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const [customPart, setCustomPart] = useState("");
 	const [isAddingCustom, setIsAddingCustom] = useState(false);
+	const [isConverting, setIsConverting] = useState<string | null>(null);
 
 	// 获取当前选中行的 songPart 值
 	const currentSongPart = useMemo(() => {
@@ -733,8 +734,34 @@ const SongPartField: FC = () => {
 		}
 	}, [customPart, handleSongPartChange]);
 
+	// 处理将自定义 song-part 转换为预设值
+	const handleConvertCustomPart = useCallback(
+		(customValue: string, targetValue: string) => {
+			editLyricLines((state) => {
+				// 更新所有使用该自定义值的行的 songPart
+				for (const line of state.lyricLines) {
+					if (line.songPart === customValue) {
+						line.songPart = targetValue;
+					}
+				}
+				// 从 customSongParts 中移除该自定义值
+				if (state.customSongParts) {
+					state.customSongParts = state.customSongParts.filter(
+						(p) => p !== customValue,
+					);
+				}
+				return state;
+			});
+			setIsConverting(null);
+		},
+		[editLyricLines],
+	);
+
 	const displayValue = currentSongPart === undefined ? NONE_VALUE : currentSongPart;
 	const songPartLabelId = useId();
+
+	// 获取自定义 song-part 列表
+	const customSongParts = lyricLines.customSongParts || [];
 
 	return (
 		<>
@@ -767,6 +794,56 @@ const SongPartField: FC = () => {
 							{option.label}
 						</Select.Item>
 					))}
+					{customSongParts.length > 0 && (
+						<>
+							<Select.Separator />
+							{customSongParts.map((customPart) => (
+								<Select.Item key={customPart} value={customPart}>
+									<Flex justify="between" align="center" width="100%" gap="2">
+										<Text>{customPart}</Text>
+										{isConverting === customPart ? (
+											<Select.Root
+												size="1"
+												onValueChange={(value) =>
+													handleConvertCustomPart(customPart, value)
+												}
+											>
+												<Select.Trigger
+													placeholder={t(
+														"ribbonBar.editMode.selectTarget",
+														"Select...",
+													)}
+													style={{ width: "80px" }}
+													onClick={(e) => e.stopPropagation()}
+												/>
+												<Select.Content>
+													{SONG_PART_OPTIONS.map((option) => (
+														<Select.Item
+															key={option.value}
+															value={option.value}
+														>
+															{option.label}
+														</Select.Item>
+													))}
+												</Select.Content>
+											</Select.Root>
+										) : (
+											<IconButton
+												size="1"
+												variant="soft"
+												onClick={(e) => {
+													e.stopPropagation();
+													setIsConverting(customPart);
+												}}
+											>
+												<ArrowSwap16Regular />
+											</IconButton>
+										)}
+									</Flex>
+								</Select.Item>
+							))}
+						</>
+					)}
 					<Select.Separator />
 					{isAddingCustom ? (
 						<Flex gap="2" p="2" align="center">
