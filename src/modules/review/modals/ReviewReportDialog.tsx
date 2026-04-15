@@ -12,6 +12,7 @@ import {
 	Button,
 	Dialog,
 	Flex,
+	Tabs,
 	Text,
 	TextArea,
 	TextField,
@@ -19,6 +20,9 @@ import {
 import { openDB } from "idb";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import { uid } from "uid";
 import { githubFetch } from "$/modules/github/api";
 import {
@@ -878,18 +882,46 @@ export const ReviewReportDialog = () => {
 							</Flex>
 						)}
 					</Flex>
-					<Box>
-						<TextArea
-							value={dialog.report}
-							onChange={(event) =>
-								setDialog((prev) => ({
-									...prev,
-									report: event.currentTarget.value,
-								}))
-							}
-							style={{ minHeight: "180px" }}
-						/>
-					</Box>
+					<Tabs.Root defaultValue="edit">
+						<Tabs.List>
+							<Tabs.Trigger value="edit">编辑</Tabs.Trigger>
+							<Tabs.Trigger value="preview">预览</Tabs.Trigger>
+						</Tabs.List>
+						<Tabs.Content value="edit">
+							<TextArea
+								value={dialog.report}
+								onChange={(event) =>
+									setDialog((prev) => ({
+										...prev,
+										report: event.currentTarget.value,
+									}))
+								}
+								style={{ height: "300px" }}
+							/>
+						</Tabs.Content>
+						<Tabs.Content value="preview">
+							<Box
+								style={{
+									height: "300px",
+									overflow: "auto",
+									padding: "var(--space-3)",
+									border: "1px solid var(--gray-6)",
+									borderRadius: "var(--radius-2)",
+									backgroundColor: "var(--gray-2)",
+								}}
+							>
+								{dialog.report ? (
+									<ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+										{dialog.report}
+									</ReactMarkdown>
+								) : (
+									<Text color="gray" size="2">
+										暂无内容
+									</Text>
+								)}
+							</Box>
+						</Tabs.Content>
+					</Tabs.Root>
 					<Flex align="center" justify="between" gap="2">
 						<Button
 							size="2"
