@@ -199,3 +199,11 @@ export const reviewStashRemovedOrderAtom = atomWithStorage<
  * @description 用于控制全局文件拖拽遮罩层的显示
  */
 export const isGlobalFileDraggingAtom = atom(false);
+
+/**
+ * @description 持久化存储的自定义 Song Part 预设列表
+ */
+export const customSongPartPresetsAtom = atomWithStorage<string[]>(
+	"customSongPartPresets",
+	[],
+);

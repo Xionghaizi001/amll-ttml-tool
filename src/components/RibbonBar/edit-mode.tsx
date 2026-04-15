@@ -10,6 +10,7 @@
  */
 
 import {
+	Box,
 	Button,
 	Checkbox,
 	Flex,
@@ -21,7 +22,12 @@ import {
 	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
-import { Add16Regular, ArrowSwap16Regular, Edit16Regular } from "@fluentui/react-icons";
+import {
+	Add16Regular,
+	ArrowSwap16Regular,
+	Delete16Regular,
+	Edit16Regular,
+} from "@fluentui/react-icons";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
@@ -44,6 +50,7 @@ import {
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
 import {
+	customSongPartPresetsAtom,
 	editingTimeFieldAtom,
 	lyricLinesAtom,
 	requestFocusAtom,
@@ -52,12 +59,18 @@ import {
 	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
 import {
+	confirmDialogAtom
+} from "$/states/dialogs";
+import {
 	type LyricLine,
 	type LyricWord,
 	type TTMLAgent,
 	newLyricLine,
 } from "$/types/ttml";
-import { calculateDuetState, type DuetStateContext } from "$/modules/project/logic/ttml-parser";
+import {
+	calculateDuetState,
+	type DuetStateContext,
+} from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
@@ -686,7 +699,8 @@ function EditModeField({
 // 	);
 // }
 
-const SONG_PART_OPTIONS = [
+// 内置的预设 song-part 列表
+const BUILTIN_SONG_PART_OPTIONS = [
 	{ value: "Verse", label: "Verse" },
 	{ value: "Chorus", label: "Chorus" },
 	{ value: "PreChorus", label: "PreChorus" },
@@ -708,9 +722,10 @@ const SongPartField: FC = () => {
 	const selectedLines = useAtomValue(selectedLinesAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
-	const [customPart, setCustomPart] = useState("");
-	const [isAddingCustom, setIsAddingCustom] = useState(false);
-	const [isConverting, setIsConverting] = useState<string | null>(null);
+	const [customSongPartPresets, setCustomSongPartPresets] = useAtom(
+		customSongPartPresetsAtom,
+	);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 
 	// 获取当前选中行的 songPart 值
 	const currentSongPart = useMemo(() => {
@@ -742,25 +757,62 @@ const SongPartField: FC = () => {
 		[editLyricLines, selectedLines],
 	);
 
-	const handleAddCustomPart = useCallback(() => {
-		if (customPart.trim()) {
-			handleSongPartChange(customPart.trim());
-			setCustomPart("");
-			setIsAddingCustom(false);
-		}
-	}, [customPart, handleSongPartChange]);
-
-	// 处理将自定义 song-part 转换为预设值
-	const handleConvertCustomPart = useCallback(
-		(customValue: string, targetValue: string) => {
-			editLyricLines((state) => {
-				// 更新所有使用该自定义值的行的 songPart
-				for (const line of state.lyricLines) {
-					if (line.songPart === customValue) {
-						line.songPart = targetValue;
+	// 处理添加自定义预设 - 使用弹窗
+	const handleAddCustomPreset = useCallback(() => {
+		setConfirmDialog({
+			open: true,
+			title: t("ribbonBar.editMode.addCustomPart", "Add custom part"),
+			description: t(
+				"ribbonBar.editMode.addCustomPartDescription",
+				"Enter a new song part name:",
+			),
+			input: {
+				placeholder: t(
+					"ribbonBar.editMode.customPartPlaceholder",
+					"Custom part",
+				),
+				validate: (value: string) => {
+					if (!value.trim()) {
+						return t("ribbonBar.editMode.emptyValue", "Value cannot be empty");
 					}
+					// 检查是否已存在于内置预设或自定义预设中
+					const allPresets = [
+						...BUILTIN_SONG_PART_OPTIONS.map((o) => o.value),
+						...customSongPartPresets,
+					];
+					if (allPresets.includes(value.trim())) {
+						return t("ribbonBar.editMode.duplicateValue", "Value already exists");
+					}
+					return null;
+				},
+			},
+			onConfirm: (value) => {
+				if (value?.trim()) {
+					// 添加到自定义预设列表
+					setCustomSongPartPresets((prev) => [...prev, value.trim()]);
+					// 设置为当前选中行的 songPart
+					handleSongPartChange(value.trim());
 				}
-				// 从 customSongParts 中移除该自定义值
+			},
+		});
+	}, [
+		setConfirmDialog,
+		t,
+		customSongPartPresets,
+		setCustomSongPartPresets,
+		handleSongPartChange,
+	]);
+
+	// 处理将自定义 song-part 转换为预设值（添加到预设列表）
+	const handleConvertToPreset = useCallback(
+		(customValue: string) => {
+			// 添加到自定义预设列表
+			setCustomSongPartPresets((prev) => {
+				if (prev.includes(customValue)) return prev;
+				return [...prev, customValue];
+			});
+			// 从 customSongParts 中移除
+			editLyricLines((state) => {
 				if (state.customSongParts) {
 					state.customSongParts = state.customSongParts.filter(
 						(p) => p !== customValue,
@@ -768,16 +820,36 @@ const SongPartField: FC = () => {
 				}
 				return state;
 			});
-			setIsConverting(null);
 		},
-		[editLyricLines],
+		[editLyricLines, setCustomSongPartPresets],
 	);
 
-	const displayValue = currentSongPart === undefined ? NONE_VALUE : currentSongPart;
+	const displayValue =
+		currentSongPart === undefined ? NONE_VALUE : currentSongPart;
 	const songPartLabelId = useId();
 
-	// 获取自定义 song-part 列表
+	// 获取文件中解析出的自定义 song-part 列表
 	const customSongParts = lyricLines.customSongParts || [];
+
+	// 处理删除预设
+	const handleDeletePreset = useCallback(
+		(presetValue: string) => {
+			// 从自定义预设列表中移除
+			setCustomSongPartPresets((prev) =>
+				prev.filter((p) => p !== presetValue),
+			);
+			// 将所有使用该预设的行的 songPart 设置为 undefined（无）
+			editLyricLines((state) => {
+				for (const line of state.lyricLines) {
+					if (line.songPart === presetValue) {
+						line.songPart = undefined;
+					}
+				}
+				return state;
+			});
+		},
+		[editLyricLines, setCustomSongPartPresets],
+	);
 
 	return (
 		<>
@@ -805,98 +877,99 @@ const SongPartField: FC = () => {
 					<Select.Item value={NONE_VALUE}>
 						{t("ribbonBar.editMode.none", "None")}
 					</Select.Item>
-					{SONG_PART_OPTIONS.map((option) => (
+					<Select.Separator />
+					{/* 内置预设 - 不可删除 */}
+					{BUILTIN_SONG_PART_OPTIONS.map((option) => (
 						<Select.Item key={option.value} value={option.value}>
 							{option.label}
 						</Select.Item>
+					))}
+					{/* 用户自定义预设 - 可删除 */}
+					{customSongPartPresets.map((presetValue) => (
+						<Box key={presetValue} position="relative">
+							<Select.Item value={presetValue}>
+								<Text style={{ paddingRight: "2rem" }}>{presetValue}</Text>
+							</Select.Item>
+							<Box
+								position="absolute"
+								right="6px"
+								top="50%"
+								style={{
+									transform: "translateY(-50%)",
+									zIndex: 10,
+								}}
+							>
+								<IconButton
+									size="1"
+									variant="soft"
+									color="red"
+									onClick={() => {
+										handleDeletePreset(presetValue);
+									}}
+								>
+									<Delete16Regular />
+								</IconButton>
+							</Box>
+						</Box>
 					))}
 					{customSongParts.length > 0 && (
 						<>
 							<Select.Separator />
 							{customSongParts.map((customPart) => (
-								<Select.Item key={customPart} value={customPart}>
-									<Flex justify="between" align="center" width="100%" gap="2">
-										<Text>{customPart}</Text>
-										{isConverting === customPart ? (
-											<Select.Root
-												size="1"
-												onValueChange={(value) =>
-													handleConvertCustomPart(customPart, value)
-												}
-											>
-												<Select.Trigger
-													placeholder={t(
-														"ribbonBar.editMode.selectTarget",
-														"Select...",
-													)}
-													style={{ width: "80px" }}
-													onClick={(e) => e.stopPropagation()}
-												/>
-												<Select.Content>
-													{SONG_PART_OPTIONS.map((option) => (
-														<Select.Item
-															key={option.value}
-															value={option.value}
-														>
-															{option.label}
-														</Select.Item>
-													))}
-												</Select.Content>
-											</Select.Root>
-										) : (
-											<IconButton
-												size="1"
-												variant="soft"
-												onClick={(e) => {
-													e.stopPropagation();
-													setIsConverting(customPart);
-												}}
-											>
-												<ArrowSwap16Regular />
-											</IconButton>
-										)}
-									</Flex>
-								</Select.Item>
+								<Box key={customPart} position="relative">
+									<Select.Item value={customPart}>
+										<Text style={{ paddingRight: "2rem" }}>{customPart}</Text>
+									</Select.Item>
+									<Box
+										position="absolute"
+										right="6px"
+										top="50%"
+										style={{
+											transform: "translateY(-50%)",
+											zIndex: 10,
+										}}
+									>
+										<IconButton
+											size="1"
+											variant="soft"
+											onClick={() => {
+												handleConvertToPreset(customPart);
+											}}
+										>
+											<ArrowSwap16Regular />
+										</IconButton>
+									</Box>
+								</Box>
 							))}
 						</>
 					)}
 					<Select.Separator />
-					{isAddingCustom ? (
-						<Flex gap="2" p="2" align="center">
-							<TextField.Root
-								size="1"
-								placeholder={t("ribbonBar.editMode.customPartPlaceholder", "Custom part")}
-								value={customPart}
-								onChange={(e) => setCustomPart(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") {
-										handleAddCustomPart();
-									}
-								}}
-								style={{ width: "120px" }}
-							/>
+					<Box position="relative">
+						<Select.Item value="__add_custom__" disabled>
+							<Text style={{ paddingRight: "2rem" }}>
+								{t("ribbonBar.editMode.addCustomPart", "Add custom")}
+							</Text>
+						</Select.Item>
+						<Box
+							position="absolute"
+							right="6px"
+							top="50%"
+							style={{
+								transform: "translateY(-50%)",
+								zIndex: 10,
+							}}
+						>
 							<IconButton
 								size="1"
 								variant="soft"
-								onClick={handleAddCustomPart}
+								onClick={() => {
+									handleAddCustomPreset();
+								}}
 							>
 								<Add16Regular />
 							</IconButton>
-						</Flex>
-					) : (
-						<Select.Item
-							value="__add_custom__"
-							onClick={(e) => {
-								e.preventDefault();
-								setIsAddingCustom(true);
-							}}
-						>
-							<Flex gap="2" align="center">
-								<Add16Regular />
-								{t("ribbonBar.editMode.addCustomPart", "Add custom")}
-							</Flex>
-						</Select.Item>
-					)}
+						</Box>
+					</Box>
 				</Select.Content>
 			</Select.Root>
 		</>
@@ -990,7 +1063,10 @@ const AgentField: FC = () => {
 				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
 				let firstSelectedIndex = -1;
 				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (selectedLines.has(state.lyricLines[i].id) && !state.lyricLines[i].isBG) {
+					if (
+						selectedLines.has(state.lyricLines[i].id) &&
+						!state.lyricLines[i].isBG
+					) {
 						firstSelectedIndex = i;
 						break;
 					}
@@ -999,7 +1075,7 @@ const AgentField: FC = () => {
 				// 向前查找上一个 single 类型的 agent
 				let singleLastAgentId = singleMainAgentId ?? "v1";
 				let groupLastAgentId = groupMainAgentId ?? "v2";
-				
+
 				if (firstSelectedIndex > 0) {
 					// 向前查找 single 类型的 agent
 					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
@@ -1012,7 +1088,7 @@ const AgentField: FC = () => {
 							}
 						}
 					}
-					
+
 					// 向前查找 group 类型的 agent
 					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
 						const line = state.lyricLines[i];
@@ -1056,8 +1132,8 @@ const AgentField: FC = () => {
 
 					// 判断当前行的 agent 类型
 					duetContext.agentId = line.agent;
-					duetContext.isGroup = line.agent 
-						? agentMap.get(line.agent)?.type === "group" 
+					duetContext.isGroup = line.agent
+						? agentMap.get(line.agent)?.type === "group"
 						: false;
 
 					// 使用可复用的对唱状态计算函数（内部会更新上下文）
@@ -1075,30 +1151,60 @@ const AgentField: FC = () => {
 
 	// 构建下拉选项（只显示 id，names 用于 Tooltip）
 	const agentOptions = useMemo(() => {
-		const options: { value: string; label: string; type: string; names: string[] }[] = [];
+		const options: {
+			value: string;
+			label: string;
+			type: string;
+			names: string[];
+		}[] = [];
 
 		// Person 类型
 		for (const agent of groupedAgents.person) {
-			options.push({ value: agent.id, label: agent.id, type: "person", names: agent.names });
+			options.push({
+				value: agent.id,
+				label: agent.id,
+				type: "person",
+				names: agent.names,
+			});
 		}
 
 		// Group 类型（添加分隔线标记）
 		if (groupedAgents.group.length > 0) {
 			if (options.length > 0) {
-				options.push({ value: "__sep_group__", label: "", type: "separator", names: [] });
+				options.push({
+					value: "__sep_group__",
+					label: "",
+					type: "separator",
+					names: [],
+				});
 			}
 			for (const agent of groupedAgents.group) {
-				options.push({ value: agent.id, label: agent.id, type: "group", names: agent.names });
+				options.push({
+					value: agent.id,
+					label: agent.id,
+					type: "group",
+					names: agent.names,
+				});
 			}
 		}
 
 		// Other 类型（添加分隔线标记）
 		if (groupedAgents.other.length > 0) {
 			if (options.length > 0) {
-				options.push({ value: "__sep_other__", label: "", type: "separator", names: [] });
+				options.push({
+					value: "__sep_other__",
+					label: "",
+					type: "separator",
+					names: [],
+				});
 			}
 			for (const agent of groupedAgents.other) {
-				options.push({ value: agent.id, label: agent.id, type: "other", names: agent.names });
+				options.push({
+					value: agent.id,
+					label: agent.id,
+					type: "other",
+					names: agent.names,
+				});
 			}
 		}
 
@@ -1109,7 +1215,8 @@ const AgentField: FC = () => {
 	const agentsList = lyricLines.agents ?? [];
 	const hasAgents = agentsList.length > 0;
 
-	const isAgentSelectDisabled = selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
+	const isAgentSelectDisabled =
+		selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
 
 	return (
 		<>
@@ -1145,11 +1252,9 @@ const AgentField: FC = () => {
 								side="left"
 								align="center"
 							>
-								<Select.Item value={option.value}>
-									{option.label}
-								</Select.Item>
+								<Select.Item value={option.value}>{option.label}</Select.Item>
 							</Tooltip>
-						)
+						),
 					)}
 				</Select.Content>
 			</Select.Root>
@@ -1363,14 +1468,12 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 				>
 					<AuxiliaryDisplayField />
 				</RibbonSection>
-				<RibbonSection
-				label={t("ribbonBar.editMode.amllTags", "AM 标记")}
-			>
-				<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
-					<SongPartField />
-					<AgentField />
-				</Grid>
-			</RibbonSection>
+				<RibbonSection label={t("ribbonBar.editMode.amllTags", "AM 标记")}>
+					<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
+						<SongPartField />
+						<AgentField />
+					</Grid>
+				</RibbonSection>
 			</RibbonFrame>
 		);
 	},

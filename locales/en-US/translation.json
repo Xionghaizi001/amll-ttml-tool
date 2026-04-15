@@ -95,8 +95,10 @@
 			"none": "None",
 			"noSelection": "No selection",
 			"addCustomPart": "Add custom",
+			"addCustomPartDescription": "Enter a new song part name:",
 			"customPartPlaceholder": "Custom part",
-			"selectTarget": "Select target"
+			"emptyValue": "Value cannot be empty",
+			"duplicateValue": "Value already exists"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",

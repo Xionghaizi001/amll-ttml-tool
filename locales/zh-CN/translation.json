@@ -100,8 +100,10 @@
 			"none": "无",
 			"noSelection": "未选择",
 			"addCustomPart": "添加自定义",
+			"addCustomPartDescription": "输入新的分段名称：",
 			"customPartPlaceholder": "自定义 Part",
-			"selectTarget": "选择目标"
+			"emptyValue": "值不能为空",
+			"duplicateValue": "值已存在"
 		},
 		"previewMode": {
 			"lyrics": "歌词",
