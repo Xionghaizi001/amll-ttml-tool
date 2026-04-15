@@ -1,0 +1,40 @@
+.dialogContent {
+	max-width: 500px;
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.dialogHeader {
+	padding: 1rem 1.5rem;
+	border-bottom: 1px solid var(--gray-5);
+}
+
+.dialogBody {
+	padding: 1rem 1.5rem;
+	overflow-y: auto;
+	flex: 1;
+}
+
+.dialogFooter {
+	padding: 1rem 1.5rem;
+	border-top: 1px solid var(--gray-5);
+	display: flex;
+	justify-content: flex-end;
+}
+
+.sectionHeader {
+	margin-bottom: 1rem;
+}
+
+.agentList {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.agentItem {
+	padding: 0.75rem;
+	background-color: var(--gray-3);
+	border-radius: var(--radius-3);
+}

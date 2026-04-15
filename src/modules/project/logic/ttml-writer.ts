@@ -35,10 +35,24 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 
 	let tmp: LyricLine[] = [];
 	for (const line of lyric) {
+		// 当遇到空行时，结束当前 div
 		if (line.words.length === 0 && tmp.length > 0) {
 			params.push(tmp);
 			tmp = [];
-		} else {
+			continue;
+		}
+
+		if (line.words.length > 0) {
+			// 只在以下情况创建新 div：
+			// 1. 当前没有 div（tmp.length === 0）
+			// 2. 当前行有 songPart（表示新的开始）
+			const shouldStartNewDiv = tmp.length === 0 || line.songPart;
+
+			if (shouldStartNewDiv && tmp.length > 0) {
+				params.push(tmp);
+				tmp = [];
+			}
+
 			tmp.push(line);
 		}
 	}
@@ -193,18 +207,39 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 	const hasOtherPerson = !!lyric.find((v) => v.isDuet);
 
 	const metadataEl = doc.createElement("metadata");
-	const mainPersonAgent = doc.createElement("ttm:agent");
-	mainPersonAgent.setAttribute("type", "person");
-	mainPersonAgent.setAttribute("xml:id", "v1");
 
-	metadataEl.appendChild(mainPersonAgent);
+	// 导出 agents 数组
+	const agents = ttmlLyric.agents ?? [];
+	if (agents.length > 0) {
+		// 使用已有的 agents
+		for (const agent of agents) {
+			const agentEl = doc.createElement("ttm:agent");
+			agentEl.setAttribute("type", agent.type);
+			agentEl.setAttribute("xml:id", agent.id);
 
-	if (hasOtherPerson) {
-		const otherPersonAgent = doc.createElement("ttm:agent");
-		otherPersonAgent.setAttribute("type", "other");
-		otherPersonAgent.setAttribute("xml:id", "v2");
+			// 添加 ttm:name 子元素
+			for (const name of agent.names) {
+				const nameEl = doc.createElement("ttm:name");
+				nameEl.setAttribute("type", "full");
+				nameEl.appendChild(doc.createTextNode(name));
+				agentEl.appendChild(nameEl);
+			}
 
-		metadataEl.appendChild(otherPersonAgent);
+			metadataEl.appendChild(agentEl);
+		}
+	} else {
+		// agents 为空时添加默认 agent
+		const mainPersonAgent = doc.createElement("ttm:agent");
+		mainPersonAgent.setAttribute("type", "person");
+		mainPersonAgent.setAttribute("xml:id", "v1");
+		metadataEl.appendChild(mainPersonAgent);
+
+		if (hasOtherPerson) {
+			const otherPersonAgent = doc.createElement("ttm:agent");
+			otherPersonAgent.setAttribute("type", "other");
+			otherPersonAgent.setAttribute("xml:id", "v2");
+			metadataEl.appendChild(otherPersonAgent);
+		}
 	}
 
 	const vocalTags =
@@ -222,33 +257,9 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		metadataEl.appendChild(vocalsEl);
 	}
 
-	// Extract songwriter metadata to emit in iTunes format (Spicylyrics compatibility)
-	const songwriterMeta = ttmlLyric.metadata.find(
-		(m) => m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
-	);
-
-	if (songwriterMeta) {
-		const iTunesMetadata = doc.createElement("iTunesMetadata");
-		iTunesMetadata.setAttribute(
-			"xmlns",
-			"http://music.apple.com/lyric-ttml-internal",
-		);
-		const songwritersEl = doc.createElement("songwriters");
-		for (const name of songwriterMeta.value) {
-			const trimmed = name.trim();
-			if (!trimmed) continue;
-			const swEl = doc.createElement("songwriter");
-			swEl.appendChild(doc.createTextNode(trimmed));
-			songwritersEl.appendChild(swEl);
-		}
-		if (songwritersEl.childNodes.length > 0) {
-			iTunesMetadata.appendChild(songwritersEl);
-			metadataEl.appendChild(iTunesMetadata);
-		}
-	}
-
-	// Append remaining metadata entries (skip songwriter since it's in iTunes format)
+	// Append metadata entries (songwriter will be handled in iTunesMetadata later)
 	for (const metadata of ttmlLyric.metadata) {
+		// songwriter 会在 iTunesMetadata 中单独处理，不在此处重复导出
 		if (metadata.key === "songwriter") continue;
 		for (const value of metadata.value) {
 			const metaEl = doc.createElement("amll:meta");
@@ -295,6 +306,14 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		paramDiv.setAttribute("begin", msToTimestamp(beginTime));
 		paramDiv.setAttribute("end", msToTimestamp(endTime));
 
+		// 查找该 div 中第一个有 songPart 的非背景行，将其 songPart 写入 div
+		const firstLineWithSongPart = param.find(
+			(line) => line.songPart && line.songPart.trim().length > 0 && !line.isBG,
+		);
+		if (firstLineWithSongPart?.songPart) {
+			paramDiv.setAttribute("itunes:song-part", firstLineWithSongPart.songPart);
+		}
+
 		for (let lineIndex = 0; lineIndex < param.length; lineIndex++) {
 			const line = param[lineIndex];
 			const lineP = doc.createElement("p");
@@ -304,7 +323,9 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 			lineP.setAttribute("begin", msToTimestamp(beginTime));
 			lineP.setAttribute("end", msToTimestamp(endTime));
 
-			lineP.setAttribute("ttm:agent", line.isDuet ? "v2" : "v1");
+			// 优先使用 line.agent，如果没有则根据 isDuet 判断
+		const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
+		lineP.setAttribute("ttm:agent", agentId);
 			const normalizedVocal = normalizeVocalValue(line.vocal);
 			if (normalizedVocal.length > 0) {
 				lineP.setAttribute("amll:vocal", normalizedVocal);
@@ -522,24 +543,24 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 			"http://music.apple.com/lyric-ttml-internal",
 		);
 
-		const translations = doc.createElement("translations");
+			const translations = doc.createElement("translations");
 		for (const [lang, entries] of translationByLangMap.entries()) {
-			const translation = doc.createElement("translation");
-			translation.setAttribute("xml:lang", lang);
-			for (const [key, { main, bg }] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-				if (main.trim().length > 0) {
-					textEl.appendChild(doc.createTextNode(main));
+				const translation = doc.createElement("translation");
+				translation.setAttribute("xml:lang", lang);
+				for (const [key, { main, bg }] of entries.entries()) {
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
+					if (main.trim().length > 0) {
+						textEl.appendChild(doc.createTextNode(main));
+					}
+					if (bg.trim().length > 0) {
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						bgSpan.appendChild(doc.createTextNode(bg));
+						textEl.appendChild(bgSpan);
+					}
+					translation.appendChild(textEl);
 				}
-				if (bg.trim().length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					bgSpan.appendChild(doc.createTextNode(bg));
-					textEl.appendChild(bgSpan);
-				}
-				translation.appendChild(textEl);
-			}
 			translations.appendChild(translation);
 		}
 
@@ -620,61 +641,61 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		const undEntries = wordRomanizationByLangMap.get("und");
 		if (undEntries) {
 			for (const [key, data] of undEntries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
 
 				if (data.mainRoman.length > 0) {
-					for (const word of data.mainWords) {
-						if (word.word.trim().length === 0) {
-							if (textEl.hasChildNodes()) {
-								textEl.appendChild(doc.createTextNode(word.word));
+						for (const word of data.mainWords) {
+							if (word.word.trim().length === 0) {
+								if (textEl.hasChildNodes()) {
+									textEl.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
 							}
-							continue;
-						}
 						const match = data.mainRoman.find(
 							(r) =>
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
 						textEl.appendChild(createRomanizationSpanFromData(match));
+						}
 					}
-				}
 
 				if (data.bgRoman.length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					const bgSpans: Element[] = [];
-					for (const word of data.bgWords) {
-						if (word.word.trim().length === 0) {
-							if (bgSpan.hasChildNodes()) {
-								bgSpan.appendChild(doc.createTextNode(word.word));
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						const bgSpans: Element[] = [];
+						for (const word of data.bgWords) {
+							if (word.word.trim().length === 0) {
+								if (bgSpan.hasChildNodes()) {
+									bgSpan.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
 							}
-							continue;
-						}
 						const match = data.bgRoman.find(
 							(r) =>
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
 						const span = createRomanizationSpanFromData(match);
-						bgSpan.appendChild(span);
-						bgSpans.push(span);
-					}
-					if (bgSpans.length > 0) {
-						const first = bgSpans[0];
-						const last = bgSpans[bgSpans.length - 1];
-						if (first.firstChild) {
-							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+							bgSpan.appendChild(span);
+							bgSpans.push(span);
 						}
-						if (last.firstChild) {
-							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+						if (bgSpans.length > 0) {
+							const first = bgSpans[0];
+							const last = bgSpans[bgSpans.length - 1];
+							if (first.firstChild) {
+								first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+							}
+							if (last.firstChild) {
+								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+							}
+							textEl.appendChild(bgSpan);
 						}
-						textEl.appendChild(bgSpan);
 					}
-				}
 
 				defaultTransliteration.appendChild(textEl);
-			}
+				}
 			hasDefaultTransliteration = true;
 		}
 
@@ -684,17 +705,19 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 
 		for (const [lang, entries] of wordRomanizationByLangMap.entries()) {
 			if (lang === "und") continue;
-			const transliteration = doc.createElement("transliteration");
-			transliteration.setAttribute("xml:lang", lang);
-			for (const [key, data] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
+				const transliteration = doc.createElement("transliteration");
+				transliteration.setAttribute("xml:lang", lang);
+				for (const [key, data] of entries.entries()) {
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
 
-				if (data.mainRoman.length > 0) {
-					for (const word of data.mainWords) {
-						if (word.word.trim().length === 0) {
-							if (textEl.hasChildNodes()) {
-								textEl.appendChild(doc.createTextNode(word.word));
+					if (data.mainRoman.length > 0) {
+						for (const word of data.mainWords) {
+							if (word.word.trim().length === 0) {
+								if (textEl.hasChildNodes()) {
+									textEl.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
 							}
 							continue;
 						}
@@ -703,18 +726,20 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
-						textEl.appendChild(createRomanizationSpanFromData(match));
+							textEl.appendChild(createRomanizationSpanFromData(match));
+						}
 					}
-				}
 
-				if (data.bgRoman.length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					const bgSpans: Element[] = [];
-					for (const word of data.bgWords) {
-						if (word.word.trim().length === 0) {
-							if (bgSpan.hasChildNodes()) {
-								bgSpan.appendChild(doc.createTextNode(word.word));
+					if (data.bgRoman.length > 0) {
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						const bgSpans: Element[] = [];
+						for (const word of data.bgWords) {
+							if (word.word.trim().length === 0) {
+								if (bgSpan.hasChildNodes()) {
+									bgSpan.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
 							}
 							continue;
 						}
@@ -723,25 +748,25 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
-						const span = createRomanizationSpanFromData(match);
-						bgSpan.appendChild(span);
-						bgSpans.push(span);
-					}
-					if (bgSpans.length > 0) {
-						const first = bgSpans[0];
-						const last = bgSpans[bgSpans.length - 1];
-						if (first.firstChild) {
-							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+							const span = createRomanizationSpanFromData(match);
+							bgSpan.appendChild(span);
+							bgSpans.push(span);
 						}
-						if (last.firstChild) {
-							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+						if (bgSpans.length > 0) {
+							const first = bgSpans[0];
+							const last = bgSpans[bgSpans.length - 1];
+							if (first.firstChild) {
+								first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+							}
+							if (last.firstChild) {
+								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+							}
+							textEl.appendChild(bgSpan);
 						}
-						textEl.appendChild(bgSpan);
 					}
-				}
 
-				transliteration.appendChild(textEl);
-			}
+					transliteration.appendChild(textEl);
+				}
 			transliterations.appendChild(transliteration);
 		}
 

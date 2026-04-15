@@ -7,6 +7,7 @@ import { HistoryRestoreDialog } from "$/modules/project/modals/HistoryRestore.ts
 import { ImportFromText } from "$/modules/project/modals/ImportFromText.tsx";
 import { MetadataEditor } from "$/modules/project/modals/MetadataEditor.tsx";
 import { VocalTagsEditor } from "$/modules/project/modals/VocalTagsEditor.tsx";
+import { AgentManager } from "$/modules/project/modals/AgentManager.tsx";
 import { SubmitToAMLLDBDialog } from "$/modules/user/modals/SubmitToAmll.tsx";
 import { ReviewReportDialog } from "$/modules/review/modals/ReviewReportDialog.tsx";
 import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
@@ -28,6 +29,7 @@ export const Dialogs = () => {
 			<ImportFromLRCLIB />
 			<MetadataEditor />
 			<VocalTagsEditor />
+			<AgentManager />
 			<SettingsDialog />
 			<SplitWordDialog />
 			<ReplaceWordDialog />
@@ -46,6 +48,7 @@ export const Dialogs = () => {
 			<StorageManagerDialog />
 			<DuplicateSongIdDialog />
 			<ReduceStutterDialog />
+			<AgentManager />
 		</>
 	);
 };

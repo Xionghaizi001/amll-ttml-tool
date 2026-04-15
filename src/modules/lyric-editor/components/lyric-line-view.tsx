@@ -58,6 +58,7 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
 import { LyricLineMenu } from "./lyric-line-menu.tsx";
@@ -341,6 +342,36 @@ export const LyricLineView: FC<{
 		return false;
 	}, [line.startTime, line.endTime, line.words]);
 
+	// 检查是否需要 Agent 警告：如果歌词有 Agent，但该行没有设置 Agent，则显示警告（背景行除外）
+	const hasAgentWarning = useMemo(() => {
+		// 背景行不需要检查 Agent
+		if (line.isBG) {
+			return false;
+		}
+		// 如果歌词没有定义任何 Agent，不需要警告
+		if (!lyricLines.agents || lyricLines.agents.length === 0) {
+			return false;
+		}
+		// 如果该行没有设置 Agent，显示警告
+		return !line.agent;
+	}, [lyricLines.agents, line.agent, line.isBG]);
+
+	const hasRadical = useMemo(() => {
+		for (const word of line.words) {
+			if (containsRadicalChar(word.word)) {
+				return true;
+			}
+			if (word.ruby) {
+				for (const ruby of word.ruby) {
+					if (containsRadicalChar(ruby.word)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}, [line.words]);
+
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
@@ -553,6 +584,8 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
+							hasAgentWarning && toolMode === ToolMode.Edit && styles.agentWarning,
+							hasRadical && styles.radical,
 						)}
 						align="center"
 						gapX="4"

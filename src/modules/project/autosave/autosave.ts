@@ -163,6 +163,16 @@ function getDB() {
 }
 
 /**
+ * @description 对比两个歌词数据是否相同
+ * @param a 歌词数据 A
+ * @param b 歌词数据 B
+ * @returns 是否相同
+ */
+function isLyricsEqual(a: TTMLLyric, b: TTMLLyric): boolean {
+	return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
  * @description 执行自动保存操作
  * @param projectId 当前会话的项目 ID
  * @param lyrics 当前编辑器中的歌词数据
@@ -183,6 +193,14 @@ export async function autoSaveProject(
 	const tx = db.transaction(["projects", "versions"], "readwrite");
 	const projectStore = tx.objectStore("projects");
 	const versionStore = tx.objectStore("versions");
+
+	// 获取当前项目的最新状态，对比内容是否有变化
+	const existingProject = await projectStore.get(projectId);
+	if (existingProject && isLyricsEqual(existingProject.latestState, lyrics)) {
+		// 内容没有变化，不需要保存
+		await tx.done;
+		return;
+	}
 
 	await projectStore.put({
 		id: projectId,
@@ -277,4 +295,13 @@ export async function deleteProject(projectId: string): Promise<void> {
 	await Promise.all(keys.map((k) => versionStore.delete(k)));
 
 	await tx.done;
+}
+
+/**
+ * @description 删除单个历史版本
+ * @param versionId 要删除的版本 ID
+ */
+export async function deleteVersion(versionId: number): Promise<void> {
+	const db = await getDB();
+	await db.delete("versions", versionId);
 }

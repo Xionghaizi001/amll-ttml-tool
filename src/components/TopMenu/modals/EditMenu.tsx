@@ -71,6 +71,9 @@ const EditMenuItems = () => {
 			<DropdownMenu.Item onSelect={menu.onOpenVocalTagsEditor}>
 				<Trans i18nKey="topBar.menu.editVocalTags">编辑演唱者标签</Trans>
 			</DropdownMenu.Item>
+			<DropdownMenu.Item onSelect={menu.onOpenAgentManager}>
+				<Trans i18nKey="topBar.menu.manageAgents">管理演唱者</Trans>
+			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={menu.onOpenSettings}>
 				<Trans i18nKey="settingsDialog.title">首选项</Trans>
