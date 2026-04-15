@@ -13,14 +13,18 @@ import {
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NeteaseAuthClient, NeteaseAutoLoginGuard } from "$/modules/ncm/services";
 import {
+	NeteaseAuthClient,
+	NeteaseAutoLoginGuard,
+} from "$/modules/ncm/services";
+import {
+	audioProxyUrlAtom,
 	githubAmlldbAccessAtom,
 	neteaseCookieAtom,
 	neteaseRiskConfirmedAtom,
 	neteaseUserAtom,
 } from "$/modules/settings/states";
-import { riskConfirmDialogAtom } from "$/states/dialogs";	
+import { riskConfirmDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 
 export const NeteaseLoginCard = () => {
@@ -28,6 +32,7 @@ export const NeteaseLoginCard = () => {
 	const [neteaseCookie, setNeteaseCookie] = useAtom(neteaseCookieAtom);
 	const [neteaseUser, setNeteaseUser] = useAtom(neteaseUserAtom);
 	const [riskConfirmed, setRiskConfirmed] = useAtom(neteaseRiskConfirmedAtom);
+	const [audioProxyUrl, setAudioProxyUrl] = useAtom(audioProxyUrlAtom);
 	const [neteasePhone, setNeteasePhone] = useState("");
 	const [neteaseCaptcha, setNeteaseCaptcha] = useState("");
 	const [neteaseCookieInput, setNeteaseCookieInput] = useState("");
@@ -310,12 +315,7 @@ export const NeteaseLoginCard = () => {
 			level: "info",
 			source: "ncm",
 		});
-	}, [
-		setNeteaseCookie,
-		setNeteaseUser,
-		setPushNotification,
-		t,
-	]);
+	}, [setNeteaseCookie, setNeteaseUser, setPushNotification, t]);
 
 	return (
 		<Card>
@@ -404,9 +404,7 @@ export const NeteaseLoginCard = () => {
 											variant="soft"
 											onClick={handleSendCaptcha}
 											disabled={
-												neteaseCountdown > 0 ||
-												neteaseLoading ||
-												!neteasePhone
+												neteaseCountdown > 0 || neteaseLoading || !neteasePhone
 											}
 											style={{ minWidth: "104px" }}
 										>
@@ -447,10 +445,7 @@ export const NeteaseLoginCard = () => {
 											disabled={neteaseLoading}
 										>
 											{neteaseLoading
-												? t(
-														"settings.connect.netease.verifying",
-														"验证中...",
-													)
+												? t("settings.connect.netease.verifying", "验证中...")
 												: t(
 														"settings.connect.netease.verifyLogin",
 														"验证并登录",
@@ -469,6 +464,26 @@ export const NeteaseLoginCard = () => {
 						</Box>
 					</Tabs.Root>
 				)}
+
+				<Flex direction="column" gap="2" mt="4">
+					<Text size="2" weight="medium">
+						{t("settings.connect.netease.proxyTitle", "音频代理服务器")}
+					</Text>
+					<Text size="1" color="gray">
+						{t(
+							"settings.connect.netease.proxyDesc",
+							"设置代理服务器地址以解决音频加载失败问题（CORS）",
+						)}
+					</Text>
+					<TextField.Root
+						placeholder={t(
+							"settings.connect.netease.proxyPlaceholder",
+							"https://tooldl.bikonoo.com",
+						)}
+						value={audioProxyUrl}
+						onChange={(event) => setAudioProxyUrl(event.currentTarget.value)}
+					/>
+				</Flex>
 			</Flex>
 		</Card>
 	);

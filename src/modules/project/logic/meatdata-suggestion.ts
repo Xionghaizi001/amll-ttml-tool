@@ -82,7 +82,7 @@ const normalizeGroup = (items: string[]): MetaSuggestionGroup => {
 	}
 	return result;
 };
-  
+
 const parseStringGroup = (
 	input: unknown,
 	onWarning: () => void,
@@ -101,7 +101,9 @@ const parseStringGroup = (
 		if (item.trim() === "") return true;
 		return false;
 	});
-	const items = normalizeGroup(input.filter((item) => typeof item === "string"));
+	const items = normalizeGroup(
+		input.filter((item) => typeof item === "string"),
+	);
 	if (invalidItems.length > 0) {
 		onWarning?.();
 	}
@@ -286,7 +288,9 @@ export const formatFileTitle = (fileName: string): string => {
 	return baseName.replace(/[-_]+/g, " ").toUpperCase();
 };
 
-const loadMetaSuggestionConfigFromFiles = async (): Promise<MetaSuggestionFile[]> => {
+const loadMetaSuggestionConfigFromFiles = async (): Promise<
+	MetaSuggestionFile[]
+> => {
 	const response = await fetch("/metaSuggestion/index.json", {
 		cache: "no-cache",
 	});
@@ -313,22 +317,24 @@ const loadMetaSuggestionConfigFromFiles = async (): Promise<MetaSuggestionFile[]
 	return configs;
 };
 
-const loadMetaSuggestionConfigFromCache =
-	async (): Promise<MetaSuggestionFile[] | null> => {
-		try {
-			const db = await settingsDbPromise;
-			const cached = (await db.get(
-				META_SUGGESTION_STORE,
-				META_SUGGESTION_KEY,
-			)) as MetaSuggestionCacheRecord | undefined;
-			if (!cached?.payload?.length) return null;
-			return cached.payload;
-		} catch {
-			return null;
-		}
-	};
+const loadMetaSuggestionConfigFromCache = async (): Promise<
+	MetaSuggestionFile[] | null
+> => {
+	try {
+		const db = await settingsDbPromise;
+		const cached = (await db.get(META_SUGGESTION_STORE, META_SUGGESTION_KEY)) as
+			| MetaSuggestionCacheRecord
+			| undefined;
+		if (!cached?.payload?.length) return null;
+		return cached.payload;
+	} catch {
+		return null;
+	}
+};
 
-const loadUserMetaSuggestionFiles = async (): Promise<UserMetaSuggestionFile[]> => {
+const loadUserMetaSuggestionFiles = async (): Promise<
+	UserMetaSuggestionFile[]
+> => {
 	if (cachedUserFiles) return cachedUserFiles;
 	try {
 		const db = await settingsDbPromise;
@@ -388,7 +394,8 @@ const loadMetaSuggestionConfig = async (): Promise<MetaSuggestionFile[]> => {
 	cachedConfigPromise = (async () => {
 		try {
 			const cached = await loadMetaSuggestionConfigFromCache();
-			const builtInConfigs = cached ?? (await loadMetaSuggestionConfigFromFiles());
+			const builtInConfigs =
+				cached ?? (await loadMetaSuggestionConfigFromFiles());
 			if (!cached) {
 				await writeMetaSuggestionCache(builtInConfigs);
 			}
@@ -438,7 +445,11 @@ const matchNode = (
 	}
 	for (const item of node.group) {
 		if (item.toLowerCase() === normalized) {
-			matches.push({ values: node.group, titlePath: nextPath, matchedValue: item });
+			matches.push({
+				values: node.group,
+				titlePath: nextPath,
+				matchedValue: item,
+			});
 		}
 	}
 	return matches;

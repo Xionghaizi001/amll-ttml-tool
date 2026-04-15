@@ -97,8 +97,7 @@ export const requestFileUpdatePush = (options: {
 					});
 					baseHeadSha = status.headSha;
 					prUrl = buildGithubProxyUrl(status.prUrl);
-				} catch {
-				}
+				} catch {}
 				try {
 					const result = await pushFileUpdateToGist({
 						token,

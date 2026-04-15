@@ -539,10 +539,7 @@ export const SettingsCommonTab = () => {
 										{t("settings.common.storage.title", "管理存储空间")}
 									</Text>
 									<Text size="1" color="gray">
-										{t(
-											"settings.common.storage.desc",
-											"查看或清理本地缓存",
-										)}
+										{t("settings.common.storage.desc", "查看或清理本地缓存")}
 									</Text>
 								</Flex>
 								<Button

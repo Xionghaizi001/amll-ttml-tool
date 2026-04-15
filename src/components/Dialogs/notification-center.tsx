@@ -16,13 +16,15 @@ import {
 	type NotificationRenderEntry,
 } from "./modals/notification-center-body";
 
-const levelColorMap: Record<AppNotification["level"], "blue" | "yellow" | "red" | "green"> =
-	{
-		info: "blue",
-		warning: "yellow",
-		error: "red",
-		success: "green",
-	};
+const levelColorMap: Record<
+	AppNotification["level"],
+	"blue" | "yellow" | "red" | "green"
+> = {
+	info: "blue",
+	warning: "yellow",
+	error: "red",
+	success: "green",
+};
 
 const PENDING_UPDATE_NOTIFICATION_PREFIX = "pending-update-";
 
@@ -92,10 +94,8 @@ export const NotificationCenterDialog = () => {
 				Number(a.type === "group" ? a.pinned : Boolean(a.item.pinned)) -
 				Number(b.type === "group" ? b.pinned : Boolean(b.item.pinned));
 			if (pinnedDelta !== 0) return -pinnedDelta;
-			const createdAtA =
-				a.type === "group" ? a.createdAt : a.item.createdAt;
-			const createdAtB =
-				b.type === "group" ? b.createdAt : b.item.createdAt;
+			const createdAtA = a.type === "group" ? a.createdAt : a.item.createdAt;
+			const createdAtB = b.type === "group" ? b.createdAt : b.item.createdAt;
 			return createdAtB.localeCompare(createdAtA);
 		});
 	}, [filteredNotifications, pendingUpdateNotifications]);
@@ -108,7 +108,8 @@ export const NotificationCenterDialog = () => {
 		if (Number.isNaN(date.getTime())) return value;
 		return date.toLocaleString();
 	};
-	const getAccentColor = (level: AppNotification["level"]) => levelColorMap[level];
+	const getAccentColor = (level: AppNotification["level"]) =>
+		levelColorMap[level];
 
 	return (
 		<NotificationCenterBody

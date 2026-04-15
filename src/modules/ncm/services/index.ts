@@ -1,5 +1,4 @@
-export const NETEASE_API_BASE =
-	"https://ncmapi.bikonoo.com";
+export const NETEASE_API_BASE = "https://ncmapi.bikonoo.com";
 
 export type NeteaseResponse<T> = {
 	code?: number;
@@ -10,7 +9,7 @@ export type NeteaseResponse<T> = {
 	[key: string]: unknown;
 };
 
-export const requestNetease = async <T,>(
+export const requestNetease = async <T>(
 	path: string,
 	options: {
 		params?: Record<string, string | number | boolean>;
@@ -48,5 +47,7 @@ export const requestNetease = async <T,>(
 };
 
 export { NeteaseAuthClient, NeteaseAutoLoginGuard } from "./auth-service";
-export { cacheNeteaseAudioToIndexedDb, loadNeteaseAudio } from "./audio-service";
-export { fetchNeteaseSongMeta } from "./meta-service";
+export {
+	cacheNeteaseAudioToIndexedDb,
+	loadNeteaseAudio,
+} from "./audio-provider";

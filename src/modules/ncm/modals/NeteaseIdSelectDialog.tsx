@@ -22,7 +22,10 @@ export const NeteaseIdSelectDialog = ({
 	);
 
 	return (
-		<Dialog.Root open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+		<Dialog.Root
+			open={open}
+			onOpenChange={(nextOpen) => !nextOpen && onClose()}
+		>
 			<Dialog.Content maxWidth="420px">
 				<Dialog.Title>
 					{t("ncm.selectId.title", "选择网易云音乐 ID")}

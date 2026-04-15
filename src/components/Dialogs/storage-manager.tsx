@@ -230,9 +230,7 @@ export const StorageManagerDialog = () => {
 	return (
 		<Dialog.Root open={open} onOpenChange={setOpen}>
 			<Dialog.Content maxWidth="640px">
-				<Dialog.Title>
-					{t("storage.dialogTitle", "存储管理")}
-				</Dialog.Title>
+				<Dialog.Title>{t("storage.dialogTitle", "存储管理")}</Dialog.Title>
 				<Flex direction="column" gap="3">
 					<Text size="2" color="gray">
 						{t("storage.dialogDesc", "查看并清理本地 IndexedDB 缓存")}

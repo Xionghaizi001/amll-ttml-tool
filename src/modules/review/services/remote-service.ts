@@ -97,28 +97,29 @@ export const useLyricsSiteAuth = () => {
 	}, [setLoginPending]);
 
 	// 刷新用户信息
-	const refreshUserInfo = useCallback(async (): Promise<LyricsSiteUser | null> => {
-		if (!token) return null;
-		
-		try {
-			const response = await fetch(`${LYRICS_SITE_URL}/api/user/profile`, {
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
+	const refreshUserInfo =
+		useCallback(async (): Promise<LyricsSiteUser | null> => {
+			if (!token) return null;
 
-			if (!response.ok) {
-				throw new Error(`获取用户信息失败: ${response.status}`);
+			try {
+				const response = await fetch(`${LYRICS_SITE_URL}/api/user/profile`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+
+				if (!response.ok) {
+					throw new Error(`获取用户信息失败: ${response.status}`);
+				}
+
+				const userData: LyricsSiteUser = await response.json();
+				setUser(userData);
+				return userData;
+			} catch (error) {
+				console.error("[LyricsSiteAuth] 刷新用户信息失败:", error);
+				return null;
 			}
-
-			const userData: LyricsSiteUser = await response.json();
-			setUser(userData);
-			return userData;
-		} catch (error) {
-			console.error('[LyricsSiteAuth] 刷新用户信息失败:', error);
-			return null;
-		}
-	}, [token, setUser]);
+		}, [token, setUser]);
 
 	// 登出
 	const logout = useCallback(() => {
@@ -214,7 +215,15 @@ export const useRemoteReviewService = () => {
 				return false;
 			}
 		},
-		[hasAccess, login, openFile, pat, setPushNotification, setReviewSession, setToolMode],
+		[
+			hasAccess,
+			login,
+			openFile,
+			pat,
+			setPushNotification,
+			setReviewSession,
+			setToolMode,
+		],
 	);
 
 	const initFromUrl = useCallback(async () => {

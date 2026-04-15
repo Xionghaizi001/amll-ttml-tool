@@ -69,13 +69,10 @@ export const fetchReviewLabels = async (
 	repoOwner: string,
 	repoName: string,
 ) => {
-	const response = await githubFetch(
-		`/repos/${repoOwner}/${repoName}/labels`,
-		{
-			params: { per_page: 100 },
-			init: { headers: buildHeaders(token) },
-		},
-	);
+	const response = await githubFetch(`/repos/${repoOwner}/${repoName}/labels`, {
+		params: { per_page: 100 },
+		init: { headers: buildHeaders(token) },
+	});
 	if (!response.ok) {
 		return [];
 	}

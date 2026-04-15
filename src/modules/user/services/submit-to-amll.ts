@@ -6,7 +6,10 @@ import {
 	githubPatAtom,
 	hideSubmitAMLLDBWarningAtom,
 } from "$/modules/settings/states";
-import { confirmDialogAtom, submitToAMLLDBDialogAtom } from "$/states/dialogs.ts";
+import {
+	confirmDialogAtom,
+	submitToAMLLDBDialogAtom,
+} from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLMetadata } from "$/types/ttml";
@@ -72,7 +75,6 @@ const normalizeMetaValues = (metadatas: TTMLMetadata[], key: NameFieldKey) => {
 	const raw = metadatas.find((m) => m.key === key)?.value ?? [];
 	return raw.map((value) => value.trim()).filter((value) => value.length > 0);
 };
-
 
 const sanitizeFileName = (value: string) => {
 	const sanitized = value.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ");
@@ -268,7 +270,8 @@ export const useSubmitToAMLLDBDialog = () => {
 				const next = prev.filter((item) => item !== fromKey);
 				const targetIndex = next.indexOf(toKey);
 				if (targetIndex < 0) return prev;
-				const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+				const insertIndex =
+					position === "after" ? targetIndex + 1 : targetIndex;
 				next.splice(insertIndex, 0, fromKey);
 				return next;
 			});
@@ -299,9 +302,7 @@ export const useSubmitToAMLLDBDialog = () => {
 			const fileName = buildGistFileName(name);
 
 			// 2. Upload to Gist
-			let gistResult:
-				| Awaited<ReturnType<typeof createGithubGist>>
-				| undefined;
+			let gistResult: Awaited<ReturnType<typeof createGithubGist>> | undefined;
 			for (let attempt = 1; attempt <= 3; attempt += 1) {
 				try {
 					gistResult = await createGithubGist(pat, {
@@ -368,9 +369,7 @@ export const useSubmitToAMLLDBDialog = () => {
 			});
 
 			if (!pushResult.ok) {
-				const message = pushResult.message
-					? ` ${pushResult.message}`
-					: "";
+				const message = pushResult.message ? ` ${pushResult.message}` : "";
 				throw new Error(
 					`Push failed with status ${pushResult.status ?? "unknown"}${message}`,
 				);
@@ -388,11 +387,7 @@ export const useSubmitToAMLLDBDialog = () => {
 					title: t("submitToAMLLDB.success", "提交成功！"),
 					description: "是否前往 GitHub 查看？",
 					onConfirm: () => {
-						window.open(
-							pushResult.issueUrl,
-							"_blank",
-							"noopener,noreferrer",
-						);
+						window.open(pushResult.issueUrl, "_blank", "noopener,noreferrer");
 					},
 				});
 			}

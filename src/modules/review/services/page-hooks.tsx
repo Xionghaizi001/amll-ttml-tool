@@ -5,8 +5,11 @@ import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
 	githubPatAtom,
+	lyricsSiteTokenAtom,
 	neteaseCookieAtom,
 	reviewHiddenLabelsAtom,
+	reviewHiddenUsersAtom,
+	reviewHiddenUsersModeAtom,
 	reviewLabelsAtom,
 	reviewPendingFilterAtom,
 	reviewRefreshTokenAtom,
@@ -28,7 +31,7 @@ import {
 	toolModeAtom,
 } from "$/states/main";
 import { log } from "$/utils/logging";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-service";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import {
 	fetchOpenPullRequestPage,
@@ -41,9 +44,18 @@ import {
 	refreshPendingLabels as refreshPendingLabelsService,
 } from "$/modules/github/services/label-services";
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
-import type { ReviewLabel, ReviewPullRequest } from "./card-service";
+import type {
+	ReviewLabel,
+	ReviewPullRequest,
+	ReviewItem,
+} from "./card-service";
+import { isGitHubPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
 import { useRemoteReviewService } from "./remote-service";
+import {
+	fetchPendingSubmissions,
+	type LyricsSiteSubmission,
+} from "$/modules/lyrics-site";
 
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";
@@ -51,12 +63,14 @@ const RECORD_KEY = "open";
 const LABEL_CACHE_KEY = "labels";
 const PENDING_COMMIT_CACHE_KEY = "pending-commits";
 const TIMELINE_CACHE_KEY = "timeline-reviewed";
+const LYRICS_SITE_CACHE_KEY = "lyrics-site-submissions";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
 const CACHE_TTL = 30 * 60 * 1000;
 const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
+const LYRICS_SITE_CACHE_TTL = 30 * 60 * 1000;
 
 type CachedPayload = {
 	key: string;
@@ -81,6 +95,12 @@ type TimelineCacheRecord = {
 	key: string;
 	cachedAt: number;
 	items: Record<number, { reviewed: boolean; cachedAt: number }>;
+};
+
+type LyricsSiteCacheRecord = {
+	key: string;
+	cachedAt: number;
+	items: LyricsSiteSubmission[];
 };
 
 const dbPromise = openDB(DB_NAME, 1, {
@@ -209,14 +229,44 @@ const writeTimelineCache = async (items: TimelineCacheRecord["items"]) => {
 	}
 };
 
+const readLyricsSiteCache = async () => {
+	try {
+		const db = await dbPromise;
+		const record = (await db.get(STORE_NAME, LYRICS_SITE_CACHE_KEY)) as
+			| LyricsSiteCacheRecord
+			| undefined;
+		if (!record?.items) return null;
+		return record;
+	} catch {
+		return null;
+	}
+};
+
+const writeLyricsSiteCache = async (items: LyricsSiteSubmission[]) => {
+	try {
+		const db = await dbPromise;
+		const payload: LyricsSiteCacheRecord = {
+			key: LYRICS_SITE_CACHE_KEY,
+			cachedAt: Date.now(),
+			items,
+		};
+		await db.put(STORE_NAME, payload);
+	} catch {
+		return;
+	}
+};
+
 export const useReviewPageLogic = () => {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
 	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
 	const lyricsSiteUser = useAtomValue(lyricsSiteUserAtom);
+	const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
 	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
+	const hiddenUsers = useAtomValue(reviewHiddenUsersAtom);
+	const hiddenUsersMode = useAtomValue(reviewHiddenUsersModeAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
 	const updatedChecked = useAtomValue(reviewUpdatedFilterAtom);
@@ -239,11 +289,10 @@ export const useReviewPageLogic = () => {
 	const pendingReviewModeSwitchRef = useRef(false);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
-	const pendingCommitCacheRef = useRef<
-		PendingCommitCacheRecord["items"]
-	>({});
+	const pendingCommitCacheRef = useRef<PendingCommitCacheRecord["items"]>({});
 	const timelineCacheRef = useRef<TimelineCacheRecord["items"]>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
+	const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
 	);
@@ -259,6 +308,9 @@ export const useReviewPageLogic = () => {
 		prNumber: null,
 		ids: [],
 	});
+	const [sourceFilter, setSourceFilter] = useState<
+		"all" | "github" | "lyrics-site"
+	>("all");
 
 	const hiddenLabelSet = useMemo(
 		() =>
@@ -270,13 +322,28 @@ export const useReviewPageLogic = () => {
 		[hiddenLabels],
 	);
 
-	const [items, setItems] = useState<ReviewPullRequest[]>([]);
-	const [loading, setLoading] = useState(false);
+	const hiddenUserSet = useMemo(
+		() =>
+			new Set(
+				hiddenUsers
+					.map((user) => user.trim().toLowerCase())
+					.filter((user) => user.length > 0),
+			),
+		[hiddenUsers],
+	);
+
+	const [githubItems, setGithubItems] = useState<ReviewPullRequest[]>([]);
+	const [lyricsSiteItems, setLyricsSiteItems] = useState<
+		LyricsSiteSubmission[]
+	>([]);
+	const [githubLoading, setGithubLoading] = useState(false);
+	const [lyricsSiteLoading, setLyricsSiteLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [postPendingCommitMap, setPostPendingCommitMap] = useState<
 		Record<number, boolean>
 	>({});
 	const lastRefreshTokenRef = useRef(refreshToken);
+	const lastLyricsSiteRefreshTokenRef = useRef(refreshToken);
 
 	const hasPendingLabel = useCallback(
 		(labels: ReviewLabel[]) =>
@@ -363,9 +430,7 @@ export const useReviewPageLogic = () => {
 				if (reviewed || response.items.length < perPage) break;
 			}
 			setReviewReviewedPrs((prev) =>
-				Number.isFinite(prNumber)
-					? { ...prev, [prNumber]: reviewed }
-					: prev,
+				Number.isFinite(prNumber) ? { ...prev, [prNumber]: reviewed } : prev,
 			);
 			const now = Date.now();
 			const nextCache = {
@@ -383,9 +448,10 @@ export const useReviewPageLogic = () => {
 			if (!token) return;
 			const detail = await fetchPullRequestDetail({ token, prNumber });
 			if (!detail) return;
-			const refreshedItems = await refreshPendingLabels(token, [detail]);
-			const refreshedItem = refreshedItems[0] ?? detail;
-			setItems((prev) => {
+			const detailAsPr: ReviewPullRequest = { ...detail, source: "github" };
+			const refreshedItems = await refreshPendingLabels(token, [detailAsPr]);
+			const refreshedItem = refreshedItems[0] ?? detailAsPr;
+			setGithubItems((prev) => {
 				const index = prev.findIndex((pr) => pr.number === prNumber);
 				if (index < 0) return prev;
 				const next = [...prev];
@@ -521,27 +587,22 @@ export const useReviewPageLogic = () => {
 				});
 				if (cancelled) return;
 				pendingUpdateNoticeIdsRef.current = nextIds;
-			} catch {
-			}
+			} catch {}
 		};
 		void run();
 		return () => {
 			cancelled = true;
 		};
-	}, [
-		hasAccess,
-		login,
-		pat,
-		setRemoveNotification,
-		setUpsertNotification,
-	]);
+	}, [hasAccess, login, pat, setRemoveNotification, setUpsertNotification]);
 
 	useEffect(() => {
 		if (!updatedChecked) return;
 		const token = pat.trim();
 		if (!token) return;
 		let cancelled = false;
-		const pendingItems = items.filter((item) => hasPendingLabel(item.labels));
+		const pendingItems = githubItems.filter((item) =>
+			hasPendingLabel(item.labels),
+		);
 		const unknownItems = pendingItems.filter(
 			(item) => postPendingCommitMap[item.number] === undefined,
 		);
@@ -579,7 +640,7 @@ export const useReviewPageLogic = () => {
 	}, [
 		hasPendingLabel,
 		hasPostLabelCommits,
-		items,
+		githubItems,
 		pat,
 		postPendingCommitMap,
 		updatedChecked,
@@ -645,7 +706,10 @@ export const useReviewPageLogic = () => {
 	);
 
 	const openReviewFile = useCallback(
-		async (pr: ReviewPullRequest, ids: string[] = []) => {
+		async (item: ReviewItem, ids: string[] = []) => {
+			if (!isGitHubPullRequest(item)) {
+				return;
+			}
 			const token = pat.trim();
 			if (!token) {
 				setPushNotification({
@@ -658,7 +722,7 @@ export const useReviewPageLogic = () => {
 			try {
 				const fileResult = await loadFileFromPullRequest({
 					token,
-					prNumber: pr.number,
+					prNumber: item.number,
 				});
 				if (!fileResult) {
 					setPushNotification({
@@ -669,8 +733,8 @@ export const useReviewPageLogic = () => {
 					return;
 				}
 				setReviewSession({
-					prNumber: pr.number,
-					prTitle: pr.title,
+					prNumber: item.number,
+					prTitle: item.title,
 					fileName: fileResult.fileName,
 					source: "review",
 				});
@@ -680,7 +744,7 @@ export const useReviewPageLogic = () => {
 					if (cleanedIds.length > 1) {
 						pendingReviewModeSwitchRef.current = true;
 					}
-					handleLoadNeteaseAudio(pr.number, cleanedIds);
+					handleLoadNeteaseAudio(item.number, cleanedIds);
 				}
 				if (!pendingReviewModeSwitchRef.current) {
 					setToolMode(ToolMode.Edit);
@@ -708,7 +772,7 @@ export const useReviewPageLogic = () => {
 		const loadCached = async () => {
 			const cached = await readCache();
 			if (!cancelled && cached?.items?.length) {
-				setItems(cached.items);
+				setGithubItems(cached.items);
 			}
 		};
 		loadCached();
@@ -720,9 +784,9 @@ export const useReviewPageLogic = () => {
 	useEffect(() => {
 		const token = pat.trim();
 		if (!hasAccess || !token) {
-			setItems([]);
+			setGithubItems([]);
 			setError(null);
-			setLoading(false);
+			setGithubLoading(false);
 			return;
 		}
 
@@ -737,13 +801,13 @@ export const useReviewPageLogic = () => {
 				const cacheAge = Date.now() - cached.cachedAt;
 				if (cacheAge < CACHE_TTL) {
 					if (!cancelled) {
-						setItems(cached.items);
-						setLoading(false);
+						setGithubItems(cached.items);
+						setGithubLoading(false);
 					}
 					return;
 				}
 			}
-			setLoading(true);
+			setGithubLoading(true);
 			try {
 				await fetchLabels(token);
 				const perPage = 20;
@@ -755,13 +819,17 @@ export const useReviewPageLogic = () => {
 						token,
 						perPage,
 						page,
-						etag: page === 1 ? cached?.etag ?? null : null,
+						etag: page === 1 ? (cached?.etag ?? null) : null,
 					});
 					log("review list response", listResponse.status);
-					if (page === 1 && listResponse.status === 304 && cached?.items?.length) {
+					if (
+						page === 1 &&
+						listResponse.status === 304 &&
+						cached?.items?.length
+					) {
 						const refreshed = await refreshPendingLabels(token, cached.items);
 						if (!cancelled) {
-							setItems(refreshed);
+							setGithubItems(refreshed);
 						}
 						await writeCache(refreshed, cached.etag ?? null);
 						log("review list not modified, use cache");
@@ -781,16 +849,18 @@ export const useReviewPageLogic = () => {
 					if (pageList.length === 0) {
 						break;
 					}
-					result.push(...pageList);
+					result.push(
+						...pageList.map((pr) => ({ ...pr, source: "github" as const })),
+					);
 					if (cancelled) return;
-					setItems([...result]);
+					setGithubItems([...result]);
 					if (pageList.length < perPage) {
 						break;
 					}
 				}
 				const refreshed = await refreshPendingLabels(token, result);
 				if (cancelled) return;
-				setItems(refreshed);
+				setGithubItems(refreshed);
 				await writeCache(refreshed, etag);
 			} catch {
 				if (!cancelled) {
@@ -798,7 +868,7 @@ export const useReviewPageLogic = () => {
 				}
 			} finally {
 				if (!cancelled) {
-					setLoading(false);
+					setGithubLoading(false);
 				}
 			}
 		};
@@ -810,27 +880,98 @@ export const useReviewPageLogic = () => {
 		};
 	}, [hasAccess, pat, refreshToken, fetchLabels, refreshPendingLabels]);
 
+	useEffect(() => {
+		const token = lyricsSiteToken?.trim();
+		if (!hasLyricsSiteReviewAccess || !token) {
+			setLyricsSiteItems([]);
+			return;
+		}
+
+		const refreshChanged =
+			refreshToken !== lastLyricsSiteRefreshTokenRef.current;
+		lastLyricsSiteRefreshTokenRef.current = refreshToken;
+		let cancelled = false;
+
+		const load = async () => {
+			setLyricsSiteLoading(true);
+			try {
+				const cached = refreshChanged ? null : await readLyricsSiteCache();
+				if (cached?.items?.length) {
+					const cacheAge = Date.now() - cached.cachedAt;
+					if (cacheAge < LYRICS_SITE_CACHE_TTL) {
+						if (!cancelled) {
+							setLyricsSiteItems(cached.items);
+							setLyricsSiteLoading(false);
+						}
+						return;
+					}
+				}
+
+				const items = await fetchPendingSubmissions(token);
+				if (cancelled) return;
+				setLyricsSiteItems(items);
+				await writeLyricsSiteCache(items);
+			} catch (err) {
+				log("Failed to load lyrics site submissions:", err);
+			} finally {
+				if (!cancelled) {
+					setLyricsSiteLoading(false);
+				}
+			}
+		};
+
+		load();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [hasLyricsSiteReviewAccess, lyricsSiteToken, refreshToken]);
+
+	const loading = githubLoading || lyricsSiteLoading;
+
+	const allItems = useMemo<ReviewItem[]>(() => {
+		const github: ReviewItem[] = githubItems.map((item) => ({
+			...item,
+			source: "github" as const,
+		}));
+		const lyricsSite: ReviewItem[] = lyricsSiteItems;
+
+		if (sourceFilter === "github") {
+			return github;
+		}
+		if (sourceFilter === "lyrics-site") {
+			return lyricsSite;
+		}
+		return [...github, ...lyricsSite];
+	}, [githubItems, lyricsSiteItems, sourceFilter]);
+
 	const filteredItems = useMemo(
 		() =>
 			applyReviewFilters({
-				items,
+				items: allItems,
 				hiddenLabelSet,
+				hiddenUserSet,
+				hiddenUserMode: hiddenUsersMode,
 				pendingChecked,
 				updatedChecked,
 				hasPendingLabel,
 				postPendingCommitMap,
 				selectedLabels,
 				selectedUser,
+				selectedLanguage,
 			}),
 		[
-			items,
+			allItems,
 			hiddenLabelSet,
+			hiddenUserSet,
+			hiddenUsersMode,
 			pendingChecked,
 			updatedChecked,
 			hasPendingLabel,
 			postPendingCommitMap,
 			selectedLabels,
 			selectedUser,
+			selectedLanguage,
 		],
 	);
 
@@ -841,7 +982,7 @@ export const useReviewPageLogic = () => {
 		handleLoadNeteaseAudio,
 		hasAccess: effectiveHasAccess,
 		hiddenLabelSet,
-		items,
+		items: allItems,
 		lastNeteaseIdByPr,
 		loading,
 		neteaseIdDialog: {
@@ -856,5 +997,9 @@ export const useReviewPageLogic = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		selectedLanguage,
+		setSelectedLanguage,
+		sourceFilter,
+		setSourceFilter,
 	};
 };

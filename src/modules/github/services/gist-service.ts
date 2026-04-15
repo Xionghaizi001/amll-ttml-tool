@@ -2,7 +2,7 @@ import { githubFetchRaw } from "../api";
 export type GithubGistResponse = {
 	id: string;
 	html_url: string;
-	files?: Record<string, { raw_url?: string | null; }>;
+	files?: Record<string, { raw_url?: string | null }>;
 };
 
 export const createGithubGist = async (
@@ -10,8 +10,8 @@ export const createGithubGist = async (
 	payload: {
 		description: string;
 		isPublic: boolean;
-		files: Record<string, { content: string; }>;
-	}
+		files: Record<string, { content: string }>;
+	},
 ): Promise<GithubGistResponse> => {
 	const headers = {
 		Accept: "application/vnd.github+json",

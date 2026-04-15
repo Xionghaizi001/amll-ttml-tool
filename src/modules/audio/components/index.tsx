@@ -138,13 +138,9 @@ export const AudioControls: FC = memo(() => {
 		}
 	}, []);
 
-	useKeyBinding(
-		HIDDEN_AUDIO_CACHE_KEYS,
-		() => {
-			openCachedAudio();
-		},
-		[openCachedAudio],
-	);
+	useKeyBinding(HIDDEN_AUDIO_CACHE_KEYS, () => {
+		openCachedAudio();
+	}, [openCachedAudio]);
 
 	useEffect(() => {
 		const onMusicLoad = () => {

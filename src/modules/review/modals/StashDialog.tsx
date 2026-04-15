@@ -1,5 +1,12 @@
 import type { TFunction } from "i18next";
-import { Box, Button, Dialog, DropdownMenu, Flex, Text } from "@radix-ui/themes";
+import {
+	Box,
+	Button,
+	Dialog,
+	DropdownMenu,
+	Flex,
+	Text,
+} from "@radix-ui/themes";
 import {
 	Checkmark20Regular,
 	Delete20Regular,
@@ -87,18 +94,25 @@ export const StashDialog = ({
 										{card.items.map((item, index) => {
 											const field = selectedIds.get(item.wordId);
 											const checked = field !== undefined;
-											const color = field === "startTime"
-												? "blue"
-												: field === "endTime"
-													? "green"
-													: "gray";
+											const color =
+												field === "startTime"
+													? "blue"
+													: field === "endTime"
+														? "green"
+														: "gray";
 											return (
-												<Flex key={`${item.wordId}-${index}`} align="center" gap="1">
+												<Flex
+													key={`${item.wordId}-${index}`}
+													align="center"
+													gap="1"
+												>
 													<Button
 														size="1"
 														variant={checked ? "solid" : "soft"}
 														color={color}
-														onClick={() => onToggleItem(item.wordId, "startTime")}
+														onClick={() =>
+															onToggleItem(item.wordId, "startTime")
+														}
 														onContextMenu={(e) => {
 															e.preventDefault();
 															onToggleItem(item.wordId, "endTime");

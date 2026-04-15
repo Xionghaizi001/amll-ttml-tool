@@ -55,11 +55,7 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import {
-	type LyricLine,
-	type LyricWord,
-	newLyricWord,
-} from "$/types/ttml.ts";
+import { type LyricLine, type LyricWord, newLyricWord } from "$/types/ttml.ts";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time.ts";
@@ -91,7 +87,11 @@ const parseRubyShortcut = (value: string) => {
 };
 
 const getDisplayWordText = (
-	t: (key: string, defaultValue: string, options?: { count?: number }) => string,
+	t: (
+		key: string,
+		defaultValue: string,
+		options?: { count?: number },
+	) => string,
 	word: string,
 	isWordBlank: boolean,
 	romanWord?: string,
@@ -517,7 +517,7 @@ const LyricWordViewEditAdvance = ({
 						>
 							<CutRegular />
 						</IconButton>
-					<WordEditField
+						<WordEditField
 							size="1"
 							wordAtom={wordAtom}
 							fieldName="word"
@@ -816,10 +816,7 @@ const LyricSyncWordView: FC<{
 		};
 	}, [endTime, visualizeTimestampUpdate]);
 
-	const hasError = useMemo(
-		() => startTime > endTime,
-		[startTime, endTime],
-	);
+	const hasError = useMemo(() => startTime > endTime, [startTime, endTime]);
 
 	const hasRadical = useMemo(
 		() => (word ? containsRadicalChar(word) : false),
@@ -905,13 +902,7 @@ const LyricWorldViewSync: FC<{
 			romanWord?: string,
 			showRomanization?: boolean,
 		) =>
-			getDisplayWordText(
-				t,
-				displayText,
-				isBlank,
-				romanWord,
-				showRomanization,
-			),
+			getDisplayWordText(t, displayText, isBlank, romanWord, showRomanization),
 		[t],
 	);
 
@@ -921,8 +912,7 @@ const LyricWorldViewSync: FC<{
 				{word.ruby.map((rubyWord, rubyIndex) => {
 					const isRubyBlank =
 						rubyWord.word.length === 0 ||
-						(rubyWord.word.length > 0 &&
-							rubyWord.word.trim().length === 0);
+						(rubyWord.word.length > 0 && rubyWord.word.trim().length === 0);
 					return (
 						<LyricSyncWordView
 						key={`${word.id}-ruby-${rubyIndex}`}

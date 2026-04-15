@@ -58,12 +58,16 @@ export const reviewReportDialogAtom = atom<{
 	prTitle: string;
 	report: string;
 	draftId: string | null;
+	source?: "github" | "lyrics-site";
+	submissionId?: string;
 }>({
 	open: false,
 	prNumber: null,
 	prTitle: "",
 	report: "",
 	draftId: null,
+	source: "github",
+	submissionId: undefined,
 });
 
 // 歌曲 ID 重复警告对话框

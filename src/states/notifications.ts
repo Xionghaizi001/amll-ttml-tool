@@ -70,7 +70,8 @@ export const upsertNotificationAtom = atom(
 		const nextNotification: AppNotification = {
 			...existing,
 			...input,
-			createdAt: input.createdAt ?? existing?.createdAt ?? new Date().toISOString(),
+			createdAt:
+				input.createdAt ?? existing?.createdAt ?? new Date().toISOString(),
 		};
 		if (existingIndex >= 0) {
 			set(notificationsAtom, (prev) => {
