@@ -705,19 +705,17 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 
 		for (const [lang, entries] of wordRomanizationByLangMap.entries()) {
 			if (lang === "und") continue;
-				const transliteration = doc.createElement("transliteration");
-				transliteration.setAttribute("xml:lang", lang);
-				for (const [key, data] of entries.entries()) {
-					const textEl = doc.createElement("text");
-					textEl.setAttribute("for", key);
+			const transliteration = doc.createElement("transliteration");
+			transliteration.setAttribute("xml:lang", lang);
+			for (const [key, data] of entries.entries()) {
+				const textEl = doc.createElement("text");
+				textEl.setAttribute("for", key);
 
-					if (data.mainRoman.length > 0) {
-						for (const word of data.mainWords) {
-							if (word.word.trim().length === 0) {
-								if (textEl.hasChildNodes()) {
-									textEl.appendChild(doc.createTextNode(word.word));
-								}
-								continue;
+				if (data.mainRoman.length > 0) {
+					for (const word of data.mainWords) {
+						if (word.word.trim().length === 0) {
+							if (textEl.hasChildNodes()) {
+								textEl.appendChild(doc.createTextNode(word.word));
 							}
 							continue;
 						}
@@ -726,20 +724,18 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
-							textEl.appendChild(createRomanizationSpanFromData(match));
-						}
+						textEl.appendChild(createRomanizationSpanFromData(match));
 					}
+				}
 
-					if (data.bgRoman.length > 0) {
-						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("ttm:role", "x-bg");
-						const bgSpans: Element[] = [];
-						for (const word of data.bgWords) {
-							if (word.word.trim().length === 0) {
-								if (bgSpan.hasChildNodes()) {
-									bgSpan.appendChild(doc.createTextNode(word.word));
-								}
-								continue;
+				if (data.bgRoman.length > 0) {
+					const bgSpan = doc.createElement("span");
+					bgSpan.setAttribute("ttm:role", "x-bg");
+					const bgSpans: Element[] = [];
+					for (const word of data.bgWords) {
+						if (word.word.trim().length === 0) {
+							if (bgSpan.hasChildNodes()) {
+								bgSpan.appendChild(doc.createTextNode(word.word));
 							}
 							continue;
 						}
@@ -748,25 +744,25 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						if (!match || match.text.trim().length === 0) continue;
-							const span = createRomanizationSpanFromData(match);
-							bgSpan.appendChild(span);
-							bgSpans.push(span);
-						}
-						if (bgSpans.length > 0) {
-							const first = bgSpans[0];
-							const last = bgSpans[bgSpans.length - 1];
-							if (first.firstChild) {
-								first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
-							}
-							if (last.firstChild) {
-								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
-							}
-							textEl.appendChild(bgSpan);
-						}
+						const span = createRomanizationSpanFromData(match);
+						bgSpan.appendChild(span);
+						bgSpans.push(span);
 					}
-
-					transliteration.appendChild(textEl);
+					if (bgSpans.length > 0) {
+						const first = bgSpans[0];
+						const last = bgSpans[bgSpans.length - 1];
+						if (first.firstChild) {
+							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+						}
+						if (last.firstChild) {
+							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+						}
+						textEl.appendChild(bgSpan);
+					}
 				}
+
+				transliteration.appendChild(textEl);
+			}
 			transliterations.appendChild(transliteration);
 		}
 
