@@ -70,19 +70,24 @@ class AudioEngine extends EventTarget {
 	// Since an element is required to sync with waveform.js,
 	// all audio playback is done through this element
 	private _audioEl: HTMLAudioElement | null = null;
+	private _mediaElementSource: MediaElementAudioSourceNode | null = null;
 	get audioEl() {
 		if (this._audioEl) return this._audioEl;
 		this._audioEl = document.createElement("audio");
 		this._audioEl.preload = "metadata";
+		this._audioEl.crossOrigin = "anonymous";
 		return this._audioEl;
 	}
 
 	/** Connect AudioElement to AudioContext, called after load finished */
 	private connectAudioToContext() {
 		if (!this._audioEl || !this.ctx || this._audioEl.src === "") return;
+		if (this._mediaElementSource) return;
 		try {
-			const source = this.ctx.createMediaElementSource(this._audioEl);
-			source?.connect(this.gain);
+			this._mediaElementSource = this.ctx.createMediaElementSource(
+				this._audioEl,
+			);
+			this._mediaElementSource.connect(this.gain);
 			log("AudioElement connected to AudioContext");
 		} catch (e) {
 			log("Failed to connect AudioElement:", e);

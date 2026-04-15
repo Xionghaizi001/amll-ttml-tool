@@ -95,10 +95,7 @@ export const SubmitToAMLLDBDialog = memo(() => {
 														"使用 CC0 共享协议完全放弃歌词所有权",
 													)}
 												</Text>
-												{t(
-													"submitToAMLLDB.andSubmit",
-													"并提交到歌词数据库！",
-												)}
+												{t("submitToAMLLDB.andSubmit", "并提交到歌词数据库！")}
 												<br />
 												{t(
 													"submitToAMLLDB.futureUse",
@@ -137,8 +134,7 @@ export const SubmitToAMLLDBDialog = memo(() => {
 										dragOver?.key === item.key &&
 										dragOver.position === "before";
 									const isDropAfter =
-										dragOver?.key === item.key &&
-										dragOver.position === "after";
+										dragOver?.key === item.key && dragOver.position === "after";
 									return (
 										<Flex
 											key={item.key}

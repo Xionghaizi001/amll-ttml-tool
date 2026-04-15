@@ -8,8 +8,15 @@ import { useTranslation } from "react-i18next";
 import WindowControls from "$/components/WindowControls";
 import { useReviewTitleBar } from "$/modules/review/modals/useReviewTimingFlow.tsx";
 import { requestFileUpdatePush } from "$/modules/user/services/request-file-update-push";
-import { githubAmlldbAccessAtom, githubPatAtom, lyricsSiteUserAtom } from "$/modules/settings/states";
-import { notificationCenterDialogAtom, confirmDialogAtom } from "$/states/dialogs";
+import {
+	githubAmlldbAccessAtom,
+	githubPatAtom,
+	lyricsSiteUserAtom,
+} from "$/modules/settings/states";
+import {
+	notificationCenterDialogAtom,
+	confirmDialogAtom,
+} from "$/states/dialogs";
 import {
 	type AppNotification,
 	notificationsAtom,
@@ -34,13 +41,15 @@ import { ReviewActionGroup } from "./modals/ReviewActionGroup";
 import { TopMenu } from "../TopMenu/index.tsx";
 import styles from "./index.module.css";
 
-const levelColorMap: Record<AppNotification["level"], "blue" | "yellow" | "red" | "green"> =
-	{
-		info: "blue",
-		warning: "yellow",
-		error: "red",
-		success: "green",
-	};
+const levelColorMap: Record<
+	AppNotification["level"],
+	"blue" | "yellow" | "red" | "green"
+> = {
+	info: "blue",
+	warning: "yellow",
+	error: "red",
+	success: "green",
+};
 
 export const TitleBar: FC = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
@@ -60,8 +69,11 @@ export const TitleBar: FC = () => {
 		notificationCenterDialogAtom,
 	);
 	const { t } = useTranslation();
-	const { dialogs: reviewDialogs, actionGroup: reviewActionGroup, reviewSession } =
-		useReviewTitleBar({ actionGroupClassName: styles.reviewActionGroup });
+	const {
+		dialogs: reviewDialogs,
+		actionGroup: reviewActionGroup,
+		reviewSession,
+	} = useReviewTitleBar({ actionGroupClassName: styles.reviewActionGroup });
 
 	const notifications = useAtomValue(notificationsAtom);
 	const [latestNotification, setLatestNotification] =
@@ -244,7 +256,7 @@ export const TitleBar: FC = () => {
 										>
 											<Text color="gray" wrap="nowrap" size="2">
 												<Flex align="center" gap="2">
-														{actionGroup}
+													{actionGroup}
 													<span className={styles.title}>
 														{t(
 															"topBar.appName",

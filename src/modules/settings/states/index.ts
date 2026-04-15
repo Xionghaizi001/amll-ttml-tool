@@ -102,6 +102,14 @@ export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",
 	[],
 );
+export const reviewHiddenUsersAtom = atomWithStorage<string[]>(
+	"reviewHiddenUsers",
+	[],
+);
+export const reviewHiddenUsersModeAtom = atomWithStorage<"any" | "all">(
+	"reviewHiddenUsersMode",
+	"all",
+);
 export const reviewSelectedLabelsAtom = atomWithStorage<string[]>(
 	"reviewSelectedLabels",
 	[],
@@ -128,6 +136,20 @@ export type LyricsSiteUser = {
 	avatarUrl: string;
 	reviewPermission: 0 | 1;
 };
-export const lyricsSiteTokenAtom = atomWithStorage<string>("lyricsSiteToken", "");
-export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>("lyricsSiteUser", null);
-export const lyricsSiteLoginPendingAtom = atomWithStorage<boolean>("lyricsSiteLoginPending", false);
+export const lyricsSiteTokenAtom = atomWithStorage<string>(
+	"lyricsSiteToken",
+	"",
+);
+export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>(
+	"lyricsSiteUser",
+	null,
+);
+export const lyricsSiteLoginPendingAtom = atomWithStorage<boolean>(
+	"lyricsSiteLoginPending",
+	false,
+);
+
+export const audioProxyUrlAtom = atomWithStorage<string>(
+	"audioProxyUrl",
+	"https://tooldl.bikonoo.com",
+);

@@ -77,16 +77,19 @@ export const PendingUpdateGroup = ({
 										{t("notificationCenter.pendingUpdateGroup", "待更新PR")}
 									</Text>
 									<Text size="1" color="gray" wrap="nowrap">
-										{t(
-											"notificationCenter.pendingUpdateCount",
-											"{count} 条",
-											{ count: items.length },
-										)}
+										{t("notificationCenter.pendingUpdateCount", "{count} 条", {
+											count: items.length,
+										})}
 									</Text>
 								</Flex>
 							</Flex>
 						</Flex>
-					<Flex direction="column" align="end" gap="2" style={notificationCenterStyles.actionColumn}>
+						<Flex
+							direction="column"
+							align="end"
+							gap="2"
+							style={notificationCenterStyles.actionColumn}
+						>
 							<Text size="1" color="gray" wrap="nowrap">
 								{latestCreatedAt ? formatTime(latestCreatedAt) : ""}
 							</Text>

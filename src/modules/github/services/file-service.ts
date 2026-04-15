@@ -18,8 +18,7 @@ const pickReviewFile = (files: ReviewFileEntry[]) => {
 		})
 		.filter((file) => priority.has(file.ext))
 		.sort(
-			(a, b) =>
-				(priority.get(a.ext) ?? 999) - (priority.get(b.ext) ?? 999),
+			(a, b) => (priority.get(a.ext) ?? 999) - (priority.get(b.ext) ?? 999),
 		)[0];
 };
 

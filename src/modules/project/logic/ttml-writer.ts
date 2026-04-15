@@ -29,10 +29,7 @@ type LineMetadata = {
 	bg: string;
 };
 
-export default function exportTTMLText(
-	ttmlLyric: TTMLLyric,
-	pretty = false,
-): string {
+export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 	const params: LyricLine[][] = [];
 	const lyric = ttmlLyric.lyricLines;
 
@@ -127,11 +124,7 @@ export default function exportTTMLText(
 		return null;
 	}
 
-	function addWrapperToElement(
-		el: Element,
-		prefix: string,
-		suffix: string,
-	) {
+	function addWrapperToElement(el: Element, prefix: string, suffix: string) {
 		if (!prefix && !suffix) return;
 		const first = findFirstTextNode(el);
 		const last = findLastTextNode(el);
@@ -249,7 +242,8 @@ export default function exportTTMLText(
 		}
 	}
 
-	const vocalTags = ttmlLyric.vocalTags?.filter(
+	const vocalTags =
+		ttmlLyric.vocalTags?.filter(
 			(tag) => tag.key && tag.key.trim().length > 0,
 		) ?? [];
 	if (vocalTags.length > 0) {
@@ -659,8 +653,9 @@ export default function exportTTMLText(
 								continue;
 							}
 						const match = data.mainRoman.find(
-							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							(r) =>
+								r.startTime === word.startTime && r.endTime === word.endTime,
+						);
 						if (!match || match.text.trim().length === 0) continue;
 						textEl.appendChild(createRomanizationSpanFromData(match));
 						}
@@ -678,8 +673,9 @@ export default function exportTTMLText(
 								continue;
 							}
 						const match = data.bgRoman.find(
-							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							(r) =>
+								r.startTime === word.startTime && r.endTime === word.endTime,
+						);
 						if (!match || match.text.trim().length === 0) continue;
 						const span = createRomanizationSpanFromData(match);
 							bgSpan.appendChild(span);
@@ -723,9 +719,12 @@ export default function exportTTMLText(
 								}
 								continue;
 							}
-							const match = data.mainRoman.find(
-							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							continue;
+						}
+						const match = data.mainRoman.find(
+							(r) =>
+								r.startTime === word.startTime && r.endTime === word.endTime,
+						);
 						if (!match || match.text.trim().length === 0) continue;
 							textEl.appendChild(createRomanizationSpanFromData(match));
 						}
@@ -742,9 +741,12 @@ export default function exportTTMLText(
 								}
 								continue;
 							}
-							const match = data.bgRoman.find(
-							(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							continue;
+						}
+						const match = data.bgRoman.find(
+							(r) =>
+								r.startTime === word.startTime && r.endTime === word.endTime,
+						);
 						if (!match || match.text.trim().length === 0) continue;
 							const span = createRomanizationSpanFromData(match);
 							bgSpan.appendChild(span);
@@ -793,32 +795,8 @@ export default function exportTTMLText(
 		metadataEl.appendChild(itunesMeta);
 	}
 
-
 	ttRoot.appendChild(body);
 	log("ttml document built", ttRoot);
 
-	if (pretty) {
-		const xsltDoc = new DOMParser().parseFromString(
-			[
-				'<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">',
-				'  <xsl:strip-space elements="*"/>',
-				'  <xsl:template match="para[content-style][not(text())]">',
-				'    <xsl:value-of select="normalize-space(.)"/>',
-				"  </xsl:template>",
-				'  <xsl:template match="node()|@*">',
-				'    <xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>',
-				"  </xsl:template>",
-				'  <xsl:output indent="yes"/>',
-				"</xsl:stylesheet>",
-			].join("\n"),
-			"application/xml",
-		);
-
-		const xsltProcessor = new XSLTProcessor();
-		xsltProcessor.importStylesheet(xsltDoc);
-		const resultDoc = xsltProcessor.transformToDocument(doc);
-
-		return new XMLSerializer().serializeToString(resultDoc);
-	}
 	return new XMLSerializer().serializeToString(doc);
 }

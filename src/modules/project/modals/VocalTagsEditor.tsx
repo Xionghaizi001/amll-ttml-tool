@@ -106,7 +106,7 @@ export const VocalTagsEditor = () => {
 													draft.vocalTags.push({ key: nextId, value: name });
 												}
 											});
-									}}
+										}}
 									>
 										{t("vocalTagsDialog.importFromArtists", "从 artists 导入")}
 									</Button>
@@ -119,7 +119,7 @@ export const VocalTagsEditor = () => {
 													line.vocal = [];
 												});
 											});
-									}}
+										}}
 									>
 										{t("vocalTagsDialog.clearAssignments", "清空分配")}
 									</Button>
@@ -133,7 +133,7 @@ export const VocalTagsEditor = () => {
 													line.vocal = [];
 												});
 											});
-									}}
+										}}
 									>
 										<Delete16Regular />
 										{t("vocalTagsDialog.clear", "清空")}
@@ -169,7 +169,8 @@ export const VocalTagsEditor = () => {
 													reassignVocalIds(draft);
 													return;
 												}
-												if (hasDuplicateTag(draft.vocalTags, trimmed, index)) return;
+												if (hasDuplicateTag(draft.vocalTags, trimmed, index))
+													return;
 												const target = draft.vocalTags[index];
 												if (target) target.value = trimmed;
 											});
@@ -245,4 +246,3 @@ export const VocalTagsEditor = () => {
 		</Dialog.Root>
 	);
 };
-

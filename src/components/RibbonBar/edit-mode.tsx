@@ -257,7 +257,8 @@ function EditField<
 				const selectedItems = store.get(itemAtom);
 				if (fieldName === "endTime" && showDurationInput) {
 					const trimmedValue = rawValue.trim();
-					const isDelta = trimmedValue.startsWith("+") || trimmedValue.startsWith("-");
+					const isDelta =
+						trimmedValue.startsWith("+") || trimmedValue.startsWith("-");
 					const parsedValue = Number(trimmedValue);
 					if (!Number.isFinite(parsedValue)) {
 						flashInvalidDurationInput();
@@ -271,22 +272,37 @@ function EditField<
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
-								for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
+								for (
+									let wordIndex = 0;
+									wordIndex < line.words.length;
+									wordIndex++
+								) {
 									const word = line.words[wordIndex];
 									if (!selectedItems.has(word.id)) continue;
 									const nextWord = line.words[wordIndex + 1];
 									const nextStartTime = nextWord?.startTime;
 									const originalEndTime = word.endTime;
-									const newEndTimeRaw = isDelta ? word.endTime + parsedValue : word.startTime + parsedValue;
+									const newEndTimeRaw = isDelta
+										? word.endTime + parsedValue
+										: word.startTime + parsedValue;
 									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
 									word.endTime = newEndTime;
-									if (isDelta && nextWord && originalEndTime === nextStartTime) {
+									if (
+										isDelta &&
+										nextWord &&
+										originalEndTime === nextStartTime
+									) {
 										nextWord.startTime = newEndTime;
-										nextWord.endTime = Math.max(nextWord.startTime, nextWord.endTime);
+										nextWord.endTime = Math.max(
+											nextWord.startTime,
+											nextWord.endTime,
+										);
 									}
 								}
 							} else if (selectedItems.has(line.id)) {
-								const newEndTimeRaw = isDelta ? line.endTime + parsedValue : line.startTime + parsedValue;
+								const newEndTimeRaw = isDelta
+									? line.endTime + parsedValue
+									: line.startTime + parsedValue;
 								line.endTime = Math.max(line.startTime, newEndTimeRaw);
 							}
 						}
@@ -1192,7 +1208,6 @@ const AuxiliaryDisplayField: FC = () => {
 		</Grid>
 	);
 };
-
 
 export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 	(_props, ref) => {

@@ -48,7 +48,9 @@ export const SettingsAMLLTab = () => {
 						/>
 					</Flex>
 					<Flex align="center" justify="between" gap="3">
-						<Text>{t("settings.amll.resetLineTimestamps", "重置行时间戳")}</Text>
+						<Text>
+							{t("settings.amll.resetLineTimestamps", "重置行时间戳")}
+						</Text>
 						<Checkbox
 							checked={resetLineTimestamps}
 							onCheckedChange={(value) => setResetLineTimestamps(!!value)}
@@ -84,10 +86,7 @@ export const SettingsAMLLTab = () => {
 					</Flex>
 					<Flex align="center" justify="between" gap="3">
 						<Text>
-							{t(
-								"settings.amll.cleanUnintentionalOverlaps",
-								"清理非刻意重叠",
-							)}
+							{t("settings.amll.cleanUnintentionalOverlaps", "清理非刻意重叠")}
 						</Text>
 						<Checkbox
 							checked={cleanUnintentionalOverlaps}

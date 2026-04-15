@@ -30,12 +30,18 @@ const buildGithubUrl = (
 	return new URL(buildGithubProxyUrl(apiUrl.toString()));
 };
 
-export const githubFetch = (path: string, options: GithubRequestOptions = {}) => {
+export const githubFetch = (
+	path: string,
+	options: GithubRequestOptions = {},
+) => {
 	const url = buildGithubUrl(path, options.params);
 	return fetch(url.toString(), options.init);
 };
 
-export const githubFetchRaw = (rawUrl: string, options: GithubRawOptions = {}) => {
+export const githubFetchRaw = (
+	rawUrl: string,
+	options: GithubRawOptions = {},
+) => {
 	return fetch(buildGithubProxyUrl(rawUrl), options.init);
 };
 

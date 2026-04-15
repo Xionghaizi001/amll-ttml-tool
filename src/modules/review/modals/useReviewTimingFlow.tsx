@@ -41,8 +41,9 @@ import {
 	buildTimingStashCards,
 	buildTimingStashGroups,
 } from "$/modules/review/services/stash-service";
-import { useNcmAudioSwitch } from "$/modules/review/services/ncm-audio-service";
+import { useNcmAudioSwitch } from "$/modules/review/services/audio-switch";
 import { StashDialog } from "./StashDialog";
+import { AudioSourceSelectDialog } from "./AudioSourceSelectDialog";
 
 export const useReviewTimingFlow = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
@@ -71,9 +72,9 @@ export const useReviewTimingFlow = () => {
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
 	const { openFile } = useFileOpener();
 	const { t } = useTranslation();
-	const [TimingCandidates, setTimingCandidates] = useState<SyncChangeCandidate[]>(
-		[],
-	);
+	const [TimingCandidates, setTimingCandidates] = useState<
+		SyncChangeCandidate[]
+	>([]);
 	const [TimingStashOpen, setTimingStashOpen] = useState(false);
 	const [TimingStashItems, setTimingStashItems] = useState<TimingStashItem[]>(
 		[],
@@ -85,6 +86,9 @@ export const useReviewTimingFlow = () => {
 		neteaseIdDialog,
 		closeNeteaseIdDialog,
 		handleSelectNeteaseId,
+		audioSourceDialog,
+		closeAudioSourceDialog,
+		handleSelectAudioSource,
 		onSwitchAudio,
 		switchAudioEnabled,
 	} = useNcmAudioSwitch({
@@ -94,6 +98,7 @@ export const useReviewTimingFlow = () => {
 		reviewSession,
 		openFile,
 		pushNotification: setPushNotification,
+		setReviewSession,
 	});
 
 	const TimingCandidateMap = useMemo(() => {
@@ -183,10 +188,10 @@ export const useReviewTimingFlow = () => {
 		const candidates = buildSyncChanges(freezeData, stagedData);
 		setTimingCandidates(candidates);
 		const submittedSet = new Set(
-			stashKey ? reviewStashSubmitted[stashKey] ?? [] : [],
+			stashKey ? (reviewStashSubmitted[stashKey] ?? []) : [],
 		);
 		const removedOrderSet = new Set(
-			stashKey ? reviewStashRemovedOrder[stashKey] ?? [] : [],
+			stashKey ? (reviewStashRemovedOrder[stashKey] ?? []) : [],
 		);
 		const nextStash: TimingStashItem[] = [];
 		for (const candidate of candidates) {
@@ -348,6 +353,12 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
+					source:
+						activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
+					submissionId:
+						activeSession.source === "lyrics-site"
+							? String(activeSession.prNumber)
+							: undefined,
 				});
 				setTimingStashItems([]);
 				setTimingStashOpen(false);
@@ -367,6 +378,12 @@ export const useReviewTimingFlow = () => {
 							reviewReportDialog.draftId) ||
 						draftMatch?.id ||
 						null,
+					source:
+						activeSession.source === "lyrics-site" ? "lyrics-site" : "github",
+					submissionId:
+						activeSession.source === "lyrics-site"
+							? String(activeSession.prNumber)
+							: undefined,
 				});
 			}
 		}
@@ -449,12 +466,7 @@ export const useReviewTimingFlow = () => {
 		}
 		setTimingStashItems([]);
 		setTimingStashSelected(new Map());
-	}, [
-		stashKey,
-		setReviewStashRemovedOrder,
-		TimingOrderMap,
-		TimingStashItems,
-	]);
+	}, [stashKey, setReviewStashRemovedOrder, TimingOrderMap, TimingStashItems]);
 
 	const onSelectAllStash = useCallback(
 		(field: "startTime" | "endTime") => {
@@ -514,6 +526,14 @@ export const useReviewTimingFlow = () => {
 					reviewReportDialog.draftId) ||
 				draftMatch?.id ||
 				null,
+			source:
+				reviewSession?.source === "lyrics-site"
+					? "lyrics-site"
+					: reviewSession?.source
+						? "github"
+						: undefined,
+			submissionId:
+				reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
 		setTimingStashItems([]);
 		setTimingStashSelected(new Map());
@@ -552,6 +572,13 @@ export const useReviewTimingFlow = () => {
 				ids={neteaseIdDialog.ids}
 				onSelect={handleSelectNeteaseId}
 				onClose={closeNeteaseIdDialog}
+			/>
+			<AudioSourceSelectDialog
+				open={audioSourceDialog.open}
+				options={audioSourceDialog.options}
+				currentSource={audioSourceDialog.currentSource}
+				onSelect={handleSelectAudioSource}
+				onClose={closeAudioSourceDialog}
 			/>
 		</>
 	);

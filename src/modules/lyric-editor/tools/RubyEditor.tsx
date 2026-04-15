@@ -20,7 +20,8 @@ const AutoSizeTextField = ({
 }: ComponentPropsWithoutRef<typeof TextField.Root> & {
 	inputRef?: React.Ref<HTMLInputElement>;
 }) => {
-	const valueString = value === undefined || value === null ? "" : String(value);
+	const valueString =
+		value === undefined || value === null ? "" : String(value);
 	const mirrorText =
 		valueString.length > 0
 			? valueString
@@ -135,10 +136,7 @@ export const RubyEditor = ({
 							prevRuby.startTime,
 							currentRuby.startTime,
 						);
-						prevRuby.endTime = Math.max(
-							prevRuby.endTime,
-							currentRuby.endTime,
-						);
+						prevRuby.endTime = Math.max(prevRuby.endTime, currentRuby.endTime);
 						word.ruby.splice(index, 1);
 						break;
 					}
@@ -185,11 +183,7 @@ export const RubyEditor = ({
 	return (
 		<span className={classNames(styles.rubyEditor, className)}>
 			{showIcon && (
-				<IconButton
-					size="1"
-					variant="soft"
-					onClick={applyRubyToAllSameWords}
-				>
+				<IconButton size="1" variant="soft" onClick={applyRubyToAllSameWords}>
 					<TranslateRegular />
 				</IconButton>
 			)}

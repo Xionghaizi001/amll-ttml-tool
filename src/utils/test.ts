@@ -1,5 +1,9 @@
 import type { AppNotification } from "$/states/notifications";
-import { ToolMode, type FileUpdateSession, type ReviewSession } from "$/states/main";
+import {
+	ToolMode,
+	type FileUpdateSession,
+	type ReviewSession,
+} from "$/states/main";
 import type { Dispatch, SetStateAction } from "react";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 
@@ -62,7 +66,9 @@ export const setupDevTestHooks = (options: DevTestHooksOptions) => {
 			value({});
 		}
 	};
-	const injectReviewUpdate = async (injectOptions: InjectReviewUpdateOptions) => {
+	const injectReviewUpdate = async (
+		injectOptions: InjectReviewUpdateOptions,
+	) => {
 		await openReviewUpdateFromNotification({
 			token: injectOptions.token,
 			prNumber: injectOptions.prNumber,

@@ -109,8 +109,7 @@ const rawRules = [
 
 const parseRule = (line: string): MatchRule | null => {
 	const match =
-		line.match(/"([^"]+)"\s*>\s*(.+)$/) ??
-		line.match(/"([^"]+)"\s+(.+)$/);
+		line.match(/"([^"]+)"\s*>\s*(.+)$/) ?? line.match(/"([^"]+)"\s+(.+)$/);
 	if (!match) return null;
 	const pattern = match[1]?.trim();
 	const key = match[2]?.trim();
@@ -149,7 +148,9 @@ const findRuleKey = (label: string): string | null => {
 
 const songwriterLabels = new Set(["作词", "作曲", "编曲"]);
 
-const extractLinePairs = (line: string): { label: string; value: string } | null => {
+const extractLinePairs = (
+	line: string,
+): { label: string; value: string } | null => {
 	const trimmed = line.trim();
 	if (!trimmed) return null;
 	const colonIndex = trimmed.indexOf(":");
@@ -183,7 +184,9 @@ const buildLineTextFromTx = (line: string): string | null => {
 	}
 };
 
-export const extractLyricMetadata = (lyric: string): Record<string, string[]> => {
+export const extractLyricMetadata = (
+	lyric: string,
+): Record<string, string[]> => {
 	const result: Record<string, string[]> = {};
 	if (!lyric) return result;
 	const lines = lyric.split(/\r?\n/);
@@ -193,8 +196,9 @@ export const extractLyricMetadata = (lyric: string): Record<string, string[]> =>
 		const pair = extractLinePairs(text);
 		if (!pair) continue;
 		const { label, value } = pair;
-		const targetKey =
-			songwriterLabels.has(label) ? "songwriter" : findRuleKey(label);
+		const targetKey = songwriterLabels.has(label)
+			? "songwriter"
+			: findRuleKey(label);
 		if (!targetKey) continue;
 		if (!result[targetKey]) {
 			result[targetKey] = [];

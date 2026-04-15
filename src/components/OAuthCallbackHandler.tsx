@@ -1,12 +1,17 @@
 import { Box, Flex, Spinner, Text, Button } from "@radix-ui/themes";
 import { useSetAtom } from "jotai";
 import { useEffect, useState, useRef } from "react";
-import { lyricsSiteTokenAtom, lyricsSiteUserAtom } from "$/modules/settings/states";
+import {
+	lyricsSiteTokenAtom,
+	lyricsSiteUserAtom,
+} from "$/modules/settings/states";
 
 const LYRICS_SITE_URL = "https://amlldb.bikonoo.com";
 
 export const OAuthCallbackHandler = () => {
-	const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
+	const [status, setStatus] = useState<
+		"idle" | "processing" | "success" | "error"
+	>("idle");
 	const [errorMessage, setErrorMessage] = useState("");
 	const setToken = useSetAtom(lyricsSiteTokenAtom);
 	const setUser = useSetAtom(lyricsSiteUserAtom);
@@ -86,11 +91,14 @@ export const OAuthCallbackHandler = () => {
 				setToken(accessToken);
 
 				// 获取用户信息
-				const userResponse = await fetch(`${LYRICS_SITE_URL}/api/user/profile`, {
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
+				const userResponse = await fetch(
+					`${LYRICS_SITE_URL}/api/user/profile`,
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+						},
 					},
-				});
+				);
 
 				if (!userResponse.ok) {
 					throw new Error("获取用户信息失败");
@@ -104,7 +112,11 @@ export const OAuthCallbackHandler = () => {
 				sessionStorage.removeItem("lyrics_site_state");
 
 				// 清理 URL
-				window.history.replaceState({}, document.title, window.location.pathname);
+				window.history.replaceState(
+					{},
+					document.title,
+					window.location.pathname,
+				);
 
 				setStatus("success");
 
@@ -170,12 +182,7 @@ export const OAuthCallbackHandler = () => {
 								justifyContent: "center",
 							}}
 						>
-							<svg
-								width="24"
-								height="24"
-								viewBox="0 0 16 16"
-								fill="white"
-							>
+							<svg width="24" height="24" viewBox="0 0 16 16" fill="white">
 								<path d="M12.78 4.28a.75.75 0 0 0-1.06-1.06L6.25 8.69 3.78 6.22a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l6-6Z" />
 							</svg>
 						</Box>
@@ -198,12 +205,7 @@ export const OAuthCallbackHandler = () => {
 								justifyContent: "center",
 							}}
 						>
-							<svg
-								width="24"
-								height="24"
-								viewBox="0 0 16 16"
-								fill="white"
-							>
+							<svg width="24" height="24" viewBox="0 0 16 16" fill="white">
 								<path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
 							</svg>
 						</Box>

@@ -46,9 +46,7 @@ const mapVocalTagsForPreview = (
 ) => {
 	if (!vocal) return;
 	const fallbackParts = Array.isArray(vocal) ? vocal : [vocal];
-	const normalizedFallback = fallbackParts
-		.map((v) => v.trim())
-		.filter(Boolean);
+	const normalizedFallback = fallbackParts.map((v) => v.trim()).filter(Boolean);
 	if (vocalTagMap.size === 0) {
 		return normalizedFallback.length > 0 ? normalizedFallback : undefined;
 	}
@@ -165,4 +163,3 @@ export const AMLLWrapper = memo(() => {
 });
 
 export default AMLLWrapper;
-

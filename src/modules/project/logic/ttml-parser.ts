@@ -249,7 +249,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	log("ttml document parsed", ttmlDoc);
 
-	const parseTranslationTextElement = (textEl: Element): LineMetadata | null => {
+	const parseTranslationTextElement = (
+		textEl: Element,
+	): LineMetadata | null => {
 		let main = "";
 		let bg = "";
 
@@ -416,13 +418,18 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	});
 
-	const itunesLineRomanizationsByLang = new Map<string, Map<string, LineMetadata>>();
+	const itunesLineRomanizationsByLang = new Map<
+		string,
+		Map<string, LineMetadata>
+	>();
 	const itunesWordRomanizationsByLang = new Map<
 		string,
 		Map<string, WordRomanMetadata>
 	>();
 	const transliterationElements = Array.from(
-		ttmlDoc.querySelectorAll("iTunesMetadata > transliterations > transliteration"),
+		ttmlDoc.querySelectorAll(
+			"iTunesMetadata > transliterations > transliteration",
+		),
 	);
 	const hasLangTransliteration = transliterationElements.some(
 		(el) => (el.getAttribute("xml:lang") ?? "").trim().length > 0,
@@ -699,7 +706,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 
 			const romanLyricByLang: Record<string, string> = {};
-			for (const [lang, romanizations] of itunesLineRomanizationsByLang.entries()) {
+			for (const [
+				lang,
+				romanizations,
+			] of itunesLineRomanizationsByLang.entries()) {
 				const langRoman = romanizations.get(itunesKey);
 				if (!langRoman) continue;
 				romanLyricByLang[lang] = isBG
@@ -711,7 +721,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 
 			const wordRomanizationByLang: Record<string, TTMLRomanWord[]> = {};
-			for (const [lang, romanizations] of itunesWordRomanizationsByLang.entries()) {
+			for (const [
+				lang,
+				romanizations,
+			] of itunesWordRomanizationsByLang.entries()) {
 				const langRoman = romanizations.get(itunesKey);
 				const romanList = isBG ? langRoman?.bg : langRoman?.main;
 				if (!romanList || romanList.length === 0) continue;

@@ -86,11 +86,11 @@ const formatLineLabelList = (
 			return true;
 		})
 		.sort(
-			(a, b) =>
-				a.lineNumber - b.lineNumber ||
-				Number(a.isBG) - Number(b.isBG),
+			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		);
-	return list.map((item) => formatLineLabel(item.lineNumber, item.isBG)).join("、");
+	return list
+		.map((item) => formatLineLabel(item.lineNumber, item.isBG))
+		.join("、");
 };
 const buildSyncParts = (
 	item: SyncChangeCandidate,
@@ -149,7 +149,10 @@ const formatSyncReport = (
 				(a, b) =>
 					a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 			)
-			.map((item) => `${formatLineLabel(item.lineNumber, item.isBG)}：${item.detail}`);
+			.map(
+				(item) =>
+					`${formatLineLabel(item.lineNumber, item.isBG)}：${item.detail}`,
+			);
 		return formatReport(lines);
 	}
 	const lineMap = new Map<
@@ -168,8 +171,7 @@ const formatSyncReport = (
 	}
 	const lines = Array.from(lineMap.values())
 		.sort(
-			(a, b) =>
-				a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		)
 		.map(
 			(entry) =>
@@ -207,7 +209,8 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const lineChanges: LineChange[] = [];
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
-		const stagedLine = stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
+		const stagedLine =
+			stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
 		if (!stagedLine) return;
 		const lineNumber = getLineNumber(
 			freezeLine,
@@ -295,7 +298,9 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		});
 	}
 
-	const remainingWordChanges = wordTextChanges.filter((item) => !consumed.has(item));
+	const remainingWordChanges = wordTextChanges.filter(
+		(item) => !consumed.has(item),
+	);
 	const groupByLine = new Map<
 		string,
 		{ lineNumber: number; isBG: boolean; items: WordChange[] }
@@ -311,8 +316,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		groupByLine.set(key, entry);
 	});
 	const groupedLines = Array.from(groupByLine.values()).sort(
-		(a, b) =>
-			a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+		(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 	);
 	groupedLines.forEach((entry) => {
 		if (entry.items.length <= 1) return;
@@ -328,7 +332,9 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		});
 	});
 
-	const singleWordChanges = remainingWordChanges.filter((item) => !consumed.has(item));
+	const singleWordChanges = remainingWordChanges.filter(
+		(item) => !consumed.has(item),
+	);
 	singleWordChanges
 		.sort(
 			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
@@ -337,9 +343,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			reportLines.push(
 				`${formatLineLabel(item.lineNumber, item.isBG)}：${wrap(
 					item.oldWord,
-				)} 存在错误，应为 ${wrap(
-					item.newWord,
-				)}`,
+				)} 存在错误，应为 ${wrap(item.newWord)}`,
 			);
 		});
 
@@ -351,9 +355,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			reportLines.push(
 				`${formatLineLabel(item.lineNumber, item.isBG)}：${wrap(
 					item.oldWord,
-				)} 音译 ${wrap(
-					item.oldRoman,
-				)} 存在错误，应为 ${wrap(item.newRoman)}`,
+				)} 音译 ${wrap(item.oldRoman)} 存在错误，应为 ${wrap(item.newRoman)}`,
 			);
 		});
 
@@ -404,7 +406,8 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const reportLines: SyncChangeCandidate[] = [];
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
-		const stagedLine = stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
+		const stagedLine =
+			stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
 		if (!stagedLine) return;
 		const lineNumber = getLineNumber(
 			freezeLine,
@@ -461,10 +464,7 @@ export const buildSyncReportFromStash = (
 	const items = buildSyncReportItems(
 		Array.from(fieldMap.entries())
 			.map(([wordId]) => candidateMap.get(wordId))
-			.filter(
-				(item): item is SyncChangeCandidate =>
-					Boolean(item),
-			),
+			.filter((item): item is SyncChangeCandidate => Boolean(item)),
 		fieldMap,
 	);
 	return formatSyncReport(items, { groupByLine: true });

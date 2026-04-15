@@ -1,6 +1,13 @@
 import { Alert24Regular } from "@fluentui/react-icons";
 import { Box, Button, Dialog, Flex, ScrollArea, Text } from "@radix-ui/themes";
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type Dispatch,
+	type SetStateAction,
+} from "react";
 import { useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";

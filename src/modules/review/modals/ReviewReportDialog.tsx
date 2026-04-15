@@ -5,12 +5,14 @@ import {
 	Edit20Regular,
 	LightbulbCheckmark20Regular,
 	Merge20Regular,
+	MusicNote220Regular,
 } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
 	Dialog,
 	Flex,
+	Tabs,
 	Text,
 	TextArea,
 	TextField,
@@ -18,6 +20,9 @@ import {
 import { openDB } from "idb";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import { uid } from "uid";
 import { githubFetch } from "$/modules/github/api";
 import {
@@ -25,7 +30,7 @@ import {
 	mergePullRequest,
 } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
-import { githubPatAtom } from "$/modules/settings/states";
+import { githubPatAtom, lyricsSiteTokenAtom } from "$/modules/settings/states";
 import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
 	reviewReportDraftsAtom,
@@ -37,6 +42,7 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
+import { submitReview as submitLyricsSiteReview } from "$/modules/lyrics-site";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
@@ -123,6 +129,7 @@ export const ReviewReportDialog = () => {
 	const removeNotification = useSetAtom(removeNotificationAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const pat = useAtomValue(githubPatAtom);
+	const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
 	const [customTemplates, setCustomTemplates] = useState<ReviewTemplate[]>([]);
@@ -138,10 +145,12 @@ export const ReviewReportDialog = () => {
 		"APPROVE" | "REQUEST_CHANGES" | "MERGE" | null
 	>(null);
 	const titleText = useMemo(() => {
-		if (!dialog.prNumber) return "对当前 PR 做出的审阅结果如下：";
+		if (!dialog.prNumber) return "对当前稿件做出的审阅结果如下：";
 		const title = dialog.prTitle?.trim() ? ` ${dialog.prTitle}` : "";
-		return `对 PR#${dialog.prNumber}${title} 做出的审阅结果如下：`;
-	}, [dialog.prNumber, dialog.prTitle]);
+		const prefix =
+			dialog.source === "lyrics-site" ? "歌词站稿件" : `PR#${dialog.prNumber}`;
+		return `对${prefix}${title} 做出的审阅结果如下：`;
+	}, [dialog.prNumber, dialog.prTitle, dialog.source]);
 
 	useEffect(() => {
 		if (dialog.open) {
@@ -280,7 +289,9 @@ export const ReviewReportDialog = () => {
 			const current = prev.report;
 			const trimmedCurrent = current.trim();
 			const base =
-				!trimmedCurrent || trimmedCurrent === DEFAULT_REPORT_TEXT ? "" : current;
+				!trimmedCurrent || trimmedCurrent === DEFAULT_REPORT_TEXT
+					? ""
+					: current;
 			const nextReport = base ? `${trimmed}\n${base}` : trimmed;
 			return {
 				...prev,
@@ -433,23 +444,15 @@ export const ReviewReportDialog = () => {
 		return userLogin;
 	};
 	const submitReview = async (event: "APPROVE" | "REQUEST_CHANGES") => {
-		if (!dialog.prNumber) {
+		if (!dialog.prNumber && !dialog.submissionId) {
 			setPushNotification({
-				title: "无法提交审阅结果：缺少 PR 编号",
+				title: "无法提交审阅结果：缺少稿件编号",
 				level: "error",
 				source: "Review",
 			});
 			return;
 		}
-		const token = pat.trim();
-		if (!token) {
-			setPushNotification({
-				title: "请先在设置中登录以提交审阅结果",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
+
 		const reportBody = getCleanReport();
 		if (event === "REQUEST_CHANGES" && !reportBody) {
 			setPushNotification({
@@ -459,52 +462,96 @@ export const ReviewReportDialog = () => {
 			});
 			return;
 		}
+
 		setSubmitPending(event);
 		try {
-			const userLogin = await ensureAssigned(token, dialog.prNumber);
-			if (!userLogin) return;
-			const result = await submitReviewService({
-				token,
-				prNumber: dialog.prNumber,
-				event,
-				reportBody,
-				repoOwner: REPO_OWNER,
-				repoName: REPO_NAME,
-				pendingLabelName: PENDING_LABEL_NAME,
-			});
-			if (!result.ok) {
+			if (dialog.source === "lyrics-site") {
+				const token = lyricsSiteToken?.trim();
+				if (!token) {
+					setPushNotification({
+						title: "请先登录歌词站以提交审阅结果",
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+
+				const submissionId = dialog.submissionId || String(dialog.prNumber);
+				const action = event === "APPROVE" ? "approve" : "revision";
+
+				await submitLyricsSiteReview(token, submissionId, action, reportBody);
+
+				if (event === "APPROVE") {
+					setApprovedByUser(true);
+				}
 				setPushNotification({
-					title: `提交审阅结果失败：${result.status ?? "未知"}`,
-					level: "error",
+					title: "已提交审阅结果",
+					level: "success",
 					source: "Review",
 				});
-				return;
-			}
-			if (result.labelStatus) {
+				setReviewReviewedPrs((prev) =>
+					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+				);
+				if (dialog.prNumber) {
+					setReviewSingleRefresh(dialog.prNumber);
+				}
+				submitAndClose();
+			} else {
+				const token = pat.trim();
+				if (!token) {
+					setPushNotification({
+						title: "请先在设置中登录以提交审阅结果",
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+
+				const userLogin = await ensureAssigned(token, dialog.prNumber!);
+				if (!userLogin) return;
+				const result = await submitReviewService({
+					token,
+					prNumber: dialog.prNumber!,
+					event,
+					reportBody,
+					repoOwner: REPO_OWNER,
+					repoName: REPO_NAME,
+					pendingLabelName: PENDING_LABEL_NAME,
+				});
+				if (!result.ok) {
+					setPushNotification({
+						title: `提交审阅结果失败：${result.status ?? "未知"}`,
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+				if (result.labelStatus) {
+					setPushNotification({
+						title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
+						level: "warning",
+						source: "Review",
+					});
+				}
+				if (event === "APPROVE") {
+					setApprovedByUser(true);
+				}
 				setPushNotification({
-					title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
-					level: "warning",
+					title: "已提交审阅结果",
+					level: "success",
 					source: "Review",
 				});
+				setReviewReviewedPrs((prev) =>
+					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
+				);
+				if (dialog.prNumber) {
+					setReviewSingleRefresh(dialog.prNumber);
+				}
+				submitAndClose();
 			}
-			if (event === "APPROVE") {
-				setApprovedByUser(true);
-			}
+		} catch (error) {
 			setPushNotification({
-				title: "已提交审阅结果",
-				level: "success",
-				source: "Review",
-			});
-			setReviewReviewedPrs((prev) =>
-				dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
-			);
-			if (dialog.prNumber) {
-				setReviewSingleRefresh(dialog.prNumber);
-			}
-			submitAndClose();
-		} catch {
-			setPushNotification({
-				title: "提交审阅结果失败：网络错误",
+				title: `提交审阅结果失败：${error instanceof Error ? error.message : "网络错误"}`,
 				level: "error",
 				source: "Review",
 			});
@@ -512,6 +559,54 @@ export const ReviewReportDialog = () => {
 			setSubmitPending(null);
 		}
 	};
+
+	const submitMissingAudio = async () => {
+		if (!dialog.submissionId && !dialog.prNumber) {
+			setPushNotification({
+				title: "无法提交：缺少稿件编号",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+
+		const token = lyricsSiteToken?.trim();
+		if (!token) {
+			setPushNotification({
+				title: "请先登录歌词站",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+
+		setSubmitPending("MERGE" as any);
+		try {
+			const submissionId = dialog.submissionId || String(dialog.prNumber);
+			await submitLyricsSiteReview(
+				token,
+				submissionId,
+				"missing_audio",
+				getCleanReport(),
+			);
+
+			setPushNotification({
+				title: "已标记为缺少音源",
+				level: "success",
+				source: "Review",
+			});
+			submitAndClose();
+		} catch (error) {
+			setPushNotification({
+				title: `标记失败：${error instanceof Error ? error.message : "网络错误"}`,
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setSubmitPending(null);
+		}
+	};
+
 	const submitMerge = async () => {
 		if (!dialog.prNumber) {
 			setPushNotification({
@@ -599,6 +694,31 @@ export const ReviewReportDialog = () => {
 				}
 				setApprovedByUser(true);
 			}
+			const reportBody = getCleanReport();
+			if (reportBody) {
+				const commentResponse = await githubFetch(
+					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${dialog.prNumber}/comments`,
+					{
+						init: {
+							method: "POST",
+							headers: {
+								Accept: "application/vnd.github+json",
+								Authorization: `Bearer ${token}`,
+								"Content-Type": "application/json",
+							},
+							body: JSON.stringify({ body: reportBody }),
+						},
+					},
+				);
+				if (commentResponse.status !== 201) {
+					setPushNotification({
+						title: `发送评论失败：${commentResponse.status}`,
+						level: "error",
+						source: "Review",
+					});
+					return;
+				}
+			}
 			const response = await mergePullRequest({
 				token,
 				prNumber: dialog.prNumber,
@@ -636,7 +756,10 @@ export const ReviewReportDialog = () => {
 	};
 
 	return (
-		<Dialog.Root open={dialog.open} onOpenChange={(open) => !open && closeDialog()}>
+		<Dialog.Root
+			open={dialog.open}
+			onOpenChange={(open) => !open && closeDialog()}
+		>
 			<Dialog.Content style={{ maxWidth: "760px" }}>
 				<Flex direction="column" gap="3">
 					<Flex align="center" justify="between" gap="3">
@@ -719,33 +842,33 @@ export const ReviewReportDialog = () => {
 									style={{ minHeight: "120px" }}
 								/>
 								<Flex justify="end" gap="2">
-								<Button
-									size="2"
-									variant="soft"
-									color="gray"
-									onClick={() => {
-										setTemplateTitle("");
-										setTemplateContent("");
-										setEditingTemplateId(null);
-										setShowTemplateEditor(false);
-									}}
-									disabled={templateSaving}
-								>
-									取消
-								</Button>
-								<Button
-									size="2"
-									variant="soft"
-									onClick={
-										editingTemplateId
-											? handleUpdateTemplate
-											: handleSaveTemplate
-									}
-									disabled={templateSaving}
-								>
-									{editingTemplateId ? "更新模板" : "保存模板"}
-								</Button>
-							</Flex>
+									<Button
+										size="2"
+										variant="soft"
+										color="gray"
+										onClick={() => {
+											setTemplateTitle("");
+											setTemplateContent("");
+											setEditingTemplateId(null);
+											setShowTemplateEditor(false);
+										}}
+										disabled={templateSaving}
+									>
+										取消
+									</Button>
+									<Button
+										size="2"
+										variant="soft"
+										onClick={
+											editingTemplateId
+												? handleUpdateTemplate
+												: handleSaveTemplate
+										}
+										disabled={templateSaving}
+									>
+										{editingTemplateId ? "更新模板" : "保存模板"}
+									</Button>
+								</Flex>
 							</Flex>
 						) : (
 							<Flex justify="end">
@@ -759,18 +882,46 @@ export const ReviewReportDialog = () => {
 							</Flex>
 						)}
 					</Flex>
-					<Box>
-						<TextArea
-							value={dialog.report}
-							onChange={(event) =>
-								setDialog((prev) => ({
-									...prev,
-									report: event.currentTarget.value,
-								}))
-							}
-							style={{ minHeight: "180px" }}
-						/>
-					</Box>
+					<Tabs.Root defaultValue="edit">
+						<Tabs.List>
+							<Tabs.Trigger value="edit">编辑</Tabs.Trigger>
+							<Tabs.Trigger value="preview">预览</Tabs.Trigger>
+						</Tabs.List>
+						<Tabs.Content value="edit">
+							<TextArea
+								value={dialog.report}
+								onChange={(event) =>
+									setDialog((prev) => ({
+										...prev,
+										report: event.currentTarget.value,
+									}))
+								}
+								style={{ height: "300px" }}
+							/>
+						</Tabs.Content>
+						<Tabs.Content value="preview">
+							<Box
+								style={{
+									height: "300px",
+									overflow: "auto",
+									padding: "var(--space-3)",
+									border: "1px solid var(--gray-6)",
+									borderRadius: "var(--radius-2)",
+									backgroundColor: "var(--gray-2)",
+								}}
+							>
+								{dialog.report ? (
+									<ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+										{dialog.report}
+									</ReactMarkdown>
+								) : (
+									<Text color="gray" size="2">
+										暂无内容
+									</Text>
+								)}
+							</Box>
+						</Tabs.Content>
+					</Tabs.Root>
 					<Flex align="center" justify="between" gap="2">
 						<Button
 							size="2"
@@ -785,71 +936,94 @@ export const ReviewReportDialog = () => {
 							</Flex>
 						</Button>
 						<Flex align="center" justify="end" gap="2">
-						<Button
-							size="2"
-							variant="soft"
-							color="green"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认接受",
-									description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: () => submitReview("APPROVE"),
-								})
-							}
-							disabled={approvedByUser || submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Checkmark20Regular />
-								<Text size="2">接受</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="red"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认需要修改",
-									description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
-									onConfirm: () => submitReview("REQUEST_CHANGES"),
-								})
-							}
-							disabled={
-								submitPending !== null || getCleanReport().length === 0
-							}
-						>
-							<Flex align="center" gap="2">
-								<Dismiss20Regular />
-								<Text size="2">需要修改</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="gray"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认合并",
-									description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: submitMerge,
-								})
-							}
-							disabled={submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Merge20Regular />
-								<Text size="2">合并</Text>
-							</Flex>
-						</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="green"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认接受",
+										description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+										onConfirm: () => submitReview("APPROVE"),
+									})
+								}
+								disabled={approvedByUser || submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Checkmark20Regular />
+									<Text size="2">接受</Text>
+								</Flex>
+							</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="red"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认需要修改",
+										description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
+										onConfirm: () => submitReview("REQUEST_CHANGES"),
+									})
+								}
+								disabled={
+									submitPending !== null || getCleanReport().length === 0
+								}
+							>
+								<Flex align="center" gap="2">
+									<Dismiss20Regular />
+									<Text size="2">需要修改</Text>
+								</Flex>
+							</Button>
+							{dialog.source === "lyrics-site" && (
+								<Button
+									size="2"
+									variant="soft"
+									color="orange"
+									onClick={() =>
+										setConfirmDialog({
+											open: true,
+											title: "确认标记缺少音源",
+											description: `确定要标记稿件"${dialog.prTitle}"为缺少音源吗？`,
+											onConfirm: submitMissingAudio,
+										})
+									}
+									disabled={submitPending !== null}
+								>
+									<Flex align="center" gap="2">
+										<MusicNote220Regular />
+										<Text size="2">缺少音源</Text>
+									</Flex>
+								</Button>
+							)}
+							{dialog.source !== "lyrics-site" && (
+								<Button
+									size="2"
+									variant="soft"
+									color="gray"
+									onClick={() =>
+										setConfirmDialog({
+											open: true,
+											title: "确认合并",
+											description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+											onConfirm: submitMerge,
+										})
+									}
+									disabled={submitPending !== null}
+								>
+									<Flex align="center" gap="2">
+										<Merge20Regular />
+										<Text size="2">合并</Text>
+									</Flex>
+								</Button>
+							)}
+						</Flex>
 					</Flex>
 				</Flex>
-			</Flex>
-		</Dialog.Content>
-	</Dialog.Root>
-);
+			</Dialog.Content>
+		</Dialog.Root>
+	);
 };
 
 export default ReviewReportDialog;
