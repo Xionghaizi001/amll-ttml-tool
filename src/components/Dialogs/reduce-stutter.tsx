@@ -37,15 +37,26 @@ export const ReduceStutterDialog = () => {
 	const stutterPairs = useMemo<StutterPair[]>(() => {
 		const pairs: StutterPair[] = [];
 		lyricLines.lyricLines.forEach((line, lineIndex) => {
-			for (let i = 0; i < line.words.length - 1; i++) {
-				const currentWord = line.words[i];
-				const nextWord = line.words[i + 1];
+			// 过滤掉空格单词，只保留有实际内容的单词
+			const nonSpaceWords = line.words.filter(
+				(w) => w.word.trim().length > 0,
+			);
+			for (let i = 0; i < nonSpaceWords.length - 1; i++) {
+				const currentWord = nonSpaceWords[i];
+				const nextWord = nonSpaceWords[i + 1];
 				const gap = nextWord.startTime - currentWord.endTime;
 				if (gap > 0 && gap < 100) {
+					// 找到原始行中的索引
+					const wordIndex = line.words.findIndex(
+						(w) => w.id === currentWord.id,
+					);
+					const nextWordIndex = line.words.findIndex(
+						(w) => w.id === nextWord.id,
+					);
 					pairs.push({
 						lineIndex,
-						wordIndex: i,
-						nextWordIndex: i + 1,
+						wordIndex,
+						nextWordIndex,
 						prevWord: currentWord,
 						nextWord,
 						gap,
