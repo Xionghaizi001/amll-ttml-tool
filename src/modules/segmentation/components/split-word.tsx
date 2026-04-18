@@ -21,6 +21,8 @@ import {
 	segmentationRemoveEmptySegmentsAtom,
 	segmentationSplitCJKAtom,
 	segmentationSplitEnglishAtom,
+	splitWordApplyToAllAtom,
+	splitWordIgnoreCaseAtom,
 } from "$/modules/segmentation/states";
 import type {
 	HyphenatorFunc,
@@ -46,8 +48,8 @@ export const SplitWordDialog = memo(() => {
 	const [splitIndices, setSplitIndices] = useState(new Set<number>());
 	const [targetWordText, setTargetWordText] = useState("");
 
-	const [applyToAll, setApplyToAll] = useState(false);
-	const [ignoreCase, setIgnoreCase] = useState(true);
+	const [applyToAll, setApplyToAll] = useAtom(splitWordApplyToAllAtom);
+	const [ignoreCase, setIgnoreCase] = useAtom(splitWordIgnoreCaseAtom);
 
 	const splitCJK = useAtomValue(segmentationSplitCJKAtom);
 	const splitEnglish = useAtomValue(segmentationSplitEnglishAtom);
@@ -114,8 +116,6 @@ export const SplitWordDialog = memo(() => {
 			return;
 		}
 
-		setApplyToAll(false);
-		setIgnoreCase(true);
 
 		const line = lyricLines.lyricLines[editingState.lineIndex];
 		const word = line?.words[editingState.wordIndex];
