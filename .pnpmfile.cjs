@@ -18,11 +18,6 @@ const catalog = {
   "vite-plugin-wasm": "^3.5.0",
 };
 
-const workspaceMap = {
-  "@applemusic-like-lyrics/core": "file:vendor/applemusic-like-lyrics-core-0.2.1.tgz",
-  "@applemusic-like-lyrics/lyric": "file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz",
-  "@applemusic-like-lyrics/react": "file:vendor/applemusic-like-lyrics-react-0.2.1.tgz",
-};
 
 function replaceCatalog(deps) {
   if (!deps) return;

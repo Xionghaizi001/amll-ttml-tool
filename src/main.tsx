@@ -21,15 +21,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./i18n/index.ts";
 import "./index.css";
-import { wasm_start } from "@applemusic-like-lyrics/lyric";
+// import { wasm_start } from "@applemusic-like-lyrics/lyric";
 import { globalStore } from "./states/store.ts";
 
 async function startApp() {
-	try {
-		wasm_start();
-	} catch (e) {
-		console.error("Error calling wasm_start:", e);
-	}
+	// try {
+	// 	wasm_start();
+	// } catch (e) {
+	// 	console.error("Error calling wasm_start:", e);
+	// }
 
 	enableMapSet();
 
