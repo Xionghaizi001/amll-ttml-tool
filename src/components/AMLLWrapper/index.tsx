@@ -6,6 +6,7 @@ import "@applemusic-like-lyrics/core/style.css";
 // #endif
 
 // import { MaskObsceneWordsMode } from "@applemusic-like-lyrics/core";
+import type { OptimizeLyricOptions } from "@applemusic-like-lyrics/core";
 import {
 	LyricPlayer,
 	type LyricPlayerRef,
@@ -110,8 +111,9 @@ export const AMLLWrapper = memo(() => {
 		);
 	}, [originalLyricLines, showTranslationLines, showRomanLines]);
 
-	const optimizeOptions = useMemo(
+	const optimizeOptions = useMemo<OptimizeLyricOptions>(
 		() => ({
+			...originalLyricLines.optimizeOptions,
 			normalizeSpaces,
 			resetLineTimestamps,
 			convertExcessiveBackgroundLines,
@@ -120,6 +122,7 @@ export const AMLLWrapper = memo(() => {
 			tryAdvanceStartTime,
 		}),
 		[
+			originalLyricLines.optimizeOptions,
 			normalizeSpaces,
 			resetLineTimestamps,
 			convertExcessiveBackgroundLines,
