@@ -732,14 +732,15 @@ export const useReviewPageLogic = () => {
 					});
 					return;
 				}
+				const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
 				setReviewSession({
 					prNumber: item.number,
 					prTitle: item.title,
 					fileName: fileResult.fileName,
 					source: "review",
+					ncmIds: cleanedIds,
 				});
 				openFile(fileResult.file);
-				const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
 				if (cleanedIds.length > 0) {
 					if (cleanedIds.length > 1) {
 						pendingReviewModeSwitchRef.current = true;
