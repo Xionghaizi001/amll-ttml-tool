@@ -1,75 +1,11 @@
-import { Flex, Heading, Card, Text, Button, Avatar } from "@radix-ui/themes";
+import { Flex, Heading } from "@radix-ui/themes";
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { GithubLoginCard } from "$/modules/github/modals/GithubLoginCard";
+import { LyricsSiteLoginCard } from "$/modules/lyrics-site/modals/LyricsSiteLoginCard";
 import { NeteaseLoginCard } from "$/modules/ncm/modals/NeteaseLoginCard";
+import { lyricsSiteUserAtom } from "$/modules/review/services/remote-service";
 import { githubLoginAtom } from "$/modules/settings/states";
-import {
-	useLyricsSiteAuth,
-	lyricsSiteUserAtom,
-} from "$/modules/review/services/remote-service";
-
-const LyricsSiteLoginCard = () => {
-	const { t } = useTranslation();
-	const user = useAtomValue(lyricsSiteUserAtom);
-	const { isLoggedIn, hasReviewPermission, initiateLogin, logout } =
-		useLyricsSiteAuth();
-
-	if (isLoggedIn && user) {
-		return (
-			<Card>
-				<Flex direction="column" gap="3">
-					<Flex align="center" gap="3">
-						<Avatar
-							size="3"
-							src={user.avatarUrl}
-							fallback={user.displayName?.[0] || "U"}
-							radius="full"
-						/>
-						<Flex direction="column">
-							<Text weight="medium">{user.displayName}</Text>
-							<Text size="2" color="gray">
-								@{user.username}
-								<span
-									style={{
-										color: hasReviewPermission
-											? "var(--green-9)"
-											: "var(--gray-9)",
-										marginLeft: "8px",
-									}}
-								>
-									{hasReviewPermission ? "审核员" : "普通用户"}
-								</span>
-							</Text>
-						</Flex>
-					</Flex>
-					<Button variant="soft" color="gray" onClick={logout}>
-						{t("common.logout", "登出")}
-					</Button>
-				</Flex>
-			</Card>
-		);
-	}
-
-	return (
-		<Card>
-			<Flex direction="column" gap="3">
-				<Text weight="medium">
-					{t("settings.connect.lyricsSite", "歌词站")}
-				</Text>
-				<Text size="2" color="gray">
-					{t(
-						"settings.connect.lyricsSiteDesc",
-						"登录歌词站以使用歌词站相关功能",
-					)}
-				</Text>
-				<Button variant="soft" onClick={initiateLogin}>
-					{t("settings.connect.loginLyricsSite", "登录歌词站")}
-				</Button>
-			</Flex>
-		</Card>
-	);
-};
 
 export const SettingsConnectTab = () => {
 	const { t } = useTranslation();
