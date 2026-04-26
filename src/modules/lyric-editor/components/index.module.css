@@ -168,6 +168,8 @@
 	box-shadow: var(--base-card-surface-box-shadow);
 	user-select: none;
 	display: flex;
+	position: relative;
+	isolation: isolate;
 
 	transition:
 		opacity 0.1s ease-in-out,
@@ -196,6 +198,29 @@
 			opacity: 1;
 		}
 	}
+}
+
+.lyricLine > :not(.playbackActiveOverlay) {
+	position: relative;
+	z-index: 1;
+}
+
+.playbackActiveOverlay {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 0;
+	background-color: var(--blue-a3);
+	box-shadow: 0 0 0 2px var(--blue-a9);
+}
+
+.lyricLine.playbackHighlighted:hover .playbackActiveOverlay {
+	background-color: var(--blue-a4);
+}
+
+.lyricLine.playbackHighlighted.selected .playbackActiveOverlay {
+	background-color: var(--blue-a5);
 }
 
 .insertWordField {
@@ -477,21 +502,13 @@
 	transform: translateY(-50%) rotate(-135deg) scaleX(1);
 }
 
+.playbackActiveLineNumber {
+	color: var(--blue-a11);
+	font-weight: 600;
+}
+
 .lyricLinesWrapper {
 	position: relative;
 	height: 100%;
 	max-height: 100%;
-}
-
-.locateButton {
-	position: absolute;
-	right: var(--space-7);
-	bottom: var(--space-3);
-	z-index: 5;
-	box-shadow: var(--base-card-surface-box-shadow);
-	border-radius: 50%;
-	backdrop-filter: blur(8px);
-	width: 2.5rem;
-	height: 2.5rem;
-	padding: 0;
 }

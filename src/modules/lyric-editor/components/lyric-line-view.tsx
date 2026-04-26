@@ -16,6 +16,7 @@ import {
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
+import { motion } from "framer-motion";
 import {
 	Button,
 	ContextMenu,
@@ -287,7 +288,8 @@ const SubLineEdit = memo(
 export const LyricLineView: FC<{
 	lineAtom: Atom<LyricLine>;
 	lineIndex: number;
-}> = memo(({ lineAtom, lineIndex }) => {
+	playbackHighlightedLineId?: string;
+}> = memo(({ lineAtom, lineIndex, playbackHighlightedLineId }) => {
 	const { t } = useTranslation();
 	const lyricState = useAtomValue(lyricLinesAtom);
 	const vocalTags = lyricState.vocalTags ?? [];
@@ -300,6 +302,7 @@ export const LyricLineView: FC<{
 	);
 	const line = useAtomValue(lineAtom);
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
+	const isPlaybackHighlighted = playbackHighlightedLineId === line.id;
 	const lineSelectedAtom = useMemo(() => {
 		const a = atom((get) => get(selectedLinesAtom).has(line.id));
 		if (import.meta.env.DEV) {
@@ -579,6 +582,7 @@ export const LyricLineView: FC<{
 						direction="row"
 						className={classNames(
 							styles.lyricLine,
+							isPlaybackHighlighted && styles.playbackHighlighted,
 							lineSelected && styles.selected,
 							toolMode === ToolMode.Sync && styles.sync,
 							toolMode === ToolMode.Edit && styles.edit,
@@ -712,10 +716,22 @@ export const LyricLineView: FC<{
 						asChild
 					>
 						<div>
+							{isPlaybackHighlighted && (
+								<motion.div
+									layoutId="lyric-playback-active-line"
+									className={styles.playbackActiveOverlay}
+									transition={{
+										type: "tween",
+										duration: 0.16,
+										ease: "easeOut",
+									}}
+								/>
+							)}
 							<Flex direction="column" align="center" justify="center" ml="3">
 								<Text
 									className={classNames(
 										styles.lineNumber,
+										isPlaybackHighlighted && styles.playbackActiveLineNumber,
 										line.ignoreSync && styles.ignored,
 									)}
 									align="center"
