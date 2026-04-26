@@ -43,7 +43,10 @@ export const RomanWordView = ({
 						const targetWord = line.words.find((w) => w.id === word.id);
 						if (targetWord) {
 							targetWord.romanWord = newValue;
-							applyGeneratedRuby(targetWord);
+							// Only sync generated ruby when this word has ruby editing enabled.
+							if (targetWord.ruby !== undefined) {
+								applyGeneratedRuby(targetWord);
+							}
 							break;
 						}
 					}
