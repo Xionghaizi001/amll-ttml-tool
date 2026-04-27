@@ -425,6 +425,8 @@
 			"moveNextWordAndPlay": "Timing - Move to next word and play",
 			"syncStart": "Timing - Mark begin",
 			"syncNext": "Timing - Commit",
+			"syncNextAlt": "Timing - Commit secondary key",
+			"syncNextDualMode": "Timing - Commit dual-key scheme",
 			"syncEnd": "Timing - Mark end",
 			"moveFirstWordAndPlay": "Timing - Move to first word and play",
 			"moveLastWordAndPlay": "Timing - Move to last word and play",

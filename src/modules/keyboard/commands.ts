@@ -175,6 +175,13 @@ export const cmdSyncNext = registerCommand(
 	"Sync",
 );
 
+export const cmdSyncNextAlt = registerCommand(
+	"syncNextAlt",
+	["KeyB"],
+	t("settingsDialog.keybindings.syncNextAlt"),
+	"Sync",
+);
+
 export const cmdSyncEnd = registerCommand(
 	"syncEnd",
 	["KeyH"],

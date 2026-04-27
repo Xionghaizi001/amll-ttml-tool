@@ -20,11 +20,13 @@ import {
 import {
 	currentEmptyBeatAtom,
 	showTouchSyncPanelAtom,
+	syncNextDualModeAtom,
 	syncTimeOffsetAtom,
 	visualizeTimestampUpdateAtom,
 } from "$/modules/settings/states/sync.ts";
 import {
 	keySyncEndAtom,
+	keySyncNextAltAtom,
 	keySyncNextAtom,
 	keySyncStartAtom,
 } from "$/states/keybindings.ts";
@@ -33,6 +35,7 @@ import {
 	Checkbox,
 	Flex,
 	Grid,
+	Kbd,
 	Slider,
 	Text,
 	TextField,
@@ -43,6 +46,7 @@ import { type FC, forwardRef } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "../KeyBinding/index.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
+import { formatKeyBindings } from "$/utils/keybindings.ts";
 
 const EmptyBeatField = () => {
 	const [currentEmptyBeat, setCurrentEmptyBeat] = useAtom(currentEmptyBeatAtom);
@@ -94,6 +98,8 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 			showWordRomanizationInputAtom,
 		);
 		const [syncTimeOffset, setSyncTimeOffset] = useAtom(syncTimeOffsetAtom);
+		const syncNextDualMode = useAtomValue(syncNextDualModeAtom);
+		const syncNextAltKeys = useAtomValue(keySyncNextAltAtom);
 		const { t } = useTranslation();
 
 		return (
@@ -219,7 +225,12 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							<Text wrap="nowrap" size="1">
 								{t("ribbonBar.syncMode.continuousSync", "连续轴")}
 							</Text>
-							<KeyBinding kbdAtom={keySyncNextAtom} />
+							<Flex gap="2" align="center">
+								<KeyBinding kbdAtom={keySyncNextAtom} />
+								{syncNextDualMode ? (
+									<Kbd>{formatKeyBindings(syncNextAltKeys)}</Kbd>
+								) : null}
+							</Flex>
 							<Text wrap="nowrap" size="1">
 								{t("ribbonBar.syncMode.endSync", "结束轴")}
 							</Text>

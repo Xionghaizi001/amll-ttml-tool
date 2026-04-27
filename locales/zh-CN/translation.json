@@ -430,6 +430,8 @@
 			"moveNextWordAndPlay": "打轴 - 移动到下一个单词并播放",
 			"syncStart": "打轴 - 初始打轴",
 			"syncNext": "打轴 - 步进打轴",
+			"syncNextAlt": "打轴 - 步进打轴第二按键",
+			"syncNextDualMode": "打轴 - 步进打轴双键方案",
 			"syncEnd": "打轴 - 间奏打轴",
 			"moveFirstWordAndPlay": "打轴 - 移动到行第一个单词并播放",
 			"moveLastWordAndPlay": "打轴 - 移动到行最后一个单词并播放",

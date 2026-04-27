@@ -1,5 +1,5 @@
 import { produce } from "immer";
-import { useStore } from "jotai";
+import { useAtomValue, useStore } from "jotai";
 import { type FC, useCallback } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import type { LyricLine, LyricWord, LyricWordBase } from "$/types/ttml";
@@ -21,6 +21,7 @@ import {
 import {
 	currentEmptyBeatAtom,
 	smartFirstWordActiveIdAtom,
+	syncNextDualModeAtom,
 	syncTimeOffsetAtom,
 } from "$/modules/settings/states/sync";
 import {
@@ -33,6 +34,7 @@ import {
 	keyMoveLastWordAndPlayAtom,
 	keyMoveFirstWordAndPlayAtom,
 	keySyncEndAtom,
+	keySyncNextAltAtom,
 	keySyncNextAtom,
 	keySyncStartAtom,
 } from "$/states/keybindings.ts";
@@ -43,6 +45,7 @@ import {
 } from "$/states/main.ts";
 import {
 	type KeyBindingEvent,
+	useKeyBinding,
 	useKeyBindingAtom,
 } from "$/utils/keybindings.ts";
 
@@ -91,6 +94,8 @@ const setUnitEndTime = (
 
 export const SyncKeyBinding: FC = () => {
 	const store = useStore();
+	const syncNextDualMode = useAtomValue(syncNextDualModeAtom);
+	const syncNextAltKeys = useAtomValue(keySyncNextAltAtom);
 
 	const calcJudgeTime = useCallback(
 		(evt: KeyBindingEvent) => {
@@ -292,9 +297,8 @@ export const SyncKeyBinding: FC = () => {
 		},
 		[store],
 	);
-	useKeyBindingAtom(
-		keySyncNextAtom,
-		(evt) => {
+	const onSyncNext = useCallback(
+		(evt: KeyBindingEvent) => {
 			const location = getCurrentLocation(store);
 			if (!location) return;
 			const currentTime = calcJudgeTime(evt);
@@ -388,7 +392,13 @@ export const SyncKeyBinding: FC = () => {
 				}
 			}
 		},
-		[store, moveToNextWord],
+		[store, moveToNextWord, calcJudgeTime],
+	);
+	useKeyBindingAtom(keySyncNextAtom, onSyncNext, [store, onSyncNext]);
+	useKeyBinding(
+		syncNextDualMode ? syncNextAltKeys : [],
+		onSyncNext,
+		[store, syncNextDualMode, syncNextAltKeys, onSyncNext],
 	);
 	useKeyBindingAtom(
 		keySyncEndAtom,
