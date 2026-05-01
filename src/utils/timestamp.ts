@@ -61,3 +61,13 @@ export function msToTimestamp(
 	}
 	return `${m}:${s}`;
 }
+
+export function formatDurationMs(
+	durationMS: number,
+	options: { suffix?: boolean } = {},
+): string {
+	const { suffix = false } = options;
+	const rounded = Math.round(durationMS);
+	const normalized = Object.is(rounded, -0) ? 0 : rounded;
+	return `${normalized}${suffix ? "ms" : ""}`;
+}

@@ -58,7 +58,11 @@ import {
 	newLyricLine,
 } from "$/types/ttml";
 import { calculateDuetState, type DuetStateContext } from "$/modules/project/logic/ttml-parser";
-import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
+import {
+	formatDurationMs,
+	msToTimestamp,
+	parseTimespan,
+} from "$/utils/timestamp.ts";
 import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
 
@@ -226,7 +230,7 @@ function EditField<
 	const compareValue = useMemo(() => {
 		if (fieldName === "endTime" && showDurationInput) {
 			if (durationValue === MULTIPLE_VALUES) return "";
-			if (typeof durationValue === "number") return String(durationValue);
+			if (typeof durationValue === "number") return formatDurationMs(durationValue);
 			return "";
 		}
 		if (typeof currentValue === "string") return currentValue;
@@ -354,7 +358,7 @@ function EditField<
 				return;
 			}
 			if (typeof durationValue === "number") {
-				setFieldInput(String(durationValue));
+				setFieldInput(formatDurationMs(durationValue));
 				setFieldPlaceholder("");
 				return;
 			}

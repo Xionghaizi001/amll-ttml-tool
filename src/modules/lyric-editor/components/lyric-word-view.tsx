@@ -56,7 +56,11 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { type LyricLine, type LyricWord, newLyricWord } from "$/types/ttml.ts";
-import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
+import {
+	formatDurationMs,
+	msToTimestamp,
+	parseTimespan,
+} from "$/utils/timestamp.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time.ts";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
@@ -877,7 +881,7 @@ const LyricSyncWordView: FC<{
 			{showTimestamps && (
 				<div className={classNames(styles.endTime)} ref={endTimeRef}>
 					{showEndTimeAsDuration
-						? `+${endTime - startTime}ms`
+						? `+${formatDurationMs(endTime - startTime, { suffix: true })}`
 						: msToTimestamp(endTime)}
 				</div>
 			)}
