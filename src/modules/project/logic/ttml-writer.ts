@@ -29,6 +29,13 @@ type LineMetadata = {
 	bg: string;
 };
 
+type WordRomanizationEntry = {
+	mainWords: LyricWord[];
+	bgWords: LyricWord[];
+	mainRoman: TTMLRomanWord[];
+	bgRoman: TTMLRomanWord[];
+};
+
 export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 	const params: LyricLine[][] = [];
 	const lyric = ttmlLyric.lyricLines;
@@ -157,6 +164,59 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		return span;
 	}
 
+	function appendWordRomanizationSpans(
+		container: Element,
+		words: LyricWord[],
+		romanWords: TTMLRomanWord[],
+	): Element[] {
+		const spans: Element[] = [];
+		for (const word of words) {
+			if (word.word.trim().length === 0) {
+				if (container.hasChildNodes()) {
+					container.appendChild(doc.createTextNode(word.word));
+				}
+				continue;
+			}
+			const match = romanWords.find(
+				(r) => r.startTime === word.startTime && r.endTime === word.endTime,
+			);
+			if (!match || match.text.trim().length === 0) continue;
+			const span = createRomanizationSpanFromData(match);
+			container.appendChild(span);
+			spans.push(span);
+		}
+		return spans;
+	}
+
+	function createWordRomanizationTextElement(
+		key: string,
+		data: WordRomanizationEntry,
+	): Element {
+		const textEl = doc.createElement("text");
+		textEl.setAttribute("for", key);
+
+		if (data.mainRoman.length > 0) {
+			appendWordRomanizationSpans(textEl, data.mainWords, data.mainRoman);
+		}
+
+		if (data.bgRoman.length > 0) {
+			const bgSpan = doc.createElement("span");
+			bgSpan.setAttribute("ttm:role", "x-bg");
+			const bgSpans = appendWordRomanizationSpans(
+				bgSpan,
+				data.bgWords,
+				data.bgRoman,
+			);
+			if (bgSpans.length > 0) {
+				addWrapperToElement(bgSpans[0], "(", "");
+				addWrapperToElement(bgSpans[bgSpans.length - 1], "", ")");
+				textEl.appendChild(bgSpan);
+			}
+		}
+
+		return textEl;
+	}
+
 	function normalizeVocalValue(vocal?: string | string[] | null): string {
 		if (!vocal) return "";
 		const parts = Array.isArray(vocal) ? vocal : vocal.split(/[\s,]+/);
@@ -281,15 +341,7 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 	const romanizationByLangMap = new Map<string, Map<string, LineMetadata>>();
 	const wordRomanizationByLangMap = new Map<
 		string,
-		Map<
-			string,
-			{
-				mainWords: LyricWord[];
-				bgWords: LyricWord[];
-				mainRoman: TTMLRomanWord[];
-				bgRoman: TTMLRomanWord[];
-			}
-		>
+		Map<string, WordRomanizationEntry>
 	>();
 
 	const guessDuration = lyric[lyric.length - 1]?.endTime ?? 0;
@@ -508,6 +560,7 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 				...Object.keys(bgLine?.wordRomanizationByLang ?? {}),
 			]);
 			for (const lang of wordRomanLangs) {
+				if (lang === "und") continue;
 				const mainRoman = line.wordRomanizationByLang?.[lang] ?? [];
 				const bgRoman = bgLine?.wordRomanizationByLang?.[lang] ?? [];
 				if (mainRoman.length === 0 && bgRoman.length === 0) continue;
@@ -638,130 +691,17 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 			hasDefaultTransliteration = true;
 		}
 
-		const undEntries = wordRomanizationByLangMap.get("und");
-		if (undEntries) {
-			for (const [key, data] of undEntries.entries()) {
-					const textEl = doc.createElement("text");
-					textEl.setAttribute("for", key);
-
-				if (data.mainRoman.length > 0) {
-						for (const word of data.mainWords) {
-							if (word.word.trim().length === 0) {
-								if (textEl.hasChildNodes()) {
-									textEl.appendChild(doc.createTextNode(word.word));
-								}
-								continue;
-							}
-						const match = data.mainRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						textEl.appendChild(createRomanizationSpanFromData(match));
-						}
-					}
-
-				if (data.bgRoman.length > 0) {
-						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("ttm:role", "x-bg");
-						const bgSpans: Element[] = [];
-						for (const word of data.bgWords) {
-							if (word.word.trim().length === 0) {
-								if (bgSpan.hasChildNodes()) {
-									bgSpan.appendChild(doc.createTextNode(word.word));
-								}
-								continue;
-							}
-						const match = data.bgRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						const span = createRomanizationSpanFromData(match);
-							bgSpan.appendChild(span);
-							bgSpans.push(span);
-						}
-						if (bgSpans.length > 0) {
-							const first = bgSpans[0];
-							const last = bgSpans[bgSpans.length - 1];
-							if (first.firstChild) {
-								first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
-							}
-							if (last.firstChild) {
-								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
-							}
-							textEl.appendChild(bgSpan);
-						}
-					}
-
-				defaultTransliteration.appendChild(textEl);
-				}
-			hasDefaultTransliteration = true;
-		}
-
 		if (hasDefaultTransliteration) {
 			transliterations.appendChild(defaultTransliteration);
 		}
 
 		for (const [lang, entries] of wordRomanizationByLangMap.entries()) {
-			if (lang === "und") continue;
 			const transliteration = doc.createElement("transliteration");
 			transliteration.setAttribute("xml:lang", lang);
 			for (const [key, data] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-
-				if (data.mainRoman.length > 0) {
-					for (const word of data.mainWords) {
-						if (word.word.trim().length === 0) {
-							if (textEl.hasChildNodes()) {
-								textEl.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.mainRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						textEl.appendChild(createRomanizationSpanFromData(match));
-					}
-				}
-
-				if (data.bgRoman.length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					const bgSpans: Element[] = [];
-					for (const word of data.bgWords) {
-						if (word.word.trim().length === 0) {
-							if (bgSpan.hasChildNodes()) {
-								bgSpan.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.bgRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						const span = createRomanizationSpanFromData(match);
-						bgSpan.appendChild(span);
-						bgSpans.push(span);
-					}
-					if (bgSpans.length > 0) {
-						const first = bgSpans[0];
-						const last = bgSpans[bgSpans.length - 1];
-						if (first.firstChild) {
-							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
-						}
-						if (last.firstChild) {
-							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
-						}
-						textEl.appendChild(bgSpan);
-					}
-				}
-
-				transliteration.appendChild(textEl);
+				transliteration.appendChild(
+					createWordRomanizationTextElement(key, data),
+				);
 			}
 			transliterations.appendChild(transliteration);
 		}

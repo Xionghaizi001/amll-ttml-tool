@@ -63,13 +63,20 @@ export const I18nEditor: FC = () => {
 
 	const wordRomanizationLanguages = useMemo(() => {
 		const languages = new Set<string>();
+		let hasUndFallback = false;
 		for (const line of lyricLines.lyricLines) {
+			if (line.wordRomanizationLang === "und") {
+				hasUndFallback = true;
+			}
 			if (!line.wordRomanizationByLang) continue;
 			for (const [lang, words] of Object.entries(line.wordRomanizationByLang)) {
 				if (words.length > 0) {
 					languages.add(lang);
 				}
 			}
+		}
+		if (languages.size === 0 && hasUndFallback) {
+			languages.add("und");
 		}
 		return Array.from(languages);
 	}, [lyricLines]);
@@ -121,6 +128,11 @@ export const I18nEditor: FC = () => {
 	const currentWordRomanizationLang = useMemo(() => {
 		let matchedLang: string | undefined;
 		for (const line of lyricLines.lyricLines) {
+			if (line.wordRomanizationLang === "und") {
+				if (matchedLang && matchedLang !== "und") return undefined;
+				matchedLang = "und";
+				continue;
+			}
 			const byLang = line.wordRomanizationByLang;
 			if (!byLang) continue;
 			let lineMatched: string | undefined;
@@ -212,20 +224,18 @@ export const I18nEditor: FC = () => {
 	const applyWordRomanizationLang = useCallback(
 		function applyWordRomanizationLangInner(lang: string) {
 			if (lang === "und") {
-				setAddLanguageDialog({
-					open: true,
-					target: "word-romanization",
-					onSubmit: (nextLang) => {
-						editLyricLines((state) => {
-							for (const line of state.lyricLines) {
-								const byLang = line.wordRomanizationByLang;
-								if (!byLang || !byLang.und) continue;
-								byLang[nextLang] = byLang.und;
-								delete byLang.und;
-							}
-						});
-						applyWordRomanizationLangInner(nextLang);
-					},
+				editLyricLines((state) => {
+					for (const line of state.lyricLines) {
+						if (
+							line.words.some((word) => word.romanWord.trim().length > 0) ||
+							line.wordRomanizationLang === "und"
+						) {
+							line.wordRomanizationLang = "und";
+						}
+						if (line.wordRomanizationByLang?.und) {
+							delete line.wordRomanizationByLang.und;
+						}
+					}
 				});
 				return;
 			}
@@ -249,10 +259,11 @@ export const I18nEditor: FC = () => {
 						);
 						word.romanWord = match?.text ?? "";
 					}
+					line.wordRomanizationLang = lang;
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[editLyricLines],
 	);
 
 	const openAddTranslationDialog = useCallback(() => {
@@ -305,6 +316,7 @@ export const I18nEditor: FC = () => {
 								text: word.romanWord,
 							}));
 						line.wordRomanizationByLang[lang] = romanWords;
+						line.wordRomanizationLang = lang;
 					}
 				});
 				applyWordRomanizationLang(lang);

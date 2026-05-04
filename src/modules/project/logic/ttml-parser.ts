@@ -386,22 +386,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	const itunesWordRomanizations = new Map<string, WordRomanMetadata>();
 
-	const romanizationTextElements = ttmlDoc.querySelectorAll(
-		"iTunesMetadata > transliterations > transliteration > text[for]",
-	);
-
-	romanizationTextElements.forEach((textEl) => {
-		const key = textEl.getAttribute("for");
-		if (!key) return;
-		const { lineData, wordData } = parseRomanizationTextElement(textEl);
-		if (wordData) {
-			itunesWordRomanizations.set(key, wordData);
-		}
-		if (lineData) {
-			itunesLineRomanizations.set(key, lineData);
-		}
-	});
-
 	const itunesLineRomanizationsByLang = new Map<
 		string,
 		Map<string, LineMetadata>
@@ -419,44 +403,40 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		(el) => (el.getAttribute("xml:lang") ?? "").trim().length > 0,
 	);
 	const fallbackLineRomanizations = new Map<string, LineMetadata>();
-	const fallbackWordRomanizations = new Map<string, WordRomanMetadata>();
 	for (const transliterationEl of transliterationElements) {
 		const langAttr = (transliterationEl.getAttribute("xml:lang") ?? "").trim();
-		const useFallback = !langAttr;
-		if (useFallback && hasLangTransliteration) continue;
-		const lang = langAttr || "und";
-		const lineRomanMap = useFallback
-			? fallbackLineRomanizations
-			: (itunesLineRomanizationsByLang.get(lang) ??
-				itunesLineRomanizationsByLang.set(lang, new Map()).get(lang));
-		const wordRomanMap = useFallback
-			? fallbackWordRomanizations
-			: (itunesWordRomanizationsByLang.get(lang) ??
-				itunesWordRomanizationsByLang.set(lang, new Map()).get(lang));
-		if (!lineRomanMap || !wordRomanMap) continue;
-
+		const isDefaultTransliteration = langAttr.length === 0;
+		const lineRomanMap = isDefaultTransliteration
+			? null
+			: (itunesLineRomanizationsByLang.get(langAttr) ??
+				itunesLineRomanizationsByLang.set(langAttr, new Map()).get(langAttr));
+		const wordRomanMap = isDefaultTransliteration
+			? null
+			: (itunesWordRomanizationsByLang.get(langAttr) ??
+				itunesWordRomanizationsByLang.set(langAttr, new Map()).get(langAttr));
 		for (const textEl of transliterationEl.querySelectorAll("text[for]")) {
 			const key = textEl.getAttribute("for");
 			if (!key) continue;
 			const { lineData, wordData } = parseRomanizationTextElement(textEl);
-			if (wordData) {
+			if (isDefaultTransliteration && wordData) {
+				itunesWordRomanizations.set(key, wordData);
+			}
+			if (isDefaultTransliteration && lineData) {
+				itunesLineRomanizations.set(key, lineData);
+				if (!hasLangTransliteration) {
+					fallbackLineRomanizations.set(key, lineData);
+				}
+			}
+			if (wordData && wordRomanMap) {
 				wordRomanMap.set(key, wordData);
 			}
-			if (lineData) {
+			if (lineData && lineRomanMap) {
 				lineRomanMap.set(key, lineData);
 			}
 		}
 	}
-	if (
-		!hasLangTransliteration &&
-		(fallbackWordRomanizations.size > 0 || fallbackLineRomanizations.size > 0)
-	) {
-		if (fallbackWordRomanizations.size > 0) {
-			itunesWordRomanizationsByLang.set("und", fallbackWordRomanizations);
-		}
-		if (fallbackLineRomanizations.size > 0) {
-			itunesLineRomanizationsByLang.set("und", fallbackLineRomanizations);
-		}
+	if (!hasLangTransliteration && fallbackLineRomanizations.size > 0) {
+		itunesLineRomanizationsByLang.set("und", fallbackLineRomanizations);
 	}
 
 	const itunesTimedTranslations = new Map<string, LineMetadata>();
@@ -716,6 +696,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 			if (Object.keys(wordRomanizationByLang).length > 0) {
 				line.wordRomanizationByLang = wordRomanizationByLang;
+			}
+			if (
+				!hasLangTransliteration &&
+				sourceRomanList &&
+				sourceRomanList.length > 0
+			) {
+				line.wordRomanizationLang = "und";
 			}
 		}
 

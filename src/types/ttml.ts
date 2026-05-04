@@ -106,6 +106,7 @@ export interface LyricLine extends AMLLLyricLine {
 	translatedLyricByLang?: Record<string, string>;
 	romanLyricByLang?: Record<string, string>;
 	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
+	wordRomanizationLang?: string;
 	songPart?: string;
 	agent?: string;
 }
