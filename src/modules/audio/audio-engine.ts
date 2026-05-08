@@ -14,9 +14,11 @@ import { log } from "$/utils/logging";
 // const DELAY = 0.05; // 50ms
 
 let auditionRafId: number | null = null;
+const MUSIC_END_EPSILON_S = 0.01;
 
 class AudioEngine extends EventTarget {
 	public workerClient: AudioWorkerClient;
+	private audioListenersBound = false;
 
 	//#region Audio context basics
 	private _ctx: AudioContext | null = null;
@@ -75,6 +77,7 @@ class AudioEngine extends EventTarget {
 		if (this._audioEl) return this._audioEl;
 		this._audioEl = document.createElement("audio");
 		this._audioEl.preload = "metadata";
+		this.setupAudioListeners();
 		this._audioEl.crossOrigin = "anonymous";
 		return this._audioEl;
 	}
@@ -105,20 +108,30 @@ class AudioEngine extends EventTarget {
 	/** Link audio element events into engine events */
 	private setupAudioListeners() {
 		const audioEl = this._audioEl;
-		if (!audioEl) return;
-		const events = {
-			play: "music-resume",
-			pause: "music-pause",
-			timeupdate: "music-seeked",
-			ended: "music-pause",
-			seeked: "music-seeked",
-			volumechange: "volume-change",
-			ratechange: "music-playback-rate-change",
-		};
-		Object.entries(events).forEach(([event, engineEvent]) => {
-			audioEl.addEventListener(event, () => {
-				this.dispatchEvent(new Event(engineEvent));
-			});
+		if (!audioEl || this.audioListenersBound) return;
+		this.audioListenersBound = true;
+
+		audioEl.addEventListener("play", () => {
+			this.dispatchEvent(new Event("music-resume"));
+		});
+		audioEl.addEventListener("pause", () => {
+			this.dispatchEvent(new Event("music-pause"));
+		});
+		audioEl.addEventListener("timeupdate", () => {
+			this.dispatchEvent(new Event("music-seeked"));
+		});
+		audioEl.addEventListener("seeked", () => {
+			this.dispatchEvent(new Event("music-seeked"));
+		});
+		audioEl.addEventListener("ended", () => {
+			this.dispatchEvent(new Event("music-seeked"));
+			this.dispatchEvent(new Event("music-pause"));
+		});
+		audioEl.addEventListener("volumechange", () => {
+			this.dispatchEvent(new Event("volume-change"));
+		});
+		audioEl.addEventListener("ratechange", () => {
+			this.dispatchEvent(new Event("music-playback-rate-change"));
 		});
 	}
 	//#endregion
@@ -172,25 +185,42 @@ class AudioEngine extends EventTarget {
 		return this.ctx.outputLatency;
 	}
 
+	private clampMusicTime(offset: number) {
+		if (!Number.isFinite(offset)) return 0;
+		return Math.max(0, Math.min(offset, this.musicDuration || offset));
+	}
+
 	seekMusic(offset: number) {
 		if (this._audioEl) {
-			this._audioEl.currentTime = offset;
-			this.dispatchEvent(new Event("music-seeked"));
+			this._audioEl.currentTime = this.clampMusicTime(offset);
 		}
 	}
 
 	async resumeOrSeekMusic(offset = this.musicCurrentTime) {
 		if (!this._audioEl) return;
 		await this.resumeContext();
-		this._audioEl.currentTime = offset;
-		this._audioEl.play();
-		this.dispatchEvent(new Event("music-resume"));
+
+		let targetTime = this.clampMusicTime(offset);
+		if (
+			this.musicDuration > 0 &&
+			targetTime >= this.musicDuration - MUSIC_END_EPSILON_S
+		) {
+			targetTime = 0;
+		}
+
+		this._audioEl.currentTime = targetTime;
+
+		try {
+			await this._audioEl.play();
+		} catch (error) {
+			log("Failed to resume audio element", error);
+			this.dispatchEvent(new Event("music-pause"));
+		}
 	}
 
 	pauseMusic() {
 		if (!this._audioEl) return;
 		this._audioEl.pause();
-		this.dispatchEvent(new Event("music-pause"));
 	}
 
 	/**
@@ -322,7 +352,6 @@ class AudioEngine extends EventTarget {
 					globalStore.set(audioBufferAtom, this.musicBuffer);
 
 					this.connectAudioToContext();
-					this.setupAudioListeners();
 
 					audioEl.onloadedmetadata = null;
 					audioEl.onerror = null;
