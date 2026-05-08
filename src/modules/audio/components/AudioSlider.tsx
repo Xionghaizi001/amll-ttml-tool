@@ -27,6 +27,7 @@ export const AudioSlider = () => {
 
 	const wsContainerRef = useRef<HTMLDivElement>(null);
 	const waveSurferRef = useRef<WaveSurfer | null>(null);
+	const playbackFrameRef = useRef(0);
 
 	const [sliderWidthPx, setSliderWidthPx] = useState(0);
 
@@ -102,27 +103,40 @@ export const AudioSlider = () => {
 	useEffect(() => {
 		const handleMusicUnload = () => {
 			destroyWaveSurfer();
+			if (playbackFrameRef.current) {
+				cancelAnimationFrame(playbackFrameRef.current);
+				playbackFrameRef.current = 0;
+			}
 			setCurrentDuration(0);
 			setCurrentTime(0);
 			setAudioPlaying(false);
 		};
 
-		let frame = 0;
+		const stopPlaybackFrame = () => {
+			if (playbackFrameRef.current) {
+				cancelAnimationFrame(playbackFrameRef.current);
+				playbackFrameRef.current = 0;
+			}
+		};
+
 		const onFrame = () => {
 			if (!audioEngine.musicPlaying) {
-				cancelAnimationFrame(frame);
-				frame = 0;
+				stopPlaybackFrame();
 				return;
 			}
 			setCurrentTime((audioEngine.musicCurrentTime * 1000) | 0);
-			frame = requestAnimationFrame(onFrame);
+			playbackFrameRef.current = requestAnimationFrame(onFrame);
 		};
 
 		const handlePlay = () => {
+			if (playbackFrameRef.current) return;
 			onFrame();
 			setAudioPlaying(true);
 		};
-		const handlePause = () => setAudioPlaying(false);
+		const handlePause = () => {
+			stopPlaybackFrame();
+			setAudioPlaying(false);
+		};
 		const handleSeek = () =>
 			setCurrentTime((audioEngine.musicCurrentTime * 1000) | 0);
 
@@ -133,12 +147,18 @@ export const AudioSlider = () => {
 
 		return () => {
 			destroyWaveSurfer();
+			stopPlaybackFrame();
 			audioEngine.removeEventListener("music-unload", handleMusicUnload);
 			audioEngine.removeEventListener("music-resume", handlePlay);
 			audioEngine.removeEventListener("music-pause", handlePause);
 			audioEngine.removeEventListener("music-seeked", handleSeek);
 		};
-	}, [destroyWaveSurfer, setCurrentDuration, setCurrentTime, setAudioPlaying]);
+	}, [
+		destroyWaveSurfer,
+		setCurrentDuration,
+		setCurrentTime,
+		setAudioPlaying,
+	]);
 
 	const selectedRegions = useMemo(() => {
 		if (currentDuration <= 0 || sliderWidthPx <= 0) return [];
