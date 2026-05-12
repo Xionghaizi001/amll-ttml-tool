@@ -1,149 +1,463 @@
-import {
-	Checkmark20Regular,
-	Delete20Regular,
-	Dismiss20Regular,
-	Edit20Regular,
-	LightbulbCheckmark20Regular,
-	Merge20Regular,
-	MusicNote220Regular,
-} from "@fluentui/react-icons";
+import { Delete20Regular } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
+	Checkbox,
 	Dialog,
 	Flex,
 	Tabs,
 	Text,
 	TextArea,
-	TextField,
 } from "@radix-ui/themes";
-import { openDB } from "idb";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { uid } from "uid";
-import { githubFetch } from "$/modules/github/api";
 import {
-	ensurePullRequestAssigned,
-	mergePullRequest,
-} from "$/modules/github/services/PR-service";
-import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
-import { githubPatAtom, lyricsSiteTokenAtom } from "$/modules/settings/states";
-import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
+	type ReviewReportFormat,
+	reviewReportFormatAtom,
+} from "$/modules/review/services/report-format-service";
 import {
-	reviewReportDraftsAtom,
-	reviewReviewedPrsAtom,
-	reviewSingleRefreshAtom,
-} from "$/states/main";
+	createManualReviewReport,
+	createReviewReport,
+	DEFAULT_REVIEW_REPORT_TEXT,
+	getReviewReportBlockText,
+	hasReviewReportContent,
+	normalizeReviewReport,
+	type ReviewReportBlock,
+	renderReviewReport,
+} from "$/modules/review/services/report-service";
+import { ReviewTemplateSection } from "$/modules/review/services/review-template-service";
+import { ReviewReportSubmissionBar } from "$/modules/review/services/submission-service";
+import {
+	type ReviewReportDialogState,
+	reviewReportDialogAtom,
+} from "$/states/dialogs";
+import { type ReviewReportDraft, reviewReportDraftsAtom } from "$/states/main";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
-import { submitReview as submitLyricsSiteReview } from "$/modules/lyrics-site";
+import styles from "./ReviewReportDialog.module.css";
+import { ReviewReportFomatter } from "./ReviewReportFomatter";
 
-const REPO_OWNER = "Steve-xmh";
-const REPO_NAME = "amll-ttml-db";
-const TEMPLATE_DB_NAME = "review-template-db";
-const TEMPLATE_STORE = "templates";
-const TEMPLATE_KEY = "custom";
-const DEFAULT_REPORT_TEXT = "未检测到差异。";
-const PENDING_LABEL_NAME = "待更新";
-
-type ReviewTemplate = {
-	id: string;
-	title: string;
-	content: string;
-	createdAt: string;
-};
-
-type TemplateRecord = {
-	key: string;
-	items: ReviewTemplate[];
-	updatedAt: string;
-};
-
-const presetTemplates: ReviewTemplate[] = [
-	{
-		id: "preset-first-pass",
-		title: "✅完美通过（首次投稿）",
-		content:
-			"恭喜你，人工审核通过，你的贡献将会被更多人看到。感谢你对本项目的支持。欢迎下次投稿！\nCongratulations, you are passed manual review, your contribute will be seen by others. Thanks for your support to our project. You are welcome to post next time!\n\n_推荐使用 [AMLL Player](https://github.com/Steve-xmh/applemusic-like-lyrics/actions/workflows/build-player.yaml) 以获得更好的体验_\n_To get a better experience, we are recommend to use [AMLL Player](https://github.com/Steve-xmh/applemusic-like-lyrics/actions/workflows/build-player.yaml)._ \n\n_[Chinese Only] 欢迎加入我们的QQ群 719423243 和开发者一起玩哦！_\n_[Chinese Only] 如果你在群里可以在群名片附上你的 ID 以停止接收这条小广告~_",
-		createdAt: "preset",
-	},
-	{
-		id: "preset-pass",
-		title: "✅完美通过",
-		content:
-			"恭喜你，人工审核通过，你的贡献会被更多人看到。感谢你对本项目的支持。欢迎下次投稿！",
-		createdAt: "preset",
-	},
-	{
-		id: "preset-update",
-		title: "⚠️需要修改",
-		content:
-			"感谢你的慷慨贡献，但是很遗憾，本次人工审核你没有成功通过。建议参考以下内容修改并更新歌词，期待你更高质量的投稿！\n以下为这份歌词存在的问题：",
-		createdAt: "preset",
-	},
-];
-
-const templateDbPromise = openDB(TEMPLATE_DB_NAME, 1, {
-	upgrade(db) {
-		if (!db.objectStoreNames.contains(TEMPLATE_STORE)) {
-			db.createObjectStore(TEMPLATE_STORE, { keyPath: "key" });
-		}
-	},
-});
-
-const readCustomTemplates = async () => {
-	try {
-		const db = await templateDbPromise;
-		const record = (await db.get(TEMPLATE_STORE, TEMPLATE_KEY)) as
-			| TemplateRecord
-			| undefined;
-		return record?.items ?? [];
-	} catch {
-		return [];
+const blockLineText = (block: ReviewReportBlock) => {
+	switch (block.kind) {
+		case "manual":
+			return "手写";
+		case "wordTextShared":
+			return block.lineRefs
+				.map((item) => `第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`)
+				.join("、");
+		case "wordTextGroup":
+		case "wordText":
+		case "wordRoman":
+		case "wordAdded":
+		case "wordRemoved":
+		case "lineTranslation":
+		case "lineRoman":
+		case "lineAdded":
+		case "lineRemoved":
+		case "wordAndRoman":
+		case "timing":
+			return `第 ${block.lineNumber} 行${block.isBG ? "（背景）" : ""}`;
 	}
 };
 
-const writeCustomTemplates = async (items: ReviewTemplate[]) => {
-	const db = await templateDbPromise;
-	await db.put(TEMPLATE_STORE, {
-		key: TEMPLATE_KEY,
-		items,
-		updatedAt: new Date().toISOString(),
-	} satisfies TemplateRecord);
+const renderBlockDetails = (
+	block: ReviewReportBlock,
+	onManualChange: (id: string, content: string) => void,
+	reportFormat: ReviewReportFormat,
+) => {
+	if (block.kind === "manual") {
+		return (
+			<TextArea
+				value={block.content}
+				onChange={(event) =>
+					onManualChange(block.id, event.currentTarget.value)
+				}
+				placeholder="手写报告内容"
+				style={{ minHeight: "96px" }}
+			/>
+		);
+	}
+	const text = getReviewReportBlockText(block, reportFormat);
+	return (
+		<Text size="2" color={block.enabled ? undefined : "gray"}>
+			{text}
+		</Text>
+	);
+};
+
+type ReportBlockCategory =
+	| "timing"
+	| "text"
+	| "translation"
+	| "roman"
+	| "wordRoman"
+	| "manual";
+
+const reportBlockCategories: Array<{
+	value: ReportBlockCategory;
+	label: string;
+}> = [
+	{ value: "text", label: "原文" },
+	{ value: "translation", label: "翻译" },
+	{ value: "roman", label: "音译" },
+	{ value: "wordRoman", label: "逐字音译" },
+	{ value: "timing", label: "时轴" },
+	{ value: "manual", label: "手写" },
+];
+
+const getReportBlockCategory = (
+	block: ReviewReportBlock,
+): ReportBlockCategory => {
+	switch (block.kind) {
+		case "timing":
+			return "timing";
+		case "wordTextShared":
+		case "wordTextGroup":
+		case "wordText":
+		case "wordAdded":
+		case "wordRemoved":
+		case "lineAdded":
+		case "lineRemoved":
+			return "text";
+		case "lineTranslation":
+			return "translation";
+		case "lineRoman":
+			return "roman";
+		case "wordRoman":
+		case "wordAndRoman":
+			return "wordRoman";
+		case "manual":
+			return "manual";
+	}
+};
+
+type ReportBlockGroup = {
+	key: string;
+	label: string;
+	priority: number;
+	sortValue: number;
+	blocks: ReviewReportBlock[];
+};
+
+const getReportBlockPriority = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return 2;
+	if (block.kind === "timing") return 1;
+	return 0;
+};
+
+const getReportBlockSortValue = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return Number.MAX_SAFE_INTEGER;
+	if (block.kind === "wordTextShared") {
+		return Math.min(...block.lineRefs.map((item) => item.lineNumber));
+	}
+	return block.lineNumber;
+};
+
+const getReportBlockGroupKey = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return "manual";
+	if (block.kind === "wordTextShared") {
+		return `shared:${block.id}`;
+	}
+	return `${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
+};
+
+const getReportBlockGroupLabel = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return "手写条目";
+	if (block.kind === "wordTextShared") return blockLineText(block);
+	return blockLineText(block);
+};
+
+const createReportBlockGroups = (blocks: ReviewReportBlock[]) => {
+	const groupMap = new Map<string, ReportBlockGroup>();
+	blocks.forEach((block) => {
+		const key = getReportBlockGroupKey(block);
+		const group = groupMap.get(key) ?? {
+			key,
+			label: getReportBlockGroupLabel(block),
+			priority: getReportBlockPriority(block),
+			sortValue: getReportBlockSortValue(block),
+			blocks: [],
+		};
+		group.blocks.push(block);
+		group.priority = Math.min(group.priority, getReportBlockPriority(block));
+		groupMap.set(key, group);
+	});
+	return Array.from(groupMap.values()).sort(
+		(a, b) =>
+			a.priority - b.priority ||
+			a.sortValue - b.sortValue ||
+			a.label.localeCompare(b.label),
+	);
+};
+
+const renderReportValue = (
+	value: string | number,
+	tone: "old" | "new" | "neutral",
+) => (
+	<Text
+		as="span"
+		size="2"
+		className={`${styles.reportValue} ${styles[`reportValue-${tone}`]}`}
+	>
+		{String(value) || "（空）"}
+	</Text>
+);
+
+const renderReportChange = (
+	oldValue: string | number,
+	newValue: string | number,
+	label?: string,
+) => (
+	<span className={styles.reportChange}>
+		{label && (
+			<Text
+				as="span"
+				size="1"
+				color="gray"
+				className={styles.reportChangeLabel}
+			>
+				{label}
+			</Text>
+		)}
+		{renderReportValue(oldValue, "old")}
+		<Text as="span" size="2" color="gray">
+			&rarr;
+		</Text>
+		{renderReportValue(newValue, "new")}
+	</span>
+);
+
+const renderReportBlockVisual = (block: ReviewReportBlock): ReactNode => {
+	switch (block.kind) {
+		case "wordTextShared":
+		case "wordText":
+			return renderReportChange(block.oldWord, block.newWord);
+		case "wordTextGroup":
+			return block.changes.map((change, index) => (
+				<span key={`${change.oldWord}-${change.newWord}-${index}`}>
+					{renderReportChange(change.oldWord, change.newWord)}
+				</span>
+			));
+		case "wordRoman":
+			return (
+				<>
+					{renderReportValue(block.word, "neutral")}
+					{renderReportChange(block.oldRoman, block.newRoman)}
+				</>
+			);
+		case "lineTranslation":
+		case "lineRoman":
+			return renderReportChange(block.oldText, block.newText);
+		case "wordAndRoman":
+			return (
+				<>
+					{renderReportChange(block.oldWord, block.newWord, "原文")}
+					{renderReportChange(block.oldRoman, block.newRoman, "音译")}
+				</>
+			);
+		case "wordAdded":
+			return (
+				<>
+					<Text as="span" size="1" color="gray">
+						新增
+					</Text>
+					{renderReportValue(block.word, "new")}
+				</>
+			);
+		case "wordRemoved":
+			return (
+				<>
+					<Text as="span" size="1" color="gray">
+						删除
+					</Text>
+					{renderReportValue(block.word, "old")}
+				</>
+			);
+		case "lineAdded":
+			return (
+				<>
+					<Text as="span" size="1" color="gray">
+						新增歌词
+					</Text>
+					{renderReportValue(block.text, "new")}
+				</>
+			);
+		case "lineRemoved":
+			return (
+				<>
+					<Text as="span" size="1" color="gray">
+						删除歌词
+					</Text>
+					{renderReportValue(block.text, "old")}
+				</>
+			);
+		case "timing": {
+			const fields = new Set(block.fields);
+			const changes: ReactNode[] = [];
+			if (fields.has("startTime") && block.oldStart !== block.newStart) {
+				changes.push(
+					<span key="start">
+						{renderReportChange(
+							`${block.oldStart}ms`,
+							`${block.newStart}ms`,
+							"起始",
+						)}
+					</span>,
+				);
+			}
+			if (fields.has("endTime") && block.oldEnd !== block.newEnd) {
+				changes.push(
+					<span key="end">
+						{renderReportChange(
+							`${block.oldEnd}ms`,
+							`${block.newEnd}ms`,
+							"结束",
+						)}
+					</span>,
+				);
+			}
+			return (
+				<>
+					{renderReportValue(block.word, "neutral")}
+					{changes}
+				</>
+			);
+		}
+		case "manual":
+			return null;
+	}
+};
+
+const isWordTextGroupChangeEnabled = (
+	block: Extract<ReviewReportBlock, { kind: "wordTextGroup" }>,
+	index: number,
+) => block.enabled && block.changes[index]?.enabled !== false;
+
+const renderReportBlockChip = (
+	block: ReviewReportBlock,
+	onManualChange: (id: string, content: string) => void,
+	onToggle: (id: string, enabled: boolean) => void,
+	onToggleGroupChange: (id: string, index: number, enabled: boolean) => void,
+	onDelete: (id: string) => void,
+	reportFormat: ReviewReportFormat,
+) => {
+	if (block.kind === "manual") {
+		return (
+			<Box
+				key={block.id}
+				className={`${styles.reportManualBlock} ${
+					block.enabled ? "" : styles.reportBlockChipDisabled
+				}`}
+			>
+				<Flex align="center" justify="between" gap="2">
+					<Flex align="center" gap="2">
+						<Checkbox
+							checked={block.enabled}
+							onCheckedChange={(checked) =>
+								onToggle(block.id, checked === true)
+							}
+						/>
+						<Text size="2" weight="medium">
+							手写内容
+						</Text>
+					</Flex>
+					<Button
+						size="1"
+						variant="ghost"
+						color="red"
+						onClick={() => onDelete(block.id)}
+						title="删除条目"
+					>
+						<Delete20Regular />
+					</Button>
+				</Flex>
+				{renderBlockDetails(block, onManualChange, reportFormat)}
+			</Box>
+		);
+	}
+	return (
+		<Box
+			key={block.id}
+			className={styles.reportBlockChip}
+			title={getReviewReportBlockText(block, reportFormat)}
+		>
+			<span className={styles.reportChipContent}>
+				{block.kind === "wordTextGroup" ? (
+					block.changes.map((change, index) => {
+						const enabled = isWordTextGroupChangeEnabled(block, index);
+						return (
+							<button
+								key={`${change.oldWord}-${change.newWord}-${index}`}
+								type="button"
+								className={`${styles.reportResultButton} ${
+									enabled ? "" : styles.reportResultButtonDisabled
+								}`}
+								aria-pressed={enabled}
+								title={enabled ? "点击禁用该结果" : "点击启用该结果"}
+								onClick={() => onToggleGroupChange(block.id, index, !enabled)}
+							>
+								{renderReportChange(change.oldWord, change.newWord)}
+							</button>
+						);
+					})
+				) : (
+					<button
+						type="button"
+						className={`${styles.reportResultButton} ${
+							block.enabled ? "" : styles.reportResultButtonDisabled
+						}`}
+						aria-pressed={block.enabled}
+						title={block.enabled ? "点击禁用该结果" : "点击启用该结果"}
+						onClick={() => onToggle(block.id, !block.enabled)}
+					>
+						{renderReportBlockVisual(block)}
+					</button>
+				)}
+			</span>
+			<Button
+				size="1"
+				variant="ghost"
+				color="red"
+				onClick={() => onDelete(block.id)}
+				title="删除条目"
+				className={styles.reportChipDelete}
+			>
+				<Delete20Regular />
+			</Button>
+		</Box>
+	);
 };
 
 export const ReviewReportDialog = () => {
 	const [dialog, setDialog] = useAtom(reviewReportDialogAtom);
 	const reviewReportDrafts = useAtomValue(reviewReportDraftsAtom);
+	const reportFormat = useAtomValue(reviewReportFormatAtom);
 	const setReviewReportDrafts = useSetAtom(reviewReportDraftsAtom);
-	const setReviewReviewedPrs = useSetAtom(reviewReviewedPrsAtom);
-	const setReviewSingleRefresh = useSetAtom(reviewSingleRefreshAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const removeNotification = useSetAtom(removeNotificationAtom);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
-	const pat = useAtomValue(githubPatAtom);
-	const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
 	const submittedRef = useRef(false);
-	const [approvedByUser, setApprovedByUser] = useState(false);
-	const [customTemplates, setCustomTemplates] = useState<ReviewTemplate[]>([]);
-	const [templateTitle, setTemplateTitle] = useState("");
-	const [templateContent, setTemplateContent] = useState("");
-	const [templateLoading, setTemplateLoading] = useState(false);
-	const [templateSaving, setTemplateSaving] = useState(false);
-	const [showTemplateEditor, setShowTemplateEditor] = useState(false);
-	const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
-		null,
+	const [activeTab, setActiveTab] = useState("blocks");
+	const [formatDirty, setFormatDirty] = useState(false);
+	const renderedReport = useMemo(
+		() => renderReviewReport(dialog.report, reportFormat),
+		[dialog.report, reportFormat],
 	);
-	const [submitPending, setSubmitPending] = useState<
-		"APPROVE" | "REQUEST_CHANGES" | "MERGE" | null
-	>(null);
+	const reportBlocks = useMemo(
+		() => normalizeReviewReport(dialog.report).blocks,
+		[dialog.report],
+	);
+	const reportBlockGroups = useMemo(
+		() => createReportBlockGroups(reportBlocks),
+		[reportBlocks],
+	);
 	const titleText = useMemo(() => {
 		if (!dialog.prNumber) return "对当前稿件做出的审阅结果如下：";
 		const title = dialog.prTitle?.trim() ? ` ${dialog.prTitle}` : "";
@@ -155,29 +469,9 @@ export const ReviewReportDialog = () => {
 	useEffect(() => {
 		if (dialog.open) {
 			submittedRef.current = false;
-			setApprovedByUser(false);
-			setShowTemplateEditor(false);
+			setActiveTab("blocks");
+			setFormatDirty(false);
 		}
-	}, [dialog.open]);
-
-	useEffect(() => {
-		if (!dialog.open) return;
-		let cancelled = false;
-		setTemplateLoading(true);
-		readCustomTemplates()
-			.then((items) => {
-				if (!cancelled) {
-					setCustomTemplates(items);
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setTemplateLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
 	}, [dialog.open]);
 
 	const collectDraftIds = () => {
@@ -198,7 +492,7 @@ export const ReviewReportDialog = () => {
 
 	const cleanupDrafts = (draftIds: Set<string>) => {
 		if (draftIds.size === 0) return;
-		setReviewReportDrafts((prev) =>
+		setReviewReportDrafts((prev: ReviewReportDraft[]) =>
 			prev.filter((draft) => !draftIds.has(draft.id)),
 		);
 		for (const id of draftIds) {
@@ -207,7 +501,10 @@ export const ReviewReportDialog = () => {
 	};
 
 	const closeDialog = () => {
-		if (!submittedRef.current && dialog.report.trim()) {
+		if (
+			!submittedRef.current &&
+			hasReviewReportContent(dialog.report, reportFormat)
+		) {
 			const existingDraft = dialog.draftId
 				? reviewReportDrafts.find((item) => item.id === dialog.draftId)
 				: reviewReportDrafts.find(
@@ -217,7 +514,7 @@ export const ReviewReportDialog = () => {
 					);
 			const draftId = existingDraft?.id ?? dialog.draftId ?? uid();
 			const createdAt = new Date().toISOString();
-			setReviewReportDrafts((prev) => {
+			setReviewReportDrafts((prev: ReviewReportDraft[]) => {
 				const existingIndex = prev.findIndex((item) => item.id === draftId);
 				if (existingIndex >= 0) {
 					const next = [...prev];
@@ -226,7 +523,7 @@ export const ReviewReportDialog = () => {
 						...existing,
 						prNumber: dialog.prNumber,
 						prTitle: dialog.prTitle,
-						report: dialog.report,
+						report: normalizeReviewReport(dialog.report),
 						createdAt: existing.createdAt ?? createdAt,
 					};
 					return next;
@@ -236,7 +533,7 @@ export const ReviewReportDialog = () => {
 						id: draftId,
 						prNumber: dialog.prNumber,
 						prTitle: dialog.prTitle,
-						report: dialog.report,
+						report: normalizeReviewReport(dialog.report),
 						createdAt,
 					},
 					...prev,
@@ -259,15 +556,23 @@ export const ReviewReportDialog = () => {
 				},
 			});
 		}
-		setDialog((prev) => ({ ...prev, open: false }));
-		setShowTemplateEditor(false);
-		setTemplateTitle("");
-		setTemplateContent("");
+		if (formatDirty) {
+			setPushNotification({
+				title: "审阅报告格式已修改",
+				description: "建议及时导出模板，避免自定义格式意外丢失。",
+				level: "warning",
+				source: "Review",
+			});
+		}
+		setDialog((prev: ReviewReportDialogState) => ({ ...prev, open: false }));
 	};
 	const discardDraft = () => {
 		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
-		setDialog((prev) => ({ ...prev, report: "" }));
+		setDialog((prev: ReviewReportDialogState) => ({
+			...prev,
+			report: createReviewReport(),
+		}));
 		closeDialog();
 	};
 	const submitAndClose = () => {
@@ -276,483 +581,126 @@ export const ReviewReportDialog = () => {
 		closeDialog();
 	};
 	const getCleanReport = () => {
-		const trimmed = dialog.report.trim();
-		if (!trimmed || trimmed === DEFAULT_REPORT_TEXT) {
+		if (!hasReviewReportContent(dialog.report, reportFormat)) {
+			return "";
+		}
+		const trimmed = renderReviewReport(dialog.report, reportFormat).trim();
+		if (!trimmed || trimmed === DEFAULT_REVIEW_REPORT_TEXT) {
 			return "";
 		}
 		return trimmed;
 	};
+	const updateReportBlocks = (
+		updater: (blocks: ReviewReportBlock[]) => ReviewReportBlock[],
+	) => {
+		setDialog((prev: ReviewReportDialogState) => ({
+			...prev,
+			report: createReviewReport(
+				updater(normalizeReviewReport(prev.report).blocks),
+			),
+		}));
+	};
 	const insertTemplate = (content: string) => {
 		const trimmed = content.trim();
 		if (!trimmed) return;
-		setDialog((prev) => {
-			const current = prev.report;
-			const trimmedCurrent = current.trim();
-			const base =
-				!trimmedCurrent || trimmedCurrent === DEFAULT_REPORT_TEXT
-					? ""
-					: current;
-			const nextReport = base ? `${trimmed}\n${base}` : trimmed;
+		setDialog((prev: ReviewReportDialogState) => {
+			const manualBlocks = createManualReviewReport(trimmed).blocks;
+			const current = normalizeReviewReport(prev.report);
 			return {
 				...prev,
-				report: nextReport,
+				report: createReviewReport([...manualBlocks, ...current.blocks]),
 			};
 		});
 	};
-	const handleSaveTemplate = async () => {
-		if (templateSaving) return;
-		const trimmedTitle = templateTitle.trim();
-		const trimmedContent = templateContent.trim();
-		if (!trimmedTitle || !trimmedContent) {
-			setPushNotification({
-				title: "请填写模板标题与内容",
-				level: "warning",
-				source: "Review",
-			});
-			return;
-		}
-		setTemplateSaving(true);
-		try {
-			const nextTemplates = [
-				...customTemplates,
-				{
-					id: uid(),
-					title: trimmedTitle,
-					content: trimmedContent,
-					createdAt: new Date().toISOString(),
-				},
-			];
-			setCustomTemplates(nextTemplates);
-			await writeCustomTemplates(nextTemplates);
-			setTemplateTitle("");
-			setTemplateContent("");
-			setPushNotification({
-				title: "已保存自定义模板",
-				level: "success",
-				source: "Review",
-			});
-		} catch {
-			setPushNotification({
-				title: "保存模板失败",
-				level: "error",
-				source: "Review",
-			});
-		} finally {
-			setTemplateSaving(false);
-		}
-	};
-	const handleDeleteTemplate = async (templateId: string) => {
-		const nextTemplates = customTemplates.filter((t) => t.id !== templateId);
-		setCustomTemplates(nextTemplates);
-		await writeCustomTemplates(nextTemplates);
-		setPushNotification({
-			title: "已删除模板",
-			level: "success",
-			source: "Review",
-		});
-	};
-	const handleStartEdit = (template: ReviewTemplate) => {
-		setEditingTemplateId(template.id);
-		setTemplateTitle(template.title);
-		setTemplateContent(template.content);
-		setShowTemplateEditor(true);
-	};
-	const handleUpdateTemplate = async () => {
-		if (templateSaving || !editingTemplateId) return;
-		const trimmedTitle = templateTitle.trim();
-		const trimmedContent = templateContent.trim();
-		if (!trimmedTitle || !trimmedContent) {
-			setPushNotification({
-				title: "请填写模板标题与内容",
-				level: "warning",
-				source: "Review",
-			});
-			return;
-		}
-		setTemplateSaving(true);
-		try {
-			const nextTemplates = customTemplates.map((t) =>
-				t.id === editingTemplateId
-					? { ...t, title: trimmedTitle, content: trimmedContent }
-					: t,
-			);
-			setCustomTemplates(nextTemplates);
-			await writeCustomTemplates(nextTemplates);
-			setTemplateTitle("");
-			setTemplateContent("");
-			setEditingTemplateId(null);
-			setShowTemplateEditor(false);
-			setPushNotification({
-				title: "已更新模板",
-				level: "success",
-				source: "Review",
-			});
-		} catch {
-			setPushNotification({
-				title: "更新模板失败",
-				level: "error",
-				source: "Review",
-			});
-		} finally {
-			setTemplateSaving(false);
-		}
-	};
-	const getCurrentUserLogin = async (token: string) => {
-		const userResponse = await githubFetch("/user", {
-			init: {
-				headers: {
-					Accept: "application/vnd.github+json",
-					Authorization: `Bearer ${token}`,
-				},
+	const addManualBlock = () => {
+		updateReportBlocks((blocks) => [
+			...blocks,
+			{
+				id: uid(),
+				kind: "manual",
+				content: "",
+				enabled: true,
 			},
-		});
-		if (!userResponse.ok) {
-			setPushNotification({
-				title: `获取用户信息失败：${userResponse.status}`,
-				level: "error",
-				source: "Review",
-			});
-			return "";
-		}
-		const userData = (await userResponse.json()) as { login?: string };
-		const userLogin = userData.login?.trim() ?? "";
-		if (!userLogin) {
-			setPushNotification({
-				title: "无法识别当前登录用户",
-				level: "error",
-				source: "Review",
-			});
-		}
-		return userLogin;
+		]);
 	};
-	const ensureAssigned = async (token: string, prNumber: number) => {
-		const userLogin = await getCurrentUserLogin(token);
-		if (!userLogin) return "";
-		const assignResult = await ensurePullRequestAssigned({
-			token,
-			prNumber,
-			login: userLogin,
-		});
-		if (!assignResult.ok) {
-			setPushNotification({
-				title: `设置 PR 负责人失败：${assignResult.status ?? "未知"}`,
-				level: "error",
-				source: "Review",
-			});
-			return "";
-		}
-		return userLogin;
+	const updateManualBlock = (id: string, content: string) => {
+		updateReportBlocks((blocks) =>
+			blocks.map((block) =>
+				block.id === id && block.kind === "manual"
+					? { ...block, content }
+					: block,
+			),
+		);
 	};
-	const submitReview = async (event: "APPROVE" | "REQUEST_CHANGES") => {
-		if (!dialog.prNumber && !dialog.submissionId) {
-			setPushNotification({
-				title: "无法提交审阅结果：缺少稿件编号",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
-
-		const reportBody = getCleanReport();
-		if (event === "REQUEST_CHANGES" && !reportBody) {
-			setPushNotification({
-				title: "请填写需要修改内容再提交",
-				level: "warning",
-				source: "Review",
-			});
-			return;
-		}
-
-		setSubmitPending(event);
-		try {
-			if (dialog.source === "lyrics-site") {
-				const token = lyricsSiteToken?.trim();
-				if (!token) {
-					setPushNotification({
-						title: "请先登录歌词站以提交审阅结果",
-						level: "error",
-						source: "Review",
-					});
-					return;
+	const toggleBlock = (id: string, enabled: boolean) => {
+		updateReportBlocks((blocks) =>
+			blocks.map((block) => {
+				if (block.id !== id) return block;
+				if (block.kind === "wordTextGroup") {
+					return {
+						...block,
+						enabled,
+						changes: block.changes.map((change) => ({ ...change, enabled })),
+					};
 				}
-
-				const submissionId = dialog.submissionId || String(dialog.prNumber);
-				const action = event === "APPROVE" ? "approve" : "revision";
-
-				await submitLyricsSiteReview(token, submissionId, action, reportBody);
-
-				if (event === "APPROVE") {
-					setApprovedByUser(true);
-				}
-				setPushNotification({
-					title: "已提交审阅结果",
-					level: "success",
-					source: "Review",
-				});
-				setReviewReviewedPrs((prev) =>
-					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
-				);
-				if (dialog.prNumber) {
-					setReviewSingleRefresh(dialog.prNumber);
-				}
-				submitAndClose();
-			} else {
-				const token = pat.trim();
-				if (!token) {
-					setPushNotification({
-						title: "请先在设置中登录以提交审阅结果",
-						level: "error",
-						source: "Review",
-					});
-					return;
-				}
-
-				const userLogin = await ensureAssigned(token, dialog.prNumber!);
-				if (!userLogin) return;
-				const result = await submitReviewService({
-					token,
-					prNumber: dialog.prNumber!,
-					event,
-					reportBody,
-					repoOwner: REPO_OWNER,
-					repoName: REPO_NAME,
-					pendingLabelName: PENDING_LABEL_NAME,
-				});
-				if (!result.ok) {
-					setPushNotification({
-						title: `提交审阅结果失败：${result.status ?? "未知"}`,
-						level: "error",
-						source: "Review",
-					});
-					return;
-				}
-				if (result.labelStatus) {
-					setPushNotification({
-						title: `已提交审阅结果，但设置待更新标签失败：${result.labelStatus}`,
-						level: "warning",
-						source: "Review",
-					});
-				}
-				if (event === "APPROVE") {
-					setApprovedByUser(true);
-				}
-				setPushNotification({
-					title: "已提交审阅结果",
-					level: "success",
-					source: "Review",
-				});
-				setReviewReviewedPrs((prev) =>
-					dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
-				);
-				if (dialog.prNumber) {
-					setReviewSingleRefresh(dialog.prNumber);
-				}
-				submitAndClose();
-			}
-		} catch (error) {
-			setPushNotification({
-				title: `提交审阅结果失败：${error instanceof Error ? error.message : "网络错误"}`,
-				level: "error",
-				source: "Review",
-			});
-		} finally {
-			setSubmitPending(null);
-		}
+				return { ...block, enabled };
+			}),
+		);
 	};
-
-	const submitMissingAudio = async () => {
-		if (!dialog.submissionId && !dialog.prNumber) {
-			setPushNotification({
-				title: "无法提交：缺少稿件编号",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
-
-		const token = lyricsSiteToken?.trim();
-		if (!token) {
-			setPushNotification({
-				title: "请先登录歌词站",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
-
-		setSubmitPending("MERGE" as any);
-		try {
-			const submissionId = dialog.submissionId || String(dialog.prNumber);
-			await submitLyricsSiteReview(
-				token,
-				submissionId,
-				"missing_audio",
-				getCleanReport(),
-			);
-
-			setPushNotification({
-				title: "已标记为缺少音源",
-				level: "success",
-				source: "Review",
-			});
-			submitAndClose();
-		} catch (error) {
-			setPushNotification({
-				title: `标记失败：${error instanceof Error ? error.message : "网络错误"}`,
-				level: "error",
-				source: "Review",
-			});
-		} finally {
-			setSubmitPending(null);
-		}
+	const toggleWordTextGroupChange = (
+		id: string,
+		index: number,
+		enabled: boolean,
+	) => {
+		updateReportBlocks((blocks) =>
+			blocks.map((block) => {
+				if (block.id !== id || block.kind !== "wordTextGroup") return block;
+				const changes = block.changes.map((change, changeIndex) =>
+					changeIndex === index ? { ...change, enabled } : change,
+				);
+				return {
+					...block,
+					enabled: changes.some((change) => change.enabled !== false),
+					changes,
+				};
+			}),
+		);
 	};
-
-	const submitMerge = async () => {
-		if (!dialog.prNumber) {
-			setPushNotification({
-				title: "无法合并：缺少 PR 编号",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
-		const token = pat.trim();
-		if (!token) {
-			setPushNotification({
-				title: "请先在设置中登录以合并 PR",
-				level: "error",
-				source: "Review",
-			});
-			return;
-		}
-		setSubmitPending("MERGE");
-		try {
-			const userLogin = await ensureAssigned(token, dialog.prNumber);
-			if (!userLogin) {
-				return;
-			}
-			const reviewsResponse = await githubFetch(
-				`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
-				{
-					init: {
-						headers: {
-							Accept: "application/vnd.github+json",
-							Authorization: `Bearer ${token}`,
-						},
-					},
-				},
-			);
-			if (!reviewsResponse.ok) {
-				setPushNotification({
-					title: `获取审阅状态失败：${reviewsResponse.status}`,
-					level: "error",
-					source: "Review",
-				});
-				return;
-			}
-			const reviews = (await reviewsResponse.json()) as Array<{
-				user?: { login?: string };
-				state?: string;
-				submitted_at?: string;
-			}>;
-			const normalizedUser = userLogin.toLowerCase();
-			let latestReview: { state?: string; submitted_at?: string } | null = null;
-			for (const review of reviews) {
-				const reviewLogin = review.user?.login?.toLowerCase();
-				if (reviewLogin !== normalizedUser) continue;
-				if (
-					!latestReview ||
-					(review.submitted_at &&
-						(!latestReview.submitted_at ||
-							review.submitted_at > latestReview.submitted_at))
-				) {
-					latestReview = review;
-				}
-			}
-			if (latestReview?.state !== "APPROVED") {
-				const approveResponse = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${dialog.prNumber}/reviews`,
-					{
-						init: {
-							method: "POST",
-							headers: {
-								Accept: "application/vnd.github+json",
-								Authorization: `Bearer ${token}`,
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({ event: "APPROVE" }),
-						},
-					},
-				);
-				if (!approveResponse.ok) {
-					setPushNotification({
-						title: `自动批准失败：${approveResponse.status}`,
-						level: "error",
-						source: "Review",
-					});
-					return;
-				}
-				setApprovedByUser(true);
-			}
-			const reportBody = getCleanReport();
-			if (reportBody) {
-				const commentResponse = await githubFetch(
-					`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${dialog.prNumber}/comments`,
-					{
-						init: {
-							method: "POST",
-							headers: {
-								Accept: "application/vnd.github+json",
-								Authorization: `Bearer ${token}`,
-								"Content-Type": "application/json",
-							},
-							body: JSON.stringify({ body: reportBody }),
-						},
-					},
-				);
-				if (commentResponse.status !== 201) {
-					setPushNotification({
-						title: `发送评论失败：${commentResponse.status}`,
-						level: "error",
-						source: "Review",
-					});
-					return;
-				}
-			}
-			const response = await mergePullRequest({
-				token,
-				prNumber: dialog.prNumber,
-				mergeMethod: "squash",
-			});
-			if (!response.ok) {
-				setPushNotification({
-					title: `合并失败：${response.status}`,
-					level: "error",
-					source: "Review",
-				});
-				return;
-			}
-			setPushNotification({
-				title: "已合并 PR",
-				level: "success",
-				source: "Review",
-			});
-			setReviewReviewedPrs((prev) =>
-				dialog.prNumber ? { ...prev, [dialog.prNumber]: true } : prev,
-			);
-			if (dialog.prNumber) {
-				setReviewSingleRefresh(dialog.prNumber);
-			}
-			submitAndClose();
-		} catch {
-			setPushNotification({
-				title: "合并失败：网络错误",
-				level: "error",
-				source: "Review",
-			});
-		} finally {
-			setSubmitPending(null);
-		}
+	const toggleBlockCategory = (
+		group: ReportBlockGroup,
+		category: ReportBlockCategory,
+		enabled: boolean,
+	) => {
+		const ids = new Set(
+			group.blocks
+				.filter((block) => getReportBlockCategory(block) === category)
+				.map((block) => block.id),
+		);
+		updateReportBlocks((blocks) =>
+			blocks.map((block) =>
+				ids.has(block.id)
+					? block.kind === "wordTextGroup"
+						? {
+								...block,
+								enabled,
+								changes: block.changes.map((change) => ({
+									...change,
+									enabled,
+								})),
+							}
+						: { ...block, enabled }
+					: block,
+			),
+		);
+	};
+	const deleteBlock = (id: string) => {
+		updateReportBlocks((blocks) => blocks.filter((block) => block.id !== id));
+	};
+	const replaceReportWithText = (content: string) => {
+		setDialog((prev: ReviewReportDialogState) => ({
+			...prev,
+			report: createManualReviewReport(content),
+		}));
 	};
 
 	return (
@@ -760,159 +708,170 @@ export const ReviewReportDialog = () => {
 			open={dialog.open}
 			onOpenChange={(open) => !open && closeDialog()}
 		>
-			<Dialog.Content style={{ maxWidth: "760px" }}>
-				<Flex direction="column" gap="3">
+			<Dialog.Content className={styles.reportDialogContent}>
+				<Flex direction="column" gap="3" className={styles.reportDialogBody}>
 					<Flex align="center" justify="between" gap="3">
 						<Text size="3" weight="medium">
 							{titleText}
 						</Text>
 					</Flex>
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="medium">
-							模板
-						</Text>
-						<Flex wrap="wrap" gap="2">
-							{[...presetTemplates, ...customTemplates].map((template) => {
-								const isCustom = !template.id.startsWith("preset-");
-								return (
-									<Button
-										key={template.id}
-										size="1"
-										variant="soft"
-										onClick={() => insertTemplate(template.content)}
-									>
-										<Flex align="center" gap="2">
-											<LightbulbCheckmark20Regular />
-											<Text size="1">{template.title}</Text>
-											{isCustom && (
-												<>
-													<Box
-														as="span"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleStartEdit(template);
-														}}
-														style={{ cursor: "pointer", marginLeft: "4px" }}
-														title="编辑模板"
-													>
-														<Edit20Regular
-															style={{ width: "14px", height: "14px" }}
-														/>
-													</Box>
-													<Box
-														as="span"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleDeleteTemplate(template.id);
-														}}
-														style={{ cursor: "pointer", marginLeft: "4px" }}
-														title="删除模板"
-													>
-														<Delete20Regular
-															style={{ width: "14px", height: "14px" }}
-														/>
-													</Box>
-												</>
-											)}
-										</Flex>
-									</Button>
-								);
-							})}
-							{templateLoading && (
-								<Text size="1" color="gray">
-									正在加载模板...
-								</Text>
-							)}
-						</Flex>
-						{showTemplateEditor ? (
-							<Flex direction="column" gap="2">
-								<TextField.Root
-									value={templateTitle}
-									onChange={(event) =>
-										setTemplateTitle(event.currentTarget.value)
-									}
-									placeholder="模板标题"
-								/>
-								<TextArea
-									value={templateContent}
-									onChange={(event) =>
-										setTemplateContent(event.currentTarget.value)
-									}
-									placeholder="模板内容"
-									style={{ minHeight: "120px" }}
-								/>
-								<Flex justify="end" gap="2">
-									<Button
-										size="2"
-										variant="soft"
-										color="gray"
-										onClick={() => {
-											setTemplateTitle("");
-											setTemplateContent("");
-											setEditingTemplateId(null);
-											setShowTemplateEditor(false);
-										}}
-										disabled={templateSaving}
-									>
-										取消
-									</Button>
-									<Button
-										size="2"
-										variant="soft"
-										onClick={
-											editingTemplateId
-												? handleUpdateTemplate
-												: handleSaveTemplate
-										}
-										disabled={templateSaving}
-									>
-										{editingTemplateId ? "更新模板" : "保存模板"}
-									</Button>
-								</Flex>
-							</Flex>
-						) : (
-							<Flex justify="end">
-								<Button
-									size="1"
-									variant="soft"
-									onClick={() => setShowTemplateEditor(true)}
-								>
-									新增自定义模板
-								</Button>
-							</Flex>
-						)}
-					</Flex>
-					<Tabs.Root defaultValue="edit">
+					<ReviewTemplateSection
+						open={dialog.open}
+						onInsertTemplate={insertTemplate}
+					/>
+					<Tabs.Root
+						value={activeTab}
+						onValueChange={setActiveTab}
+						className={styles.reportTabs}
+					>
 						<Tabs.List>
-							<Tabs.Trigger value="edit">编辑</Tabs.Trigger>
+							<Tabs.Trigger value="blocks">条目</Tabs.Trigger>
+							<Tabs.Trigger value="format">格式</Tabs.Trigger>
+							<Tabs.Trigger value="text">文本</Tabs.Trigger>
 							<Tabs.Trigger value="preview">预览</Tabs.Trigger>
 						</Tabs.List>
-						<Tabs.Content value="edit">
-							<TextArea
-								value={dialog.report}
-								onChange={(event) =>
-									setDialog((prev) => ({
-										...prev,
-										report: event.currentTarget.value,
-									}))
-								}
-								style={{ height: "300px" }}
+						<Tabs.Content value="blocks" className={styles.reportTabsContent}>
+							<Box className={styles.reportBlocksPane}>
+								{reportBlocks.length > 0 ? (
+									reportBlockGroups.map((group) => (
+										<Box key={group.key} className={styles.reportLineGroup}>
+											<Flex
+												align="center"
+												justify="between"
+												gap="3"
+												className={styles.reportLineHeader}
+											>
+												<Text size="3" weight="medium">
+													{group.label}
+												</Text>
+												<Flex
+													align="center"
+													gap="2"
+													className={styles.reportCategoryNav}
+												>
+													{reportBlockCategories.map((category) => {
+														const categoryBlocks = group.blocks.filter(
+															(block) =>
+																getReportBlockCategory(block) ===
+																category.value,
+														);
+														if (categoryBlocks.length === 0) return null;
+														const enabledCount = categoryBlocks.filter(
+															(block) => block.enabled,
+														).length;
+														const isEnabled = enabledCount > 0;
+														return (
+															<button
+																key={category.value}
+																type="button"
+																className={`${styles.reportCategoryPill} ${
+																	isEnabled
+																		? ""
+																		: styles.reportCategoryPillDisabled
+																}`}
+																aria-pressed={isEnabled}
+																title={
+																	isEnabled
+																		? `取消筛选${category.label}报告`
+																		: `筛选${category.label}报告`
+																}
+																onClick={() =>
+																	toggleBlockCategory(
+																		group,
+																		category.value,
+																		!isEnabled,
+																	)
+																}
+															>
+																<Text as="span" size="1" weight="medium">
+																	{category.label}
+																</Text>
+																<Text
+																	as="span"
+																	size="1"
+																	className={styles.reportCategoryCount}
+																>
+																	{categoryBlocks.length}
+																</Text>
+															</button>
+														);
+													})}
+												</Flex>
+											</Flex>
+											<Flex direction="column" gap="3">
+												{reportBlockCategories.map((category) => {
+													const blocks = group.blocks.filter(
+														(block) =>
+															getReportBlockCategory(block) === category.value,
+													);
+													if (blocks.length === 0) return null;
+													return (
+														<Box
+															key={category.value}
+															className={styles.reportCategorySection}
+														>
+															<Text
+																size="2"
+																weight="medium"
+																className={styles.reportCategoryTitle}
+															>
+																{category.label}
+															</Text>
+															<Box className={styles.reportChipWrap}>
+																{blocks.map((block) =>
+																	renderReportBlockChip(
+																		block,
+																		updateManualBlock,
+																		toggleBlock,
+																		toggleWordTextGroupChange,
+																		deleteBlock,
+																		reportFormat,
+																	),
+																)}
+															</Box>
+														</Box>
+													);
+												})}
+											</Flex>
+										</Box>
+									))
+								) : (
+									<Flex align="center" justify="center" height="100%">
+										<Text color="gray" size="2">
+											暂无报告条目
+										</Text>
+									</Flex>
+								)}
+							</Box>
+							<Flex justify="end" mt="2">
+								<Button size="1" variant="soft" onClick={addManualBlock}>
+									新增手写条目
+								</Button>
+							</Flex>
+						</Tabs.Content>
+						<Tabs.Content value="format" className={styles.reportTabsContent}>
+							<ReviewReportFomatter
+								report={dialog.report}
+								onDirtyChange={setFormatDirty}
 							/>
 						</Tabs.Content>
-						<Tabs.Content value="preview">
-							<Box
-								style={{
-									height: "300px",
-									overflow: "auto",
-									padding: "var(--space-3)",
-									border: "1px solid var(--gray-6)",
-									borderRadius: "var(--radius-2)",
-									backgroundColor: "var(--gray-2)",
-								}}
-							>
-								{dialog.report ? (
-									<ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-										{dialog.report}
+						<Tabs.Content value="text" className={styles.reportTabsContent}>
+							<TextArea
+								value={renderedReport}
+								onChange={(event) =>
+									replaceReportWithText(event.currentTarget.value)
+								}
+								className={styles.reportTextArea}
+							/>
+						</Tabs.Content>
+						<Tabs.Content value="preview" className={styles.reportTabsContent}>
+							<Box className={styles.reportPreviewPane}>
+								{hasReviewReportContent(dialog.report, reportFormat) ? (
+									<ReactMarkdown
+										remarkPlugins={[remarkGfm]}
+										rehypePlugins={[rehypeRaw]}
+									>
+										{renderedReport}
 									</ReactMarkdown>
 								) : (
 									<Text color="gray" size="2">
@@ -922,104 +881,14 @@ export const ReviewReportDialog = () => {
 							</Box>
 						</Tabs.Content>
 					</Tabs.Root>
-					<Flex align="center" justify="between" gap="2">
-						<Button
-							size="2"
-							variant="soft"
-							color="gray"
-							onClick={discardDraft}
-							disabled={submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Delete20Regular />
-								<Text size="2">放弃</Text>
-							</Flex>
-						</Button>
-						<Flex align="center" justify="end" gap="2">
-							<Button
-								size="2"
-								variant="soft"
-								color="green"
-								onClick={() =>
-									setConfirmDialog({
-										open: true,
-										title: "确认接受",
-										description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-										onConfirm: () => submitReview("APPROVE"),
-									})
-								}
-								disabled={approvedByUser || submitPending !== null}
-							>
-								<Flex align="center" gap="2">
-									<Checkmark20Regular />
-									<Text size="2">接受</Text>
-								</Flex>
-							</Button>
-							<Button
-								size="2"
-								variant="soft"
-								color="red"
-								onClick={() =>
-									setConfirmDialog({
-										open: true,
-										title: "确认需要修改",
-										description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
-										onConfirm: () => submitReview("REQUEST_CHANGES"),
-									})
-								}
-								disabled={
-									submitPending !== null || getCleanReport().length === 0
-								}
-							>
-								<Flex align="center" gap="2">
-									<Dismiss20Regular />
-									<Text size="2">需要修改</Text>
-								</Flex>
-							</Button>
-							{dialog.source === "lyrics-site" && (
-								<Button
-									size="2"
-									variant="soft"
-									color="orange"
-									onClick={() =>
-										setConfirmDialog({
-											open: true,
-											title: "确认标记缺少音源",
-											description: `确定要标记稿件"${dialog.prTitle}"为缺少音源吗？`,
-											onConfirm: submitMissingAudio,
-										})
-									}
-									disabled={submitPending !== null}
-								>
-									<Flex align="center" gap="2">
-										<MusicNote220Regular />
-										<Text size="2">缺少音源</Text>
-									</Flex>
-								</Button>
-							)}
-							{dialog.source !== "lyrics-site" && (
-								<Button
-									size="2"
-									variant="soft"
-									color="gray"
-									onClick={() =>
-										setConfirmDialog({
-											open: true,
-											title: "确认合并",
-											description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-											onConfirm: submitMerge,
-										})
-									}
-									disabled={submitPending !== null}
-								>
-									<Flex align="center" gap="2">
-										<Merge20Regular />
-										<Text size="2">合并</Text>
-									</Flex>
-								</Button>
-							)}
-						</Flex>
-					</Flex>
+					{activeTab !== "format" && (
+						<ReviewReportSubmissionBar
+							dialog={dialog}
+							getCleanReport={getCleanReport}
+							onDiscard={discardDraft}
+							onSubmitAndClose={submitAndClose}
+						/>
+					)}
 				</Flex>
 			</Dialog.Content>
 		</Dialog.Root>

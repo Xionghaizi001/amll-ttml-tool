@@ -14,6 +14,7 @@ import { atomWithStorage } from "jotai/utils";
 import { REDO, UNDO, withHistory } from "jotai-history";
 import { uid } from "uid";
 import { identifyProject } from "$/modules/project/logic/project-info";
+import type { ReviewReport } from "$/modules/review/services/report-service";
 import type { TTMLLyric } from "../types/ttml";
 
 export enum DarkMode {
@@ -174,7 +175,7 @@ export type ReviewReportDraft = {
 	id: string;
 	prNumber: number | null;
 	prTitle: string;
-	report: string;
+	report: ReviewReport;
 	createdAt: string;
 	source?: "github" | "lyrics-site";
 };
@@ -192,7 +193,7 @@ export const reviewStashLastSelectionAtom = atomWithStorage<
 	Record<string, Array<[string, "startTime" | "endTime"]>>
 >("reviewStashLastSelection", {});
 export const reviewStashRemovedOrderAtom = atomWithStorage<
-	Record<string, number[]>
+	Record<string, Array<string | number>>
 >("reviewStashRemovedOrder", {});
 
 /**

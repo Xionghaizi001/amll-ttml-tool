@@ -1,8 +1,8 @@
-import type { ReviewSession } from "$/states/main";
 import type {
 	SyncChangeCandidate,
 	TimingStashItem,
 } from "$/modules/review/services/report-service";
+import type { ReviewSession } from "$/states/main";
 
 export type TimingStashGroupItem = {
 	label: string;
@@ -13,14 +13,26 @@ export type TimingStashGroupItem = {
 export type TimingStashDisplayItem = {
 	lineNumber: number;
 	wordId: string;
+	field: TimingStashItem["field"];
+	key: string;
 	label: string;
 	orderIndex: number;
 };
 
 export type TimingStashCard = {
 	line: number;
-	items: Array<{ label: string; wordId: string }>;
+	items: Array<{
+		label: string;
+		wordId: string;
+		field: TimingStashItem["field"];
+		key: string;
+	}>;
 };
+
+export const buildTimingStashItemKey = (
+	wordId: string,
+	field: TimingStashItem["field"],
+) => `${wordId}:${field}`;
 
 export const buildTimingStashGroups = (
 	timingCandidateMap: Map<string, SyncChangeCandidate>,
@@ -49,10 +61,15 @@ export const buildStashKey = (reviewSession: ReviewSession | null) => {
 export const buildTimingStashCards = (
 	displayItems: TimingStashDisplayItem[],
 ) => {
-	const lineMap = new Map<number, Array<{ label: string; wordId: string }>>();
+	const lineMap = new Map<number, TimingStashCard["items"]>();
 	for (const item of displayItems) {
 		const list = lineMap.get(item.lineNumber) ?? [];
-		list.push({ label: item.label, wordId: item.wordId });
+		list.push({
+			label: item.label,
+			wordId: item.wordId,
+			field: item.field,
+			key: item.key,
+		});
 		lineMap.set(item.lineNumber, list);
 	}
 	return Array.from(lineMap.entries())

@@ -1,0 +1,401 @@
+.reportDialogContent {
+	--review-report-titlebar-reserve: 44px;
+	--review-report-player-reserve: 96px;
+	--review-report-safe-margin: 24px;
+	--review-report-safe-height: calc(
+		100dvh -
+		var(--review-report-titlebar-reserve) -
+		var(--review-report-player-reserve) -
+		(var(--review-report-safe-margin) * 2)
+	);
+	width: min(920px, calc(100vw - 32px));
+	height: min(720px, var(--review-report-safe-height));
+	min-width: min(560px, calc(100vw - 32px));
+	min-height: min(520px, var(--review-report-safe-height));
+	max-width: calc(100vw - 32px);
+	max-height: var(--review-report-safe-height);
+	resize: both;
+	overflow: hidden;
+}
+
+.reportDialogBody {
+	min-height: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+.reportTabs {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.reportTabsContent {
+	flex: 1;
+	min-height: 0;
+	padding-top: var(--space-2);
+	overflow: hidden;
+}
+
+.reportTabsContent[data-state="active"] {
+	display: flex;
+	flex-direction: column;
+}
+
+.reportBlocksPane {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding-right: var(--space-1);
+}
+
+.reportTextArea {
+	flex: 1;
+	height: 100%;
+	min-height: 0;
+}
+
+.reportPreviewPane {
+	flex: 1;
+	height: 100%;
+	min-height: 0;
+	overflow: auto;
+	padding: var(--space-3);
+	border: 1px solid var(--gray-6);
+	border-radius: var(--radius-2);
+	background-color: var(--gray-2);
+}
+
+.reportLineGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	border: 1px solid var(--gray-6);
+	border-radius: var(--radius-4);
+	background: var(--gray-a2);
+}
+
+.reportLineHeader {
+	flex-wrap: wrap;
+}
+
+.reportCategoryNav {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.reportCategoryPill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 24px;
+	padding: 2px 10px;
+	border-radius: 999px;
+	color: var(--gray-12);
+	background: var(--gray-a4);
+	border: 1px solid var(--gray-a5);
+	font: inherit;
+	line-height: 1;
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease,
+		opacity 120ms ease;
+}
+
+.reportCategoryPill:hover {
+	background: var(--gray-a5);
+	border-color: var(--gray-a7);
+}
+
+.reportCategoryPillDisabled {
+	opacity: 0.55;
+	background: transparent;
+}
+
+.reportCategoryCount {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: var(--accent-9);
+	color: var(--accent-contrast);
+	line-height: 1;
+}
+
+.reportCategorySection {
+	display: grid;
+	grid-template-columns: 76px minmax(0, 1fr);
+	align-items: start;
+	gap: var(--space-2);
+}
+
+.reportCategoryTitle {
+	color: var(--gray-11);
+	padding-top: 5px;
+}
+
+.reportChipWrap {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	min-width: 0;
+}
+
+.reportBlockChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	min-height: 32px;
+	padding: 4px 6px;
+	border-radius: var(--radius-3);
+	background: var(--color-panel);
+	border: 1px solid var(--gray-a5);
+	box-shadow: 0 1px 0 var(--gray-a3);
+}
+
+.reportBlockChipDisabled {
+	opacity: 0.55;
+}
+
+.reportChipContent {
+	display: inline-flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	min-width: 0;
+}
+
+.reportResultButton {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-3);
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	cursor: pointer;
+	transition:
+		opacity 120ms ease,
+		filter 120ms ease;
+}
+
+.reportResultButton:hover {
+	filter: brightness(1.06);
+}
+
+.reportResultButton:focus-visible {
+	outline: 2px solid var(--accent-8);
+	outline-offset: 2px;
+}
+
+.reportResultButtonDisabled {
+	opacity: 0.45;
+}
+
+.reportChipDelete {
+	flex-shrink: 0;
+}
+
+.reportChange {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+}
+
+.reportChangeLabel {
+	flex-shrink: 0;
+}
+
+.reportValue {
+	display: inline-flex;
+	align-items: center;
+	max-width: min(260px, 100%);
+	min-height: 24px;
+	padding: 2px 8px;
+	border-radius: var(--radius-3);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	line-height: 1.25;
+}
+
+.reportValue-old {
+	color: var(--blue-12);
+	background: var(--blue-a4);
+}
+
+.reportValue-new {
+	color: var(--green-12);
+	background: var(--green-a4);
+}
+
+.reportValue-neutral {
+	color: var(--gray-12);
+	background: var(--accent-a3);
+}
+
+.reportManualBlock {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	width: 100%;
+	padding: var(--space-2);
+	border-radius: var(--radius-3);
+	background: var(--color-panel);
+	border: 1px solid var(--gray-a5);
+}
+
+.formatterPane {
+	flex: 1;
+	height: 100%;
+	min-height: 0;
+}
+
+.formatterLayout {
+	display: grid;
+	grid-template-columns: 190px minmax(0, 1fr);
+	gap: var(--space-3);
+	min-height: 0;
+	flex: 1;
+}
+
+.formatterKindList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-height: 0;
+	overflow: auto;
+	padding-right: var(--space-1);
+}
+
+.formatterEditorPane {
+	min-height: 0;
+	overflow: auto;
+	padding-right: var(--space-1);
+}
+
+.formatterKindButton {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	width: 100%;
+	padding: var(--space-2);
+	border: 1px solid transparent;
+	border-radius: var(--radius-3);
+	color: var(--gray-12);
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.formatterKindButton:hover {
+	background: var(--gray-a3);
+}
+
+.formatterKindButtonChanged {
+	border-color: var(--accent-a7);
+	background: var(--accent-a2);
+	box-shadow: inset 3px 0 0 var(--accent-9);
+}
+
+.formatterKindButtonActive {
+	background: var(--accent-a3);
+	border-color: var(--accent-a6);
+}
+
+.formatterTemplateInput {
+	min-height: 96px;
+	font-family: var(--code-font-family);
+}
+
+.formatterVariableGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-2);
+	max-height: 120px;
+	overflow: auto;
+}
+
+.formatterVariable {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	min-width: 0;
+	padding: var(--space-2);
+	border: 1px solid var(--gray-a5);
+	border-radius: var(--radius-3);
+	color: inherit;
+	background: var(--gray-a2);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease;
+}
+
+.formatterVariable:hover {
+	background: var(--accent-a3);
+	border-color: var(--accent-a6);
+}
+
+.formatterVariable:focus-visible {
+	outline: 2px solid var(--accent-8);
+	outline-offset: 2px;
+}
+
+.formatterPreview {
+	min-height: 96px;
+	font-family: var(--code-font-family);
+}
+
+@media (max-width: 640px) {
+	.reportDialogContent {
+		--review-report-safe-margin: 12px;
+		width: calc(100vw - 24px);
+		height: var(--review-report-safe-height);
+		min-width: 0;
+		min-height: 0;
+		resize: vertical;
+	}
+
+	.reportCategorySection {
+		grid-template-columns: 1fr;
+	}
+
+	.reportCategoryTitle {
+		padding-top: 0;
+	}
+
+	.reportValue {
+		max-width: 180px;
+	}
+
+	.formatterLayout {
+		grid-template-columns: 1fr;
+	}
+
+	.formatterKindList {
+		max-height: 120px;
+	}
+
+	.formatterVariableGrid {
+		grid-template-columns: 1fr;
+	}
+}

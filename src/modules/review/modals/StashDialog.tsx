@@ -1,4 +1,10 @@
-import type { TFunction } from "i18next";
+import {
+	Checkmark20Regular,
+	Delete20Regular,
+	DeleteDismiss20Regular,
+	Dismiss20Regular,
+	SelectAllOn20Regular,
+} from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
@@ -7,17 +13,16 @@ import {
 	Flex,
 	Text,
 } from "@radix-ui/themes";
-import {
-	Checkmark20Regular,
-	Delete20Regular,
-	DeleteDismiss20Regular,
-	Dismiss20Regular,
-	SelectAllOn20Regular,
-} from "@fluentui/react-icons";
+import type { TFunction } from "i18next";
 
 type StashCard = {
 	line: number;
-	items: Array<{ label: string; wordId: string }>;
+	items: Array<{
+		label: string;
+		wordId: string;
+		field: "startTime" | "endTime";
+		key: string;
+	}>;
 };
 
 export type StashDialogProps = {
@@ -58,10 +63,10 @@ export const StashDialog = ({
 					</Dialog.Title>
 					<Flex direction="column" gap="1">
 						<Text size="1" color="blue">
-							{t("review.TimingStash.hintLeft", "左键 = 标记起始时间")}
+							{t("review.TimingStash.hintStart", "蓝色 = 起始时间")}
 						</Text>
 						<Text size="1" color="green">
-							{t("review.TimingStash.hintRight", "右键 = 标记结束时间")}
+							{t("review.TimingStash.hintEnd", "绿色 = 结束时间")}
 						</Text>
 					</Flex>
 				</Flex>
@@ -92,17 +97,18 @@ export const StashDialog = ({
 									</Text>
 									<Flex align="center" wrap="wrap" gap="1">
 										{card.items.map((item, index) => {
-											const field = selectedIds.get(item.wordId);
+											const field = selectedIds.get(item.key);
 											const checked = field !== undefined;
 											const color =
-												field === "startTime"
+												item.field === "startTime"
 													? "blue"
-													: field === "endTime"
+													: item.field === "endTime"
 														? "green"
 														: "gray";
+											const suffix = item.field === "startTime" ? "起" : "终";
 											return (
 												<Flex
-													key={`${item.wordId}-${index}`}
+													key={`${item.key}-${index}`}
 													align="center"
 													gap="1"
 												>
@@ -111,15 +117,15 @@ export const StashDialog = ({
 														variant={checked ? "solid" : "soft"}
 														color={color}
 														onClick={() =>
-															onToggleItem(item.wordId, "startTime")
+															onToggleItem(item.wordId, item.field)
 														}
 														onContextMenu={(e) => {
 															e.preventDefault();
-															onToggleItem(item.wordId, "endTime");
+															onToggleItem(item.wordId, item.field);
 														}}
 														asChild
 													>
-														<span>{item.label}</span>
+														<span>{`${item.label} ${suffix}`}</span>
 													</Button>
 													{index < card.items.length - 1 ? (
 														<Text size="2" color="gray" asChild>

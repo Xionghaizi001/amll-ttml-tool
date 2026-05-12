@@ -94,7 +94,8 @@ export const useReviewSessionLifecycle = () => {
 	useEffect(() => {
 		if (!reviewSession || !reviewFreeze) return;
 		if (reviewFreeze.prNumber !== reviewSession.prNumber) return;
-		setReviewStaged(cloneLyric(lyricLines));
+		const staged = cloneLyric(lyricLines);
+		setReviewStaged(staged);
 		log("[review]", "staged updated", {
 			prNumber: reviewSession.prNumber,
 			projectId,

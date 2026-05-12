@@ -1,11 +1,15 @@
-import type { AppNotification } from "$/states/notifications";
+import type { Dispatch, SetStateAction } from "react";
+import {
+	normalizeReviewReport,
+	type ReviewReport,
+} from "$/modules/review/services/report-service";
+import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import type {
 	FileUpdateSession,
 	ReviewReportDraft,
 	ToolMode,
 } from "$/states/main";
-import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
-import type { Dispatch, SetStateAction } from "react";
+import type { AppNotification } from "$/states/notifications";
 
 type OpenFile = (file: File, forceExt?: string) => void;
 type PushNotification = (
@@ -19,7 +23,7 @@ type ReviewReportDialogState = {
 	open: boolean;
 	prNumber: number | null;
 	prTitle: string;
-	report: string;
+	report: ReviewReport;
 	draftId: string | null;
 	source?: "github" | "lyrics-site";
 	submissionId?: string;
@@ -48,7 +52,7 @@ export const createReviewReportDraftHandler =
 			open: true,
 			prNumber: draft.prNumber,
 			prTitle: draft.prTitle,
-			report: draft.report,
+			report: normalizeReviewReport(draft.report),
 			draftId: draft.id,
 			source: draft.source ?? "github",
 			submissionId:

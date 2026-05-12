@@ -1,4 +1,10 @@
 import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
+import {
+	DEFAULT_REVIEW_REPORT_EMPTY_TEXT,
+	type ReviewReportFormat,
+	renderFormattedReviewReport,
+	renderReviewReportBlock,
+} from "./report-format-service";
 
 type WordChange = {
 	lineNumber: number;
@@ -18,6 +24,12 @@ type LineChange = {
 	newRoman: string;
 };
 
+type WordPresenceChange = {
+	lineNumber: number;
+	isBG: boolean;
+	word: string;
+};
+
 export type SyncChangeCandidate = {
 	wordId: string;
 	lineNumber: number;
@@ -32,6 +44,151 @@ export type SyncChangeCandidate = {
 export type TimingStashItem = {
 	wordId: string;
 	field: "startTime" | "endTime";
+};
+
+export const DEFAULT_REVIEW_REPORT_TEXT = DEFAULT_REVIEW_REPORT_EMPTY_TEXT;
+
+export type ReviewReportLineRef = {
+	lineNumber: number;
+	isBG: boolean;
+};
+
+export type ReviewReportBlockBase = {
+	id: string;
+	enabled: boolean;
+};
+
+export type ReviewReportBlock =
+	| (ReviewReportBlockBase & {
+			kind: "manual";
+			content: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordTextShared";
+			lineRefs: ReviewReportLineRef[];
+			oldWord: string;
+			newWord: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordTextGroup";
+			lineNumber: number;
+			isBG: boolean;
+			changes: Array<{ oldWord: string; newWord: string; enabled?: boolean }>;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordText";
+			lineNumber: number;
+			isBG: boolean;
+			oldWord: string;
+			newWord: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordRoman";
+			lineNumber: number;
+			isBG: boolean;
+			word: string;
+			oldRoman: string;
+			newRoman: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "lineTranslation";
+			lineNumber: number;
+			isBG: boolean;
+			oldText: string;
+			newText: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "lineRoman";
+			lineNumber: number;
+			isBG: boolean;
+			oldText: string;
+			newText: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordAndRoman";
+			lineNumber: number;
+			isBG: boolean;
+			oldWord: string;
+			newWord: string;
+			oldRoman: string;
+			newRoman: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordAdded";
+			lineNumber: number;
+			isBG: boolean;
+			word: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "wordRemoved";
+			lineNumber: number;
+			isBG: boolean;
+			word: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "lineAdded";
+			lineNumber: number;
+			isBG: boolean;
+			text: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "lineRemoved";
+			lineNumber: number;
+			isBG: boolean;
+			text: string;
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "timing";
+			wordId: string;
+			lineNumber: number;
+			isBG: boolean;
+			word: string;
+			oldStart: number;
+			newStart: number;
+			oldEnd: number;
+			newEnd: number;
+			fields: TimingStashItem["field"][];
+	  });
+
+export type ReviewReport = {
+	version: 1;
+	blocks: ReviewReportBlock[];
+};
+
+export type ReviewReportInput = ReviewReport | string | null | undefined;
+
+const createBlockId = (() => {
+	let nextId = 0;
+	return (prefix: string) => {
+		nextId += 1;
+		return `${prefix}-${Date.now().toString(36)}-${nextId.toString(36)}`;
+	};
+})();
+
+export const createReviewReport = (
+	blocks: ReviewReportBlock[] = [],
+): ReviewReport => ({
+	version: 1,
+	blocks,
+});
+
+export function normalizeReportText(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed || trimmed === DEFAULT_REVIEW_REPORT_TEXT) return "";
+	return trimmed;
+}
+
+export const createManualReviewReport = (content: string): ReviewReport => {
+	const trimmed = normalizeReportText(content);
+	if (!trimmed) return createReviewReport();
+	return createReviewReport([
+		{
+			id: createBlockId("manual"),
+			kind: "manual",
+			content: trimmed,
+			enabled: true,
+		},
+	]);
 };
 
 const computeDisplayNumbers = (lines: LyricLine[]) => {
@@ -62,6 +219,11 @@ const buildWordMap = (words: LyricWord[]) => {
 	return map;
 };
 
+const getLineText = (line: LyricLine) =>
+	line.words.map((word) => word.word ?? "").join("") || "（空白）";
+
+const getWordText = (word: LyricWord) => word.word || "（空白）";
+
 const getLineNumber = (
 	line: LyricLine,
 	index: number,
@@ -72,26 +234,6 @@ const getLineNumber = (
 };
 
 const wrap = (value: string | number) => `\`${value}\``;
-const formatLineLabel = (lineNumber: number, isBG?: boolean) =>
-	`第 ${lineNumber} 行${isBG ? "（背景）" : ""}`;
-const formatLineLabelList = (
-	items: Array<{ lineNumber: number; isBG?: boolean }>,
-) => {
-	const seen = new Set<string>();
-	const list = items
-		.filter((item) => {
-			const key = `${item.lineNumber}:${item.isBG ? "bg" : "main"}`;
-			if (seen.has(key)) return false;
-			seen.add(key);
-			return true;
-		})
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		);
-	return list
-		.map((item) => formatLineLabel(item.lineNumber, item.isBG))
-		.join("、");
-};
 const buildSyncParts = (
 	item: SyncChangeCandidate,
 	fields?: Set<TimingStashItem["field"]>,
@@ -113,7 +255,7 @@ const buildSyncParts = (
 	}
 	return parts;
 };
-const buildSyncReportItems = (
+const buildSyncReportBlocks = (
 	candidates: SyncChangeCandidate[],
 	fieldMap?: Map<string, Set<TimingStashItem["field"]>>,
 ) => {
@@ -121,82 +263,124 @@ const buildSyncReportItems = (
 		.map((candidate) => {
 			const fields = fieldMap?.get(candidate.wordId);
 			if (fieldMap && !fields) return null;
-			const parts = buildSyncParts(candidate, fields);
-			if (parts.length === 0) return null;
+			if (buildSyncParts(candidate, fields).length === 0) return null;
 			return {
+				id: createBlockId("timing"),
+				kind: "timing" as const,
+				enabled: true,
+				wordId: candidate.wordId,
 				lineNumber: candidate.lineNumber,
 				isBG: candidate.isBG,
-				detail: `${wrap(candidate.word)} ${parts.join("，")}`,
+				word: candidate.word,
+				oldStart: candidate.oldStart,
+				newStart: candidate.newStart,
+				oldEnd: candidate.oldEnd,
+				newEnd: candidate.newEnd,
+				fields: fieldMap
+					? Array.from(fields ?? [])
+					: (["startTime", "endTime"] satisfies TimingStashItem["field"][]),
 			};
 		})
-		.filter(
-			(
-				item,
-			): item is {
-				lineNumber: number;
-				isBG: boolean;
-				detail: string;
-			} => Boolean(item),
+		.filter((item): item is Extract<ReviewReportBlock, { kind: "timing" }> =>
+			Boolean(item),
 		);
 };
-const formatSyncReport = (
-	items: Array<{ lineNumber: number; isBG: boolean; detail: string }>,
-	options?: { groupByLine?: boolean },
+
+export const isReviewReport = (value: unknown): value is ReviewReport => {
+	if (!value || typeof value !== "object") return false;
+	const maybe = value as Partial<ReviewReport>;
+	return maybe.version === 1 && Array.isArray(maybe.blocks);
+};
+
+export const normalizeReviewReport = (
+	report: ReviewReportInput,
+): ReviewReport => {
+	if (isReviewReport(report)) {
+		return createReviewReport(report.blocks ?? []);
+	}
+	if (typeof report === "string") {
+		return createManualReviewReport(report);
+	}
+	return createReviewReport();
+};
+
+export const normalizeReport = normalizeReportText;
+
+export const getReviewReportBlockText = (
+	block: ReviewReportBlock,
+	format?: Partial<ReviewReportFormat> | null,
+) => renderReviewReportBlock(block, format);
+
+export const getReviewReportBlockLabel = (block: ReviewReportBlock) => {
+	switch (block.kind) {
+		case "manual":
+			return "手写内容";
+		case "wordTextShared":
+		case "wordTextGroup":
+		case "wordText":
+		case "wordAdded":
+		case "wordRemoved":
+			return "歌词文本";
+		case "wordRoman":
+		case "lineRoman":
+		case "wordAndRoman":
+			return "音译";
+		case "lineTranslation":
+			return "翻译";
+		case "lineAdded":
+		case "lineRemoved":
+			return "歌词行";
+		case "timing":
+			return "时轴";
+	}
+};
+
+export const renderReviewReport = (
+	report: ReviewReportInput,
+	format?: Partial<ReviewReportFormat> | null,
 ) => {
-	if (!options?.groupByLine) {
-		const lines = items
-			.sort(
-				(a, b) =>
-					a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-			)
-			.map(
-				(item) =>
-					`${formatLineLabel(item.lineNumber, item.isBG)}：${item.detail}`,
-			);
-		return formatReport(lines);
-	}
-	const lineMap = new Map<
-		string,
-		{ lineNumber: number; isBG: boolean; list: string[] }
-	>();
-	for (const item of items) {
-		const key = `${item.lineNumber}:${item.isBG ? "bg" : "main"}`;
-		const entry = lineMap.get(key) ?? {
-			lineNumber: item.lineNumber,
-			isBG: item.isBG,
-			list: [],
-		};
-		entry.list.push(item.detail);
-		lineMap.set(key, entry);
-	}
-	const lines = Array.from(lineMap.values())
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.map(
-			(entry) =>
-				`${formatLineLabel(entry.lineNumber, entry.isBG)}：${entry.list.join(
-					"；",
-				)}`,
-		);
-	return formatReport(lines);
+	const normalized = normalizeReviewReport(report);
+	return renderFormattedReviewReport(normalized, format);
 };
 
-export const formatReport = (items: string[]) => {
-	if (items.length === 0) return "未检测到差异。";
-	return items.map((line) => `- ${line}`).join("\n");
+export const hasReviewReportContent = (
+	report: ReviewReportInput,
+	format?: Partial<ReviewReportFormat> | null,
+) => {
+	return normalizeReviewReport(report).blocks.some(
+		(block) =>
+			block.enabled &&
+			normalizeReportText(getReviewReportBlockText(block, format)),
+	);
 };
 
-export const normalizeReport = (value: string) => {
-	const trimmed = value.trim();
-	if (!trimmed || trimmed === "未检测到差异。") return "";
-	return trimmed;
+export const mergeReports = (reports: ReviewReportInput[]) => {
+	const seen = new Set<string>();
+	const blocks = reports.flatMap((report) =>
+		normalizeReviewReport(report).blocks.filter((block) => {
+			if (!block.enabled) return false;
+			const text = getReviewReportBlockText(block);
+			if (!text) return false;
+			if (block.kind === "manual") return true;
+			const dedupeKey = `${block.kind}:${text}`;
+			if (seen.has(dedupeKey)) return false;
+			seen.add(dedupeKey);
+			return true;
+		}),
+	);
+	return createReviewReport(blocks);
 };
 
-export const mergeReports = (reports: string[]) => {
-	const parts = reports.map(normalizeReport).filter(Boolean);
-	if (parts.length === 0) return "未检测到差异。";
-	return parts.join("\n");
+const isEditableGeneratedReportBlock = (block: ReviewReportBlock) =>
+	block.kind !== "manual" && block.kind !== "timing";
+
+export const keepPersistentReviewReportBlocks = (report: ReviewReportInput) => {
+	// 自动编辑差异会随歌词变化重算；手写内容和已确认的时轴条目属于用户显式选择，需要跨刷新保留。
+	return createReviewReport(
+		normalizeReviewReport(report).blocks.filter(
+			(block) => !isEditableGeneratedReportBlock(block),
+		),
+	);
 };
 
 export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
@@ -206,18 +390,43 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const wordTextChanges: WordChange[] = [];
 	const wordAndRomanChanges: WordChange[] = [];
 	const romanOnlyChanges: WordChange[] = [];
+	const wordAdditions: WordPresenceChange[] = [];
+	const wordRemovals: WordPresenceChange[] = [];
 	const lineChanges: LineChange[] = [];
+	const blocks: ReviewReportBlock[] = [];
+	const matchedStagedLineIds = new Set<string>();
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
+		// 优先按稳定 id 对齐；id 不存在或已被消费时再按位置兜底，避免插入/删除行后整段误报。
+		const foundStagedById = stagedLineMap.get(freezeLine.id);
+		const stagedById =
+			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+				? foundStagedById
+				: undefined;
+		const fallbackLine = staged.lyricLines[index];
 		const stagedLine =
-			stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
-		if (!stagedLine) return;
+			stagedById ??
+			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+				? fallbackLine
+				: undefined);
 		const lineNumber = getLineNumber(
 			freezeLine,
 			index,
 			freezeDisplayMap,
 			stagedDisplayMap,
 		);
+		if (!stagedLine) {
+			blocks.push({
+				id: createBlockId("line-removed"),
+				kind: "lineRemoved",
+				enabled: true,
+				lineNumber,
+				isBG: freezeLine.isBG ?? false,
+				text: getLineText(freezeLine),
+			});
+			return;
+		}
+		matchedStagedLineIds.add(stagedLine.id);
 		const isBG = freezeLine.isBG ?? stagedLine.isBG ?? false;
 		const oldTrans = freezeLine.translatedLyric ?? "";
 		const newTrans = stagedLine.translatedLyric ?? "";
@@ -234,10 +443,41 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			});
 		}
 		const stagedWordMap = buildWordMap(stagedLine.words);
+		const matchedStagedWordIndexes = new Set<number>();
+		const matchedStagedWordIds = new Set<string>();
 		freezeLine.words.forEach((freezeWord, wordIndex) => {
+			// 逐词也采用 id 优先、位置兜底的匹配策略，以支持分词微调后的报告仍能定位到原行。
+			const foundStagedByWordId = stagedWordMap.get(freezeWord.id);
+			const foundStagedIndexById = foundStagedByWordId
+				? stagedLine.words.indexOf(foundStagedByWordId)
+				: -1;
+			const stagedByWordId =
+				foundStagedByWordId &&
+				foundStagedIndexById >= 0 &&
+				!matchedStagedWordIndexes.has(foundStagedIndexById) &&
+				!matchedStagedWordIds.has(foundStagedByWordId.id)
+					? foundStagedByWordId
+					: undefined;
+			const fallbackWord = stagedLine.words[wordIndex];
 			const stagedWord =
-				stagedWordMap.get(freezeWord.id) ?? stagedLine.words[wordIndex];
-			if (!stagedWord) return;
+				stagedByWordId ??
+				(fallbackWord && !matchedStagedWordIndexes.has(wordIndex)
+					? fallbackWord
+					: undefined);
+			if (!stagedWord) {
+				wordRemovals.push({
+					lineNumber,
+					isBG,
+					word: getWordText(freezeWord),
+				});
+				return;
+			}
+			const stagedWordIndex =
+				stagedByWordId && foundStagedIndexById >= 0
+					? foundStagedIndexById
+					: wordIndex;
+			matchedStagedWordIndexes.add(stagedWordIndex);
+			matchedStagedWordIds.add(stagedWord.id);
 			const oldWord = freezeWord.word ?? "";
 			const newWord = stagedWord.word ?? "";
 			const oldRoman = freezeWord.romanWord ?? "";
@@ -271,9 +511,33 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				});
 			}
 		});
+		stagedLine.words.forEach((stagedWord, wordIndex) => {
+			if (
+				matchedStagedWordIndexes.has(wordIndex) ||
+				matchedStagedWordIds.has(stagedWord.id)
+			) {
+				return;
+			}
+			wordAdditions.push({
+				lineNumber,
+				isBG,
+				word: getWordText(stagedWord),
+			});
+		});
 	});
 
-	const reportLines: string[] = [];
+	staged.lyricLines.forEach((stagedLine, index) => {
+		if (matchedStagedLineIds.has(stagedLine.id)) return;
+		blocks.push({
+			id: createBlockId("line-added"),
+			kind: "lineAdded",
+			enabled: true,
+			lineNumber: stagedDisplayMap.get(stagedLine.id) ?? index + 1,
+			isBG: stagedLine.isBG ?? false,
+			text: getLineText(stagedLine),
+		});
+	});
+
 	const groupedByWord = new Map<string, WordChange[]>();
 	wordTextChanges.forEach((change) => {
 		const key = `${change.oldWord}=>${change.newWord}`;
@@ -283,16 +547,23 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	});
 	const consumed = new Set<WordChange>();
 	for (const group of groupedByWord.values()) {
+		// 相同的文本修正如果跨多行出现，合并成一条报告，减少审阅输出里的重复噪声。
 		const lineKeys = new Set(
 			group.map((item) => `${item.lineNumber}:${item.isBG ? "bg" : "main"}`),
 		);
 		if (lineKeys.size <= 1) continue;
 		const sample = group[0];
-		reportLines.push(
-			`${formatLineLabelList(group)}：${wrap(sample.oldWord)} 存在错误，应为 ${wrap(
-				sample.newWord,
-			)}`,
-		);
+		blocks.push({
+			id: createBlockId("word-text-shared"),
+			kind: "wordTextShared",
+			enabled: true,
+			lineRefs: group.map((item) => ({
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+			})),
+			oldWord: sample.oldWord,
+			newWord: sample.newWord,
+		});
 		group.forEach((item) => {
 			consumed.add(item);
 		});
@@ -320,13 +591,17 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	);
 	groupedLines.forEach((entry) => {
 		if (entry.items.length <= 1) return;
-		const oldWords = entry.items.map((item) => item.oldWord);
-		const newWords = entry.items.map((item) => item.newWord);
-		reportLines.push(
-			`${formatLineLabel(entry.lineNumber, entry.isBG)}：${oldWords
-				.map(wrap)
-				.join("、")} 分别存在错误，应为 ${newWords.map(wrap).join("、")}`,
-		);
+		blocks.push({
+			id: createBlockId("word-text-group"),
+			kind: "wordTextGroup",
+			enabled: true,
+			lineNumber: entry.lineNumber,
+			isBG: entry.isBG,
+			changes: entry.items.map((item) => ({
+				oldWord: item.oldWord,
+				newWord: item.newWord,
+			})),
+		});
 		entry.items.forEach((item) => {
 			consumed.add(item);
 		});
@@ -340,11 +615,45 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		)
 		.forEach((item) => {
-			reportLines.push(
-				`${formatLineLabel(item.lineNumber, item.isBG)}：${wrap(
-					item.oldWord,
-				)} 存在错误，应为 ${wrap(item.newWord)}`,
-			);
+			blocks.push({
+				id: createBlockId("word-text"),
+				kind: "wordText",
+				enabled: true,
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+				oldWord: item.oldWord,
+				newWord: item.newWord,
+			});
+		});
+
+	wordRemovals
+		.sort(
+			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+		)
+		.forEach((item) => {
+			blocks.push({
+				id: createBlockId("word-removed"),
+				kind: "wordRemoved",
+				enabled: true,
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+				word: item.word,
+			});
+		});
+
+	wordAdditions
+		.sort(
+			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
+		)
+		.forEach((item) => {
+			blocks.push({
+				id: createBlockId("word-added"),
+				kind: "wordAdded",
+				enabled: true,
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+				word: item.word,
+			});
 		});
 
 	romanOnlyChanges
@@ -352,11 +661,16 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		)
 		.forEach((item) => {
-			reportLines.push(
-				`${formatLineLabel(item.lineNumber, item.isBG)}：${wrap(
-					item.oldWord,
-				)} 音译 ${wrap(item.oldRoman)} 存在错误，应为 ${wrap(item.newRoman)}`,
-			);
+			blocks.push({
+				id: createBlockId("word-roman"),
+				kind: "wordRoman",
+				enabled: true,
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+				word: item.oldWord,
+				oldRoman: item.oldRoman,
+				newRoman: item.newRoman,
+			});
 		});
 
 	lineChanges
@@ -364,21 +678,27 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		)
 		.forEach((item) => {
-			const parts: string[] = [];
 			if (item.oldTrans !== item.newTrans) {
-				parts.push(
-					`翻译 ${wrap(item.oldTrans)} 存在错误，应为 ${wrap(item.newTrans)}`,
-				);
+				blocks.push({
+					id: createBlockId("line-translation"),
+					kind: "lineTranslation",
+					enabled: true,
+					lineNumber: item.lineNumber,
+					isBG: item.isBG,
+					oldText: item.oldTrans,
+					newText: item.newTrans,
+				});
 			}
 			if (item.oldRoman !== item.newRoman) {
-				parts.push(
-					`音译 ${wrap(item.oldRoman)} 存在错误，应为 ${wrap(item.newRoman)}`,
-				);
-			}
-			if (parts.length > 0) {
-				reportLines.push(
-					`${formatLineLabel(item.lineNumber, item.isBG)}：${parts.join("，")}`,
-				);
+				blocks.push({
+					id: createBlockId("line-roman"),
+					kind: "lineRoman",
+					enabled: true,
+					lineNumber: item.lineNumber,
+					isBG: item.isBG,
+					oldText: item.oldRoman,
+					newText: item.newRoman,
+				});
 			}
 		});
 
@@ -387,16 +707,40 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
 		)
 		.forEach((item) => {
-			const parts = [
-				`${wrap(item.oldWord)} 存在错误，应为 ${wrap(item.newWord)}`,
-				`音译 ${wrap(item.oldRoman)} 存在错误，应为 ${wrap(item.newRoman)}`,
-			];
-			reportLines.push(
-				`${formatLineLabel(item.lineNumber, item.isBG)}：${parts.join("，")}`,
-			);
+			blocks.push({
+				id: createBlockId("word-and-roman"),
+				kind: "wordAndRoman",
+				enabled: true,
+				lineNumber: item.lineNumber,
+				isBG: item.isBG,
+				oldWord: item.oldWord,
+				newWord: item.newWord,
+				oldRoman: item.oldRoman,
+				newRoman: item.newRoman,
+			});
 		});
 
-	return formatReport(reportLines);
+	return createReviewReport(blocks);
+};
+
+export const buildReviewReportFromDiffs = (
+	baseReports: ReviewReportInput[],
+	freeze: TTMLLyric,
+	staged: TTMLLyric,
+	syncReport: ReviewReportInput = createReviewReport(),
+) => {
+	const editReport = buildEditReport(freeze, staged);
+	const editBlocks = normalizeReviewReport(editReport).blocks;
+	const syncBlocks = normalizeReviewReport(syncReport).blocks;
+	// 这里是所有入口的统一组装点：先保留用户持久条目，再用最新 freeze/staged 重建自动编辑差异。
+	const persistentBaseReports = baseReports.map(
+		keepPersistentReviewReportBlocks,
+	);
+
+	return mergeReports([
+		...persistentBaseReports,
+		createReviewReport([...editBlocks, ...syncBlocks]),
+	]);
 };
 
 export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
@@ -404,11 +748,22 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const freezeDisplayMap = computeDisplayNumbers(freeze.lyricLines);
 	const stagedDisplayMap = computeDisplayNumbers(staged.lyricLines);
 	const reportLines: SyncChangeCandidate[] = [];
+	const matchedStagedLineIds = new Set<string>();
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
+		const foundStagedById = stagedLineMap.get(freezeLine.id);
+		const stagedById =
+			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+				? foundStagedById
+				: undefined;
+		const fallbackLine = staged.lyricLines[index];
 		const stagedLine =
-			stagedLineMap.get(freezeLine.id) ?? staged.lyricLines[index];
+			stagedById ??
+			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+				? fallbackLine
+				: undefined);
 		if (!stagedLine) return;
+		matchedStagedLineIds.add(stagedLine.id);
 		const lineNumber = getLineNumber(
 			freezeLine,
 			index,
@@ -417,10 +772,33 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		);
 		const isBG = freezeLine.isBG ?? stagedLine.isBG ?? false;
 		const stagedWordMap = buildWordMap(stagedLine.words);
+		const matchedStagedWordIndexes = new Set<number>();
+		const matchedStagedWordIds = new Set<string>();
 		freezeLine.words.forEach((freezeWord, wordIndex) => {
+			const foundStagedByWordId = stagedWordMap.get(freezeWord.id);
+			const foundStagedIndexById = foundStagedByWordId
+				? stagedLine.words.indexOf(foundStagedByWordId)
+				: -1;
+			const stagedByWordId =
+				foundStagedByWordId &&
+				foundStagedIndexById >= 0 &&
+				!matchedStagedWordIndexes.has(foundStagedIndexById) &&
+				!matchedStagedWordIds.has(foundStagedByWordId.id)
+					? foundStagedByWordId
+					: undefined;
+			const fallbackWord = stagedLine.words[wordIndex];
 			const stagedWord =
-				stagedWordMap.get(freezeWord.id) ?? stagedLine.words[wordIndex];
+				stagedByWordId ??
+				(fallbackWord && !matchedStagedWordIndexes.has(wordIndex)
+					? fallbackWord
+					: undefined);
 			if (!stagedWord) return;
+			matchedStagedWordIndexes.add(
+				stagedByWordId && foundStagedIndexById >= 0
+					? foundStagedIndexById
+					: wordIndex,
+			);
+			matchedStagedWordIds.add(stagedWord.id);
 			const oldStart = Math.round(freezeWord.startTime);
 			const newStart = Math.round(stagedWord.startTime);
 			const oldEnd = Math.round(freezeWord.endTime);
@@ -443,8 +821,7 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 };
 
 export const buildSyncReport = (reportLines: SyncChangeCandidate[]) => {
-	const items = buildSyncReportItems(reportLines);
-	return formatSyncReport(items);
+	return createReviewReport(buildSyncReportBlocks(reportLines));
 };
 
 export const buildSyncReportFromStash = (
@@ -461,11 +838,11 @@ export const buildSyncReportFromStash = (
 		fields.add(item.field);
 		fieldMap.set(item.wordId, fields);
 	}
-	const items = buildSyncReportItems(
+	const blocks = buildSyncReportBlocks(
 		Array.from(fieldMap.entries())
 			.map(([wordId]) => candidateMap.get(wordId))
 			.filter((item): item is SyncChangeCandidate => Boolean(item)),
 		fieldMap,
 	);
-	return formatSyncReport(items, { groupByLine: true });
+	return createReviewReport(blocks);
 };

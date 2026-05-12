@@ -1,6 +1,24 @@
 import { openDB } from "idb";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFileOpener } from "$/hooks/useFileOpener";
+import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
+import {
+	fetchLabels as fetchLabelsService,
+	hasPostLabelCommits as hasPostLabelCommitsService,
+	refreshPendingLabels as refreshPendingLabelsService,
+} from "$/modules/github/services/label-services";
+import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
+import {
+	fetchOpenPullRequestPage,
+	fetchPullRequestDetail,
+	fetchPullRequestTimelinePage,
+} from "$/modules/github/services/PR-service";
+import {
+	fetchPendingSubmissions,
+	type LyricsSiteSubmission,
+} from "$/modules/lyrics-site";
+import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
@@ -16,46 +34,27 @@ import {
 	reviewSelectedLabelsAtom,
 	reviewUpdatedFilterAtom,
 } from "$/modules/settings/states";
-import { lyricsSiteUserAtom } from "./remote-service";
-import { useFileOpener } from "$/hooks/useFileOpener";
+import {
+	reviewReviewedPrsAtom,
+	reviewSessionAtom,
+	reviewSingleRefreshAtom,
+	ToolMode,
+	toolModeAtom,
+} from "$/states/main";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
-import {
-	ToolMode,
-	reviewReviewedPrsAtom,
-	reviewSessionAtom,
-	reviewSingleRefreshAtom,
-	toolModeAtom,
-} from "$/states/main";
 import { log } from "$/utils/logging";
-import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
-import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
-import {
-	fetchOpenPullRequestPage,
-	fetchPullRequestDetail,
-	fetchPullRequestTimelinePage,
-} from "$/modules/github/services/PR-service";
-import {
-	fetchLabels as fetchLabelsService,
-	hasPostLabelCommits as hasPostLabelCommitsService,
-	refreshPendingLabels as refreshPendingLabelsService,
-} from "$/modules/github/services/label-services";
-import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
 import type {
+	ReviewItem,
 	ReviewLabel,
 	ReviewPullRequest,
-	ReviewItem,
 } from "./card-service";
 import { isGitHubPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
-import { useRemoteReviewService } from "./remote-service";
-import {
-	fetchPendingSubmissions,
-	type LyricsSiteSubmission,
-} from "$/modules/lyrics-site";
+import { lyricsSiteUserAtom, useRemoteReviewService } from "./remote-service";
 
 const DB_NAME = "review-cache";
 const STORE_NAME = "open-prs";
@@ -429,7 +428,7 @@ export const useReviewPageLogic = () => {
 				}
 				if (reviewed || response.items.length < perPage) break;
 			}
-			setReviewReviewedPrs((prev) =>
+			setReviewReviewedPrs((prev: Record<number, boolean>) =>
 				Number.isFinite(prNumber) ? { ...prev, [prNumber]: reviewed } : prev,
 			);
 			const now = Date.now();
@@ -526,7 +525,10 @@ export const useReviewPageLogic = () => {
 			}
 			if (cancelled) return;
 			if (Object.keys(mapped).length > 0) {
-				setReviewReviewedPrs((prev) => ({ ...prev, ...mapped }));
+				setReviewReviewedPrs((prev: Record<number, boolean>) => ({
+					...prev,
+					...mapped,
+				}));
 			}
 			timelineCacheRef.current = freshItems;
 		};

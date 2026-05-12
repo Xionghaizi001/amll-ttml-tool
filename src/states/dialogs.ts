@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { ReviewReport } from "$/modules/review/services/report-service";
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
@@ -52,19 +53,20 @@ export const riskConfirmDialogAtom = atom<{
 });
 export const historyRestoreDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
-export const reviewReportDialogAtom = atom<{
+export type ReviewReportDialogState = {
 	open: boolean;
 	prNumber: number | null;
 	prTitle: string;
-	report: string;
+	report: ReviewReport;
 	draftId: string | null;
 	source?: "github" | "lyrics-site";
 	submissionId?: string;
-}>({
+};
+export const reviewReportDialogAtom = atom<ReviewReportDialogState>({
 	open: false,
 	prNumber: null,
 	prTitle: "",
-	report: "",
+	report: { version: 1, blocks: [] },
 	draftId: null,
 	source: "github",
 	submissionId: undefined,
