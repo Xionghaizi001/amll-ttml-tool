@@ -60,6 +60,14 @@ type ReviewMetadata = {
 	remark: string[];
 };
 
+type ReviewMetadataKey = keyof ReviewMetadata;
+type ReviewValueMetadataKey = Exclude<ReviewMetadataKey, "remark">;
+
+type ReviewMetadataSection = {
+	title: string;
+	lines: string[];
+};
+
 export const extractMentions = (body: string | undefined | null) => {
 	if (!body) return [];
 	const matches = [...body.matchAll(/@([a-zA-Z0-9-]+)/g)];
@@ -78,17 +86,27 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		appleMusicId: [],
 		remark: [],
 	};
-	const pushValues = (
-		key:
-			| "musicName"
-			| "artists"
-			| "album"
-			| "ncmId"
-			| "qqMusicId"
-			| "spotifyId"
-			| "appleMusicId",
-		value: string,
-	) => {
+	const splitMarkdownSections = (input: string): ReviewMetadataSection[] => {
+		const sections: ReviewMetadataSection[] = [];
+		let currentSection: ReviewMetadataSection | null = null;
+		const lines = input.split(/\r?\n/);
+		for (const rawLine of lines) {
+			const headingMatch = rawLine.trim().match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+			if (headingMatch) {
+				currentSection = {
+					title: (headingMatch[1] ?? "").trim(),
+					lines: [],
+				};
+				sections.push(currentSection);
+				continue;
+			}
+			if (currentSection) {
+				currentSection.lines.push(rawLine);
+			}
+		}
+		return sections;
+	};
+	const pushValues = (key: ReviewValueMetadataKey, value: string) => {
 		const cleaned = value
 			.replace(/^[-*]\s+/, "")
 			.replace(/^\[[ xX]\]\s*/, "")
@@ -108,97 +126,77 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		result.remark.push(cleaned);
 	};
 	const getKeyFromText = (text: string) => {
-		const normalized = text.replace(/\s/g, "").toLowerCase();
-		if (normalized.includes("音乐名称") || normalized.includes("歌名")) {
+		const normalized = text
+			.replace(/[\\`*_~|#[\]()（）【】]/g, "")
+			.replace(/\s/g, "")
+			.replace(/[：:]+$/, "")
+			.toLowerCase();
+		if (/^(?:音乐名称|歌曲名称|歌名)$/.test(normalized)) {
 			return "musicName" as const;
 		}
 		if (
-			normalized.includes("音乐作者") ||
-			normalized.includes("歌手") ||
-			normalized.includes("艺术家")
+			/^(?:音乐作者|音乐艺术家|歌曲艺术家|歌曲作者|歌手|艺术家)$/.test(
+				normalized,
+			)
 		) {
 			return "artists" as const;
 		}
-		if (normalized.includes("音乐专辑") || normalized.includes("专辑")) {
+		if (/^(?:音乐专辑(?:名称)?|专辑(?:名称)?)$/.test(normalized)) {
 			return "album" as const;
 		}
-		if (
-			normalized.includes("网易云音乐id") ||
-			(normalized.includes("网易云音乐") && normalized.includes("id"))
-		) {
+		if (/^(?:歌曲关联)?网易云音乐(?:音乐)?id$/.test(normalized)) {
 			return "ncmId" as const;
 		}
-		if (
-			normalized.includes("qq音乐id") ||
-			(normalized.includes("qq音乐") && normalized.includes("id"))
-		) {
+		if (/^(?:歌曲关联)?qq音乐(?:音乐)?id$/.test(normalized)) {
 			return "qqMusicId" as const;
 		}
-		if (normalized.includes("spotifyid")) {
+		if (/^(?:歌曲关联)?spotify(?:音乐)?id$/.test(normalized)) {
 			return "spotifyId" as const;
 		}
-		if (normalized.includes("applemusicid")) {
+		if (/^(?:歌曲关联)?applemusic(?:音乐)?id$/.test(normalized)) {
 			return "appleMusicId" as const;
 		}
-		if (normalized.includes("备注")) {
+		if (/^备注$/.test(normalized)) {
 			return "remark" as const;
 		}
 		return null;
 	};
-	let currentKey:
-		| "musicName"
-		| "artists"
-		| "album"
-		| "ncmId"
-		| "qqMusicId"
-		| "spotifyId"
-		| "appleMusicId"
-		| "remark"
-		| null = null;
-	const lines = body.split(/\r?\n/);
-	for (const rawLine of lines) {
-		const trimmedLine = rawLine.trim();
-		if (!trimmedLine) {
-			if (currentKey === "remark") {
-				result.remark.push("");
-			}
-			continue;
+	const getTitleParts = (title: string) => {
+		const inlineMatch = title.match(/^(.+?)\s*[:：]\s*(.+)$/);
+		if (!inlineMatch) {
+			return {
+				key: getKeyFromText(title),
+				inlineValue: null,
+			};
 		}
-		const line = trimmedLine;
-		const inlineMatch = line.match(
-			/^(?:[-*]\s*)?(?:#+\s*)?(?:\*\*)?(.+?)(?:\*\*)?\s*[:：]\s*(.+)$/,
-		);
-		if (inlineMatch) {
-			const key = getKeyFromText(inlineMatch[1] ?? "");
-			if (key) {
-				currentKey = key;
+		return {
+			key: getKeyFromText(inlineMatch[1] ?? ""),
+			inlineValue: inlineMatch[2] ?? "",
+		};
+	};
+
+	for (const section of splitMarkdownSections(body)) {
+		const { key, inlineValue } = getTitleParts(section.title);
+		if (!key) continue;
+		if (inlineValue) {
+			if (key === "remark") {
+				pushRemark(inlineValue);
+			} else {
+				pushValues(key, inlineValue);
+			}
+		}
+		for (const rawLine of section.lines) {
+			const line = rawLine.trim();
+			if (!line) {
 				if (key === "remark") {
-					pushRemark(inlineMatch[2] ?? "");
-				} else {
-					pushValues(key, inlineMatch[2] ?? "");
+					result.remark.push("");
 				}
 				continue;
 			}
-		}
-		const headingMatch = line.match(
-			/^(?:[-*]\s*)?(?:#+\s*)?(?:\*\*)?(.+?)(?:\*\*)?$/,
-		);
-		if (headingMatch) {
-			const key = getKeyFromText(headingMatch[1] ?? "");
-			if (key) {
-				currentKey = key;
-				continue;
-			}
-			if (/^#+\s+/.test(line)) {
-				currentKey = null;
-				continue;
-			}
-		}
-		if (currentKey) {
-			if (currentKey === "remark") {
+			if (key === "remark") {
 				pushRemark(line);
 			} else {
-				pushValues(currentKey, line);
+				pushValues(key, line);
 			}
 		}
 	}
