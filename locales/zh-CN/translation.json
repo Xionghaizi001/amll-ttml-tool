@@ -375,6 +375,8 @@
 		}
 	},
 	"header": {
+		"rename": "重命名",
+		"renameFromMetadata": "从元数据重命名",
 		"status": {
 			"saving": "正在保存...",
 			"pending": "正在保存...",
@@ -385,13 +387,7 @@
 		"popover": {
 			"filename": "文件名",
 			"versionHistory": "版本历史记录..."
-		},
-		"rename": "重命名",
-		"renameFromMetadata": "从元数据重命名",
-		"noMetadata": "无元数据",
-		"goToMetadataEditor": "前往编辑元数据",
-		"previewFileName": "预览文件名",
-		"insufficientMetadata": "元数据不足，需要歌曲名称和艺术家"
+		}
 	},
 	"contextMenu": {
 		"deleteWords": "删除单词",
@@ -708,6 +704,14 @@
 		"pickSuggestion": "选择匹配项",
 		"clear": "清空",
 		"info": "了解详情"
+	},
+	"metadataRenameDialog": {
+		"title": "从元数据重命名",
+		"empty": "无任何元数据",
+		"splayerSupport": "启用 SPlayer 本地歌词支持",
+		"goToMetadataEditor": "前往编辑元数据",
+		"filenamePlaceholder": "文件名",
+		"apply": "应用"
 	},
 	"metaSuggestion": {
 		"dialogTitle": "元数据编辑器",
