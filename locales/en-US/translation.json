@@ -380,7 +380,13 @@
 		"popover": {
 			"filename": "File Name",
 			"versionHistory": "Version History..."
-		}
+		},
+		"rename": "Rename",
+		"renameFromMetadata": "Rename from Metadata",
+		"noMetadata": "No metadata",
+		"goToMetadataEditor": "Go to Metadata Editor",
+		"previewFileName": "Preview file name",
+		"insufficientMetadata": "Insufficient metadata, track name and artists are required"
 	},
 	"contextMenu": {
 		"deleteWords": "Delete {count, plural, one {word} other {words}}",

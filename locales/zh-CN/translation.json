@@ -385,7 +385,13 @@
 		"popover": {
 			"filename": "文件名",
 			"versionHistory": "版本历史记录..."
-		}
+		},
+		"rename": "重命名",
+		"renameFromMetadata": "从元数据重命名",
+		"noMetadata": "无元数据",
+		"goToMetadataEditor": "前往编辑元数据",
+		"previewFileName": "预览文件名",
+		"insufficientMetadata": "元数据不足，需要歌曲名称和艺术家"
 	},
 	"contextMenu": {
 		"deleteWords": "删除单词",
