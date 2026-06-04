@@ -190,6 +190,44 @@ export const reviewReportFormatBlockDefinitions: ReviewReportFormatBlockDefiniti
 			],
 		},
 		{
+			kind: "timeShift",
+			label: "时轴平移",
+			description: "全局或局部歌词时间整体平移时使用",
+			variables: [
+				{
+					name: "scopeLabel",
+					label: "范围标签",
+					description: "全部歌词行，或目标行号列表",
+				},
+				{
+					name: "lineLabels",
+					label: "行标签列表",
+					description: "目标行标签列表",
+				},
+				{ name: "offset", label: "偏移量", description: "带符号毫秒偏移量" },
+				{
+					name: "absoluteOffset",
+					label: "绝对偏移量",
+					description: "不带符号的毫秒偏移量",
+				},
+				{
+					name: "direction",
+					label: "方向",
+					description: "提前或延后",
+				},
+				{
+					name: "targetCount",
+					label: "目标行数",
+					description: "本次平移影响的歌词行数",
+				},
+				{
+					name: "totalLineCount",
+					label: "总行数",
+					description: "审阅快照中的歌词总行数",
+				},
+			],
+		},
+		{
 			kind: "timing",
 			label: "时轴修正",
 			description: "时轴起止时间变化时使用",
@@ -292,6 +330,10 @@ export const DEFAULT_REVIEW_REPORT_FORMAT: ReviewReportFormat = {
 		},
 		lineRemoved: {
 			template: "{{lineLabel}}：删除歌词 `{{text}}`",
+			listItem: true,
+		},
+		timeShift: {
+			template: "对{{scopeLabel}}整体{{direction}} {{absoluteOffset}} 毫秒",
 			listItem: true,
 		},
 		timing: {
@@ -580,6 +622,20 @@ export const createReviewReportBlockVariables = (
 				...createLineVariables(block.lineNumber, block.isBG),
 				text: block.text,
 			};
+		case "timeShift": {
+			const isAllLines =
+				block.targetCount === block.totalLineCount && block.totalLineCount > 0;
+			const lineLabels = formatLineLabelList(block.lineRefs);
+			return {
+				lineLabels,
+				scopeLabel: isAllLines ? "全部歌词行" : lineLabels,
+				offset: String(block.offsetMs),
+				absoluteOffset: String(Math.abs(block.offsetMs)),
+				direction: block.offsetMs < 0 ? "提前" : "延后",
+				targetCount: String(block.targetCount),
+				totalLineCount: String(block.totalLineCount),
+			};
+		}
 		case "timing": {
 			const timingParts = buildTimingParts(block);
 			if (!timingParts.timingChanges) return null;

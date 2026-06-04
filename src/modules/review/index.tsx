@@ -5,6 +5,8 @@ import {
 	lyricLinesAtom,
 	projectIdAtom,
 	reviewFreezeAtom,
+	reviewOperationLogAtom,
+	reviewOperationRedoStackAtom,
 	reviewSessionAtom,
 	reviewStagedAtom,
 	saveFileNameAtom,
@@ -24,6 +26,8 @@ export const useReviewSessionLifecycle = () => {
 	const projectId = useAtomValue(projectIdAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const setReviewFreeze = useSetAtom(reviewFreezeAtom);
+	const setReviewOperationLog = useSetAtom(reviewOperationLogAtom);
+	const setReviewOperationRedoStack = useSetAtom(reviewOperationRedoStackAtom);
 	const setReviewStaged = useSetAtom(reviewStagedAtom);
 	const reviewPendingRef = useRef(false);
 	const reviewProjectIdRef = useRef(projectId);
@@ -35,6 +39,8 @@ export const useReviewSessionLifecycle = () => {
 			reviewPendingRef.current = false;
 			reviewSessionKeyRef.current = null;
 			setReviewFreeze(null);
+			setReviewOperationLog([]);
+			setReviewOperationRedoStack([]);
 			setReviewStaged(null);
 			log("[review]", "session cleared");
 			return;
@@ -46,13 +52,23 @@ export const useReviewSessionLifecycle = () => {
 		reviewProjectIdRef.current = projectId;
 		reviewPendingLyricRef.current = store.get(lyricLinesAtom);
 		setReviewFreeze(null);
+		setReviewOperationLog([]);
+		setReviewOperationRedoStack([]);
 		setReviewStaged(null);
 		log("[review]", "session set", {
 			prNumber: reviewSession.prNumber,
 			fileName: reviewSession.fileName,
 			projectId,
 		});
-	}, [projectId, reviewSession, setReviewFreeze, setReviewStaged, store]);
+	}, [
+		projectId,
+		reviewSession,
+		setReviewFreeze,
+		setReviewOperationLog,
+		setReviewOperationRedoStack,
+		setReviewStaged,
+		store,
+	]);
 
 	useEffect(() => {
 		if (!reviewSession || !reviewPendingRef.current) return;

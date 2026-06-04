@@ -138,6 +138,14 @@ export type ReviewReportBlock =
 			text: string;
 	  })
 	| (ReviewReportBlockBase & {
+			kind: "timeShift";
+			operationId: string;
+			offsetMs: number;
+			lineRefs: ReviewReportLineRef[];
+			targetCount: number;
+			totalLineCount: number;
+	  })
+	| (ReviewReportBlockBase & {
 			kind: "timing";
 			wordId: string;
 			lineNumber: number;
@@ -330,6 +338,8 @@ export const getReviewReportBlockLabel = (block: ReviewReportBlock) => {
 		case "lineAdded":
 		case "lineRemoved":
 			return "歌词行";
+		case "timeShift":
+			return "时轴平移";
 		case "timing":
 			return "时轴";
 	}
@@ -362,7 +372,10 @@ export const mergeReports = (reports: ReviewReportInput[]) => {
 			const text = getReviewReportBlockText(block);
 			if (!text) return false;
 			if (block.kind === "manual") return true;
-			const dedupeKey = `${block.kind}:${text}`;
+			const dedupeKey =
+				block.kind === "timeShift"
+					? `${block.kind}:${block.operationId}`
+					: `${block.kind}:${text}`;
 			if (seen.has(dedupeKey)) return false;
 			seen.add(dedupeKey);
 			return true;
@@ -373,6 +386,13 @@ export const mergeReports = (reports: ReviewReportInput[]) => {
 
 const isEditableGeneratedReportBlock = (block: ReviewReportBlock) =>
 	block.kind !== "manual" && block.kind !== "timing";
+
+export const keepManualReviewReportBlocks = (report: ReviewReportInput) =>
+	createReviewReport(
+		normalizeReviewReport(report).blocks.filter(
+			(block) => block.kind === "manual",
+		),
+	);
 
 export const keepPersistentReviewReportBlocks = (report: ReviewReportInput) => {
 	// 自动编辑差异会随歌词变化重算；手写内容和已确认的时轴条目属于用户显式选择，需要跨刷新保留。

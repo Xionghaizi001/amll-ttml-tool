@@ -8,7 +8,10 @@ import { useFileOpener } from "$/hooks/useFileOpener";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { useNcmAudioSwitch } from "$/modules/review/services/audio-switch";
 import {
-	buildReviewReportFromDiffs,
+	buildReviewReportFromOperationReplay,
+	getReviewReplayBase,
+} from "$/modules/review/services/report-flow-service";
+import {
 	buildSyncChanges,
 	buildSyncReport,
 	buildSyncReportFromStash,
@@ -39,9 +42,9 @@ import {
 	lyricLinesAtom,
 	type ReviewReportDraft,
 	reviewFreezeAtom,
+	reviewOperationLogAtom,
 	reviewReportDraftsAtom,
 	reviewSessionAtom,
-	reviewStagedAtom,
 	reviewStashLastSelectionAtom,
 	reviewStashRemovedOrderAtom,
 	reviewStashSubmittedAtom,
@@ -59,13 +62,24 @@ import { StashDialog } from "./StashDialog";
 
 type TimingStashSelectionEntry = [string, TimingStashItem["field"]];
 
+const openReviewReportDialogAfterFocusRelease = (
+	setReviewReportDialog: (value: ReviewReportDialogState) => void,
+	state: ReviewReportDialogState,
+) => {
+	// 从一个 Radix modal 切到另一个 modal 时先让当前 FocusScope 完成卸载和焦点归还。
+	// 否则两个焦点管理器在同一批更新里交接，偶发触发 compose-refs 的嵌套更新循环。
+	window.setTimeout(() => {
+		setReviewReportDialog(state);
+	}, 0);
+};
+
 export const useReviewTimingFlow = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
-	const reviewStaged = useAtomValue(reviewStagedAtom);
+	const reviewOperationLog = useAtomValue(reviewOperationLogAtom);
 	const reviewReportDialog = useAtomValue(reviewReportDialogAtom);
 	const reviewReportDrafts = useAtomValue(reviewReportDraftsAtom);
 	const setReviewReportDrafts = useSetAtom(reviewReportDraftsAtom);
@@ -215,8 +229,11 @@ export const useReviewTimingFlow = () => {
 			setTimingStashSelected(new Map());
 			return;
 		}
-		const freezeData = reviewFreeze.data;
-		const stagedData = reviewStaged ?? lyricLines;
+		const freezeData = getReviewReplayBase(
+			reviewFreeze.data,
+			reviewOperationLog,
+		);
+		const stagedData = lyricLines;
 		const candidates = buildSyncChanges(freezeData, stagedData);
 		setTimingCandidates(candidates);
 		const submittedSet = new Set(
@@ -266,8 +283,8 @@ export const useReviewTimingFlow = () => {
 	}, [
 		lyricLines,
 		reviewFreeze,
+		reviewOperationLog,
 		reviewSession,
-		reviewStaged,
 		reviewStashRemovedOrder,
 		reviewStashSubmitted,
 		stashKey,
@@ -371,162 +388,152 @@ export const useReviewTimingFlow = () => {
 	);
 
 	useEffect(() => {
-		// 自动编辑差异不依赖“暂存”：审阅会话中的 staged 一变化，就刷新当前报告或已有草稿。
 		if (!reviewSession || !reviewFreeze) return;
 		if (reviewSession.source === "update") return;
+
 		const freezeData = reviewFreeze.data;
-		const stagedData = reviewStaged ?? lyricLines;
+		const stagedData = lyricLines;
 		const draftMatch = reviewReportDrafts.find((item) => {
-			if (reviewSession.prNumber) {
+			if (reviewSession.prNumber)
 				return item.prNumber === reviewSession.prNumber;
-			}
 			return item.prTitle === reviewSession.prTitle;
 		});
+		const sameReportTarget =
+			reviewReportDialog.prNumber === reviewSession.prNumber &&
+			reviewReportDialog.prTitle === reviewSession.prTitle;
+		const openSameReportTarget = reviewReportDialog.open && sameReportTarget;
+		const baseReports: ReviewReportInput[] = [];
+		if (openSameReportTarget) {
+			baseReports.push(reviewReportDialog.report);
+		} else if (draftMatch?.report) {
+			baseReports.push(draftMatch.report);
+		}
+		const report = buildReviewReportFromOperationReplay(
+			baseReports,
+			freezeData,
+			stagedData,
+			reviewOperationLog,
+		);
+		const hasContent = hasReviewReportContent(report);
+		if (!hasContent && !draftMatch && !openSameReportTarget) return;
+
+		const targetKey = reviewSession.prNumber
+			? `pr:${reviewSession.prNumber}`
+			: `title:${reviewSession.prTitle}`;
+		const autoDraftId =
+			draftMatch?.id ??
+			(openSameReportTarget ? reviewReportDialog.draftId : null) ??
+			autoReportDraftIdsRef.current[targetKey] ??
+			uid();
+		autoReportDraftIdsRef.current[targetKey] = autoDraftId;
 		const dialogSource =
 			reviewSession.source === "lyrics-site" ? "lyrics-site" : "github";
 		const submissionId =
 			reviewSession.source === "lyrics-site"
 				? String(reviewSession.prNumber)
 				: undefined;
-		const autoReport = buildReviewReportFromDiffs(
-			draftMatch?.report ? [draftMatch.report] : [],
-			freezeData,
-			stagedData,
-		);
-		const targetKey = reviewSession.prNumber
-			? `pr:${reviewSession.prNumber}`
-			: `title:${reviewSession.prTitle}`;
-		const shouldCreateAutoDraft =
-			!draftMatch && hasReviewReportContent(autoReport);
-		const autoDraftId = shouldCreateAutoDraft
-			? (autoReportDraftIdsRef.current[targetKey] ?? uid())
-			: null;
-		if (autoDraftId) {
-			autoReportDraftIdsRef.current[targetKey] = autoDraftId;
+
+		if (openSameReportTarget) {
+			setReviewReportDialog((prev: ReviewReportDialogState) => {
+				const prevSameTarget =
+					prev.prNumber === reviewSession.prNumber &&
+					prev.prTitle === reviewSession.prTitle;
+				if (!prev.open || !prevSameTarget) return prev;
+				const next: ReviewReportDialogState = {
+					...prev,
+					prNumber: reviewSession.prNumber,
+					prTitle: reviewSession.prTitle,
+					report,
+					draftId: autoDraftId,
+					source: dialogSource,
+					submissionId,
+				};
+				if (
+					prev.draftId === next.draftId &&
+					prev.source === next.source &&
+					prev.submissionId === next.submissionId &&
+					renderReviewReport(prev.report) === renderReviewReport(next.report)
+				) {
+					return prev;
+				}
+				return next;
+			});
 		}
 
-		setReviewReportDialog((prev: ReviewReportDialogState) => {
-			const sameReportTarget =
-				prev.prNumber === reviewSession.prNumber &&
-				prev.prTitle === reviewSession.prTitle;
-			// 用户可能正在处理另一份报告；此时不抢占已打开的对话框。
-			if (prev.open && !sameReportTarget) return prev;
-
-			const baseReports: ReviewReportInput[] = [];
-			if (sameReportTarget) {
-				baseReports.push(prev.report);
-			} else if (draftMatch?.report) {
-				baseReports.push(draftMatch.report);
-			}
-			const report = buildReviewReportFromDiffs(
-				baseReports,
-				freezeData,
-				stagedData,
+		if (!hasContent) return;
+		const shouldNotifyDraft = !reviewReportDrafts.some(
+			(item) =>
+				item.id === autoDraftId ||
+				(reviewSession.prNumber
+					? item.prNumber === reviewSession.prNumber
+					: item.prTitle === reviewSession.prTitle),
+		);
+		const createdAt = new Date().toISOString();
+		setReviewReportDrafts((prev: ReviewReportDraft[]) => {
+			const existingIndex = prev.findIndex(
+				(item) =>
+					item.id === autoDraftId ||
+					(reviewSession.prNumber
+						? item.prNumber === reviewSession.prNumber
+						: item.prTitle === reviewSession.prTitle),
 			);
-			// 没有草稿、没有打开目标报告、也没有差异时，不创建一个空报告状态。
-			if (!sameReportTarget && !draftMatch && !hasReviewReportContent(report)) {
-				return prev;
-			}
-
-			const next: ReviewReportDialogState = {
-				...prev,
+			const nextDraft: ReviewReportDraft = {
+				id: autoDraftId,
 				prNumber: reviewSession.prNumber,
 				prTitle: reviewSession.prTitle,
 				report,
-				draftId: sameReportTarget
-					? (prev.draftId ?? autoDraftId)
-					: (draftMatch?.id ?? autoDraftId),
+				createdAt,
 				source: dialogSource,
-				submissionId,
 			};
-			if (
-				prev.prNumber === next.prNumber &&
-				prev.prTitle === next.prTitle &&
-				prev.draftId === next.draftId &&
-				prev.source === next.source &&
-				prev.submissionId === next.submissionId &&
-				renderReviewReport(prev.report) === renderReviewReport(next.report)
-			) {
-				return prev;
-			}
-			return next;
-		});
-
-		if (autoDraftId) {
-			const createdAt = new Date().toISOString();
-			setReviewReportDrafts((prev: ReviewReportDraft[]) => {
-				const existingIndex = prev.findIndex(
-					(item) =>
-						item.id === autoDraftId ||
-						(reviewSession.prNumber
-							? item.prNumber === reviewSession.prNumber
-							: item.prTitle === reviewSession.prTitle),
-				);
-				const nextDraft: ReviewReportDraft = {
-					id: autoDraftId,
-					prNumber: reviewSession.prNumber,
-					prTitle: reviewSession.prTitle,
-					report: autoReport,
-					createdAt,
-					source: dialogSource,
-				};
-				if (existingIndex >= 0) {
-					const next = [...prev];
-					next[existingIndex] = {
-						...next[existingIndex],
-						...nextDraft,
-						createdAt: next[existingIndex].createdAt ?? createdAt,
-					};
-					return next;
+			if (existingIndex >= 0) {
+				const prevDraft = prev[existingIndex];
+				if (
+					prevDraft.id === nextDraft.id &&
+					prevDraft.prNumber === nextDraft.prNumber &&
+					prevDraft.prTitle === nextDraft.prTitle &&
+					prevDraft.source === nextDraft.source &&
+					renderReviewReport(prevDraft.report) ===
+						renderReviewReport(nextDraft.report)
+				) {
+					return prev;
 				}
-				return [nextDraft, ...prev];
-			});
-			const prLabel = reviewSession.prNumber
-				? `PR#${reviewSession.prNumber}${
-						reviewSession.prTitle ? ` ${reviewSession.prTitle}` : ""
-					}`
-				: "当前文件";
-			setUpsertNotification({
-				id: `review-report-draft-${autoDraftId}`,
-				title: "审阅报告已自动生成",
-				description: `点击打开 ${prLabel} 的审阅报告`,
-				level: "info",
-				source: "Review",
-				pinned: true,
-				dismissible: false,
-				action: {
-					type: "open-review-report",
-					payload: { draftId: autoDraftId },
-				},
-			});
-		}
 
-		if (draftMatch) {
-			setReviewReportDrafts((prev) => {
-				let changed = false;
-				const next = prev.map((draft) => {
-					if (draft.id !== draftMatch.id) return draft;
-					// 草稿里可能已有手写/时轴条目；报告服务会保留它们并替换旧的自动编辑差异。
-					const report = buildReviewReportFromDiffs(
-						[draft.report],
-						freezeData,
-						stagedData,
-					);
-					if (renderReviewReport(draft.report) === renderReviewReport(report)) {
-						return draft;
-					}
-					changed = true;
-					return { ...draft, report };
-				});
-				return changed ? next : prev;
-			});
-		}
+				const next = [...prev];
+				next[existingIndex] = {
+					...next[existingIndex],
+					...nextDraft,
+					createdAt: next[existingIndex].createdAt ?? createdAt,
+				};
+				return next;
+			}
+			return [nextDraft, ...prev];
+		});
+		if (!shouldNotifyDraft) return;
+		const prLabel = reviewSession.prNumber
+			? `PR#${reviewSession.prNumber}${
+					reviewSession.prTitle ? ` ${reviewSession.prTitle}` : ""
+				}`
+			: "当前文件";
+		setUpsertNotification({
+			id: `review-report-draft-${autoDraftId}`,
+			title: "审阅报告已自动生成",
+			description: `点击打开 ${prLabel} 的审阅报告`,
+			level: "info",
+			source: "Review",
+			pinned: true,
+			dismissible: false,
+			action: {
+				type: "open-review-report",
+				payload: { draftId: autoDraftId },
+			},
+		});
 	}, [
 		lyricLines,
 		reviewFreeze,
+		reviewOperationLog,
+		reviewReportDialog,
 		reviewReportDrafts,
 		reviewSession,
-		reviewStaged,
 		setReviewReportDialog,
 		setReviewReportDrafts,
 		setUpsertNotification,
@@ -551,24 +558,30 @@ export const useReviewTimingFlow = () => {
 				baseReports.push(draftMatch.report);
 			}
 			const freezeData = reviewFreeze?.data ?? lyricLines;
-			const stagedData = reviewStaged ?? lyricLines;
+			const stagedData = lyricLines;
 			if (activeSession.source === "update") {
 				requestUpdatePush(activeSession, stagedData);
 				return;
 			}
 			if (toolMode === ToolMode.Sync) {
-				const candidates = buildSyncChanges(freezeData, stagedData);
+				const replayBase = getReviewReplayBase(freezeData, reviewOperationLog);
+				const candidates = buildSyncChanges(replayBase, stagedData);
 				const syncReport =
 					TimingStashItems.length > 0
 						? buildSyncReportFromStash(candidates, TimingStashItems)
 						: buildSyncReport(candidates);
-				const mergedReport = buildReviewReportFromDiffs(
+				const mergedReport = buildReviewReportFromOperationReplay(
 					baseReports,
 					freezeData,
 					stagedData,
+					reviewOperationLog,
 					syncReport,
 				);
-				setReviewReportDialog({
+				setTimingStashItems([]);
+				setTimingStashOpen(false);
+				setTimingCandidates([]);
+				setTimingStashSelected(new Map());
+				openReviewReportDialogAfterFocusRelease(setReviewReportDialog, {
 					open: true,
 					prNumber: activeSession.prNumber,
 					prTitle: activeSession.prTitle,
@@ -586,15 +599,12 @@ export const useReviewTimingFlow = () => {
 							? String(activeSession.prNumber)
 							: undefined,
 				});
-				setTimingStashItems([]);
-				setTimingStashOpen(false);
-				setTimingCandidates([]);
-				setTimingStashSelected(new Map());
 			} else {
-				const mergedReport = buildReviewReportFromDiffs(
+				const mergedReport = buildReviewReportFromOperationReplay(
 					baseReports,
 					freezeData,
 					stagedData,
+					reviewOperationLog,
 				);
 				setReviewReportDialog({
 					open: true,
@@ -623,10 +633,10 @@ export const useReviewTimingFlow = () => {
 		lyricLines,
 		requestUpdatePush,
 		reviewFreeze,
+		reviewOperationLog,
 		reviewReportDialog,
 		reviewReportDrafts,
 		reviewSession,
-		reviewStaged,
 		setReviewReportDialog,
 		setReviewSession,
 		setToolMode,
@@ -723,7 +733,7 @@ export const useReviewTimingFlow = () => {
 		});
 		if (selected.length === 0) return;
 		const freezeData = reviewFreeze?.data ?? lyricLines;
-		const stagedData = reviewStaged ?? lyricLines;
+		const stagedData = lyricLines;
 		// 暂存对话框只决定哪些时轴项进入报告；编辑差异仍由统一报告构建器自动补齐。
 		const syncReport = buildSyncReportFromStash(TimingCandidates, selected);
 		const prNumber = reviewSession?.prNumber ?? null;
@@ -738,10 +748,11 @@ export const useReviewTimingFlow = () => {
 		} else if (draftMatch?.report) {
 			baseReports.push(draftMatch.report);
 		}
-		const mergedReport = buildReviewReportFromDiffs(
+		const mergedReport = buildReviewReportFromOperationReplay(
 			baseReports,
 			freezeData,
 			stagedData,
+			reviewOperationLog,
 			syncReport,
 		);
 		if (stashKey) {
@@ -760,7 +771,10 @@ export const useReviewTimingFlow = () => {
 				}),
 			);
 		}
-		setReviewReportDialog({
+		setTimingStashItems([]);
+		setTimingStashSelected(new Map());
+		setTimingStashOpen(false);
+		openReviewReportDialogAfterFocusRelease(setReviewReportDialog, {
 			open: true,
 			prNumber,
 			prTitle,
@@ -780,16 +794,13 @@ export const useReviewTimingFlow = () => {
 			submissionId:
 				reviewSession?.source === "lyrics-site" ? String(prNumber) : undefined,
 		});
-		setTimingStashItems([]);
-		setTimingStashSelected(new Map());
-		setTimingStashOpen(false);
 	}, [
 		reviewReportDialog,
 		reviewReportDrafts,
 		reviewFreeze,
+		reviewOperationLog,
 		reviewSession,
 		reviewStashSubmitted,
-		reviewStaged,
 		lyricLines,
 		setReviewReportDialog,
 		setReviewStashLastSelection,

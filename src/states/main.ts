@@ -14,6 +14,10 @@ import { atomWithStorage } from "jotai/utils";
 import { REDO, UNDO, withHistory } from "jotai-history";
 import { uid } from "uid";
 import { identifyProject } from "$/modules/project/logic/project-info";
+import {
+	applyReviewOperation,
+	type ReviewOperationRecord,
+} from "$/modules/review/services/operation-log-service";
 import type { ReviewReport } from "$/modules/review/services/report-service";
 import type { TTMLLyric } from "../types/ttml";
 
@@ -93,11 +97,50 @@ export const lastSavedTimeAtom = atom<number | null>(null);
 
 export const undoableLyricLinesAtom = withHistory(lyricLinesAtom, 256);
 export const isDirtyAtom = atom((get) => get(undoableLyricLinesAtom).canUndo);
-export const undoLyricLinesAtom = atom(null, (_get, set) => {
+export const reviewOperationLogAtom = atom<ReviewOperationRecord[]>([]);
+export const reviewOperationRedoStackAtom = atom<ReviewOperationRecord[]>([]);
+
+const cloneLyric = (data: TTMLLyric): TTMLLyric =>
+	JSON.parse(JSON.stringify(data)) as TTMLLyric;
+
+const areLyricsEqual = (left: TTMLLyric, right: TTMLLyric) =>
+	JSON.stringify(left) === JSON.stringify(right);
+
+const doesOperationTransformLyric = (
+	before: TTMLLyric,
+	after: TTMLLyric,
+	operation: ReviewOperationRecord,
+) => {
+	const replayed = cloneLyric(before);
+	applyReviewOperation(replayed, operation);
+	return areLyricsEqual(replayed, after);
+};
+
+export const undoLyricLinesAtom = atom(null, (get, set) => {
+	const beforeUndo = get(lyricLinesAtom);
+	const operations = get(reviewOperationLogAtom);
+	const lastOperation = operations[operations.length - 1];
 	set(undoableLyricLinesAtom, UNDO);
+	if (!lastOperation) return;
+
+	const afterUndo = get(lyricLinesAtom);
+	if (!doesOperationTransformLyric(afterUndo, beforeUndo, lastOperation)) return;
+
+	set(reviewOperationLogAtom, operations.slice(0, -1));
+	set(reviewOperationRedoStackAtom, (prev) => [...prev, lastOperation]);
 });
-export const redoLyricLinesAtom = atom(null, (_get, set) => {
+export const redoLyricLinesAtom = atom(null, (get, set) => {
+	const beforeRedo = get(lyricLinesAtom);
+	const redoStack = get(reviewOperationRedoStackAtom);
+	const nextOperation = redoStack[redoStack.length - 1];
 	set(undoableLyricLinesAtom, REDO);
+	if (!nextOperation) return;
+
+	const afterRedo = get(lyricLinesAtom);
+	if (!doesOperationTransformLyric(beforeRedo, afterRedo, nextOperation)) return;
+
+	set(reviewOperationLogAtom, (prev) => [...prev, nextOperation]);
+	set(reviewOperationRedoStackAtom, redoStack.slice(0, -1));
 });
 export const editingWordStateAtom = atom({
 	wordIndex: -1,
@@ -171,6 +214,13 @@ export type ReviewSnapshot = {
 };
 export const reviewFreezeAtom = atom<ReviewSnapshot | null>(null);
 export const reviewStagedAtom = atom<TTMLLyric | null>(null);
+export const pushReviewOperationAtom = atom(
+	null,
+	(_get, set, operation: ReviewOperationRecord) => {
+		set(reviewOperationLogAtom, (prev) => [...prev, operation]);
+		set(reviewOperationRedoStackAtom, []);
+	},
+);
 export type ReviewReportDraft = {
 	id: string;
 	prNumber: number | null;

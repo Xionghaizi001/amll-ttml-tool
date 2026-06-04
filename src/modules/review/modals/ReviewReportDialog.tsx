@@ -64,6 +64,15 @@ const blockLineText = (block: ReviewReportBlock) => {
 		case "wordAndRoman":
 		case "timing":
 			return `第 ${block.lineNumber} 行${block.isBG ? "（背景）" : ""}`;
+		case "timeShift":
+			return block.targetCount === block.totalLineCount
+				? "全部歌词行"
+				: block.lineRefs
+						.map(
+							(item) =>
+								`第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`,
+						)
+						.join("、");
 	}
 };
 
@@ -93,6 +102,7 @@ const renderBlockDetails = (
 };
 
 type ReportBlockCategory =
+	| "timeShift"
 	| "timing"
 	| "text"
 	| "translation"
@@ -108,6 +118,7 @@ const reportBlockCategories: Array<{
 	{ value: "translation", label: "翻译" },
 	{ value: "roman", label: "音译" },
 	{ value: "wordRoman", label: "逐字音译" },
+	{ value: "timeShift", label: "平移" },
 	{ value: "timing", label: "时轴" },
 	{ value: "manual", label: "手写" },
 ];
@@ -116,6 +127,8 @@ const getReportBlockCategory = (
 	block: ReviewReportBlock,
 ): ReportBlockCategory => {
 	switch (block.kind) {
+		case "timeShift":
+			return "timeShift";
 		case "timing":
 			return "timing";
 		case "wordTextShared":
@@ -148,13 +161,16 @@ type ReportBlockGroup = {
 
 const getReportBlockPriority = (block: ReviewReportBlock) => {
 	if (block.kind === "manual") return 2;
-	if (block.kind === "timing") return 1;
+	if (block.kind === "timeShift" || block.kind === "timing") return 1;
 	return 0;
 };
 
 const getReportBlockSortValue = (block: ReviewReportBlock) => {
 	if (block.kind === "manual") return Number.MAX_SAFE_INTEGER;
 	if (block.kind === "wordTextShared") {
+		return Math.min(...block.lineRefs.map((item) => item.lineNumber));
+	}
+	if (block.kind === "timeShift") {
 		return Math.min(...block.lineRefs.map((item) => item.lineNumber));
 	}
 	return block.lineNumber;
@@ -165,12 +181,16 @@ const getReportBlockGroupKey = (block: ReviewReportBlock) => {
 	if (block.kind === "wordTextShared") {
 		return `shared:${block.id}`;
 	}
+	if (block.kind === "timeShift") {
+		return `time-shift:${block.id}`;
+	}
 	return `${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
 };
 
 const getReportBlockGroupLabel = (block: ReviewReportBlock) => {
 	if (block.kind === "manual") return "手写条目";
 	if (block.kind === "wordTextShared") return blockLineText(block);
+	if (block.kind === "timeShift") return "平移时间";
 	return blockLineText(block);
 };
 
@@ -296,6 +316,23 @@ const renderReportBlockVisual = (block: ReviewReportBlock): ReactNode => {
 						删除歌词
 					</Text>
 					{renderReportValue(block.text, "old")}
+				</>
+			);
+		case "timeShift":
+			return (
+				<>
+					{renderReportValue(
+						block.targetCount === block.totalLineCount
+							? "全部"
+							: `${block.targetCount} 行`,
+						"neutral",
+					)}
+					{renderReportValue(
+						`${block.offsetMs < 0 ? "提前" : "延后"} ${Math.abs(
+							block.offsetMs,
+						)}ms`,
+						"new",
+					)}
 				</>
 			);
 		case "timing": {
@@ -564,7 +601,9 @@ export const ReviewReportDialog = () => {
 				source: "Review",
 			});
 		}
-		setDialog((prev: ReviewReportDialogState) => ({ ...prev, open: false }));
+		setDialog((prev: ReviewReportDialogState) =>
+			prev.open ? { ...prev, open: false } : prev,
+		);
 	};
 	const discardDraft = () => {
 		cleanupDrafts(collectDraftIds());
@@ -706,7 +745,7 @@ export const ReviewReportDialog = () => {
 	return (
 		<Dialog.Root
 			open={dialog.open}
-			onOpenChange={(open) => !open && closeDialog()}
+			onOpenChange={(open) => !open && dialog.open && closeDialog()}
 		>
 			<Dialog.Content className={styles.reportDialogContent}>
 				<Flex direction="column" gap="3" className={styles.reportDialogBody}>

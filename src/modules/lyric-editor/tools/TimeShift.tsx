@@ -11,12 +11,18 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { timeShiftDialogAtom } from "$/states/dialogs.ts";
-import { lyricLinesAtom, selectedLinesAtom } from "$/states/main.ts";
+import {
+	lyricLinesAtom,
+	pushReviewOperationAtom,
+	selectedLinesAtom,
+	undoableLyricLinesAtom,
+} from "$/states/main.ts";
+import { createReviewTimeShiftOperation } from "$/modules/review/services/operation-log-service";
+import type { TTMLLyric } from "$/types/ttml";
 
 type ShiftDirection = "delay" | "advance";
 type ShiftScope = "all" | "selected" | "selected-following" | "custom";
@@ -25,8 +31,10 @@ export const TimeShiftDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(timeShiftDialogAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
+	useAtomValue(undoableLyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
-	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const setLyricLines = useSetAtom(undoableLyricLinesAtom);
+	const pushReviewOperation = useSetAtom(pushReviewOperationAtom);
 
 	const [offsetStr, setOffsetStr] = useState("100");
 	const [direction, setDirection] = useState<ShiftDirection>("delay");
@@ -64,13 +72,18 @@ export const TimeShiftDialog = () => {
 		const finalOffset = direction === "delay" ? amount : -amount;
 
 		const targetLineIndices = new Set<number>();
+		const targetLineIds: string[] = [];
 
 		if (scope === "all") {
-			for (let i = 0; i < totalLines; i++) targetLineIndices.add(i);
+			for (let i = 0; i < totalLines; i++) {
+				targetLineIndices.add(i);
+				targetLineIds.push(lyricLines.lyricLines[i].id);
+			}
 		} else if (scope === "selected") {
 			lyricLines.lyricLines.forEach((line, index) => {
 				if (selectedLines.has(line.id)) {
 					targetLineIndices.add(index);
+					targetLineIds.push(line.id);
 				}
 			});
 		} else if (scope === "selected-following") {
@@ -85,6 +98,7 @@ export const TimeShiftDialog = () => {
 			if (firstSelectedIndex !== -1) {
 				for (let i = firstSelectedIndex; i < totalLines; i++) {
 					targetLineIndices.add(i);
+					targetLineIds.push(lyricLines.lyricLines[i].id);
 				}
 			}
 		} else if (scope === "custom") {
@@ -97,11 +111,22 @@ export const TimeShiftDialog = () => {
 					i++
 				) {
 					targetLineIndices.add(i);
+					targetLineIds.push(lyricLines.lyricLines[i].id);
 				}
 			}
 		}
 
-		setLyricLines((draft) => {
+		if (targetLineIds.length > 0) {
+			pushReviewOperation(
+				createReviewTimeShiftOperation({
+					offsetMs: finalOffset,
+					targetLineIds,
+				}),
+			);
+		}
+
+		setLyricLines((current: TTMLLyric) => {
+			const draft = JSON.parse(JSON.stringify(current)) as TTMLLyric;
 			draft.lyricLines.forEach((line, index) => {
 				if (targetLineIndices.has(index)) {
 					line.startTime = Math.max(0, line.startTime + finalOffset);
@@ -122,6 +147,7 @@ export const TimeShiftDialog = () => {
 					});
 				}
 			});
+			return draft;
 		});
 
 		setOpen(false);
