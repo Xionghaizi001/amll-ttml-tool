@@ -259,17 +259,18 @@ function EditField<
 		(rawValue: string) => {
 			try {
 				const selectedItems = store.get(itemAtom);
-				if (fieldName === "endTime" && showDurationInput) {
-					const trimmedValue = rawValue.trim();
-					const isDelta =
-						trimmedValue.startsWith("+") || trimmedValue.startsWith("-");
+				const trimmedValue = rawValue.trim();
+				const isEndTimeDelta =
+					fieldName === "endTime" &&
+					(trimmedValue.startsWith("+") || trimmedValue.startsWith("-"));
+				if (fieldName === "endTime" && (showDurationInput || isEndTimeDelta)) {
+					const isDelta = showDurationInput && isEndTimeDelta;
 					const parsedValue = Number(trimmedValue);
 					if (!Number.isFinite(parsedValue)) {
 						flashInvalidDurationInput();
 						return;
 					}
-					const durationValue = Number(trimmedValue);
-					if (!Number.isFinite(durationValue) || durationValue <= 0) {
+					if (showDurationInput && !isDelta && parsedValue <= 0) {
 						flashInvalidDurationInput();
 						return;
 					}
@@ -286,13 +287,13 @@ function EditField<
 									const nextWord = line.words[wordIndex + 1];
 									const nextStartTime = nextWord?.startTime;
 									const originalEndTime = word.endTime;
-									const newEndTimeRaw = isDelta
+									const newEndTimeRaw = isEndTimeDelta
 										? word.endTime + parsedValue
 										: word.startTime + parsedValue;
 									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
 									word.endTime = newEndTime;
 									if (
-										isDelta &&
+										isEndTimeDelta &&
 										nextWord &&
 										originalEndTime === nextStartTime
 									) {
@@ -304,7 +305,7 @@ function EditField<
 									}
 								}
 							} else if (selectedItems.has(line.id)) {
-								const newEndTimeRaw = isDelta
+								const newEndTimeRaw = isEndTimeDelta
 									? line.endTime + parsedValue
 									: line.startTime + parsedValue;
 								line.endTime = Math.max(line.startTime, newEndTimeRaw);
@@ -331,7 +332,7 @@ function EditField<
 					}
 					return state;
 				});
-			} catch (err) {
+			} catch {
 				if (compareValue) setFieldInput(compareValue);
 			}
 		},
