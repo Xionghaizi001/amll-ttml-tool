@@ -323,6 +323,10 @@
 	font-family: var(--code-font-family);
 }
 
+.formatterToolbar {
+	margin-top: calc(var(--space-2) * -1);
+}
+
 .formatterVariableGrid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));

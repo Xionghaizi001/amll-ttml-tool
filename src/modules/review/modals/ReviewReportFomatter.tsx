@@ -2,6 +2,12 @@ import {
 	ArrowReset20Regular,
 	DocumentArrowDown20Regular,
 	DocumentArrowUp20Regular,
+	TextBold20Regular,
+	TextHeader120Regular,
+	TextHeader220Regular,
+	TextHeader320Regular,
+	TextItalic20Regular,
+	TextLineSpacing20Regular,
 } from "@fluentui/react-icons";
 import { Box, Button, Flex, Switch, Text, TextArea } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
@@ -88,23 +94,74 @@ export const ReviewReportFomatter = ({
 		);
 	};
 
-	const insertVariable = (name: string) => {
+	const getTemplateSelection = () => {
 		const input = templateInputRef.current;
-		const token = `{{${name}}}`;
 		const template = selectedFormat.template;
 		const start = input?.selectionStart ?? template.length;
 		const end = input?.selectionEnd ?? start;
-		const nextTemplate = `${template.slice(0, start)}${token}${template.slice(
-			end,
-		)}`;
-		updateSelectedFormat({ template: nextTemplate });
+		return { template, start, end };
+	};
+
+	const replaceTemplateRange = (
+		nextTemplate: string,
+		selectionStart: number,
+		selectionEnd = selectionStart,
+		patch: Partial<(typeof format.blocks)[ReviewReportBlockKind]> = {},
+	) => {
+		updateSelectedFormat({ ...patch, template: nextTemplate });
 		window.requestAnimationFrame(() => {
 			templateInputRef.current?.focus();
-			templateInputRef.current?.setSelectionRange(
-				start + token.length,
-				start + token.length,
-			);
+			templateInputRef.current?.setSelectionRange(selectionStart, selectionEnd);
 		});
+	};
+
+	const insertTemplateText = (text: string) => {
+		const { template, start, end } = getTemplateSelection();
+		const nextTemplate = `${template.slice(0, start)}${text}${template.slice(
+			end,
+		)}`;
+		replaceTemplateRange(nextTemplate, start + text.length);
+	};
+
+	const wrapTemplateSelection = (prefix: string, suffix: string) => {
+		const { template, start, end } = getTemplateSelection();
+		const selectedText = template.slice(start, end);
+		const nextTemplate = `${template.slice(0, start)}${prefix}${selectedText}${suffix}${template.slice(end)}`;
+		const nextStart = start + prefix.length;
+		replaceTemplateRange(
+			nextTemplate,
+			nextStart,
+			nextStart + selectedText.length,
+		);
+	};
+
+	const applyHeadingLevel = (level: 1 | 2 | 3) => {
+		const { template, start, end } = getTemplateSelection();
+		const prefix = `${"#".repeat(level)} `;
+		const lineStart = template.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+		const currentLineEnd = template.indexOf("\n", start);
+		const rangeEnd =
+			end > start
+				? end
+				: currentLineEnd === -1
+					? template.length
+					: currentLineEnd;
+		const selectedLines = template.slice(lineStart, rangeEnd);
+		const nextLines = selectedLines
+			.split("\n")
+			.map((line) => `${prefix}${line.replace(/^#{1,6}\s*/, "")}`)
+			.join("\n");
+		const nextTemplate = `${template.slice(0, lineStart)}${nextLines}${template.slice(rangeEnd)}`;
+		replaceTemplateRange(
+			nextTemplate,
+			lineStart + prefix.length,
+			lineStart + nextLines.length,
+			{ listItem: false },
+		);
+	};
+
+	const insertVariable = (name: string) => {
+		insertTemplateText(`{{${name}}}`);
 	};
 
 	const exportFormat = async (type: "json" | "jsonl") => {
@@ -269,6 +326,67 @@ export const ReviewReportFomatter = ({
 						placeholder="报告条目模板"
 						className={styles.formatterTemplateInput}
 					/>
+					<Flex
+						align="center"
+						gap="1"
+						wrap="wrap"
+						className={styles.formatterToolbar}
+					>
+						<Button
+							size="1"
+							variant="soft"
+							title="加粗"
+							aria-label="加粗"
+							onClick={() => wrapTemplateSelection("**", "**")}
+						>
+							<TextBold20Regular />
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							title="倾斜"
+							aria-label="倾斜"
+							onClick={() => wrapTemplateSelection("_", "_")}
+						>
+							<TextItalic20Regular />
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							title="一级大纲"
+							aria-label="一级大纲"
+							onClick={() => applyHeadingLevel(1)}
+						>
+							<TextHeader120Regular />
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							title="二级大纲"
+							aria-label="二级大纲"
+							onClick={() => applyHeadingLevel(2)}
+						>
+							<TextHeader220Regular />
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							title="三级大纲"
+							aria-label="三级大纲"
+							onClick={() => applyHeadingLevel(3)}
+						>
+							<TextHeader320Regular />
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							title="插入换行符"
+							aria-label="插入换行符"
+							onClick={() => insertTemplateText("\n")}
+						>
+							<TextLineSpacing20Regular />
+						</Button>
+					</Flex>
 					<Flex align="center" gap="2">
 						<Switch
 							checked={selectedFormat.listItem}

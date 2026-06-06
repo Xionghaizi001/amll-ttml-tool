@@ -342,10 +342,18 @@ export const renderReviewReportTemplate = (
 	template: string,
 	variables: Record<string, string>,
 ) =>
-	template.replace(
-		/\{\{\s*([\w.]+)\s*\}\}/g,
-		(_match, name: string) => variables[name] ?? "",
-	);
+	template
+		.replace(/\\r\\n|\\n|\\r/g, "\n")
+		.replace(
+			/\{\{\s*([\w.]+)\s*\}\}/g,
+			(_match, name: string) => variables[name] ?? "",
+		);
+
+const renderMarkdownListItem = (text: string) => {
+	const lines = text.replace(/\r\n?/g, "\n").split("\n");
+	const [first = "", ...rest] = lines;
+	return [`- ${first}`, ...rest.map((line) => `  ${line}`)].join("\n");
+};
 
 export const renderReviewReportBlock = (
 	block: ReviewReportBlock,
@@ -411,26 +419,52 @@ const getLineMergeKey = (part: RenderedReviewReportPart) => {
 	].join(":");
 };
 
+const escapeRegExp = (value: string) =>
+	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const createStyledLineLabelPattern = (lineLabel: string) => {
+	const escapedLineLabel = escapeRegExp(lineLabel);
+	return [
+		`\\*\\*\\*${escapedLineLabel}\\*\\*\\*`,
+		`___${escapedLineLabel}___`,
+		`\\*\\*${escapedLineLabel}\\*\\*`,
+		`__${escapedLineLabel}__`,
+		`\\*${escapedLineLabel}\\*`,
+		`_${escapedLineLabel}_`,
+		`~~${escapedLineLabel}~~`,
+		`<strong>${escapedLineLabel}</strong>`,
+		`<b>${escapedLineLabel}</b>`,
+		`<em>${escapedLineLabel}</em>`,
+		`<i>${escapedLineLabel}</i>`,
+		`<u>${escapedLineLabel}</u>`,
+		escapedLineLabel,
+	].join("|");
+};
+
 const stripLinePrefix = (text: string, lineLabel: string) => {
 	const trimmed = text.trim();
-	const prefixes = [
-		`${lineLabel}：`,
-		`${lineLabel}:`,
-		`${lineLabel} - `,
-		`${lineLabel} `,
-	];
-	for (const prefix of prefixes) {
-		if (trimmed.startsWith(prefix)) {
-			return trimmed.slice(prefix.length).trim();
-		}
+	const lineLabelPattern = createStyledLineLabelPattern(lineLabel);
+	const prefixPattern = new RegExp(
+		`^((?:#{1,6}\\s*)?(?:${lineLabelPattern})(?:\\s*(?:[:：]|-\\s+)|\\s+))`,
+		"i",
+	);
+	const matchedPrefix = trimmed.match(prefixPattern)?.[1];
+	if (matchedPrefix) {
+		return {
+			body: trimmed.slice(matchedPrefix.length).trim(),
+			prefix: matchedPrefix,
+		};
 	}
 	if (trimmed.startsWith(lineLabel)) {
-		return trimmed
-			.slice(lineLabel.length)
-			.replace(/^[\s:：-]+/, "")
-			.trim();
+		return {
+			body: trimmed
+				.slice(lineLabel.length)
+				.replace(/^[\s:：-]+/, "")
+				.trim(),
+			prefix: `${lineLabel}：`,
+		};
 	}
-	return trimmed;
+	return { body: trimmed, prefix: null };
 };
 
 const renderMergedLinePart = (parts: RenderedReviewReportPart[]) => {
@@ -440,15 +474,18 @@ const renderMergedLinePart = (parts: RenderedReviewReportPart[]) => {
 	const lineLabel = first.variables.lineLabel;
 	if (!lineLabel) return first.text;
 	const seen = new Set<string>();
-	const bodies = parts
-		.map((part) => stripLinePrefix(part.text, lineLabel))
+	const strippedParts = parts.map((part) =>
+		stripLinePrefix(part.text, lineLabel),
+	);
+	const bodies = strippedParts
+		.map((part) => part.body)
 		.filter((body) => {
 			if (!body || seen.has(body)) return false;
 			seen.add(body);
 			return true;
 		});
 	if (bodies.length === 0) return first.text;
-	return `${lineLabel}：${bodies.join("；")}`;
+	return `${strippedParts[0]?.prefix ?? `${lineLabel}：`}${bodies.join("；")}`;
 };
 
 const mergeRenderedLineParts = (
@@ -507,7 +544,7 @@ export const renderFormattedReviewReport = (
 		})
 		.filter((part): part is RenderedReviewReportPart => Boolean(part));
 	const mergedParts = mergeRenderedLineParts(parts).map((part) =>
-		part.listItem ? `- ${part.text}` : part.text,
+		part.listItem ? renderMarkdownListItem(part.text) : part.text,
 	);
 	if (mergedParts.length === 0)
 		return format.emptyText || DEFAULT_REVIEW_REPORT_EMPTY_TEXT;
