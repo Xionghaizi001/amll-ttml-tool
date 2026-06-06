@@ -260,17 +260,21 @@ function EditField<
 			try {
 				const selectedItems = store.get(itemAtom);
 				const trimmedValue = rawValue.trim();
-				const isEndTimeDelta =
-					fieldName === "endTime" &&
+				const isTimeDelta =
+					(fieldName === "startTime" || fieldName === "endTime") &&
 					(trimmedValue.startsWith("+") || trimmedValue.startsWith("-"));
-				if (fieldName === "endTime" && (showDurationInput || isEndTimeDelta)) {
-					const isDelta = showDurationInput && isEndTimeDelta;
+				if (
+					(fieldName === "endTime" && showDurationInput) ||
+					isTimeDelta
+				) {
+					const isDurationInput =
+						fieldName === "endTime" && showDurationInput && !isTimeDelta;
 					const parsedValue = Number(trimmedValue);
 					if (!Number.isFinite(parsedValue)) {
 						flashInvalidDurationInput();
 						return;
 					}
-					if (showDurationInput && !isDelta && parsedValue <= 0) {
+					if (isDurationInput && parsedValue <= 0) {
 						flashInvalidDurationInput();
 						return;
 					}
@@ -284,16 +288,38 @@ function EditField<
 								) {
 									const word = line.words[wordIndex];
 									if (!selectedItems.has(word.id)) continue;
+									if (isTimeDelta && fieldName === "startTime") {
+										const previousWord = line.words[wordIndex - 1];
+										const previousEndTime = previousWord?.endTime;
+										const originalStartTime = word.startTime;
+										const newStartTimeRaw = word.startTime + parsedValue;
+										const newStartTime = Math.min(
+											word.endTime,
+											Math.max(0, newStartTimeRaw),
+										);
+										word.startTime = newStartTime;
+										if (
+											previousWord &&
+											originalStartTime === previousEndTime
+										) {
+											previousWord.endTime = newStartTime;
+											previousWord.startTime = Math.min(
+												previousWord.startTime,
+												previousWord.endTime,
+											);
+										}
+										continue;
+									}
 									const nextWord = line.words[wordIndex + 1];
 									const nextStartTime = nextWord?.startTime;
 									const originalEndTime = word.endTime;
-									const newEndTimeRaw = isEndTimeDelta
+									const newEndTimeRaw = isTimeDelta
 										? word.endTime + parsedValue
 										: word.startTime + parsedValue;
 									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
 									word.endTime = newEndTime;
 									if (
-										isEndTimeDelta &&
+										isTimeDelta &&
 										nextWord &&
 										originalEndTime === nextStartTime
 									) {
@@ -305,10 +331,18 @@ function EditField<
 									}
 								}
 							} else if (selectedItems.has(line.id)) {
-								const newEndTimeRaw = isEndTimeDelta
-									? line.endTime + parsedValue
-									: line.startTime + parsedValue;
-								line.endTime = Math.max(line.startTime, newEndTimeRaw);
+								if (isTimeDelta && fieldName === "startTime") {
+									const newStartTimeRaw = line.startTime + parsedValue;
+									line.startTime = Math.min(
+										line.endTime,
+										Math.max(0, newStartTimeRaw),
+									);
+								} else {
+									const newEndTimeRaw = isTimeDelta
+										? line.endTime + parsedValue
+										: line.startTime + parsedValue;
+									line.endTime = Math.max(line.startTime, newEndTimeRaw);
+								}
 							}
 						}
 						return state;
