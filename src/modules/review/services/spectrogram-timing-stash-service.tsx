@@ -12,6 +12,10 @@ import {
 	type LyricTimelineOverlayLineRenderer,
 } from "$/modules/spectrogram/components/LyricTimelineOverlay.tsx";
 import {
+	selectedWordIdAtom,
+	timelineDragAtom,
+} from "$/modules/spectrogram/states/dnd.ts";
+import {
 	lyricLinesAtom,
 	type ReviewSession,
 	reviewFreezeAtom,
@@ -73,6 +77,11 @@ const normalizeTimingStashSelectionKey = (
 	keyOrWordId.includes(":")
 		? keyOrWordId
 		: buildTimingStashItemKey(keyOrWordId, field);
+
+const getTimingStashSelectionWordId = (
+	keyOrWordId: string,
+	field: TimingStashItem["field"],
+) => normalizeTimingStashSelectionKey(keyOrWordId, field).split(":")[0];
 
 export const buildTimingStashGroups = (
 	timingCandidateMap: Map<string, SyncChangeCandidate>,
@@ -226,15 +235,31 @@ const REVIEW_TIMING_DIVIDER_SELECTED_STYLE = {
 	"--timeline-auxiliary-divider-color": "var(--green-9)",
 } as CSSProperties;
 
-const REVIEW_TIMING_DIVIDER_PENDING_STYLE = {
-	"--timeline-auxiliary-divider-color": "var(--amber-9)",
+const REVIEW_TIMING_START_DIVIDER_PENDING_STYLE = {
+	"--timeline-auxiliary-divider-color": "var(--blue-9)",
 	opacity: 0.72,
 } as CSSProperties;
+
+const REVIEW_TIMING_END_DIVIDER_PENDING_STYLE = {
+	"--timeline-auxiliary-divider-color": "var(--green-9)",
+	opacity: 0.72,
+} as CSSProperties;
+
+const getReviewTimingDividerStyle = (
+	field: TimingStashItem["field"],
+	selected: boolean,
+) => {
+	if (selected) return REVIEW_TIMING_DIVIDER_SELECTED_STYLE;
+	return field === "startTime"
+		? REVIEW_TIMING_START_DIVIDER_PENDING_STYLE
+		: REVIEW_TIMING_END_DIVIDER_PENDING_STYLE;
+};
 
 export const useReviewSpectrogramTimingOverlay = () => {
 	const reviewSession = useAtomValue(reviewSessionAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
+	const selectedWordId = useAtomValue(selectedWordIdAtom);
 	const reviewOperationLog = useAtomValue(reviewOperationLogAtom);
 	const reviewStashSubmitted = useAtomValue(reviewStashSubmittedAtom);
 	const [reviewStashLastSelection, setReviewStashLastSelection] = useAtom(
@@ -242,6 +267,7 @@ export const useReviewSpectrogramTimingOverlay = () => {
 	);
 	const reviewStashRemovedOrder = useAtomValue(reviewStashRemovedOrderAtom);
 	const setSelectedWords = useSetAtom(selectedWordsAtom);
+	const setTimelineDrag = useSetAtom(timelineDragAtom);
 
 	const activeReviewSession =
 		reviewSession && reviewSession.source !== "update" ? reviewSession : null;
@@ -278,6 +304,37 @@ export const useReviewSpectrogramTimingOverlay = () => {
 		stashKey,
 	]);
 
+	const selectedWordOrder = useMemo(() => {
+		if (!selectedWordId) return undefined;
+		const orderMap = createTimingOrderMap(
+			(reviewFreeze?.data ?? lyricLines).lyricLines,
+		);
+		return orderMap.get(selectedWordId);
+	}, [lyricLines, reviewFreeze, selectedWordId]);
+
+	const submittedKeys = useMemo(
+		() => new Set(stashKey ? (reviewStashSubmitted[stashKey] ?? []) : []),
+		[reviewStashSubmitted, stashKey],
+	);
+
+	const removedLegacyOrders = useMemo(() => {
+		const removedItems = stashKey
+			? (reviewStashRemovedOrder[stashKey] ?? [])
+			: [];
+		return new Set(
+			removedItems.filter((item): item is number => typeof item === "number"),
+		);
+	}, [reviewStashRemovedOrder, stashKey]);
+
+	const removedItemKeys = useMemo(() => {
+		const removedItems = stashKey
+			? (reviewStashRemovedOrder[stashKey] ?? [])
+			: [];
+		return new Set(
+			removedItems.filter((item): item is string => typeof item === "string"),
+		);
+	}, [reviewStashRemovedOrder, stashKey]);
+
 	const selectedKeys = useMemo(() => {
 		if (!stashKey) return new Set<string>();
 		return new Set(
@@ -293,7 +350,8 @@ export const useReviewSpectrogramTimingOverlay = () => {
 		const currentSelection = reviewStashLastSelection[stashKey] ?? [];
 		const nextSelection = currentSelection.filter(([keyOrWordId, field]) => {
 			const key = normalizeTimingStashSelectionKey(keyOrWordId, field);
-			return availableKeys.has(key);
+			const wordId = getTimingStashSelectionWordId(keyOrWordId, field);
+			return availableKeys.has(key) || wordId === selectedWordId;
 		});
 		if (nextSelection.length === currentSelection.length) return;
 		setReviewStashLastSelection((prev) => ({
@@ -303,65 +361,132 @@ export const useReviewSpectrogramTimingOverlay = () => {
 	}, [
 		reviewStashLastSelection,
 		setReviewStashLastSelection,
+		selectedWordId,
 		stashKey,
 		timingItems,
 	]);
 
-	const toggleTimingItem = useCallback(
-		(item: ReviewTimingStashCandidate) => {
+	const selectTimingItem = useCallback(
+		(wordId: string, field: TimingStashItem["field"]) => {
 			if (!stashKey) return;
+			const itemKey = buildTimingStashItemKey(wordId, field);
 			setReviewStashLastSelection((prev) => {
 				const selection = prev[stashKey] ?? [];
 				const exists = selection.some(
 					([keyOrWordId, field]) =>
-						normalizeTimingStashSelectionKey(keyOrWordId, field) === item.key,
+						normalizeTimingStashSelectionKey(keyOrWordId, field) === itemKey,
 				);
 				const nextSelection = exists
-					? selection.filter(
-							([keyOrWordId, field]) =>
-								normalizeTimingStashSelectionKey(keyOrWordId, field) !==
-								item.key,
-						)
+					? selection
 					: [
 							...selection,
-							[item.key, item.field] satisfies TimingStashSelectionEntry,
+							[itemKey, field] satisfies TimingStashSelectionEntry,
 						];
 				return {
 					...prev,
 					[stashKey]: nextSelection,
 				};
 			});
-			setSelectedWords(new Set([item.wordId]));
+			setSelectedWords(new Set([wordId]));
 		},
 		[setReviewStashLastSelection, setSelectedWords, stashKey],
 	);
 
+	const isTimingHandleAvailable = useCallback(
+		(wordId: string, field: TimingStashItem["field"]) => {
+			const itemKey = buildTimingStashItemKey(wordId, field);
+			if (submittedKeys.has(wordId) || submittedKeys.has(itemKey)) return false;
+			if (removedItemKeys.has(itemKey)) return false;
+			if (
+				selectedWordOrder !== undefined &&
+				removedLegacyOrders.has(selectedWordOrder)
+			) {
+				return false;
+			}
+			return true;
+		},
+		[removedItemKeys, removedLegacyOrders, selectedWordOrder, submittedKeys],
+	);
+
 	return useMemo<LyricTimelineOverlayLineRenderer | undefined>(() => {
-		if (!activeReviewSession || timingItems.length === 0) return undefined;
-		const dividers: LyricTimelineAuxiliaryDivider[] = timingItems.map(
-			(item) => {
-				const selected = selectedKeys.has(item.key);
-				return {
-					id: `review-timing-${item.key}`,
-					lineId: item.lineId,
-					timeMs: item.oldTimeMs,
-					allowOutOfLineRange: true,
-					ariaLabel: `${selected ? "取消选择" : "选择"}${item.word} ${item.field}`,
-					style: selected
-						? REVIEW_TIMING_DIVIDER_SELECTED_STYLE
-						: REVIEW_TIMING_DIVIDER_PENDING_STYLE,
-					onClick: (event) => {
-						event.preventDefault();
-						event.stopPropagation();
-						toggleTimingItem(item);
-					},
-					onMouseDown: (event) => {
-						event.preventDefault();
-						event.stopPropagation();
-					},
-				};
-			},
-		);
-		return createLyricTimelineAuxiliaryDividerRenderer(dividers);
-	}, [activeReviewSession, selectedKeys, timingItems, toggleTimingItem]);
+		if (!activeReviewSession || !reviewFreeze || !selectedWordId) {
+			return undefined;
+		}
+
+		return (context) => {
+			const { line, zoom } = context;
+			const segmentIndex = line.segments.findIndex(
+				(segment) => segment.type === "word" && segment.id === selectedWordId,
+			);
+			if (segmentIndex < 0) return null;
+
+			const selectedSegment = line.segments[segmentIndex];
+			if (selectedSegment.type !== "word") return null;
+
+			const fields: Array<{
+				field: TimingStashItem["field"];
+				timeMs: number;
+				dragSegmentIndex: number;
+				offsetPx: number;
+			}> = [
+				{
+					field: "startTime",
+					timeMs: selectedSegment.startTime,
+					dragSegmentIndex: segmentIndex - 1,
+					offsetPx: 8,
+				},
+				{
+					field: "endTime",
+					timeMs: selectedSegment.endTime,
+					dragSegmentIndex: segmentIndex,
+					offsetPx: -8,
+				},
+			];
+
+			const dividers: LyricTimelineAuxiliaryDivider[] = fields
+				.filter(({ field }) => isTimingHandleAvailable(selectedWordId, field))
+				.map(({ field, timeMs, dragSegmentIndex, offsetPx }) => {
+					const key = buildTimingStashItemKey(selectedWordId, field);
+					const selected = selectedKeys.has(key);
+					const isStart = field === "startTime";
+					return {
+						id: `review-timing-${key}`,
+						lineId: line.id,
+						timeMs,
+						offsetPx,
+						allowOutOfLineRange: true,
+						short: true,
+						ariaLabel: `${selected ? "已选择" : "选择"}${selectedSegment.word} ${isStart ? "起始" : "结束"}时间`,
+						style: getReviewTimingDividerStyle(field, selected),
+						onMouseDown: (event) => {
+							event.preventDefault();
+							event.stopPropagation();
+							selectTimingItem(selectedWordId, field);
+							setTimelineDrag({
+								type: "divider",
+								lineId: line.id,
+								segmentIndex: dragSegmentIndex,
+								zoom,
+								startX: event.clientX,
+								isGapCreation: event.altKey,
+							});
+						},
+						onClick: (event) => {
+							event.preventDefault();
+							event.stopPropagation();
+						},
+					};
+				});
+			if (dividers.length === 0) return null;
+			return createLyricTimelineAuxiliaryDividerRenderer(dividers)(context);
+		};
+	}, [
+		activeReviewSession,
+		isTimingHandleAvailable,
+		reviewFreeze,
+		selectTimingItem,
+		selectedKeys,
+		selectedWordId,
+		setTimelineDrag,
+	]);
 };

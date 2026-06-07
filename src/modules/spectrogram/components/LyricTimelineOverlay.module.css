@@ -21,12 +21,17 @@
 	top: 0;
 	bottom: 0;
 	left: 50%;
-	width: 2px;
+	width: 3px;
 	transform: translateX(-50%);
 	border-radius: var(--radius-1);
 	background: var(--timeline-auxiliary-divider-color, var(--amber-9));
 	box-shadow: 0 0 0 1px var(--gray-a4);
 	opacity: 0.85;
+}
+
+.auxiliaryDividerShort::before {
+	top: 8px;
+	bottom: 8px;
 }
 
 .auxiliaryDividerInteractive {

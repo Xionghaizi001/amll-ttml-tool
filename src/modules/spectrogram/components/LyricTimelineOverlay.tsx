@@ -44,7 +44,9 @@ export interface LyricTimelineAuxiliaryDivider {
 	id: string;
 	lineId: string;
 	timeMs: number;
+	offsetPx?: number;
 	allowOutOfLineRange?: boolean;
+	short?: boolean;
 	className?: string;
 	style?: CSSProperties;
 	ariaLabel?: string;
@@ -90,6 +92,7 @@ export const createLyricTimelineAuxiliaryDividerRenderer =
 			const isInteractive = Boolean(divider.onMouseDown || divider.onClick);
 			const className = [
 				styles.auxiliaryDivider,
+				divider.short ? styles.auxiliaryDividerShort : "",
 				isInteractive ? styles.auxiliaryDividerInteractive : "",
 				divider.className ?? "",
 			]
@@ -101,7 +104,7 @@ export const createLyricTimelineAuxiliaryDividerRenderer =
 					key={divider.id}
 					className={className}
 					style={{
-						left: `${left}px`,
+						left: `${left + (divider.offsetPx ?? 0)}px`,
 						width: `${AUXILIARY_DIVIDER_WIDTH_PX}px`,
 						...divider.style,
 					}}
