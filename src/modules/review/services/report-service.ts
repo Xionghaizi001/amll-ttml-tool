@@ -41,6 +41,16 @@ export type SyncChangeCandidate = {
 	newEnd: number;
 };
 
+export type LineTimingChangeCandidate = {
+	lineId: string;
+	lineNumber: number;
+	isBG: boolean;
+	oldStart: number;
+	newStart: number;
+	oldEnd: number;
+	newEnd: number;
+};
+
 export type TimingStashItem = {
 	wordId: string;
 	field: "startTime" | "endTime";
@@ -156,6 +166,16 @@ export type ReviewReportBlock =
 			oldEnd: number;
 			newEnd: number;
 			fields: TimingStashItem["field"][];
+	  })
+	| (ReviewReportBlockBase & {
+			kind: "lineTiming";
+			lineId: string;
+			lineNumber: number;
+			isBG: boolean;
+			oldStart: number;
+			newStart: number;
+			oldEnd: number;
+			newEnd: number;
 	  });
 
 export type ReviewReport = {
@@ -252,12 +272,12 @@ const buildSyncParts = (
 	const useEnd = fields ? fields.has("endTime") : true;
 	const parts: string[] = [];
 	if (useStart && startDelta !== 0) {
-		const speed = startDelta < 0 ? "延后" : "提前";
+		const speed = startDelta < 0 ? "提前" : "延后";
 		const prefix = "起始";
 		parts.push(`${prefix}${speed}了 ${wrap(Math.abs(startDelta))} 毫秒`);
 	}
 	if (useEnd && endDelta !== 0) {
-		const speed = endDelta < 0 ? "延后" : "提前";
+		const speed = endDelta < 0 ? "提前" : "延后";
 		const prefix = "结束";
 		parts.push(`${prefix}${speed}了 ${wrap(Math.abs(endDelta))} 毫秒`);
 	}
@@ -266,8 +286,9 @@ const buildSyncParts = (
 const buildSyncReportBlocks = (
 	candidates: SyncChangeCandidate[],
 	fieldMap?: Map<string, Set<TimingStashItem["field"]>>,
+	lineCandidates: LineTimingChangeCandidate[] = [],
 ) => {
-	return candidates
+	const wordTimingBlocks = candidates
 		.map((candidate) => {
 			const fields = fieldMap?.get(candidate.wordId);
 			if (fieldMap && !fields) return null;
@@ -292,6 +313,32 @@ const buildSyncReportBlocks = (
 		.filter((item): item is Extract<ReviewReportBlock, { kind: "timing" }> =>
 			Boolean(item),
 		);
+	const lineTimingBlocks = lineCandidates
+		.map((candidate) => {
+			if (
+				candidate.oldStart === candidate.newStart &&
+				candidate.oldEnd === candidate.newEnd
+			) {
+				return null;
+			}
+			return {
+				id: createBlockId("line-timing"),
+				kind: "lineTiming" as const,
+				enabled: true,
+				lineId: candidate.lineId,
+				lineNumber: candidate.lineNumber,
+				isBG: candidate.isBG,
+				oldStart: candidate.oldStart,
+				newStart: candidate.newStart,
+				oldEnd: candidate.oldEnd,
+				newEnd: candidate.newEnd,
+			};
+		})
+		.filter(
+			(item): item is Extract<ReviewReportBlock, { kind: "lineTiming" }> =>
+				Boolean(item),
+		);
+	return [...wordTimingBlocks, ...lineTimingBlocks];
 };
 
 export const isReviewReport = (value: unknown): value is ReviewReport => {
@@ -342,6 +389,8 @@ export const getReviewReportBlockLabel = (block: ReviewReportBlock) => {
 			return "时轴平移";
 		case "timing":
 			return "时轴";
+		case "lineTiming":
+			return "行时轴修正";
 	}
 };
 
@@ -840,13 +889,69 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	return reportLines;
 };
 
-export const buildSyncReport = (reportLines: SyncChangeCandidate[]) => {
-	return createReviewReport(buildSyncReportBlocks(reportLines));
+export const buildLineTimingChanges = (
+	freeze: TTMLLyric,
+	staged: TTMLLyric,
+) => {
+	const stagedLineMap = buildLineMap(staged.lyricLines);
+	const freezeDisplayMap = computeDisplayNumbers(freeze.lyricLines);
+	const stagedDisplayMap = computeDisplayNumbers(staged.lyricLines);
+	const reportLines: LineTimingChangeCandidate[] = [];
+	const matchedStagedLineIds = new Set<string>();
+
+	freeze.lyricLines.forEach((freezeLine, index) => {
+		const foundStagedById = stagedLineMap.get(freezeLine.id);
+		const stagedById =
+			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+				? foundStagedById
+				: undefined;
+		const fallbackLine = staged.lyricLines[index];
+		const stagedLine =
+			stagedById ??
+			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+				? fallbackLine
+				: undefined);
+		if (!stagedLine) return;
+		matchedStagedLineIds.add(stagedLine.id);
+
+		const oldStart = Math.round(freezeLine.startTime);
+		const newStart = Math.round(stagedLine.startTime);
+		const oldEnd = Math.round(freezeLine.endTime);
+		const newEnd = Math.round(stagedLine.endTime);
+		if (oldStart === newStart && oldEnd === newEnd) return;
+
+		reportLines.push({
+			lineId: freezeLine.id,
+			lineNumber: getLineNumber(
+				freezeLine,
+				index,
+				freezeDisplayMap,
+				stagedDisplayMap,
+			),
+			isBG: freezeLine.isBG ?? stagedLine.isBG ?? false,
+			oldStart,
+			newStart,
+			oldEnd,
+			newEnd,
+		});
+	});
+
+	return reportLines;
+};
+
+export const buildSyncReport = (
+	reportLines: SyncChangeCandidate[],
+	lineTimingLines: LineTimingChangeCandidate[] = [],
+) => {
+	return createReviewReport(
+		buildSyncReportBlocks(reportLines, undefined, lineTimingLines),
+	);
 };
 
 export const buildSyncReportFromStash = (
 	candidates: SyncChangeCandidate[],
 	stash: TimingStashItem[],
+	lineTimingLines: LineTimingChangeCandidate[] = [],
 ) => {
 	const candidateMap = new Map<string, SyncChangeCandidate>();
 	for (const item of candidates) {
@@ -863,6 +968,7 @@ export const buildSyncReportFromStash = (
 			.map(([wordId]) => candidateMap.get(wordId))
 			.filter((item): item is SyncChangeCandidate => Boolean(item)),
 		fieldMap,
+		lineTimingLines,
 	);
 	return createReviewReport(blocks);
 };

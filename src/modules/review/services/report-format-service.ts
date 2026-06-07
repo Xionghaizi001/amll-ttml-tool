@@ -216,7 +216,7 @@ const buildTimingPart = (
 ) => {
 	const delta = newTime - oldTime;
 	if (delta === 0) return "";
-	const speed = delta < 0 ? "延后" : "提前";
+	const speed = delta < 0 ? "提前" : "延后";
 	return `${prefix}${speed}了 ${wrap(Math.abs(delta))} 毫秒`;
 };
 
@@ -234,6 +234,28 @@ const buildTimingParts = (
 		startTimingChange,
 		endTimingChange,
 		timingChanges: [startTimingChange, endTimingChange]
+			.filter(Boolean)
+			.join("，"),
+	};
+};
+
+const buildLineTimingParts = (
+	block: Extract<ReviewReportBlock, { kind: "lineTiming" }>,
+) => {
+	const lineStartTimingChange = buildTimingPart(
+		"起始",
+		block.oldStart,
+		block.newStart,
+	);
+	const lineEndTimingChange = buildTimingPart(
+		"结束",
+		block.oldEnd,
+		block.newEnd,
+	);
+	return {
+		lineStartTimingChange,
+		lineEndTimingChange,
+		lineTimingChanges: [lineStartTimingChange, lineEndTimingChange]
 			.filter(Boolean)
 			.join("，"),
 	};
@@ -335,6 +357,20 @@ export const createReviewReportBlockVariables = (
 				endDelta: String(block.newEnd - block.oldEnd),
 			};
 		}
+		case "lineTiming": {
+			const lineTimingParts = buildLineTimingParts(block);
+			if (!lineTimingParts.lineTimingChanges) return null;
+			return {
+				...createLineVariables(block.lineNumber, block.isBG),
+				...lineTimingParts,
+				oldLineStart: String(block.oldStart),
+				newLineStart: String(block.newStart),
+				oldLineEnd: String(block.oldEnd),
+				newLineEnd: String(block.newEnd),
+				lineStartDelta: String(block.newStart - block.oldStart),
+				lineEndDelta: String(block.newEnd - block.oldEnd),
+			};
+		}
 	}
 };
 
@@ -399,6 +435,8 @@ const getLineMergeCategory = (block: ReviewReportBlock) => {
 			return "wordRoman";
 		case "timing":
 			return "timing";
+		case "lineTiming":
+			return "lineTiming";
 		case "manual":
 		case "wordTextShared":
 		case "timeShift":

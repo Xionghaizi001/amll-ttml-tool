@@ -63,6 +63,7 @@ const blockLineText = (block: ReviewReportBlock) => {
 		case "lineRemoved":
 		case "wordAndRoman":
 		case "timing":
+		case "lineTiming":
 			return `第 ${block.lineNumber} 行${block.isBG ? "（背景）" : ""}`;
 		case "timeShift":
 			return block.targetCount === block.totalLineCount
@@ -130,6 +131,7 @@ const getReportBlockCategory = (
 		case "timeShift":
 			return "timeShift";
 		case "timing":
+		case "lineTiming":
 			return "timing";
 		case "wordTextShared":
 		case "wordTextGroup":
@@ -161,7 +163,13 @@ type ReportBlockGroup = {
 
 const getReportBlockPriority = (block: ReviewReportBlock) => {
 	if (block.kind === "manual") return 2;
-	if (block.kind === "timeShift" || block.kind === "timing") return 1;
+	if (
+		block.kind === "timeShift" ||
+		block.kind === "timing" ||
+		block.kind === "lineTiming"
+	) {
+		return 1;
+	}
 	return 0;
 };
 
@@ -363,6 +371,37 @@ const renderReportBlockVisual = (block: ReviewReportBlock): ReactNode => {
 			return (
 				<>
 					{renderReportValue(block.word, "neutral")}
+					{changes}
+				</>
+			);
+		}
+		case "lineTiming": {
+			const changes: ReactNode[] = [];
+			if (block.oldStart !== block.newStart) {
+				changes.push(
+					<span key="line-start">
+						{renderReportChange(
+							`${block.oldStart}ms`,
+							`${block.newStart}ms`,
+							"行起始",
+						)}
+					</span>,
+				);
+			}
+			if (block.oldEnd !== block.newEnd) {
+				changes.push(
+					<span key="line-end">
+						{renderReportChange(
+							`${block.oldEnd}ms`,
+							`${block.newEnd}ms`,
+							"行结束",
+						)}
+					</span>,
+				);
+			}
+			return (
+				<>
+					{renderReportValue("行时轴修正", "neutral")}
 					{changes}
 				</>
 			);

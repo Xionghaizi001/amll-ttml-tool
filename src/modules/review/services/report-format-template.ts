@@ -260,6 +260,59 @@ export const reviewReportFormatBlockDefinitions: ReviewReportFormatBlockDefiniti
 			],
 		},
 		{
+			kind: "lineTiming",
+			label: "行时轴修正",
+			description: "整行起止时间变化时使用",
+			variables: [
+				...commonLineVariables,
+				{
+					name: "lineTimingChanges",
+					label: "行时轴变化描述",
+					description: "自动组合后的行起始/结束时间变化描述",
+				},
+				{
+					name: "lineStartTimingChange",
+					label: "行起始变化描述",
+					description: "仅行起始时间变化描述，无变化时为空",
+				},
+				{
+					name: "lineEndTimingChange",
+					label: "行结束变化描述",
+					description: "仅行结束时间变化描述，无变化时为空",
+				},
+				{
+					name: "oldLineStart",
+					label: "原行起始",
+					description: "原行起始时间毫秒值",
+				},
+				{
+					name: "newLineStart",
+					label: "新行起始",
+					description: "新行起始时间毫秒值",
+				},
+				{
+					name: "oldLineEnd",
+					label: "原行结束",
+					description: "原行结束时间毫秒值",
+				},
+				{
+					name: "newLineEnd",
+					label: "新行结束",
+					description: "新行结束时间毫秒值",
+				},
+				{
+					name: "lineStartDelta",
+					label: "行起始差值",
+					description: "新行起始时间减原行起始时间",
+				},
+				{
+					name: "lineEndDelta",
+					label: "行结束差值",
+					description: "新行结束时间减原行结束时间",
+				},
+			],
+		},
+		{
 			kind: "manual",
 			label: "手写条目",
 			description: "用户手动新增的报告条目",
@@ -332,6 +385,10 @@ export const DEFAULT_REVIEW_REPORT_FORMAT: ReviewReportFormat = {
 		},
 		timing: {
 			template: "{{lineLabel}}：`{{word}}` {{timingChanges}}",
+			listItem: true,
+		},
+		lineTiming: {
+			template: "{{lineLabel}}：行时轴修正，{{lineTimingChanges}}",
 			listItem: true,
 		},
 	},
