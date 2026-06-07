@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import React, { type FC, useCallback, useContext } from "react";
+import React, { type FC, type ReactNode, useCallback, useContext } from "react";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
 import {
 	previewLineAtom,
@@ -15,11 +15,13 @@ import { SpectrogramContext } from "./SpectrogramContext.ts";
 interface LyricLineSegmentProps {
 	line: ProcessedLyricLine;
 	allLines: ProcessedLyricLine[];
+	children?: ReactNode;
 }
 
 export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 	line,
 	allLines,
+	children,
 }) => {
 	const previewLine = useAtomValue(previewLineAtom);
 	const setSelectedLines = useSetAtom(selectedLinesAtom);
@@ -81,7 +83,6 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 	};
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: <button> 不适用
 		<div
 			className={styles.lineSegment}
 			style={dynamicStyles}
@@ -90,6 +91,8 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 			role="button"
 			aria-label="Lyric Line"
 		>
+			{children}
+
 			<DividerSegment
 				key="divider-start"
 				lineId={displayLine.id}

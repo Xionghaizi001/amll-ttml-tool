@@ -23,10 +23,11 @@ import {
 } from "$/modules/review/services/report-service";
 import {
 	buildStashKey,
+	buildTimingStashItemsFromSelection,
 	buildTimingStashCards,
 	buildTimingStashGroups,
 	buildTimingStashItemKey,
-} from "$/modules/review/services/stash-service";
+} from "$/modules/review/services/spectrogram-timing-stash-service";
 import {
 	githubAmlldbAccessAtom,
 	githubPatAtom,
@@ -566,9 +567,20 @@ export const useReviewTimingFlow = () => {
 			if (toolMode === ToolMode.Sync) {
 				const replayBase = getReviewReplayBase(freezeData, reviewOperationLog);
 				const candidates = buildSyncChanges(replayBase, stagedData);
+				const spectrogramSelectedStashItems =
+					stashKey && reviewStashLastSelection[stashKey]?.length
+						? buildTimingStashItemsFromSelection(
+								TimingStashItems,
+								reviewStashLastSelection[stashKey],
+							)
+						: [];
+				const timingReportItems =
+					spectrogramSelectedStashItems.length > 0
+						? spectrogramSelectedStashItems
+						: TimingStashItems;
 				const syncReport =
-					TimingStashItems.length > 0
-						? buildSyncReportFromStash(candidates, TimingStashItems)
+					timingReportItems.length > 0
+						? buildSyncReportFromStash(candidates, timingReportItems)
 						: buildSyncReport(candidates);
 				const mergedReport = buildReviewReportFromOperationReplay(
 					baseReports,
@@ -637,9 +649,11 @@ export const useReviewTimingFlow = () => {
 		reviewReportDialog,
 		reviewReportDrafts,
 		reviewSession,
+		reviewStashLastSelection,
 		setReviewReportDialog,
 		setReviewSession,
 		setToolMode,
+		stashKey,
 		TimingStashItems,
 		toolMode,
 	]);

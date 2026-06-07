@@ -30,6 +30,7 @@ import {
 	auditionTimeAtom,
 	currentTimeAtom,
 } from "$/modules/audio/states/index.ts";
+import { useReviewSpectrogramTimingOverlay } from "$/modules/review/services/spectrogram-timing-stash-service.tsx";
 import { useScrubbing } from "$/modules/spectrogram/hooks/useScrubbing";
 import { useSpectrogramInteraction } from "$/modules/spectrogram/hooks/useSpectrogramInteraction.ts";
 import { useSpectrogramResize } from "$/modules/spectrogram/hooks/useSpectrogramResize.ts";
@@ -44,7 +45,11 @@ import {
 	spectrogramHoverTimeMsAtom,
 } from "$/modules/spectrogram/states";
 import { isDraggingAtom } from "$/modules/spectrogram/states/dnd.ts";
-import { selectedLinesAtom, showUnselectedLinesAtom } from "$/states/main.ts";
+import {
+	reviewSessionAtom,
+	selectedLinesAtom,
+	showUnselectedLinesAtom,
+} from "$/states/main.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./AudioSpectrogram.module.css";
 import { LyricTimelineOverlay } from "./LyricTimelineOverlay.tsx";
@@ -62,6 +67,21 @@ import {
 const TILE_DURATION_S = 5;
 const LOD_WIDTHS = [512, 1024, 2048, 4096, 8192];
 
+const ReviewLyricTimelineOverlay: FC<{
+	clientWidth: number;
+	hiddenLineIds?: Set<string> | null;
+}> = ({ clientWidth, hiddenLineIds }) => {
+	const renderLineOverlay = useReviewSpectrogramTimingOverlay();
+
+	return (
+		<LyricTimelineOverlay
+			clientWidth={clientWidth}
+			hiddenLineIds={hiddenLineIds}
+			renderLineOverlay={renderLineOverlay}
+		/>
+	);
+};
+
 export const AudioSpectrogram: FC = () => {
 	const audioBuffer = useAtomValue(audioBufferAtom);
 	const currentTimeInMs = useAtomValue(currentTimeAtom);
@@ -69,6 +89,7 @@ export const AudioSpectrogram: FC = () => {
 	const currentTime = currentTimeInMs / 1000;
 	const auditionTime = useAtomValue(auditionTimeAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
+	const reviewSession = useAtomValue(reviewSessionAtom);
 
 	const [gain, setGain] = useAtom(spectrogramGainAtom);
 	const [dataHeight, setDataHeight] = useAtom(spectrogramHeightAtom);
@@ -287,6 +308,8 @@ export const AudioSpectrogram: FC = () => {
 	const transformX = isZooming ? scrollLeft : Math.round(scrollLeft);
 
 	const hoverX = scrollLeft + hoverPx;
+	const reviewTimingOverlayEnabled =
+		reviewSession !== null && reviewSession.source !== "update";
 
 	const minGain = 0.5;
 	const maxGain = 8;
@@ -471,10 +494,21 @@ export const AudioSpectrogram: FC = () => {
 									)}
 									<SpectrogramContext.Provider value={contextValue}>
 										<Theme appearance="dark">
-											<LyricTimelineOverlay
-												clientWidth={containerWidth}
-												hiddenLineIds={showRangePreview ? selectedLines : null}
-											/>
+											{reviewTimingOverlayEnabled ? (
+												<ReviewLyricTimelineOverlay
+													clientWidth={containerWidth}
+													hiddenLineIds={
+														showRangePreview ? selectedLines : null
+													}
+												/>
+											) : (
+												<LyricTimelineOverlay
+													clientWidth={containerWidth}
+													hiddenLineIds={
+														showRangePreview ? selectedLines : null
+													}
+												/>
+											)}
 											{!isDragging && (
 												<div
 													className={styles.hoverCursorContainer}
