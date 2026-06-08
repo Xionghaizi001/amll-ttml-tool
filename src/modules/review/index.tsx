@@ -8,7 +8,6 @@ import {
 	reviewOperationLogAtom,
 	reviewOperationRedoStackAtom,
 	reviewSessionAtom,
-	reviewStagedAtom,
 	saveFileNameAtom,
 } from "$/states/main";
 import type { TTMLLyric } from "$/types/ttml";
@@ -24,11 +23,9 @@ export const useReviewSessionLifecycle = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const saveFileName = useAtomValue(saveFileNameAtom);
 	const projectId = useAtomValue(projectIdAtom);
-	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const setReviewFreeze = useSetAtom(reviewFreezeAtom);
 	const setReviewOperationLog = useSetAtom(reviewOperationLogAtom);
 	const setReviewOperationRedoStack = useSetAtom(reviewOperationRedoStackAtom);
-	const setReviewStaged = useSetAtom(reviewStagedAtom);
 	const reviewPendingRef = useRef(false);
 	const reviewProjectIdRef = useRef(projectId);
 	const reviewPendingLyricRef = useRef(lyricLines);
@@ -41,7 +38,6 @@ export const useReviewSessionLifecycle = () => {
 			setReviewFreeze(null);
 			setReviewOperationLog([]);
 			setReviewOperationRedoStack([]);
-			setReviewStaged(null);
 			log("[review]", "session cleared");
 			return;
 		}
@@ -54,7 +50,6 @@ export const useReviewSessionLifecycle = () => {
 		setReviewFreeze(null);
 		setReviewOperationLog([]);
 		setReviewOperationRedoStack([]);
-		setReviewStaged(null);
 		log("[review]", "session set", {
 			prNumber: reviewSession.prNumber,
 			fileName: reviewSession.fileName,
@@ -66,7 +61,6 @@ export const useReviewSessionLifecycle = () => {
 		setReviewFreeze,
 		setReviewOperationLog,
 		setReviewOperationRedoStack,
-		setReviewStaged,
 		store,
 	]);
 
@@ -92,8 +86,7 @@ export const useReviewSessionLifecycle = () => {
 			fileName: reviewSession.fileName,
 			data: snapshot,
 		});
-		setReviewStaged(snapshot);
-		log("[review]", "freeze and staged set", {
+		log("[review]", "freeze set", {
 			prNumber: reviewSession.prNumber,
 			fileName: reviewSession.fileName,
 		});
@@ -104,19 +97,7 @@ export const useReviewSessionLifecycle = () => {
 		reviewSession,
 		saveFileName,
 		setReviewFreeze,
-		setReviewStaged,
 	]);
-
-	useEffect(() => {
-		if (!reviewSession || !reviewFreeze) return;
-		if (reviewFreeze.prNumber !== reviewSession.prNumber) return;
-		const staged = cloneLyric(lyricLines);
-		setReviewStaged(staged);
-		log("[review]", "staged updated", {
-			prNumber: reviewSession.prNumber,
-			projectId,
-		});
-	}, [lyricLines, projectId, reviewFreeze, reviewSession, setReviewStaged]);
 };
 
 export default ReviewPage;

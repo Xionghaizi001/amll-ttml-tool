@@ -124,7 +124,8 @@ export const undoLyricLinesAtom = atom(null, (get, set) => {
 	if (!lastOperation) return;
 
 	const afterUndo = get(lyricLinesAtom);
-	if (!doesOperationTransformLyric(afterUndo, beforeUndo, lastOperation)) return;
+	if (!doesOperationTransformLyric(afterUndo, beforeUndo, lastOperation))
+		return;
 
 	set(reviewOperationLogAtom, operations.slice(0, -1));
 	set(reviewOperationRedoStackAtom, (prev) => [...prev, lastOperation]);
@@ -137,7 +138,8 @@ export const redoLyricLinesAtom = atom(null, (get, set) => {
 	if (!nextOperation) return;
 
 	const afterRedo = get(lyricLinesAtom);
-	if (!doesOperationTransformLyric(beforeRedo, afterRedo, nextOperation)) return;
+	if (!doesOperationTransformLyric(beforeRedo, afterRedo, nextOperation))
+		return;
 
 	set(reviewOperationLogAtom, (prev) => [...prev, nextOperation]);
 	set(reviewOperationRedoStackAtom, redoStack.slice(0, -1));
@@ -213,7 +215,6 @@ export type ReviewSnapshot = {
 	data: TTMLLyric;
 };
 export const reviewFreezeAtom = atom<ReviewSnapshot | null>(null);
-export const reviewStagedAtom = atom<TTMLLyric | null>(null);
 export const pushReviewOperationAtom = atom(
 	null,
 	(_get, set, operation: ReviewOperationRecord) => {
@@ -235,16 +236,6 @@ export const reviewReviewedPrsAtom = atomWithStorage<Record<number, boolean>>(
 	{},
 );
 export const reviewSingleRefreshAtom = atom<number | null>(null);
-
-export const reviewStashSubmittedAtom = atomWithStorage<
-	Record<string, string[]>
->("reviewStashSubmitted", {});
-export const reviewStashLastSelectionAtom = atomWithStorage<
-	Record<string, Array<[string, "startTime" | "endTime"]>>
->("reviewStashLastSelection", {});
-export const reviewStashRemovedOrderAtom = atomWithStorage<
-	Record<string, Array<string | number>>
->("reviewStashRemovedOrder", {});
 
 /**
  * @description 用于控制全局文件拖拽遮罩层的显示

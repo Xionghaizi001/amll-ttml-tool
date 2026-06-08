@@ -1,5 +1,8 @@
 import type { TTMLLyric } from "$/types/ttml";
-import type { ReviewOperationRecord } from "./operation-log-service";
+import type {
+	ReviewLineTimingOperation,
+	ReviewOperationRecord,
+} from "./operation-log-service";
 import { replayReviewOperations } from "./operation-log-service";
 import {
 	buildReviewReportFromDiffs,
@@ -129,16 +132,105 @@ const buildTimeShiftReportBlock = (
 	};
 };
 
+const buildLineTimingOperationReportBlocks = (
+	operation: ReviewLineTimingOperation,
+	freeze: TTMLLyric,
+): ReviewReportBlock[] => {
+	const displayNumbers = computeDisplayNumbers(freeze);
+	const freezeLine = freeze.lyricLines.find(
+		(line) => line.id === operation.lineId,
+	);
+	const fallbackLineIndex = freeze.lyricLines.findIndex(
+		(line) => line.id === operation.lineId,
+	);
+	const lineNumber =
+		displayNumbers.get(operation.lineId) ??
+		(fallbackLineIndex >= 0 ? fallbackLineIndex + 1 : 1);
+	const isBG = freezeLine?.isBG ?? operation.before.isBG ?? false;
+	const blocks: ReviewReportBlock[] = [];
+
+	const beforeSegments = new Map(
+		operation.before.segments.map((segment) => [segment.id, segment]),
+	);
+	const afterSegments = new Map(
+		operation.after.segments.map((segment) => [segment.id, segment]),
+	);
+
+	operation.reportItems.forEach((item) => {
+		const beforeSegment = beforeSegments.get(item.wordId);
+		const afterSegment = afterSegments.get(item.wordId);
+		if (!beforeSegment || !afterSegment) return;
+
+		const fields = item.fields.filter((field) => {
+			if (field === "startTime") {
+				return (
+					Math.round(beforeSegment.startTime) !==
+					Math.round(afterSegment.startTime)
+				);
+			}
+			return (
+				Math.round(beforeSegment.endTime) !== Math.round(afterSegment.endTime)
+			);
+		});
+		if (fields.length === 0) return;
+
+		blocks.push({
+			id: `timing-${operation.id}-${item.wordId}`,
+			kind: "timing",
+			enabled: true,
+			operationId: operation.id,
+			wordId: item.wordId,
+			lineNumber,
+			isBG,
+			word: beforeSegment.word || "（空白）",
+			oldStart: Math.round(beforeSegment.startTime),
+			newStart: Math.round(afterSegment.startTime),
+			oldEnd: Math.round(beforeSegment.endTime),
+			newEnd: Math.round(afterSegment.endTime),
+			fields,
+		});
+	});
+
+	if (
+		Math.round(operation.before.startTime) !==
+			Math.round(operation.after.startTime) ||
+		Math.round(operation.before.endTime) !== Math.round(operation.after.endTime)
+	) {
+		blocks.push({
+			id: `line-timing-${operation.id}`,
+			kind: "lineTiming",
+			enabled: true,
+			operationId: operation.id,
+			lineId: operation.lineId,
+			lineNumber,
+			isBG,
+			oldStart: Math.round(operation.before.startTime),
+			newStart: Math.round(operation.after.startTime),
+			oldEnd: Math.round(operation.before.endTime),
+			newEnd: Math.round(operation.after.endTime),
+		});
+	}
+
+	return blocks;
+};
+
 const buildOperationReport = (
 	freeze: TTMLLyric,
 	operations: ReviewOperationRecord[],
 ) =>
 	createReviewReport(
-		buildTimeShiftReportScopes(operations, freeze)
-			.map<ReviewReportBlock | null>((scope) =>
-				buildTimeShiftReportBlock(scope, freeze),
-			)
-			.filter((block): block is ReviewReportBlock => Boolean(block)),
+		[
+			...buildTimeShiftReportScopes(operations, freeze)
+				.map<ReviewReportBlock | null>((scope) =>
+					buildTimeShiftReportBlock(scope, freeze),
+				)
+				.filter((block): block is ReviewReportBlock => Boolean(block)),
+			...operations.flatMap((operation) =>
+				operation.kind === "lineTiming"
+					? buildLineTimingOperationReportBlocks(operation, freeze)
+					: [],
+			),
+		],
 	);
 
 export const getReviewReplayBase = (

@@ -1,5 +1,4 @@
 import {
-	AddCircle20Regular,
 	Checkmark20Regular,
 	Dismiss20Regular,
 	MusicNote2Filled,
@@ -8,9 +7,6 @@ import { Button, Flex, Text } from "@radix-ui/themes";
 
 export type ReviewActionGroupProps = {
 	className?: string;
-	showStash?: boolean;
-	stashEnabled?: boolean;
-	onOpenStash?: () => void;
 	showSwitchAudio?: boolean;
 	switchAudioEnabled?: boolean;
 	onSwitchAudio?: () => void;
@@ -20,9 +16,6 @@ export type ReviewActionGroupProps = {
 
 export const ReviewActionGroup = ({
 	className,
-	showStash = false,
-	stashEnabled = false,
-	onOpenStash,
 	showSwitchAudio = false,
 	switchAudioEnabled = false,
 	onSwitchAudio,
@@ -31,20 +24,6 @@ export const ReviewActionGroup = ({
 }: ReviewActionGroupProps) => {
 	return (
 		<Flex align="center" gap="1" className={className}>
-			{showStash && (
-				<Button
-					size="1"
-					variant="soft"
-					color="orange"
-					onClick={onOpenStash}
-					disabled={!stashEnabled}
-				>
-					<Flex align="center" gap="1">
-						<AddCircle20Regular />
-						<Text size="1">暂存</Text>
-					</Flex>
-				</Button>
-			)}
 			{showSwitchAudio && (
 				<Button
 					size="1"

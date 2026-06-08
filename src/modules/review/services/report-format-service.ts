@@ -3,7 +3,7 @@ import { atomWithStorage } from "jotai/utils";
 import type {
 	ReviewReport,
 	ReviewReportBlock,
-	TimingStashItem,
+	TimingField,
 } from "$/modules/review/services/report-service";
 import {
 	DEFAULT_REVIEW_REPORT_EMPTY_TEXT,
@@ -223,7 +223,7 @@ const buildTimingPart = (
 const buildTimingParts = (
 	block: Extract<ReviewReportBlock, { kind: "timing" }>,
 ) => {
-	const fields = new Set<TimingStashItem["field"]>(block.fields);
+	const fields = new Set<TimingField>(block.fields);
 	const startTimingChange = fields.has("startTime")
 		? buildTimingPart("起始", block.oldStart, block.newStart)
 		: "";

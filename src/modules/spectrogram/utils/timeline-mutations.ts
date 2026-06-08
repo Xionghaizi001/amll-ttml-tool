@@ -4,9 +4,10 @@ import {
 	processSingleLine,
 	type WordSegment,
 } from "$/modules/segmentation/utils/segment-processing";
-import { lyricLinesAtom } from "$/states/main";
+import { applyLineTimingSegmentsToWords } from "$/modules/spectrogram/utils/line-timing-application";
+import { lyricLinesAtom, undoableLyricLinesAtom } from "$/states/main";
 import { globalStore } from "$/states/store.ts";
-import type { LyricLine, LyricWord } from "$/types/ttml";
+import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
 
 const MIN_DIVIDER_WIDTH_PX = 15;
 const MIN_WORD_DURATION_MS = 10;
@@ -129,80 +130,24 @@ export function getUpdatedLineForDivider(
 	};
 }
 
-export function commitUpdatedLine(updatedLine: ProcessedLyricLine) {
+export function commitUpdatedLine(
+	updatedLine: ProcessedLyricLine,
+	options?: { trackHistory?: boolean },
+) {
 	const updatedValidSegments = updatedLine.segments.filter(
 		(s): s is WordSegment => s.type === "word",
 	);
 
-	const updatedWordsMap = new Map<string, WordSegment>();
-	const updatedRubyMap = new Map<string, Map<number, WordSegment>>();
-	for (const segment of updatedValidSegments) {
-		if (
-			segment.isRuby &&
-			segment.parentId &&
-			typeof segment.rubyIndex === "number"
-		) {
-			const rubyUpdates =
-				updatedRubyMap.get(segment.parentId) ?? new Map<number, WordSegment>();
-			rubyUpdates.set(segment.rubyIndex, segment);
-			updatedRubyMap.set(segment.parentId, rubyUpdates);
-		} else {
-			updatedWordsMap.set(segment.id, segment);
-		}
-	}
-
-	globalStore.set(lyricLinesAtom, (prev) => {
+	const updateLyrics = (prev: TTMLLyric) => {
 		const newLines = prev.lyricLines.map((line) => {
 			if (line.id !== updatedLine.id) {
 				return line;
 			}
 
-			const newWords = line.words.map((originalWord) => {
-				const updatedWord = updatedWordsMap.get(originalWord.id);
-				let nextWord = originalWord;
-				if (updatedWord) {
-					const { type, isRuby, parentId, rubyIndex, ...word } = updatedWord;
-					nextWord = word;
-				}
-
-				const rubyUpdates = updatedRubyMap.get(originalWord.id);
-				if (rubyUpdates && nextWord.ruby) {
-					const newRuby = nextWord.ruby.map((rubyWord, index) => {
-						const updatedRuby = rubyUpdates.get(index);
-						if (!updatedRuby) return rubyWord;
-						return {
-							...rubyWord,
-							word: updatedRuby.word,
-							startTime: updatedRuby.startTime,
-							endTime: updatedRuby.endTime,
-						};
-					});
-					const validRuby = newRuby.filter(
-						(rubyWord) => rubyWord.endTime > rubyWord.startTime,
-					);
-					if (validRuby.length > 0) {
-						const minStart = Math.min(
-							...validRuby.map((rubyWord) => rubyWord.startTime),
-						);
-						const maxEnd = Math.max(
-							...validRuby.map((rubyWord) => rubyWord.endTime),
-						);
-						nextWord = {
-							...nextWord,
-							startTime: minStart,
-							endTime: maxEnd,
-							ruby: newRuby,
-						};
-					} else {
-						nextWord = {
-							...nextWord,
-							ruby: newRuby,
-						};
-					}
-				}
-
-				return nextWord;
-			});
+			const newWords = applyLineTimingSegmentsToWords(
+				line.words,
+				updatedValidSegments,
+			);
 
 			return {
 				...line,
@@ -216,7 +161,13 @@ export function commitUpdatedLine(updatedLine: ProcessedLyricLine) {
 			...prev,
 			lyricLines: newLines,
 		};
-	});
+	};
+
+	if (options?.trackHistory) {
+		globalStore.set(undoableLyricLinesAtom, updateLyrics);
+	} else {
+		globalStore.set(lyricLinesAtom, updateLyrics);
+	}
 }
 
 export function getUpdatedLineForWordPan(

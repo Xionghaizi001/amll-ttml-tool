@@ -1,6 +1,12 @@
 import { atom } from "jotai";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
 
+type TimelineDragCommitHandler = (updatedLine: ProcessedLyricLine) => void;
+
+type TimelineDragBase = {
+	onCommit?: TimelineDragCommitHandler;
+};
+
 type DividerDragOperation = {
 	type: "divider";
 	lineId: string;
@@ -8,7 +14,7 @@ type DividerDragOperation = {
 	zoom: number;
 	startX: number;
 	isGapCreation: boolean;
-};
+} & TimelineDragBase;
 
 type WordPanOperation = {
 	type: "word-pan";
@@ -16,7 +22,7 @@ type WordPanOperation = {
 	wordId: string;
 	initialMouseTimeMS: number;
 	initialWordStartMS: number;
-};
+} & TimelineDragBase;
 
 export type TimelineDragOperation = DividerDragOperation | WordPanOperation;
 

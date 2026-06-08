@@ -51,9 +51,11 @@ export type LineTimingChangeCandidate = {
 	newEnd: number;
 };
 
-export type TimingStashItem = {
+export type TimingField = "startTime" | "endTime";
+
+export type TimingReportSelectionItem = {
 	wordId: string;
-	field: "startTime" | "endTime";
+	field: TimingField;
 };
 
 export const DEFAULT_REVIEW_REPORT_TEXT = DEFAULT_REVIEW_REPORT_EMPTY_TEXT;
@@ -157,6 +159,7 @@ export type ReviewReportBlock =
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "timing";
+			operationId?: string;
 			wordId: string;
 			lineNumber: number;
 			isBG: boolean;
@@ -165,10 +168,11 @@ export type ReviewReportBlock =
 			newStart: number;
 			oldEnd: number;
 			newEnd: number;
-			fields: TimingStashItem["field"][];
+			fields: TimingField[];
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "lineTiming";
+			operationId?: string;
 			lineId: string;
 			lineNumber: number;
 			isBG: boolean;
@@ -264,7 +268,7 @@ const getLineNumber = (
 const wrap = (value: string | number) => `\`${value}\``;
 const buildSyncParts = (
 	item: SyncChangeCandidate,
-	fields?: Set<TimingStashItem["field"]>,
+	fields?: Set<TimingField>,
 ) => {
 	const startDelta = item.newStart - item.oldStart;
 	const endDelta = item.newEnd - item.oldEnd;
@@ -285,7 +289,7 @@ const buildSyncParts = (
 };
 const buildSyncReportBlocks = (
 	candidates: SyncChangeCandidate[],
-	fieldMap?: Map<string, Set<TimingStashItem["field"]>>,
+	fieldMap?: Map<string, Set<TimingField>>,
 	lineCandidates: LineTimingChangeCandidate[] = [],
 ) => {
 	const wordTimingBlocks = candidates
@@ -307,7 +311,7 @@ const buildSyncReportBlocks = (
 				newEnd: candidate.newEnd,
 				fields: fieldMap
 					? Array.from(fields ?? [])
-					: (["startTime", "endTime"] satisfies TimingStashItem["field"][]),
+					: (["startTime", "endTime"] satisfies TimingField[]),
 			};
 		})
 		.filter((item): item is Extract<ReviewReportBlock, { kind: "timing" }> =>
@@ -433,8 +437,12 @@ export const mergeReports = (reports: ReviewReportInput[]) => {
 	return createReviewReport(blocks);
 };
 
+const isOperationGeneratedReportBlock = (block: ReviewReportBlock) =>
+	"operationId" in block && Boolean(block.operationId);
+
 const isEditableGeneratedReportBlock = (block: ReviewReportBlock) =>
-	block.kind !== "manual" && block.kind !== "timing";
+	(block.kind !== "manual" && block.kind !== "timing") ||
+	isOperationGeneratedReportBlock(block);
 
 export const keepManualReviewReportBlocks = (report: ReviewReportInput) =>
 	createReviewReport(
@@ -946,29 +954,4 @@ export const buildSyncReport = (
 	return createReviewReport(
 		buildSyncReportBlocks(reportLines, undefined, lineTimingLines),
 	);
-};
-
-export const buildSyncReportFromStash = (
-	candidates: SyncChangeCandidate[],
-	stash: TimingStashItem[],
-	lineTimingLines: LineTimingChangeCandidate[] = [],
-) => {
-	const candidateMap = new Map<string, SyncChangeCandidate>();
-	for (const item of candidates) {
-		candidateMap.set(item.wordId, item);
-	}
-	const fieldMap = new Map<string, Set<TimingStashItem["field"]>>();
-	for (const item of stash) {
-		const fields = fieldMap.get(item.wordId) ?? new Set();
-		fields.add(item.field);
-		fieldMap.set(item.wordId, fields);
-	}
-	const blocks = buildSyncReportBlocks(
-		Array.from(fieldMap.entries())
-			.map(([wordId]) => candidateMap.get(wordId))
-			.filter((item): item is SyncChangeCandidate => Boolean(item)),
-		fieldMap,
-		lineTimingLines,
-	);
-	return createReviewReport(blocks);
 };

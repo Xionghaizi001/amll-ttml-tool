@@ -30,7 +30,7 @@ import {
 	auditionTimeAtom,
 	currentTimeAtom,
 } from "$/modules/audio/states/index.ts";
-import { useReviewSpectrogramTimingOverlay } from "$/modules/review/services/spectrogram-timing-stash-service.tsx";
+import { useReviewSpectrogramTimingOverlay } from "$/modules/review/services/review-timing-overlay-service.tsx";
 import { useScrubbing } from "$/modules/spectrogram/hooks/useScrubbing";
 import { useSpectrogramInteraction } from "$/modules/spectrogram/hooks/useSpectrogramInteraction.ts";
 import { useSpectrogramResize } from "$/modules/spectrogram/hooks/useSpectrogramResize.ts";

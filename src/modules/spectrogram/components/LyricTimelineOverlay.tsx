@@ -216,7 +216,11 @@ export const LyricTimelineOverlay: FC<LyricTimelineOverlayProps> = ({
 
 			const lastSnappedLine = globalStore.get(previewLineAtom);
 			if (lastSnappedLine) {
-				commitUpdatedLine(lastSnappedLine);
+				if (timelineDrag.onCommit) {
+					timelineDrag.onCommit(lastSnappedLine);
+				} else {
+					commitUpdatedLine(lastSnappedLine);
+				}
 			}
 
 			setTimelineDrag(null);
