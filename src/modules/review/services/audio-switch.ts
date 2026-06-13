@@ -115,12 +115,8 @@ export const useAudioSwitch = (options: {
 				.filter((info) => info.available)
 				.map((info) => info.type);
 
-			if (availableSources.length === 0) {
+			if (availableSources.length < 2) {
 				return null;
-			}
-
-			if (availableSources.length === 1) {
-				return availableSources[0];
 			}
 
 			if (audioSourceResolveRef.current) {
@@ -185,10 +181,23 @@ export const useAudioSwitch = (options: {
 			);
 		}
 
-		if (audioSourceInfos.length === 0) {
+		const availableAudioSourceInfos = audioSourceInfos.filter(
+			(info) => info.available,
+		);
+
+		if (availableAudioSourceInfos.length === 0) {
 			pushNotification({
 				title: "没有可用的音源",
 				level: "warning",
+				source: "review",
+			});
+			return;
+		}
+
+		if (availableAudioSourceInfos.length === 1) {
+			pushNotification({
+				title: `当前只有一个可用音频源：${availableAudioSourceInfos[0].name}，无需切换`,
+				level: "info",
 				source: "review",
 			});
 			return;
