@@ -5,13 +5,14 @@ import type {
 } from "./operation-log-service";
 import { replayReviewOperations } from "./operation-log-service";
 import {
+	applyReviewReportSelectionState,
 	buildReviewReportFromDiffs,
 	createReviewReport,
 	keepPersistentReviewReportBlocks,
 	mergeReports,
 	type ReviewReportBlock,
-	type ReviewReportLineRef,
 	type ReviewReportInput,
+	type ReviewReportLineRef,
 } from "./report-service";
 
 const computeDisplayNumbers = (lyric: TTMLLyric) => {
@@ -246,7 +247,10 @@ export const buildReviewReportFromOperationReplay = (
 	syncReport?: ReviewReportInput,
 ) => {
 	const replayedBase = getReviewReplayBase(freeze, operations);
-	const operationReport = buildOperationReport(freeze, operations);
+	const operationReport = applyReviewReportSelectionState(
+		buildOperationReport(freeze, operations),
+		baseReports,
+	);
 	const persistentBaseReports = baseReports.map(
 		keepPersistentReviewReportBlocks,
 	);

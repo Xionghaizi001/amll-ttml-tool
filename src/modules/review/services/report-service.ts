@@ -429,6 +429,179 @@ export const hasReviewReportContent = (
 	);
 };
 
+const reportLineRefKey = (ref: ReviewReportLineRef) =>
+	`${ref.lineNumber}:${ref.isBG ? "bg" : "main"}`;
+
+const reportLineRefsKey = (refs: ReviewReportLineRef[]) =>
+	refs.map(reportLineRefKey).sort().join(",");
+
+const reportLineKey = (lineNumber: number, isBG: boolean) =>
+	`${lineNumber}:${isBG ? "bg" : "main"}`;
+
+const getWordTextGroupChangeKey = (
+	block: Extract<ReviewReportBlock, { kind: "wordTextGroup" }>,
+	change: Extract<
+		ReviewReportBlock,
+		{ kind: "wordTextGroup" }
+	>["changes"][number],
+) =>
+	change.wordId
+		? `wordText:${change.wordId}`
+		: `wordText:${reportLineKey(block.lineNumber, block.isBG)}:${change.oldWord}->${change.newWord}`;
+
+const getReviewReportSelectionKey = (block: ReviewReportBlock) => {
+	switch (block.kind) {
+		case "manual":
+			return `manual:${block.id}`;
+		case "wordTextShared":
+			return `${block.kind}:${block.oldWord}->${block.newWord}:${reportLineRefsKey(block.lineRefs)}`;
+		case "wordTextGroup":
+			return `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}`;
+		case "wordText":
+			return block.wordId
+				? `${block.kind}:${block.wordId}`
+				: `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}:${block.oldWord}->${block.newWord}`;
+		case "wordRoman":
+			return block.wordId
+				? `${block.kind}:${block.wordId}`
+				: `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}`;
+		case "wordAndRoman":
+			return block.wordId
+				? `${block.kind}:${block.wordId}`
+				: `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}`;
+		case "wordAdded":
+		case "wordRemoved":
+			return block.wordId
+				? `${block.kind}:${block.wordId}`
+				: `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}:${block.word}`;
+		case "lineTranslation":
+		case "lineRoman":
+			return `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}`;
+		case "lineAdded":
+		case "lineRemoved":
+			return `${block.kind}:${reportLineKey(block.lineNumber, block.isBG)}:${block.text}`;
+		case "timeShift":
+			return `${block.kind}:${block.operationId}`;
+		case "timing":
+			return block.operationId
+				? `${block.kind}:${block.operationId}:${block.wordId}`
+				: `${block.kind}:${block.wordId}`;
+		case "lineTiming":
+			return block.operationId
+				? `${block.kind}:${block.operationId}:${block.lineId}`
+				: `${block.kind}:${block.lineId}`;
+	}
+};
+
+const getReviewReportSelectionKeys = (block: ReviewReportBlock) => {
+	const keys = [getReviewReportSelectionKey(block)];
+	switch (block.kind) {
+		case "wordText":
+		case "wordRoman":
+		case "wordAndRoman":
+			if (block.wordId) keys.push(`wordEdit:${block.wordId}`);
+			break;
+		case "timing":
+			keys.push(`timing:${block.wordId}`);
+			break;
+		case "lineTiming":
+			keys.push(`lineTiming:${block.lineId}`);
+			break;
+	}
+	return keys;
+};
+
+const getSelectionStateValue = (
+	state: ReviewReportSelectionState,
+	keys: string[],
+) => {
+	for (const key of keys) {
+		const value = state.blocks.get(key);
+		if (value !== undefined) return value;
+	}
+	return undefined;
+};
+
+type ReviewReportSelectionState = {
+	blocks: Map<string, boolean>;
+	groupChanges: Map<string, boolean>;
+};
+
+const collectReviewReportSelectionState = (
+	reports: ReviewReportInput[],
+): ReviewReportSelectionState => {
+	const state: ReviewReportSelectionState = {
+		blocks: new Map(),
+		groupChanges: new Map(),
+	};
+	reports.forEach((report) => {
+		normalizeReviewReport(report).blocks.forEach((block) => {
+			getReviewReportSelectionKeys(block).forEach((key) => {
+				state.blocks.set(key, block.enabled);
+			});
+			if (block.kind !== "wordTextGroup") return;
+			block.changes.forEach((change) => {
+				const key = getWordTextGroupChangeKey(block, change);
+				const enabled = block.enabled && change.enabled !== false;
+				state.blocks.set(key, enabled);
+				state.groupChanges.set(key, enabled);
+			});
+		});
+	});
+	return state;
+};
+
+export const applyReviewReportSelectionState = (
+	report: ReviewReportInput,
+	baseReports: ReviewReportInput[],
+) => {
+	const selectionState = collectReviewReportSelectionState(baseReports);
+	return createReviewReport(
+		normalizeReviewReport(report).blocks.map((block) => {
+			if (block.kind === "wordTextGroup") {
+				const groupEnabled = getSelectionStateValue(
+					selectionState,
+					getReviewReportSelectionKeys(block),
+				);
+				const changes = block.changes.map((change) => {
+					const key = getWordTextGroupChangeKey(block, change);
+					const enabled =
+						selectionState.groupChanges.get(key) ??
+						selectionState.blocks.get(key);
+					return enabled === undefined ? change : { ...change, enabled };
+				});
+				const hasChangeState = changes.some((change, index) => {
+					const original = block.changes[index];
+					return original && change.enabled !== original.enabled;
+				});
+				if (hasChangeState) {
+					return {
+						...block,
+						enabled: changes.some((change) => change.enabled !== false),
+						changes,
+					};
+				}
+				if (groupEnabled !== undefined) {
+					return {
+						...block,
+						enabled: groupEnabled,
+						changes: changes.map((change) => ({
+							...change,
+							enabled: groupEnabled,
+						})),
+					};
+				}
+				return block;
+			}
+			const enabled = getSelectionStateValue(
+				selectionState,
+				getReviewReportSelectionKeys(block),
+			);
+			return enabled === undefined ? block : { ...block, enabled };
+		}),
+	);
+};
+
 const mergeTimingBlocks = (
 	blocks: Extract<ReviewReportBlock, { kind: "timing" }>[],
 ) => {
@@ -660,18 +833,19 @@ const mergeWordOperationBlocks = (blocks: ReviewReportBlock[]) => {
 
 export const mergeReports = (reports: ReviewReportInput[]) => {
 	const seen = new Set<string>();
-	const reportBlocks = reports.flatMap((report) =>
-		normalizeReviewReport(report).blocks.filter((block) => block.enabled),
+	const reportBlocks = reports.flatMap(
+		(report) => normalizeReviewReport(report).blocks,
 	);
 	const blocks = mergeWordOperationBlocks(reportBlocks).filter((block) => {
-		if (!block.enabled) return false;
-		const text = getReviewReportBlockText(block);
-		if (!text) return false;
+		if (block.enabled) {
+			const text = getReviewReportBlockText(block);
+			if (!text) return false;
+		}
 		if (block.kind === "manual") return true;
 		const dedupeKey =
 			block.kind === "timeShift"
 				? `${block.kind}:${block.operationId}`
-				: `${block.kind}:${text}`;
+				: getReviewReportSelectionKey(block);
 		if (seen.has(dedupeKey)) return false;
 		seen.add(dedupeKey);
 		return true;
@@ -1062,15 +1236,16 @@ export const buildReviewReportFromDiffs = (
 	const editReport = buildEditReport(freeze, staged);
 	const editBlocks = normalizeReviewReport(editReport).blocks;
 	const syncBlocks = normalizeReviewReport(syncReport).blocks;
+	const generatedReport = applyReviewReportSelectionState(
+		createReviewReport([...editBlocks, ...syncBlocks]),
+		baseReports,
+	);
 	// 这里是所有入口的统一组装点：先保留用户持久条目，再用最新 freeze/staged 重建自动编辑差异。
 	const persistentBaseReports = baseReports.map(
 		keepPersistentReviewReportBlocks,
 	);
 
-	return mergeReports([
-		...persistentBaseReports,
-		createReviewReport([...editBlocks, ...syncBlocks]),
-	]);
+	return mergeReports([...persistentBaseReports, generatedReport]);
 };
 
 export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
