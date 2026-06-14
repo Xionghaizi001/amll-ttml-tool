@@ -68,9 +68,97 @@ type ReviewMetadataSection = {
 	lines: string[];
 };
 
+const splitMarkdownSections = (input: string): ReviewMetadataSection[] => {
+	const sections: ReviewMetadataSection[] = [];
+	let currentSection: ReviewMetadataSection | null = null;
+	const lines = input.split(/\r?\n/);
+	for (const rawLine of lines) {
+		const headingMatch = rawLine.trim().match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+		if (headingMatch) {
+			currentSection = {
+				title: (headingMatch[1] ?? "").trim(),
+				lines: [],
+			};
+			sections.push(currentSection);
+			continue;
+		}
+		if (currentSection) {
+			currentSection.lines.push(rawLine);
+		}
+	}
+	return sections;
+};
+
+const normalizeMetadataTitle = (text: string) => {
+	return text
+		.replace(/[\\`*_~|#[\]()（）【】]/g, "")
+		.replace(/\s/g, "")
+		.replace(/[：:]+$/, "")
+		.toLowerCase();
+};
+
+const getTitleParts = (title: string) => {
+	const inlineMatch = title.match(/^(.+?)\s*[:：]\s*(.+)$/);
+	if (!inlineMatch) {
+		return {
+			title: title,
+			inlineValue: null,
+		};
+	}
+	return {
+		title: inlineMatch[1] ?? "",
+		inlineValue: inlineMatch[2] ?? "",
+	};
+};
+
+const isLyricsAuthorTitle = (title: string) => {
+	const normalized = normalizeMetadataTitle(title);
+	return /^(?:原)?歌词作者(?:github(?:id|用户名|用户|账号|账户)?)?$/.test(
+		normalized,
+	);
+};
+
+const getInlineLyricsAuthorValues = (body: string) => {
+	const values: string[] = [];
+	for (const rawLine of body.split(/\r?\n/)) {
+		const line = rawLine
+			.trim()
+			.replace(/^[-*]\s+/, "")
+			.replace(/^\[[ xX]\]\s*/, "")
+			.replace(/^>\s*/, "")
+			.trim();
+		if (!line) continue;
+		const tableCells = line
+			.split("|")
+			.map((cell) => cell.trim())
+			.filter(Boolean);
+		if (tableCells.length >= 2 && isLyricsAuthorTitle(tableCells[0] ?? "")) {
+			values.push(tableCells.slice(1).join(" "));
+			continue;
+		}
+		const fieldMatch = line.match(/^(.+?)\s*[:：]\s*(.*)$/);
+		if (!fieldMatch) continue;
+		if (!isLyricsAuthorTitle(fieldMatch[1] ?? "")) continue;
+		values.push(fieldMatch[2] ?? "");
+	}
+	return values;
+};
+
 export const extractMentions = (body: string | undefined | null) => {
 	if (!body) return [];
-	const matches = [...body.matchAll(/@([a-zA-Z0-9-]+)/g)];
+	const lyricsAuthorContent = splitMarkdownSections(body)
+		.flatMap((section) => {
+			const { title, inlineValue } = getTitleParts(section.title);
+			if (!isLyricsAuthorTitle(title)) return [];
+			return [inlineValue, ...section.lines].filter(
+				(value): value is string => typeof value === "string",
+			);
+		})
+		.join("\n");
+	const content =
+		lyricsAuthorContent || getInlineLyricsAuthorValues(body).join("\n");
+	if (!content) return [];
+	const matches = [...content.matchAll(/@([a-zA-Z0-9-]+)/g)];
 	const names = matches.map((match) => match[1]).filter(Boolean);
 	return Array.from(new Set(names));
 };
@@ -85,26 +173,6 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		spotifyId: [],
 		appleMusicId: [],
 		remark: [],
-	};
-	const splitMarkdownSections = (input: string): ReviewMetadataSection[] => {
-		const sections: ReviewMetadataSection[] = [];
-		let currentSection: ReviewMetadataSection | null = null;
-		const lines = input.split(/\r?\n/);
-		for (const rawLine of lines) {
-			const headingMatch = rawLine.trim().match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
-			if (headingMatch) {
-				currentSection = {
-					title: (headingMatch[1] ?? "").trim(),
-					lines: [],
-				};
-				sections.push(currentSection);
-				continue;
-			}
-			if (currentSection) {
-				currentSection.lines.push(rawLine);
-			}
-		}
-		return sections;
 	};
 	const pushValues = (key: ReviewValueMetadataKey, value: string) => {
 		const cleaned = value
@@ -126,11 +194,7 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		result.remark.push(cleaned);
 	};
 	const getKeyFromText = (text: string) => {
-		const normalized = text
-			.replace(/[\\`*_~|#[\]()（）【】]/g, "")
-			.replace(/\s/g, "")
-			.replace(/[：:]+$/, "")
-			.toLowerCase();
+		const normalized = normalizeMetadataTitle(text);
 		if (/^(?:音乐名称|歌曲名称|歌名)$/.test(normalized)) {
 			return "musicName" as const;
 		}
@@ -161,22 +225,10 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		}
 		return null;
 	};
-	const getTitleParts = (title: string) => {
-		const inlineMatch = title.match(/^(.+?)\s*[:：]\s*(.+)$/);
-		if (!inlineMatch) {
-			return {
-				key: getKeyFromText(title),
-				inlineValue: null,
-			};
-		}
-		return {
-			key: getKeyFromText(inlineMatch[1] ?? ""),
-			inlineValue: inlineMatch[2] ?? "",
-		};
-	};
 
 	for (const section of splitMarkdownSections(body)) {
-		const { key, inlineValue } = getTitleParts(section.title);
+		const { title, inlineValue } = getTitleParts(section.title);
+		const key = getKeyFromText(title);
 		if (!key) continue;
 		if (inlineValue) {
 			if (key === "remark") {
