@@ -7,6 +7,7 @@ import {
 } from "./report-format-service";
 
 type WordChange = {
+	wordId: string;
 	lineNumber: number;
 	isBG: boolean;
 	oldWord: string;
@@ -25,6 +26,7 @@ type LineChange = {
 };
 
 type WordPresenceChange = {
+	wordId: string;
 	lineNumber: number;
 	isBG: boolean;
 	word: string;
@@ -85,10 +87,16 @@ export type ReviewReportBlock =
 			kind: "wordTextGroup";
 			lineNumber: number;
 			isBG: boolean;
-			changes: Array<{ oldWord: string; newWord: string; enabled?: boolean }>;
+			changes: Array<{
+				wordId?: string;
+				oldWord: string;
+				newWord: string;
+				enabled?: boolean;
+			}>;
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordText";
+			wordId?: string;
 			lineNumber: number;
 			isBG: boolean;
 			oldWord: string;
@@ -96,6 +104,7 @@ export type ReviewReportBlock =
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordRoman";
+			wordId?: string;
 			lineNumber: number;
 			isBG: boolean;
 			word: string;
@@ -118,6 +127,7 @@ export type ReviewReportBlock =
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordAndRoman";
+			wordId?: string;
 			lineNumber: number;
 			isBG: boolean;
 			oldWord: string;
@@ -127,12 +137,14 @@ export type ReviewReportBlock =
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordAdded";
+			wordId?: string;
 			lineNumber: number;
 			isBG: boolean;
 			word: string;
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordRemoved";
+			wordId?: string;
 			lineNumber: number;
 			isBG: boolean;
 			word: string;
@@ -417,23 +429,253 @@ export const hasReviewReportContent = (
 	);
 };
 
+const mergeTimingBlocks = (
+	blocks: Extract<ReviewReportBlock, { kind: "timing" }>[],
+) => {
+	if (blocks.length <= 1) return blocks[0] ?? null;
+	const first = blocks[0];
+	const last = blocks[blocks.length - 1];
+	if (!first || !last) return null;
+	const operationIds = blocks
+		.map((block) => block.operationId)
+		.filter((id): id is string => Boolean(id));
+	const mergedFields = new Set<TimingField>(
+		blocks.flatMap((block) => block.fields),
+	);
+	const fields = Array.from(mergedFields).filter((field) =>
+		field === "startTime"
+			? first.oldStart !== last.newStart
+			: first.oldEnd !== last.newEnd,
+	);
+	if (fields.length === 0) return null;
+	return {
+		...first,
+		id: first.id,
+		operationId:
+			operationIds.length === blocks.length
+				? `merged:${operationIds.join("+")}`
+				: undefined,
+		word: first.word || last.word,
+		oldStart: first.oldStart,
+		newStart: last.newStart,
+		oldEnd: first.oldEnd,
+		newEnd: last.newEnd,
+		fields,
+	};
+};
+
+const mergeLineTimingBlocks = (
+	blocks: Extract<ReviewReportBlock, { kind: "lineTiming" }>[],
+) => {
+	if (blocks.length <= 1) return blocks[0] ?? null;
+	const first = blocks[0];
+	const last = blocks[blocks.length - 1];
+	if (!first || !last) return null;
+	if (first.oldStart === last.newStart && first.oldEnd === last.newEnd) {
+		return null;
+	}
+	const operationIds = blocks
+		.map((block) => block.operationId)
+		.filter((id): id is string => Boolean(id));
+	return {
+		...first,
+		id: first.id,
+		operationId:
+			operationIds.length === blocks.length
+				? `merged:${operationIds.join("+")}`
+				: undefined,
+		oldStart: first.oldStart,
+		newStart: last.newStart,
+		oldEnd: first.oldEnd,
+		newEnd: last.newEnd,
+	};
+};
+
+type WordEditReportBlock =
+	| Extract<ReviewReportBlock, { kind: "wordText" }>
+	| Extract<ReviewReportBlock, { kind: "wordRoman" }>
+	| Extract<ReviewReportBlock, { kind: "wordAndRoman" }>;
+
+const mergeWordEditBlocks = (blocks: WordEditReportBlock[]) => {
+	const first = blocks[0];
+	if (!first) return null;
+	if (blocks.length <= 1) return first;
+
+	let oldWord: string | undefined;
+	let newWord: string | undefined;
+	let oldRoman: string | undefined;
+	let newRoman: string | undefined;
+
+	blocks.forEach((block) => {
+		if (block.kind === "wordText" || block.kind === "wordAndRoman") {
+			oldWord ??= block.oldWord;
+			newWord = block.newWord;
+		}
+		if (block.kind === "wordRoman") {
+			oldWord ??= block.word;
+			newWord ??= block.word;
+			oldRoman ??= block.oldRoman;
+			newRoman = block.newRoman;
+		}
+		if (block.kind === "wordAndRoman") {
+			oldRoman ??= block.oldRoman;
+			newRoman = block.newRoman;
+		}
+	});
+
+	const finalOldWord = oldWord ?? "";
+	const finalNewWord = newWord ?? finalOldWord;
+	const finalOldRoman = oldRoman ?? "";
+	const finalNewRoman = newRoman ?? finalOldRoman;
+	const hasWordChange = finalOldWord !== finalNewWord;
+	const hasRomanChange = finalOldRoman !== finalNewRoman;
+	if (!hasWordChange && !hasRomanChange) return null;
+	if (hasWordChange && hasRomanChange) {
+		return {
+			id: first.id,
+			kind: "wordAndRoman" as const,
+			enabled: first.enabled,
+			wordId: first.wordId,
+			lineNumber: first.lineNumber,
+			isBG: first.isBG,
+			oldWord: finalOldWord,
+			newWord: finalNewWord,
+			oldRoman: finalOldRoman,
+			newRoman: finalNewRoman,
+		};
+	}
+	if (hasWordChange) {
+		return {
+			id: first.id,
+			kind: "wordText" as const,
+			enabled: first.enabled,
+			wordId: first.wordId,
+			lineNumber: first.lineNumber,
+			isBG: first.isBG,
+			oldWord: finalOldWord,
+			newWord: finalNewWord,
+		};
+	}
+	return {
+		id: first.id,
+		kind: "wordRoman" as const,
+		enabled: first.enabled,
+		wordId: first.wordId,
+		lineNumber: first.lineNumber,
+		isBG: first.isBG,
+		word: finalNewWord || finalOldWord,
+		oldRoman: finalOldRoman,
+		newRoman: finalNewRoman,
+	};
+};
+
+const mergeWordOperationBlocks = (blocks: ReviewReportBlock[]) => {
+	const wordEditGroups = new Map<
+		string,
+		{
+			firstIndex: number;
+			blocks: WordEditReportBlock[];
+		}
+	>();
+	const timingGroups = new Map<
+		string,
+		{
+			firstIndex: number;
+			blocks: Extract<ReviewReportBlock, { kind: "timing" }>[];
+		}
+	>();
+	const lineTimingGroups = new Map<
+		string,
+		{
+			firstIndex: number;
+			blocks: Extract<ReviewReportBlock, { kind: "lineTiming" }>[];
+		}
+	>();
+	const keys = blocks.map((block, index) => {
+		if (
+			(block.kind === "wordText" ||
+				block.kind === "wordRoman" ||
+				block.kind === "wordAndRoman") &&
+			block.wordId
+		) {
+			const key = `wordEdit:${block.wordId}`;
+			const group = wordEditGroups.get(key);
+			if (group) {
+				group.blocks.push(block);
+			} else {
+				wordEditGroups.set(key, { firstIndex: index, blocks: [block] });
+			}
+			return key;
+		}
+		if (block.kind === "timing") {
+			const key = `timing:${block.wordId}`;
+			const group = timingGroups.get(key);
+			if (group) {
+				group.blocks.push(block);
+			} else {
+				timingGroups.set(key, { firstIndex: index, blocks: [block] });
+			}
+			return key;
+		}
+		if (block.kind === "lineTiming") {
+			const key = `lineTiming:${block.lineId}`;
+			const group = lineTimingGroups.get(key);
+			if (group) {
+				group.blocks.push(block);
+			} else {
+				lineTimingGroups.set(key, { firstIndex: index, blocks: [block] });
+			}
+			return key;
+		}
+		return null;
+	});
+
+	return blocks
+		.map<ReviewReportBlock | null>((block, index) => {
+			const key = keys[index];
+			if (!key) return block;
+			if (
+				block.kind === "wordText" ||
+				block.kind === "wordRoman" ||
+				block.kind === "wordAndRoman"
+			) {
+				const group = wordEditGroups.get(key);
+				if (!group || group.firstIndex !== index) return null;
+				return mergeWordEditBlocks(group.blocks);
+			}
+			if (block.kind === "timing") {
+				const group = timingGroups.get(key);
+				if (!group || group.firstIndex !== index) return null;
+				return mergeTimingBlocks(group.blocks);
+			}
+			if (block.kind === "lineTiming") {
+				const group = lineTimingGroups.get(key);
+				if (!group || group.firstIndex !== index) return null;
+				return mergeLineTimingBlocks(group.blocks);
+			}
+			return block;
+		})
+		.filter((block): block is ReviewReportBlock => Boolean(block));
+};
+
 export const mergeReports = (reports: ReviewReportInput[]) => {
 	const seen = new Set<string>();
-	const blocks = reports.flatMap((report) =>
-		normalizeReviewReport(report).blocks.filter((block) => {
-			if (!block.enabled) return false;
-			const text = getReviewReportBlockText(block);
-			if (!text) return false;
-			if (block.kind === "manual") return true;
-			const dedupeKey =
-				block.kind === "timeShift"
-					? `${block.kind}:${block.operationId}`
-					: `${block.kind}:${text}`;
-			if (seen.has(dedupeKey)) return false;
-			seen.add(dedupeKey);
-			return true;
-		}),
+	const reportBlocks = reports.flatMap((report) =>
+		normalizeReviewReport(report).blocks.filter((block) => block.enabled),
 	);
+	const blocks = mergeWordOperationBlocks(reportBlocks).filter((block) => {
+		if (!block.enabled) return false;
+		const text = getReviewReportBlockText(block);
+		if (!text) return false;
+		if (block.kind === "manual") return true;
+		const dedupeKey =
+			block.kind === "timeShift"
+				? `${block.kind}:${block.operationId}`
+				: `${block.kind}:${text}`;
+		if (seen.has(dedupeKey)) return false;
+		seen.add(dedupeKey);
+		return true;
+	});
 	return createReviewReport(blocks);
 };
 
@@ -543,6 +785,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 					: undefined);
 			if (!stagedWord) {
 				wordRemovals.push({
+					wordId: freezeWord.id,
 					lineNumber,
 					isBG,
 					word: getWordText(freezeWord),
@@ -561,6 +804,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			const newRoman = stagedWord.romanWord ?? "";
 			if (oldWord !== newWord && oldRoman !== newRoman) {
 				wordAndRomanChanges.push({
+					wordId: freezeWord.id,
 					lineNumber,
 					isBG,
 					oldWord,
@@ -570,6 +814,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				});
 			} else if (oldWord !== newWord) {
 				wordTextChanges.push({
+					wordId: freezeWord.id,
 					lineNumber,
 					isBG,
 					oldWord,
@@ -579,6 +824,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				});
 			} else if (oldRoman !== newRoman) {
 				romanOnlyChanges.push({
+					wordId: freezeWord.id,
 					lineNumber,
 					isBG,
 					oldWord,
@@ -596,6 +842,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				return;
 			}
 			wordAdditions.push({
+				wordId: stagedWord.id,
 				lineNumber,
 				isBG,
 				word: getWordText(stagedWord),
@@ -675,6 +922,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			lineNumber: entry.lineNumber,
 			isBG: entry.isBG,
 			changes: entry.items.map((item) => ({
+				wordId: item.wordId,
 				oldWord: item.oldWord,
 				newWord: item.newWord,
 			})),
@@ -696,6 +944,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				id: createBlockId("word-text"),
 				kind: "wordText",
 				enabled: true,
+				wordId: item.wordId,
 				lineNumber: item.lineNumber,
 				isBG: item.isBG,
 				oldWord: item.oldWord,
@@ -712,6 +961,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				id: createBlockId("word-removed"),
 				kind: "wordRemoved",
 				enabled: true,
+				wordId: item.wordId,
 				lineNumber: item.lineNumber,
 				isBG: item.isBG,
 				word: item.word,
@@ -727,6 +977,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				id: createBlockId("word-added"),
 				kind: "wordAdded",
 				enabled: true,
+				wordId: item.wordId,
 				lineNumber: item.lineNumber,
 				isBG: item.isBG,
 				word: item.word,
@@ -742,6 +993,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				id: createBlockId("word-roman"),
 				kind: "wordRoman",
 				enabled: true,
+				wordId: item.wordId,
 				lineNumber: item.lineNumber,
 				isBG: item.isBG,
 				word: item.oldWord,
@@ -788,6 +1040,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				id: createBlockId("word-and-roman"),
 				kind: "wordAndRoman",
 				enabled: true,
+				wordId: item.wordId,
 				lineNumber: item.lineNumber,
 				isBG: item.isBG,
 				oldWord: item.oldWord,
