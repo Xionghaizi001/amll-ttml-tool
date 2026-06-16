@@ -3,6 +3,7 @@ import type { ReviewReport } from "$/modules/review/services/report-service/type
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
+export const metadataRenameDialogAtom = atom(false);
 export const vocalTagsEditorDialogAtom = atom(false);
 export const metaSuggestionManagerDialogAtom = atom(false);
 export const storageManagerDialogAtom = atom(false);
