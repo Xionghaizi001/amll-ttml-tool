@@ -1,7 +1,4 @@
-import {
-	createReviewReport,
-	normalizeReviewReport,
-} from "./normalize-service";
+import { createReviewReport, normalizeReviewReport } from "./normalize-service";
 import { getReviewReportBlockText } from "./render-service";
 import { getReviewReportSelectionKey } from "./selection-service";
 import type {
@@ -118,6 +115,7 @@ const mergeWordEditBlocks = (blocks: WordEditReportBlock[]) => {
 			enabled: first.enabled,
 			wordId: first.wordId,
 			lineNumber: first.lineNumber,
+			wordIndex: first.wordIndex,
 			isBG: first.isBG,
 			oldWord: finalOldWord,
 			newWord: finalNewWord,
@@ -132,6 +130,7 @@ const mergeWordEditBlocks = (blocks: WordEditReportBlock[]) => {
 			enabled: first.enabled,
 			wordId: first.wordId,
 			lineNumber: first.lineNumber,
+			wordIndex: first.wordIndex,
 			isBG: first.isBG,
 			oldWord: finalOldWord,
 			newWord: finalNewWord,
@@ -143,6 +142,7 @@ const mergeWordEditBlocks = (blocks: WordEditReportBlock[]) => {
 		enabled: first.enabled,
 		wordId: first.wordId,
 		lineNumber: first.lineNumber,
+		wordIndex: first.wordIndex,
 		isBG: first.isBG,
 		word: finalNewWord || finalOldWord,
 		oldRoman: finalOldRoman,

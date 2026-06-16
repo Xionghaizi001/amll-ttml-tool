@@ -1,6 +1,7 @@
 export type WordChange = {
 	wordId: string;
 	lineNumber: number;
+	wordIndex: number;
 	isBG: boolean;
 	oldWord: string;
 	newWord: string;
@@ -20,6 +21,7 @@ export type LineChange = {
 export type WordPresenceChange = {
 	wordId: string;
 	lineNumber: number;
+	wordIndex: number;
 	isBG: boolean;
 	word: string;
 };
@@ -27,6 +29,7 @@ export type WordPresenceChange = {
 export type SyncChangeCandidate = {
 	wordId: string;
 	lineNumber: number;
+	wordIndex: number;
 	isBG: boolean;
 	word: string;
 	oldStart: number;
@@ -54,6 +57,7 @@ export type TimingReportSelectionItem = {
 
 export type ReviewReportLineRef = {
 	lineNumber: number;
+	wordIndex?: number;
 	isBG: boolean;
 };
 
@@ -79,6 +83,7 @@ export type ReviewReportBlock =
 			isBG: boolean;
 			changes: Array<{
 				wordId?: string;
+				wordIndex?: number;
 				oldWord: string;
 				newWord: string;
 				enabled?: boolean;
@@ -88,6 +93,7 @@ export type ReviewReportBlock =
 			kind: "wordText";
 			wordId?: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			oldWord: string;
 			newWord: string;
@@ -96,6 +102,7 @@ export type ReviewReportBlock =
 			kind: "wordRoman";
 			wordId?: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			word: string;
 			oldRoman: string;
@@ -119,6 +126,7 @@ export type ReviewReportBlock =
 			kind: "wordAndRoman";
 			wordId?: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			oldWord: string;
 			newWord: string;
@@ -129,6 +137,7 @@ export type ReviewReportBlock =
 			kind: "wordAdded";
 			wordId?: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			word: string;
 	  })
@@ -136,6 +145,7 @@ export type ReviewReportBlock =
 			kind: "wordRemoved";
 			wordId?: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			word: string;
 	  })
@@ -164,6 +174,7 @@ export type ReviewReportBlock =
 			operationId?: string;
 			wordId: string;
 			lineNumber: number;
+			wordIndex?: number;
 			isBG: boolean;
 			word: string;
 			oldStart: number;

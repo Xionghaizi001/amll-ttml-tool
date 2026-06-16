@@ -46,7 +46,7 @@ const buildSyncReportBlocks = (
 	lineCandidates: LineTimingChangeCandidate[] = [],
 ) => {
 	const wordTimingBlocks = candidates
-		.map((candidate) => {
+		.map<Extract<ReviewReportBlock, { kind: "timing" }> | null>((candidate) => {
 			const fields = fieldMap?.get(candidate.wordId);
 			if (fieldMap && !fields) return null;
 			if (buildSyncParts(candidate, fields).length === 0) return null;
@@ -56,6 +56,7 @@ const buildSyncReportBlocks = (
 				enabled: true,
 				wordId: candidate.wordId,
 				lineNumber: candidate.lineNumber,
+				wordIndex: candidate.wordIndex,
 				isBG: candidate.isBG,
 				word: candidate.word,
 				oldStart: candidate.oldStart,
@@ -71,26 +72,28 @@ const buildSyncReportBlocks = (
 			Boolean(item),
 		);
 	const lineTimingBlocks = lineCandidates
-		.map((candidate) => {
-			if (
-				candidate.oldStart === candidate.newStart &&
-				candidate.oldEnd === candidate.newEnd
-			) {
-				return null;
-			}
-			return {
-				id: createReviewReportBlockId("line-timing"),
-				kind: "lineTiming" as const,
-				enabled: true,
-				lineId: candidate.lineId,
-				lineNumber: candidate.lineNumber,
-				isBG: candidate.isBG,
-				oldStart: candidate.oldStart,
-				newStart: candidate.newStart,
-				oldEnd: candidate.oldEnd,
-				newEnd: candidate.newEnd,
-			};
-		})
+		.map<Extract<ReviewReportBlock, { kind: "lineTiming" }> | null>(
+			(candidate) => {
+				if (
+					candidate.oldStart === candidate.newStart &&
+					candidate.oldEnd === candidate.newEnd
+				) {
+					return null;
+				}
+				return {
+					id: createReviewReportBlockId("line-timing"),
+					kind: "lineTiming" as const,
+					enabled: true,
+					lineId: candidate.lineId,
+					lineNumber: candidate.lineNumber,
+					isBG: candidate.isBG,
+					oldStart: candidate.oldStart,
+					newStart: candidate.newStart,
+					oldEnd: candidate.oldEnd,
+					newEnd: candidate.newEnd,
+				};
+			},
+		)
 		.filter(
 			(item): item is Extract<ReviewReportBlock, { kind: "lineTiming" }> =>
 				Boolean(item),
@@ -162,6 +165,7 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			reportLines.push({
 				wordId: freezeWord.id,
 				lineNumber,
+				wordIndex,
 				isBG,
 				word: freezeWord.word || "（空白）",
 				oldStart,

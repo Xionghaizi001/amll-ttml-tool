@@ -25,6 +25,14 @@ import type {
 	WordPresenceChange,
 } from "./types";
 
+const compareWordOrder = (
+	a: { lineNumber: number; isBG: boolean; wordIndex: number },
+	b: { lineNumber: number; isBG: boolean; wordIndex: number },
+) =>
+	a.lineNumber - b.lineNumber ||
+	Number(a.isBG) - Number(b.isBG) ||
+	a.wordIndex - b.wordIndex;
+
 export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const stagedLineMap = buildLineMap(staged.lyricLines);
 	const freezeDisplayMap = computeDisplayNumbers(freeze.lyricLines);
@@ -110,6 +118,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				wordRemovals.push({
 					wordId: freezeWord.id,
 					lineNumber,
+					wordIndex,
 					isBG,
 					word: getWordText(freezeWord),
 				});
@@ -129,6 +138,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				wordAndRomanChanges.push({
 					wordId: freezeWord.id,
 					lineNumber,
+					wordIndex,
 					isBG,
 					oldWord,
 					newWord,
@@ -139,6 +149,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				wordTextChanges.push({
 					wordId: freezeWord.id,
 					lineNumber,
+					wordIndex,
 					isBG,
 					oldWord,
 					newWord,
@@ -149,6 +160,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				romanOnlyChanges.push({
 					wordId: freezeWord.id,
 					lineNumber,
+					wordIndex,
 					isBG,
 					oldWord,
 					newWord,
@@ -167,6 +179,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			wordAdditions.push({
 				wordId: stagedWord.id,
 				lineNumber,
+				wordIndex,
 				isBG,
 				word: getWordText(stagedWord),
 			});
@@ -206,6 +219,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			enabled: true,
 			lineRefs: group.map((item) => ({
 				lineNumber: item.lineNumber,
+				wordIndex: item.wordIndex,
 				isBG: item.isBG,
 			})),
 			oldWord: sample.oldWord,
@@ -238,19 +252,21 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	);
 	groupedLines.forEach((entry) => {
 		if (entry.items.length <= 1) return;
+		const items = [...entry.items].sort((a, b) => a.wordIndex - b.wordIndex);
 		blocks.push({
 			id: createReviewReportBlockId("word-text-group"),
 			kind: "wordTextGroup",
 			enabled: true,
 			lineNumber: entry.lineNumber,
 			isBG: entry.isBG,
-			changes: entry.items.map((item) => ({
+			changes: items.map((item) => ({
 				wordId: item.wordId,
+				wordIndex: item.wordIndex,
 				oldWord: item.oldWord,
 				newWord: item.newWord,
 			})),
 		});
-		entry.items.forEach((item) => {
+		items.forEach((item) => {
 			consumed.add(item);
 		});
 	});
@@ -258,72 +274,60 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const singleWordChanges = remainingWordChanges.filter(
 		(item) => !consumed.has(item),
 	);
-	singleWordChanges
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.forEach((item) => {
-			blocks.push({
-				id: createReviewReportBlockId("word-text"),
-				kind: "wordText",
-				enabled: true,
-				wordId: item.wordId,
-				lineNumber: item.lineNumber,
-				isBG: item.isBG,
-				oldWord: item.oldWord,
-				newWord: item.newWord,
-			});
+	singleWordChanges.sort(compareWordOrder).forEach((item) => {
+		blocks.push({
+			id: createReviewReportBlockId("word-text"),
+			kind: "wordText",
+			enabled: true,
+			wordId: item.wordId,
+			lineNumber: item.lineNumber,
+			wordIndex: item.wordIndex,
+			isBG: item.isBG,
+			oldWord: item.oldWord,
+			newWord: item.newWord,
 		});
+	});
 
-	wordRemovals
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.forEach((item) => {
-			blocks.push({
-				id: createReviewReportBlockId("word-removed"),
-				kind: "wordRemoved",
-				enabled: true,
-				wordId: item.wordId,
-				lineNumber: item.lineNumber,
-				isBG: item.isBG,
-				word: item.word,
-			});
+	wordRemovals.sort(compareWordOrder).forEach((item) => {
+		blocks.push({
+			id: createReviewReportBlockId("word-removed"),
+			kind: "wordRemoved",
+			enabled: true,
+			wordId: item.wordId,
+			lineNumber: item.lineNumber,
+			wordIndex: item.wordIndex,
+			isBG: item.isBG,
+			word: item.word,
 		});
+	});
 
-	wordAdditions
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.forEach((item) => {
-			blocks.push({
-				id: createReviewReportBlockId("word-added"),
-				kind: "wordAdded",
-				enabled: true,
-				wordId: item.wordId,
-				lineNumber: item.lineNumber,
-				isBG: item.isBG,
-				word: item.word,
-			});
+	wordAdditions.sort(compareWordOrder).forEach((item) => {
+		blocks.push({
+			id: createReviewReportBlockId("word-added"),
+			kind: "wordAdded",
+			enabled: true,
+			wordId: item.wordId,
+			lineNumber: item.lineNumber,
+			wordIndex: item.wordIndex,
+			isBG: item.isBG,
+			word: item.word,
 		});
+	});
 
-	romanOnlyChanges
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.forEach((item) => {
-			blocks.push({
-				id: createReviewReportBlockId("word-roman"),
-				kind: "wordRoman",
-				enabled: true,
-				wordId: item.wordId,
-				lineNumber: item.lineNumber,
-				isBG: item.isBG,
-				word: item.oldWord,
-				oldRoman: item.oldRoman,
-				newRoman: item.newRoman,
-			});
+	romanOnlyChanges.sort(compareWordOrder).forEach((item) => {
+		blocks.push({
+			id: createReviewReportBlockId("word-roman"),
+			kind: "wordRoman",
+			enabled: true,
+			wordId: item.wordId,
+			lineNumber: item.lineNumber,
+			wordIndex: item.wordIndex,
+			isBG: item.isBG,
+			word: item.oldWord,
+			oldRoman: item.oldRoman,
+			newRoman: item.newRoman,
 		});
+	});
 
 	lineChanges
 		.sort(
@@ -354,24 +358,21 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			}
 		});
 
-	wordAndRomanChanges
-		.sort(
-			(a, b) => a.lineNumber - b.lineNumber || Number(a.isBG) - Number(b.isBG),
-		)
-		.forEach((item) => {
-			blocks.push({
-				id: createReviewReportBlockId("word-and-roman"),
-				kind: "wordAndRoman",
-				enabled: true,
-				wordId: item.wordId,
-				lineNumber: item.lineNumber,
-				isBG: item.isBG,
-				oldWord: item.oldWord,
-				newWord: item.newWord,
-				oldRoman: item.oldRoman,
-				newRoman: item.newRoman,
-			});
+	wordAndRomanChanges.sort(compareWordOrder).forEach((item) => {
+		blocks.push({
+			id: createReviewReportBlockId("word-and-roman"),
+			kind: "wordAndRoman",
+			enabled: true,
+			wordId: item.wordId,
+			lineNumber: item.lineNumber,
+			wordIndex: item.wordIndex,
+			isBG: item.isBG,
+			oldWord: item.oldWord,
+			newWord: item.newWord,
+			oldRoman: item.oldRoman,
+			newRoman: item.newRoman,
 		});
+	});
 
 	return createReviewReport(blocks);
 };

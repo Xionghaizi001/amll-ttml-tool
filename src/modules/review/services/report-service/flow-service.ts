@@ -158,41 +158,51 @@ const buildLineTimingOperationReportBlocks = (
 	const afterSegments = new Map(
 		operation.after.segments.map((segment) => [segment.id, segment]),
 	);
+	const beforeSegmentOrder = new Map(
+		operation.before.segments.map((segment, index) => [segment.id, index]),
+	);
 
-	operation.reportItems.forEach((item) => {
-		const beforeSegment = beforeSegments.get(item.wordId);
-		const afterSegment = afterSegments.get(item.wordId);
-		if (!beforeSegment || !afterSegment) return;
+	[...operation.reportItems]
+		.sort(
+			(a, b) =>
+				(beforeSegmentOrder.get(a.wordId) ?? Number.MAX_SAFE_INTEGER) -
+				(beforeSegmentOrder.get(b.wordId) ?? Number.MAX_SAFE_INTEGER),
+		)
+		.forEach((item) => {
+			const beforeSegment = beforeSegments.get(item.wordId);
+			const afterSegment = afterSegments.get(item.wordId);
+			if (!beforeSegment || !afterSegment) return;
 
-		const fields = item.fields.filter((field) => {
-			if (field === "startTime") {
+			const fields = item.fields.filter((field) => {
+				if (field === "startTime") {
+					return (
+						Math.round(beforeSegment.startTime) !==
+						Math.round(afterSegment.startTime)
+					);
+				}
 				return (
-					Math.round(beforeSegment.startTime) !==
-					Math.round(afterSegment.startTime)
+					Math.round(beforeSegment.endTime) !== Math.round(afterSegment.endTime)
 				);
-			}
-			return (
-				Math.round(beforeSegment.endTime) !== Math.round(afterSegment.endTime)
-			);
-		});
-		if (fields.length === 0) return;
+			});
+			if (fields.length === 0) return;
 
-		blocks.push({
-			id: `timing-${operation.id}-${item.wordId}`,
-			kind: "timing",
-			enabled: true,
-			operationId: operation.id,
-			wordId: item.wordId,
-			lineNumber,
-			isBG,
-			word: beforeSegment.word || "（空白）",
-			oldStart: Math.round(beforeSegment.startTime),
-			newStart: Math.round(afterSegment.startTime),
-			oldEnd: Math.round(beforeSegment.endTime),
-			newEnd: Math.round(afterSegment.endTime),
-			fields,
+			blocks.push({
+				id: `timing-${operation.id}-${item.wordId}`,
+				kind: "timing",
+				enabled: true,
+				operationId: operation.id,
+				wordId: item.wordId,
+				lineNumber,
+				wordIndex: beforeSegmentOrder.get(item.wordId),
+				isBG,
+				word: beforeSegment.word || "（空白）",
+				oldStart: Math.round(beforeSegment.startTime),
+				newStart: Math.round(afterSegment.startTime),
+				oldEnd: Math.round(beforeSegment.endTime),
+				newEnd: Math.round(afterSegment.endTime),
+				fields,
+			});
 		});
-	});
 
 	if (
 		Math.round(operation.before.startTime) !==
@@ -217,6 +227,39 @@ const buildLineTimingOperationReportBlocks = (
 	return blocks;
 };
 
+const sortOperationWordTimingSlots = (blocks: ReviewReportBlock[]) => {
+	const timingBlocksByLine = new Map<
+		string,
+		Extract<ReviewReportBlock, { kind: "timing" }>[]
+	>();
+	blocks.forEach((block) => {
+		if (block.kind !== "timing") return;
+		const key = `${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
+		const lineBlocks = timingBlocksByLine.get(key) ?? [];
+		lineBlocks.push(block);
+		timingBlocksByLine.set(key, lineBlocks);
+	});
+	timingBlocksByLine.forEach((lineBlocks, key) => {
+		timingBlocksByLine.set(
+			key,
+			[...lineBlocks].sort((a, b) => {
+				const aWordIndex = a.wordIndex ?? Number.MAX_SAFE_INTEGER;
+				const bWordIndex = b.wordIndex ?? Number.MAX_SAFE_INTEGER;
+				return aWordIndex - bWordIndex;
+			}),
+		);
+	});
+
+	const nextIndexByLine = new Map<string, number>();
+	return blocks.map((block) => {
+		if (block.kind !== "timing") return block;
+		const key = `${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
+		const nextIndex = nextIndexByLine.get(key) ?? 0;
+		nextIndexByLine.set(key, nextIndex + 1);
+		return timingBlocksByLine.get(key)?.[nextIndex] ?? block;
+	});
+};
+
 const buildOperationReport = (
 	freeze: TTMLLyric,
 	operations: ReviewOperationRecord[],
@@ -227,10 +270,12 @@ const buildOperationReport = (
 				buildTimeShiftReportBlock(scope, freeze),
 			)
 			.filter((block): block is ReviewReportBlock => Boolean(block)),
-		...operations.flatMap((operation) =>
-			operation.kind === "lineTiming"
-				? buildLineTimingOperationReportBlocks(operation, freeze)
-				: [],
+		...sortOperationWordTimingSlots(
+			operations.flatMap((operation) =>
+				operation.kind === "lineTiming"
+					? buildLineTimingOperationReportBlocks(operation, freeze)
+					: [],
+			),
 		),
 	]);
 
