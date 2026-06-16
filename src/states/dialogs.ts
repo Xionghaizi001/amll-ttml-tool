@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { ReviewReport } from "$/modules/review/services/report-service";
+import type { ReviewReport } from "$/modules/review/services/report-service/types";
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);

@@ -1,4 +1,4 @@
-import type { ReviewReportBlock } from "$/modules/review/services/report-service";
+import type { ReviewReportBlock } from "./types";
 
 export const DEFAULT_REVIEW_REPORT_EMPTY_TEXT = "未检测到差异。";
 

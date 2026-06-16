@@ -2,18 +2,20 @@ import type { TTMLLyric } from "$/types/ttml";
 import type {
 	ReviewLineTimingOperation,
 	ReviewOperationRecord,
-} from "./operation-log-service";
-import { replayReviewOperations } from "./operation-log-service";
+} from "../operation-log-service";
+import { replayReviewOperations } from "../operation-log-service";
+import { buildReviewReportFromDiffs } from "./edit-report-builder";
 import {
-	applyReviewReportSelectionState,
-	buildReviewReportFromDiffs,
-	createReviewReport,
 	keepPersistentReviewReportBlocks,
 	mergeReports,
-	type ReviewReportBlock,
-	type ReviewReportInput,
-	type ReviewReportLineRef,
-} from "./report-service";
+} from "./merge-service";
+import { createReviewReport } from "./normalize-service";
+import { applyReviewReportSelectionState } from "./selection-service";
+import type {
+	ReviewReportBlock,
+	ReviewReportInput,
+	ReviewReportLineRef,
+} from "./types";
 
 const computeDisplayNumbers = (lyric: TTMLLyric) => {
 	let current = 0;
@@ -219,20 +221,18 @@ const buildOperationReport = (
 	freeze: TTMLLyric,
 	operations: ReviewOperationRecord[],
 ) =>
-	createReviewReport(
-		[
-			...buildTimeShiftReportScopes(operations, freeze)
-				.map<ReviewReportBlock | null>((scope) =>
-					buildTimeShiftReportBlock(scope, freeze),
-				)
-				.filter((block): block is ReviewReportBlock => Boolean(block)),
-			...operations.flatMap((operation) =>
-				operation.kind === "lineTiming"
-					? buildLineTimingOperationReportBlocks(operation, freeze)
-					: [],
-			),
-		],
-	);
+	createReviewReport([
+		...buildTimeShiftReportScopes(operations, freeze)
+			.map<ReviewReportBlock | null>((scope) =>
+				buildTimeShiftReportBlock(scope, freeze),
+			)
+			.filter((block): block is ReviewReportBlock => Boolean(block)),
+		...operations.flatMap((operation) =>
+			operation.kind === "lineTiming"
+				? buildLineTimingOperationReportBlocks(operation, freeze)
+				: [],
+		),
+	]);
 
 export const getReviewReplayBase = (
 	freeze: TTMLLyric,

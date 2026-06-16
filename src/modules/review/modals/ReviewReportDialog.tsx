@@ -18,17 +18,19 @@ import { uid } from "uid";
 import {
 	type ReviewReportFormat,
 	reviewReportFormatAtom,
-} from "$/modules/review/services/report-format-service";
+} from "$/modules/review/services/report-service/format-service";
 import {
 	createManualReviewReport,
 	createReviewReport,
 	DEFAULT_REVIEW_REPORT_TEXT,
+	normalizeReviewReport,
+} from "$/modules/review/services/report-service/normalize-service";
+import {
 	getReviewReportBlockText,
 	hasReviewReportContent,
-	normalizeReviewReport,
-	type ReviewReportBlock,
 	renderReviewReport,
-} from "$/modules/review/services/report-service";
+} from "$/modules/review/services/report-service/render-service";
+import type { ReviewReportBlock } from "$/modules/review/services/report-service/types";
 import { ReviewTemplateSection } from "$/modules/review/services/review-template-service";
 import { ReviewReportSubmissionBar } from "$/modules/review/services/submission-service";
 import {

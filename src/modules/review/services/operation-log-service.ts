@@ -1,13 +1,13 @@
 import { uid } from "uid";
 import type {
+	TimingField,
+	TimingReportSelectionItem,
+} from "$/modules/review/services/report-service/types";
+import type {
 	ProcessedLyricLine,
 	WordSegment,
 } from "$/modules/segmentation/utils/segment-processing";
 import { applyLineTimingSegmentsToWords } from "$/modules/spectrogram/utils/line-timing-application";
-import type {
-	TimingField,
-	TimingReportSelectionItem,
-} from "$/modules/review/services/report-service";
 import type { TTMLLyric } from "$/types/ttml";
 
 export type ReviewOperationKind = "timeShift" | "lineTiming";

@@ -18,7 +18,7 @@ import {
 	applyReviewOperation,
 	type ReviewOperationRecord,
 } from "$/modules/review/services/operation-log-service";
-import type { ReviewReport } from "$/modules/review/services/report-service";
+import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import type { TTMLLyric } from "../types/ttml";
 
 export enum DarkMode {

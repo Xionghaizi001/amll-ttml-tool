@@ -25,11 +25,9 @@ import {
 	serializeReviewReportFormat,
 	serializeReviewReportFormatJsonl,
 	updateReviewReportBlockFormat,
-} from "$/modules/review/services/report-format-service";
-import {
-	type ReviewReport,
-	renderReviewReport,
-} from "$/modules/review/services/report-service";
+} from "$/modules/review/services/report-service/format-service";
+import { renderReviewReport } from "$/modules/review/services/report-service/render-service";
+import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import { pushNotificationAtom } from "$/states/notifications";
 import styles from "./ReviewReportDialog.module.css";
 

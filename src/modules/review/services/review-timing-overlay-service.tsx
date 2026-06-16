@@ -1,12 +1,10 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { type CSSProperties, useCallback, useMemo } from "react";
-import {
-	createReviewLineTimingOperation,
-} from "$/modules/review/services/operation-log-service";
+import { createReviewLineTimingOperation } from "$/modules/review/services/operation-log-service";
 import type {
 	TimingField,
 	TimingReportSelectionItem,
-} from "$/modules/review/services/report-service";
+} from "$/modules/review/services/report-service/types";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
 import {
 	createLyricTimelineAuxiliaryDividerRenderer,
@@ -26,10 +24,8 @@ import {
 	selectedWordsAtom,
 } from "$/states/main";
 
-const buildReviewTimingDividerKey = (
-	wordId: string,
-	field: TimingField,
-) => `${wordId}:${field}`;
+const buildReviewTimingDividerKey = (wordId: string, field: TimingField) =>
+	`${wordId}:${field}`;
 
 const REVIEW_TIMING_START_DIVIDER_PENDING_STYLE = {
 	"--timeline-auxiliary-divider-color": "var(--blue-9)",

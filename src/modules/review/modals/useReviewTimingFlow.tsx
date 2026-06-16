@@ -8,15 +8,17 @@ import { useNcmAudioSwitch } from "$/modules/review/services/audio-switch";
 import {
 	buildReviewReportFromOperationReplay,
 	getReviewReplayBase,
-} from "$/modules/review/services/report-flow-service";
+} from "$/modules/review/services/report-service/flow-service";
+import {
+	hasReviewReportContent,
+	renderReviewReport,
+} from "$/modules/review/services/report-service/render-service";
+import type { ReviewReportInput } from "$/modules/review/services/report-service/types";
 import {
 	buildLineTimingChanges,
 	buildSyncChanges,
 	buildSyncReport,
-	hasReviewReportContent,
-	type ReviewReportInput,
-	renderReviewReport,
-} from "$/modules/review/services/report-service";
+} from "$/modules/review/services/report-service/sync-report-builder";
 import {
 	githubAmlldbAccessAtom,
 	githubPatAtom,

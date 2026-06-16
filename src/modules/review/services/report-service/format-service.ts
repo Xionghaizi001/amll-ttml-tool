@@ -1,10 +1,5 @@
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import type {
-	ReviewReport,
-	ReviewReportBlock,
-	TimingField,
-} from "$/modules/review/services/report-service";
 import {
 	DEFAULT_REVIEW_REPORT_EMPTY_TEXT,
 	DEFAULT_REVIEW_REPORT_FORMAT,
@@ -12,7 +7,12 @@ import {
 	type ReviewReportBlockKind,
 	type ReviewReportFormat,
 	reviewReportFormatBlockDefinitions,
-} from "./report-format-template";
+} from "./format-template";
+import type {
+	ReviewReport,
+	ReviewReportBlock,
+	TimingField,
+} from "./types";
 
 export type {
 	ReviewReportBlockFormat,
@@ -20,12 +20,12 @@ export type {
 	ReviewReportFormat,
 	ReviewReportFormatBlockDefinition,
 	ReviewReportFormatVariable,
-} from "./report-format-template";
+} from "./format-template";
 export {
 	DEFAULT_REVIEW_REPORT_EMPTY_TEXT,
 	DEFAULT_REVIEW_REPORT_FORMAT,
 	reviewReportFormatBlockDefinitions,
-} from "./report-format-template";
+} from "./format-template";
 
 const cloneDefaultFormat = (): ReviewReportFormat => ({
 	version: 1,

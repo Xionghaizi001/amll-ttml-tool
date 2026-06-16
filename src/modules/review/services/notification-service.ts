@@ -1,8 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
-import {
-	normalizeReviewReport,
-	type ReviewReport,
-} from "$/modules/review/services/report-service";
+import { normalizeReviewReport } from "$/modules/review/services/report-service/normalize-service";
+import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import type {
 	FileUpdateSession,
