@@ -1,4 +1,4 @@
-import { Delete20Regular } from "@fluentui/react-icons";
+import { Delete20Regular, DocumentSync20Regular } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
@@ -30,7 +30,10 @@ import {
 	hasReviewReportContent,
 	renderReviewReport,
 } from "$/modules/review/services/report-service/render-service";
-import type { ReviewReportBlock } from "$/modules/review/services/report-service/types";
+import type {
+	ReviewReport,
+	ReviewReportBlock,
+} from "$/modules/review/services/report-service/types";
 import { ReviewTemplateSection } from "$/modules/review/services/review-template-service";
 import { ReviewReportSubmissionBar } from "$/modules/review/services/submission-service";
 import {
@@ -522,15 +525,31 @@ export const ReviewReportDialog = () => {
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const removeNotification = useSetAtom(removeNotificationAtom);
 	const submittedRef = useRef(false);
+	const wasDialogOpenRef = useRef(false);
 	const [activeTab, setActiveTab] = useState("blocks");
 	const [formatDirty, setFormatDirty] = useState(false);
+	const [sourceReport, setSourceReport] = useState<ReviewReport>(() =>
+		normalizeReviewReport(dialog.report),
+	);
+	const [textReportContent, setTextReportContent] = useState(() =>
+		renderReviewReport(dialog.report, reportFormat),
+	);
+	const [textDirty, setTextDirty] = useState(false);
 	const renderedReport = useMemo(
 		() => renderReviewReport(dialog.report, reportFormat),
 		[dialog.report, reportFormat],
 	);
+	const displayReportText = textDirty ? textReportContent : renderedReport;
+	const rerenderSourceReport = useMemo(() => {
+		const structuredBlocks = sourceReport.blocks.filter(
+			(block) => block.kind !== "manual",
+		);
+		if (structuredBlocks.length === 0) return sourceReport;
+		return createReviewReport(structuredBlocks);
+	}, [sourceReport]);
 	const reportBlocks = useMemo(
-		() => normalizeReviewReport(dialog.report).blocks,
-		[dialog.report],
+		() => normalizeReviewReport(sourceReport).blocks,
+		[sourceReport],
 	);
 	const reportBlockGroups = useMemo(
 		() => createReportBlockGroups(reportBlocks),
@@ -545,12 +564,26 @@ export const ReviewReportDialog = () => {
 	}, [dialog.prNumber, dialog.prTitle, dialog.source]);
 
 	useEffect(() => {
-		if (dialog.open) {
+		if (dialog.open && !wasDialogOpenRef.current) {
+			const report = normalizeReviewReport(dialog.report);
+			setSourceReport(report);
+			setTextReportContent(renderReviewReport(report, reportFormat));
+			setTextDirty(false);
 			submittedRef.current = false;
 			setActiveTab("blocks");
 			setFormatDirty(false);
 		}
-	}, [dialog.open]);
+		wasDialogOpenRef.current = dialog.open;
+	}, [dialog.open, dialog.report, reportFormat]);
+
+	useEffect(() => {
+		if (!dialog.open || !wasDialogOpenRef.current) return;
+		const report = normalizeReviewReport(dialog.report);
+		setSourceReport(report);
+		if (!textDirty) {
+			setTextReportContent(renderReviewReport(report, reportFormat));
+		}
+	}, [dialog.open, dialog.report, reportFormat, textDirty]);
 
 	const collectDraftIds = () => {
 		const draftIds = new Set<string>();
@@ -578,10 +611,14 @@ export const ReviewReportDialog = () => {
 		}
 	};
 
+	const getCurrentReport = () =>
+		textDirty ? createManualReviewReport(textReportContent) : dialog.report;
+
 	const closeDialog = () => {
+		const currentReport = getCurrentReport();
 		if (
 			!submittedRef.current &&
-			hasReviewReportContent(dialog.report, reportFormat)
+			hasReviewReportContent(currentReport, reportFormat)
 		) {
 			const existingDraft = dialog.draftId
 				? reviewReportDrafts.find((item) => item.id === dialog.draftId)
@@ -601,7 +638,7 @@ export const ReviewReportDialog = () => {
 						...existing,
 						prNumber: dialog.prNumber,
 						prTitle: dialog.prTitle,
-						report: normalizeReviewReport(dialog.report),
+						report: normalizeReviewReport(currentReport),
 						createdAt: existing.createdAt ?? createdAt,
 					};
 					return next;
@@ -611,7 +648,7 @@ export const ReviewReportDialog = () => {
 						id: draftId,
 						prNumber: dialog.prNumber,
 						prTitle: dialog.prTitle,
-						report: normalizeReviewReport(dialog.report),
+						report: normalizeReviewReport(currentReport),
 						createdAt,
 					},
 					...prev,
@@ -647,11 +684,15 @@ export const ReviewReportDialog = () => {
 		);
 	};
 	const discardDraft = () => {
+		const emptyReport = createReviewReport();
 		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
+		setSourceReport(emptyReport);
+		setTextReportContent("");
+		setTextDirty(false);
 		setDialog((prev: ReviewReportDialogState) => ({
 			...prev,
-			report: createReviewReport(),
+			report: emptyReport,
 		}));
 		closeDialog();
 	};
@@ -661,36 +702,38 @@ export const ReviewReportDialog = () => {
 		closeDialog();
 	};
 	const getCleanReport = () => {
-		if (!hasReviewReportContent(dialog.report, reportFormat)) {
+		const reportBody = displayReportText.trim();
+		if (!reportBody || reportBody === DEFAULT_REVIEW_REPORT_TEXT) {
 			return "";
 		}
-		const trimmed = renderReviewReport(dialog.report, reportFormat).trim();
-		if (!trimmed || trimmed === DEFAULT_REVIEW_REPORT_TEXT) {
+		if (!hasReviewReportContent(getCurrentReport(), reportFormat)) {
 			return "";
 		}
-		return trimmed;
+		return reportBody;
 	};
 	const updateReportBlocks = (
 		updater: (blocks: ReviewReportBlock[]) => ReviewReportBlock[],
 	) => {
+		const report = createReviewReport(
+			updater(normalizeReviewReport(sourceReport).blocks),
+		);
+		setSourceReport(report);
 		setDialog((prev: ReviewReportDialogState) => ({
 			...prev,
-			report: createReviewReport(
-				updater(normalizeReviewReport(prev.report).blocks),
-			),
+			report,
 		}));
 	};
 	const insertTemplate = (content: string) => {
 		const trimmed = content.trim();
 		if (!trimmed) return;
-		setDialog((prev: ReviewReportDialogState) => {
-			const manualBlocks = createManualReviewReport(trimmed).blocks;
-			const current = normalizeReviewReport(prev.report);
-			return {
-				...prev,
-				report: createReviewReport([...manualBlocks, ...current.blocks]),
-			};
-		});
+		const manualBlocks = createManualReviewReport(trimmed).blocks;
+		const current = normalizeReviewReport(sourceReport);
+		const report = createReviewReport([...manualBlocks, ...current.blocks]);
+		setSourceReport(report);
+		setDialog((prev: ReviewReportDialogState) => ({
+			...prev,
+			report,
+		}));
 	};
 	const addManualBlock = () => {
 		updateReportBlocks((blocks) => [
@@ -777,10 +820,13 @@ export const ReviewReportDialog = () => {
 		updateReportBlocks((blocks) => blocks.filter((block) => block.id !== id));
 	};
 	const replaceReportWithText = (content: string) => {
-		setDialog((prev: ReviewReportDialogState) => ({
-			...prev,
-			report: createManualReviewReport(content),
-		}));
+		setTextReportContent(content);
+		setTextDirty(true);
+	};
+	const rerenderReportText = () => {
+		replaceReportWithText(
+			renderReviewReport(rerenderSourceReport, reportFormat),
+		);
 	};
 
 	return (
@@ -804,12 +850,30 @@ export const ReviewReportDialog = () => {
 						onValueChange={setActiveTab}
 						className={styles.reportTabs}
 					>
-						<Tabs.List>
-							<Tabs.Trigger value="blocks">条目</Tabs.Trigger>
-							<Tabs.Trigger value="format">格式</Tabs.Trigger>
-							<Tabs.Trigger value="text">文本</Tabs.Trigger>
-							<Tabs.Trigger value="preview">预览</Tabs.Trigger>
-						</Tabs.List>
+						<Flex
+							align="center"
+							justify="between"
+							gap="2"
+							className={styles.reportTabsHeader}
+						>
+							<Tabs.List>
+								<Tabs.Trigger value="blocks">条目</Tabs.Trigger>
+								<Tabs.Trigger value="format">格式</Tabs.Trigger>
+								<Tabs.Trigger value="text">文本</Tabs.Trigger>
+								<Tabs.Trigger value="preview">预览</Tabs.Trigger>
+							</Tabs.List>
+							{activeTab === "text" && (
+								<Button
+									size="1"
+									variant="soft"
+									onClick={rerenderReportText}
+									title="按照最新格式重新生成审阅报告文本"
+								>
+									<DocumentSync20Regular />
+									重新渲染文本
+								</Button>
+							)}
+						</Flex>
 						<Tabs.Content value="blocks" className={styles.reportTabsContent}>
 							<Box className={styles.reportBlocksPane}>
 								{reportBlocks.length > 0 ? (
@@ -931,13 +995,13 @@ export const ReviewReportDialog = () => {
 						</Tabs.Content>
 						<Tabs.Content value="format" className={styles.reportTabsContent}>
 							<ReviewReportFomatter
-								report={dialog.report}
+								report={rerenderSourceReport}
 								onDirtyChange={setFormatDirty}
 							/>
 						</Tabs.Content>
 						<Tabs.Content value="text" className={styles.reportTabsContent}>
 							<TextArea
-								value={renderedReport}
+								value={textReportContent}
 								onChange={(event) =>
 									replaceReportWithText(event.currentTarget.value)
 								}
@@ -946,12 +1010,12 @@ export const ReviewReportDialog = () => {
 						</Tabs.Content>
 						<Tabs.Content value="preview" className={styles.reportTabsContent}>
 							<Box className={styles.reportPreviewPane}>
-								{hasReviewReportContent(dialog.report, reportFormat) ? (
+								{getCleanReport() ? (
 									<ReactMarkdown
 										remarkPlugins={[remarkGfm]}
 										rehypePlugins={[rehypeRaw]}
 									>
-										{renderedReport}
+										{displayReportText}
 									</ReactMarkdown>
 								) : (
 									<Text color="gray" size="2">

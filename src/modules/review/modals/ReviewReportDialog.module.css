@@ -31,6 +31,11 @@
 	min-height: 0;
 }
 
+.reportTabsHeader {
+	flex-shrink: 0;
+	flex-wrap: wrap;
+}
+
 .reportTabsContent {
 	flex: 1;
 	min-height: 0;

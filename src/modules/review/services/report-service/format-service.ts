@@ -8,11 +8,7 @@ import {
 	type ReviewReportFormat,
 	reviewReportFormatBlockDefinitions,
 } from "./format-template";
-import type {
-	ReviewReport,
-	ReviewReportBlock,
-	TimingField,
-} from "./types";
+import type { ReviewReport, ReviewReportBlock, TimingField } from "./types";
 
 export type {
 	ReviewReportBlockFormat,
@@ -488,21 +484,42 @@ const stripLinePrefix = (text: string, lineLabel: string) => {
 	);
 	const matchedPrefix = trimmed.match(prefixPattern)?.[1];
 	if (matchedPrefix) {
+		const rest = trimmed.slice(matchedPrefix.length);
+		const bodyPrefix = rest.match(/^\s*/)?.[0] ?? "";
 		return {
-			body: trimmed.slice(matchedPrefix.length).trim(),
+			body: rest.trim(),
+			bodyPrefix,
 			prefix: matchedPrefix,
 		};
 	}
 	if (trimmed.startsWith(lineLabel)) {
+		const rest = trimmed.slice(lineLabel.length);
+		const bodyPrefix = rest.match(/^[\s:：-]*/)?.[0] ?? "";
 		return {
-			body: trimmed
-				.slice(lineLabel.length)
-				.replace(/^[\s:：-]+/, "")
-				.trim(),
+			body: rest.replace(/^[\s:：-]+/, "").trim(),
+			bodyPrefix,
 			prefix: `${lineLabel}：`,
 		};
 	}
-	return { body: trimmed, prefix: null };
+	return { body: trimmed, bodyPrefix: "", prefix: null };
+};
+
+const getBodyPrefixLineIndent = (bodyPrefix: string) => {
+	const normalizedPrefix = bodyPrefix.replace(/\r\n?/g, "\n");
+	if (!normalizedPrefix.includes("\n")) return null;
+	return normalizedPrefix.slice(normalizedPrefix.lastIndexOf("\n") + 1);
+};
+
+const renderMergedLineBodies = (
+	prefix: string,
+	bodyPrefix: string,
+	bodies: string[],
+) => {
+	const bodyIndent = getBodyPrefixLineIndent(bodyPrefix);
+	if (bodyIndent !== null) {
+		return `${prefix}\n${bodyIndent}${bodies.join(`\n${bodyIndent}`)}`;
+	}
+	return `${prefix}${bodies.join("；")}`;
 };
 
 const renderMergedLinePart = (parts: RenderedReviewReportPart[]) => {
@@ -523,7 +540,12 @@ const renderMergedLinePart = (parts: RenderedReviewReportPart[]) => {
 			return true;
 		});
 	if (bodies.length === 0) return first.text;
-	return `${strippedParts[0]?.prefix ?? `${lineLabel}：`}${bodies.join("；")}`;
+	const firstStrippedPart = strippedParts[0];
+	return renderMergedLineBodies(
+		firstStrippedPart?.prefix ?? `${lineLabel}：`,
+		firstStrippedPart?.bodyPrefix ?? "",
+		bodies,
+	);
 };
 
 const mergeRenderedLineParts = (
