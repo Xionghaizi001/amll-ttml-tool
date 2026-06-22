@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { formatKeyBindings, recordShortcut } from "$/utils/keybindings";
 import { getAllCommands } from "../registry";
 import type { KeyBindingCommand } from "../types";
+import styles from "./SettingsPanel.module.css";
 
 export const KeyBindingsEdit = ({ command }: { command: KeyBindingCommand }) => {
 	const { t } = useTranslation();
@@ -35,12 +36,12 @@ export const KeyBindingsEdit = ({ command }: { command: KeyBindingCommand }) => 
 					value={listening ? "..." : formatKeyBindings(keys)}
 					readOnly
 					variant="soft"
+					className={styles.shortcutField}
 					style={{
 						cursor: "pointer",
 						textAlign: "left",
-						backgroundColor: listening ? "var(--gray-3)" : "var(--gray-1)",
-						color: listening ? "var(--accent-11)" : "var(--gray-12)",
 					}}
+					data-listening={listening || undefined}
 				/>
 			</Box>
 		</>
@@ -78,7 +79,13 @@ export const AutoKeyBindingSettingsPanel = ({
 						{t(`settingsDialog.keybindings.category.${category}`, category)}
 					</Heading>
 
-					<Grid columns="2" gapX="4" gapY="3" align="center">
+					<Grid
+						columns={{ initial: "1", sm: "2" }}
+						gapX="4"
+						gapY="3"
+						align="center"
+						className={styles.groupPanel}
+					>
 						{cmds.map((cmd) => (
 							<Box
 								key={cmd.id}
