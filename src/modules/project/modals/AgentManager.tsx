@@ -10,7 +10,15 @@
  */
 
 import { Add16Regular, Delete16Regular } from "@fluentui/react-icons";
-import { Button, Dialog, Flex, IconButton, Select, Text, TextField } from "@radix-ui/themes";
+import {
+	Button,
+	Dialog,
+	Flex,
+	IconButton,
+	Select,
+	Text,
+	TextField,
+} from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useImmerAtom } from "jotai-immer";
 import { useState } from "react";
@@ -18,7 +26,10 @@ import { useTranslation } from "react-i18next";
 import { agentManagerDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { TTMLAgent } from "$/types/ttml";
-import { calculateDuetState } from "$/modules/project/logic/ttml-parser";
+import {
+	calculateDuetState,
+	type DuetStateContext,
+} from "$/modules/project/logic/ttml-parser";
 import styles from "./AgentManager.module.css";
 
 const AGENT_TYPES: Array<{ value: TTMLAgent["type"]; label: string }> = [
@@ -54,6 +65,7 @@ const NamesEditor = ({ names, onChange }: NamesEditorProps) => {
 	return (
 		<Flex direction="column" gap="2" style={{ flex: 1 }}>
 			{names.map((name, index) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: agent names can be duplicated and are edited by position.
 				<Flex key={index} gap="2" align="center">
 					<TextField.Root
 						value={name}
@@ -116,35 +128,48 @@ export const AgentManager = () => {
 			}
 		}
 
-		let currentAgentId = mainAgentId;
-		let duetToggle = false;
+		const duetContext: DuetStateContext = {
+			agentId: undefined,
+			agentMap,
+			isGroup: false,
+			single: {
+				lastAgentId: mainAgentId,
+				currentAgentId: mainAgentId,
+				duetToggle: false,
+			},
+			group: {
+				lastAgentId:
+					draft.agents.find((agent) => agent.type === "group")?.id ?? "v2",
+				currentAgentId:
+					draft.agents.find((agent) => agent.type === "group")?.id ?? "v2",
+				duetToggle: true,
+			},
+		};
+		let lastMainLineIsDuet = false;
 
 		for (const line of draft.lyricLines) {
 			if (line.isBG) {
+				line.isDuet = lastMainLineIsDuet;
 				continue;
 			}
 
-			const result = calculateDuetState(
-				line.agent,
-				agentMap,
-				mainAgentId,
-				currentAgentId,
-				duetToggle,
-			);
-
-			line.isDuet = result.isDuet;
-			currentAgentId = result.newCurrentAgentId;
-			duetToggle = result.newDuetToggle;
+			duetContext.agentId = line.agent;
+			duetContext.isGroup = line.agent
+				? agentMap.get(line.agent)?.type === "group"
+				: false;
+			line.isDuet = calculateDuetState(duetContext);
+			lastMainLineIsDuet = line.isDuet;
 		}
 	};
 
 	const handleAdd = () => {
-		if (!newAgent.id?.trim()) return;
+		const id = newAgent.id?.trim();
+		if (!id) return;
 
 		setLyricLines((draft) => {
 			draft.agents ??= [];
 			draft.agents.push({
-				id: newAgent.id!.trim(),
+				id,
 				type: newAgent.type ?? "person",
 				names: newAgent.names?.filter(Boolean) ?? [],
 			});
@@ -156,18 +181,18 @@ export const AgentManager = () => {
 	};
 
 	const handleUpdate = (index: number) => {
-		if (!editingAgent.id?.trim()) return;
+		const newId = editingAgent.id?.trim();
+		if (!newId) return;
 
 		setLyricLines((draft) => {
 			draft.agents[index] = {
-				id: editingAgent.id!.trim(),
+				id: newId,
 				type: editingAgent.type ?? "person",
 				names: editingAgent.names?.filter(Boolean) ?? [],
 			};
 
 			// 更新所有引用旧 agent id 的行的 agent
 			const oldId = agents[index].id;
-			const newId = editingAgent.id!.trim();
 			if (oldId !== newId) {
 				for (const line of draft.lyricLines) {
 					if (line.agent === oldId) {
@@ -282,13 +307,18 @@ export const AgentManager = () => {
 												</Select.Content>
 											</Select.Root>
 										</Flex>
-										<Flex gap="2" align="flex-start">
-											<Text size="2" style={{ minWidth: "60px", marginTop: "4px" }}>
+										<Flex gap="2" align="start">
+											<Text
+												size="2"
+												style={{ minWidth: "60px", marginTop: "4px" }}
+											>
 												Names:
 											</Text>
 											<NamesEditor
 												names={newAgent.names ?? []}
-												onChange={(names) => setNewAgent({ ...newAgent, names })}
+												onChange={(names) =>
+													setNewAgent({ ...newAgent, names })
+												}
 											/>
 										</Flex>
 										<Flex gap="2" justify="end">
@@ -355,13 +385,18 @@ export const AgentManager = () => {
 													</Select.Content>
 												</Select.Root>
 											</Flex>
-											<Flex gap="2" align="flex-start">
-												<Text size="2" style={{ minWidth: "60px", marginTop: "4px" }}>
+											<Flex gap="2" align="start">
+												<Text
+													size="2"
+													style={{ minWidth: "60px", marginTop: "4px" }}
+												>
 													Names:
 												</Text>
 												<NamesEditor
 													names={editingAgent.names ?? []}
-													onChange={(names) => setEditingAgent({ ...editingAgent, names })}
+													onChange={(names) =>
+														setEditingAgent({ ...editingAgent, names })
+													}
 												/>
 											</Flex>
 											<Flex gap="2" justify="end">

@@ -270,6 +270,7 @@ export const ImportFromText = () => {
 			store.set(lyricLinesAtom, {
 				lyricLines: result,
 				metadata: [],
+				agents: [],
 			});
 		},
 		[store],

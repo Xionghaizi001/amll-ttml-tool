@@ -1,14 +1,13 @@
 import {
 	ArrowHookUpLeft24Regular,
-	Dismiss24Regular,
+	ChevronRight24Regular,
 	Image24Regular,
 } from "@fluentui/react-icons";
 import {
-	Button,
 	Box,
+	Button,
 	Card,
 	Flex,
-	Heading,
 	IconButton,
 	Slider,
 	Text,
@@ -137,11 +136,7 @@ export const customBackgroundImageInitAtom = atom(null, async (get, set) => {
 	set(customBackgroundImageValueAtom, url);
 });
 
-export const SettingsCustomBackgroundSettings = ({
-	onClose,
-}: {
-	onClose: () => void;
-}) => {
+export const SettingsCustomBackgroundSettings = () => {
 	const customBackgroundImage = useAtomValue(customBackgroundImageAtom);
 	const setCustomBackgroundImage = useSetAtom(customBackgroundImageAtom);
 	const [customBackgroundOpacity, setCustomBackgroundOpacity] = useAtom(
@@ -168,15 +163,6 @@ export const SettingsCustomBackgroundSettings = ({
 
 	return (
 		<Flex direction="column" gap="4">
-			<Flex align="center" justify="between">
-				<Heading size="4">
-					{t("settings.common.customBackground", "自定义背景")}
-				</Heading>
-				<IconButton variant="ghost" onClick={onClose}>
-					<Dismiss24Regular />
-				</IconButton>
-			</Flex>
-
 			<Card>
 				<Flex direction="column" gap="3">
 					<Text size="1" color="gray">
@@ -371,9 +357,13 @@ export const SettingsCustomBackgroundCard = ({
 										)}
 							</Text>
 						</Flex>
-						<Button variant="soft" onClick={onOpen}>
-							{t("settings.common.customBackgroundManage", "设置")}
-						</Button>
+						<IconButton
+							variant="ghost"
+							aria-label={t("settings.common.customBackgroundManage", "设置")}
+							onClick={onOpen}
+						>
+							<ChevronRight24Regular />
+						</IconButton>
 					</Flex>
 				</Box>
 			</Flex>
