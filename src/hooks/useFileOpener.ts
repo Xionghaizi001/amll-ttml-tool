@@ -15,6 +15,7 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { uid } from "uid";
 import { audioEngine } from "$/modules/audio/audio-engine";
+import { extractAudioMetadata } from "$/modules/audio/metadata-extractor";
 import { getProjectList } from "$/modules/project/autosave/autosave";
 import { isProjectMatch } from "$/modules/project/logic/project-match";
 import { parseLyric as parseTTML } from "$/modules/project/logic/ttml-parser";
@@ -24,11 +25,12 @@ import { pushNotificationAtom } from "$/states/notifications";
 import {
 	fileUpdateSessionAtom,
 	isDirtyAtom,
+	lyricLinesAtom,
 	newLyricLinesAtom,
 	projectIdAtom,
 	saveFileNameAtom,
 } from "$/states/main.ts";
-import type { TTMLLyric } from "$/types/ttml";
+import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import { log, error as logError } from "$/utils/logging.ts";
 import { parseLrc } from "$/utils/parse-lrc";
 
@@ -101,8 +103,30 @@ const writeAudioCache = async (file: File) => {
 	} catch {}
 };
 
+const mergeExtractedMetadata = (
+	currentMetadata: TTMLMetadata[],
+	extractedMetadata: TTMLMetadata[],
+) => {
+	for (const extracted of extractedMetadata) {
+		const values = extracted.value
+			.map((value) => value.trim())
+			.filter((value) => value !== "");
+		if (values.length === 0) continue;
+
+		const current = currentMetadata.find((item) => item.key === extracted.key);
+		if (!current) {
+			currentMetadata.push({ key: extracted.key, value: values });
+			continue;
+		}
+
+		if (current.value.some((value) => value.trim() !== "")) continue;
+		current.value = values;
+	}
+};
+
 export const useFileOpener = () => {
 	const setNewLyricLines = useSetAtom(newLyricLinesAtom);
+	const setLyricLines = useSetAtom(lyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
@@ -137,6 +161,48 @@ export const useFileOpener = () => {
 		[],
 	);
 
+	const mergeAudioMetadataFromFile = useCallback(
+		(file: File) => {
+			void extractAudioMetadata(file)
+				.then((metadata) => {
+					if (metadata.length === 0) return;
+					setLyricLines((prev) => ({
+						...prev,
+						metadata: (() => {
+							const nextMetadata = prev.metadata.map((item) => ({
+								...item,
+								value: [...item.value],
+							}));
+							mergeExtractedMetadata(nextMetadata, metadata);
+							return nextMetadata;
+						})(),
+					}));
+				})
+				.catch((e) => {
+					logError(`Failed to extract audio metadata: ${file.name}`, e);
+				});
+		},
+		[setLyricLines],
+	);
+
+	const loadAudioFile = useCallback(
+		async (
+			file: File,
+			options?: { cache?: boolean; extractMetadata?: boolean },
+		) => {
+			void audioEngine.loadMusic(file).catch((e) => {
+				logError(`Failed to load audio: ${file.name}`, e);
+			});
+			if (options?.cache) {
+				await writeAudioCache(file);
+			}
+			if (options?.extractMetadata !== false) {
+				mergeAudioMetadataFromFile(file);
+			}
+		},
+		[mergeAudioMetadataFromFile],
+	);
+
 	const performOpenFile = useCallback(
 		async (file: File, forceExt?: string) => {
 			const rawExt = file.name.split(".").pop()?.toLowerCase() || "";
@@ -144,8 +210,7 @@ export const useFileOpener = () => {
 
 			try {
 				if (AUDIO_EXTENSIONS.has(ext)) {
-					audioEngine.loadMusic(file);
-					await writeAudioCache(file);
+					await loadAudioFile(file, { cache: true });
 					return;
 				}
 
@@ -212,6 +277,7 @@ export const useFileOpener = () => {
 			setNewLyricLines,
 			setProjectId,
 			setSaveFileName,
+			loadAudioFile,
 			normalizeLyricLines,
 			t,
 			setPushNotification,
@@ -228,7 +294,7 @@ export const useFileOpener = () => {
 			const run = () => performOpenFile(file, forceExt);
 
 			const rawExt = file.name.split(".").pop()?.toLowerCase() || "";
-			const finalExt = forceExt || rawExt;
+			const finalExt = forceExt ? forceExt.toLowerCase() : rawExt;
 
 			if (AUDIO_EXTENSIONS.has(finalExt)) {
 				run();
@@ -276,20 +342,21 @@ export const useFileOpener = () => {
 			const name = record.name || "cached-audio";
 			const type = record.type || record.file.type || "audio/*";
 			const file = new File([record.file], name, { type });
-			audioEngine.loadMusic(file);
+			await loadAudioFile(file, { extractMetadata: false });
 			setPushNotification({
 				title: t("audioPanel.cachedAudioLoaded", "已从缓存加载音频"),
 				level: "success",
 				source: "useFileOpener",
 			});
 		} catch (error) {
+			logError("Failed to load cached audio", error);
 			setPushNotification({
 				title: t("audioPanel.cachedAudioFailed", "读取缓存音频失败"),
 				level: "error",
 				source: "useFileOpener",
 			});
 		}
-	}, [setPushNotification, t]);
+	}, [loadAudioFile, setPushNotification, t]);
 
 	return { openFile, openCachedAudio };
 };
