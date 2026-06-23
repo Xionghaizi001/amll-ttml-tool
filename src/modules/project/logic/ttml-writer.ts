@@ -152,7 +152,7 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		const span = doc.createElement("span");
 		span.setAttribute("begin", msToTimestamp(word.startTime));
 		span.setAttribute("end", msToTimestamp(word.endTime));
-		span.appendChild(doc.createTextNode(word.romanWord));
+		span.appendChild(doc.createTextNode(word.romanWord ?? ""));
 		return span;
 	}
 
@@ -322,9 +322,12 @@ export default function exportTTMLText(ttmlLyric: TTMLLyric): string {
 		// songwriter 会在 iTunesMetadata 中单独处理，不在此处重复导出
 		if (metadata.key === "songwriter") continue;
 		for (const value of metadata.value) {
+			const trimmed = value.trim();
+			if (!trimmed) continue;
+
 			const metaEl = doc.createElement("amll:meta");
 			metaEl.setAttribute("key", metadata.key);
-			metaEl.setAttribute("value", value);
+			metaEl.setAttribute("value", trimmed);
 			metadataEl.appendChild(metaEl);
 		}
 	}
