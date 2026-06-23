@@ -17,6 +17,7 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
 import { useImmerAtom } from "jotai-immer";
 import {
@@ -60,6 +61,17 @@ interface MetadataItemEditorProps {
 	option: SelectOption;
 	setLyricLines: (args: (prev: TTMLLyric) => void) => void;
 }
+
+const contentTransition = {
+	duration: 0.3,
+	ease: [0.2, 0.8, 0.2, 1],
+} as const;
+
+const contentVariants = {
+	initial: { opacity: 0, y: 4, filter: "blur(4px)" },
+	animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+	exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+} as const;
 
 const splitDroppedValues = (text: string) =>
 	text
@@ -643,14 +655,25 @@ export const MetadataEditor = () => {
 					</header>
 
 					<div className={styles.scrollContent}>
-						{activeOption && (
-							<MetadataItemEditor
-								key={activeOption.value}
-								entry={activeEntry}
-								option={activeOption}
-								setLyricLines={setLyricLines}
-							/>
-						)}
+						<AnimatePresence mode="wait" initial={false}>
+							{activeOption && (
+								<motion.div
+									key={activeOption.value}
+									className={styles.contentTransition}
+									variants={contentVariants}
+									initial="initial"
+									animate="animate"
+									exit="exit"
+									transition={contentTransition}
+								>
+									<MetadataItemEditor
+										entry={activeEntry}
+										option={activeOption}
+										setLyricLines={setLyricLines}
+									/>
+								</motion.div>
+							)}
+						</AnimatePresence>
 					</div>
 
 					<Flex
