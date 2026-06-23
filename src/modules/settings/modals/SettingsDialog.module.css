@@ -140,6 +140,7 @@
 
 .contentTransition {
 	min-height: 100%;
+	will-change: opacity, transform, filter;
 }
 
 .settingsGroup {

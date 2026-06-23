@@ -14,6 +14,17 @@ import {
 	SettingsSpectrogramPalettePage,
 } from "./spectrogram";
 
+const contentTransition = {
+	duration: 0.3,
+	ease: [0.2, 0.8, 0.2, 1],
+} as const;
+
+const contentVariants = {
+	initial: { opacity: 0, y: 4, filter: "blur(4px)" },
+	animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+	exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+} as const;
+
 export const SettingsPersonalizationTab = ({
 	subpage,
 	onSubpageChange,
@@ -39,20 +50,22 @@ export const SettingsPersonalizationTab = ({
 			{subpage ? (
 				<motion.div
 					key={subpage}
-					initial={{ opacity: 0, x: 12 }}
-					animate={{ opacity: 1, x: 0 }}
-					exit={{ opacity: 0, x: 12 }}
-					transition={{ duration: 0.18, ease: "easeOut" }}
+					variants={contentVariants}
+					initial="initial"
+					animate="animate"
+					exit="exit"
+					transition={contentTransition}
 				>
 					{subpageContent}
 				</motion.div>
 			) : (
 				<motion.div
 					key="personalization-main"
-					initial={{ opacity: 0, x: -12 }}
-					animate={{ opacity: 1, x: 0 }}
-					exit={{ opacity: 0, x: -12 }}
-					transition={{ duration: 0.18, ease: "easeOut" }}
+					variants={contentVariants}
+					initial="initial"
+					animate="animate"
+					exit="exit"
+					transition={contentTransition}
 				>
 					<Flex direction="column" gap="4">
 						<SettingsGroup>

@@ -60,7 +60,17 @@ const tabConfig = [
 ] as const;
 
 type SettingsSubpage = "customBackground" | "customPalette";
-type BreadcrumbDirection = "down" | "up";
+
+const contentTransition = {
+	duration: 0.3,
+	ease: [0.2, 0.8, 0.2, 1],
+} as const;
+
+const contentVariants = {
+	initial: { opacity: 0, y: 4, filter: "blur(4px)" },
+	animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+	exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+} as const;
 
 export const SettingsDialog = memo(() => {
 	const [settingsDialogOpen, setSettingsDialogOpen] =
@@ -69,8 +79,6 @@ export const SettingsDialog = memo(() => {
 	const [activeSubpage, setActiveSubpage] = useState<SettingsSubpage | null>(
 		null,
 	);
-	const [breadcrumbDirection, setBreadcrumbDirection] =
-		useState<BreadcrumbDirection>("down");
 	const { t } = useTranslation();
 	const activeTabConfig =
 		tabConfig.find((tab) => tab.value === activeTab) ?? tabConfig[0];
@@ -80,16 +88,10 @@ export const SettingsDialog = memo(() => {
 			? activeSubpage === "customBackground"
 				? t("settings.common.customBackground", "自定义背景")
 				: activeSubpage === "customPalette"
-					? t(
-							"settings.spectrogram.customPaletteTitle",
-							"自定义频谱图配色",
-						)
+					? t("settings.spectrogram.customPaletteTitle", "自定义频谱图配色")
 					: null
 			: null;
-	const titleKey = `${activeTab}:${subpageTitle ?? ""}`;
-	const activeTabIndex = tabConfig.findIndex((tab) => tab.value === activeTab);
 	const onSubpageChange = (nextSubpage: SettingsSubpage | null) => {
-		setBreadcrumbDirection(nextSubpage ? "down" : "up");
 		setActiveSubpage(nextSubpage);
 	};
 
@@ -108,9 +110,6 @@ export const SettingsDialog = memo(() => {
 						{tabConfig.map((tab) => {
 							const Icon = tab.icon;
 							const selected = activeTab === tab.value;
-							const tabIndex = tabConfig.findIndex(
-								(item) => item.value === tab.value,
-							);
 
 							return (
 								<button
@@ -119,11 +118,6 @@ export const SettingsDialog = memo(() => {
 									className={styles.navItem}
 									data-active={selected || undefined}
 									onClick={() => {
-										if (!selected) {
-											setBreadcrumbDirection(
-												tabIndex > activeTabIndex ? "down" : "up",
-											);
-										}
 										setActiveSubpage(null);
 										setActiveTab(tab.value);
 									}}
@@ -139,42 +133,25 @@ export const SettingsDialog = memo(() => {
 				<section className={styles.mainPane}>
 					<header className={styles.header}>
 						<Heading size="7" className={styles.pageTitle}>
-							<AnimatePresence mode="wait" initial={false}>
-								<motion.span
-									key={titleKey}
-									className={styles.titleText}
-									initial={{
-										opacity: 0,
-										y: breadcrumbDirection === "down" ? -6 : 6,
-									}}
-									animate={{ opacity: 1, y: 0 }}
-									exit={{
-										opacity: 0,
-										y: breadcrumbDirection === "down" ? 6 : -6,
-									}}
-									transition={{ duration: 0.18, ease: "easeOut" }}
-								>
-									{subpageTitle ? (
-										<button
-											type="button"
-											className={styles.titleButton}
-											onClick={() => onSubpageChange(null)}
-										>
-											{activeTabTitle}
-										</button>
-									) : (
-										<span>{activeTabTitle}</span>
-									)}
-									{subpageTitle && (
-										<>
-											<span className={styles.titleSeparator}>{">"}</span>
-											<span className={styles.titleCurrent}>
-												{subpageTitle}
-											</span>
-										</>
-									)}
-								</motion.span>
-							</AnimatePresence>
+							<span className={styles.titleText}>
+								{subpageTitle ? (
+									<button
+										type="button"
+										className={styles.titleButton}
+										onClick={() => onSubpageChange(null)}
+									>
+										{activeTabTitle}
+									</button>
+								) : (
+									<span>{activeTabTitle}</span>
+								)}
+								{subpageTitle && (
+									<>
+										<span className={styles.titleSeparator}>{">"}</span>
+										<span className={styles.titleCurrent}>{subpageTitle}</span>
+									</>
+								)}
+							</span>
 						</Heading>
 					</header>
 
@@ -183,10 +160,11 @@ export const SettingsDialog = memo(() => {
 							<motion.div
 								key={activeTab}
 								className={styles.contentTransition}
-								initial={{ opacity: 0, x: 12 }}
-								animate={{ opacity: 1, x: 0 }}
-								exit={{ opacity: 0, x: -12 }}
-								transition={{ duration: 0.18, ease: "easeOut" }}
+								variants={contentVariants}
+								initial="initial"
+								animate="animate"
+								exit="exit"
+								transition={contentTransition}
 							>
 								{activeTab === "common" && <SettingsCommonTab />}
 								{activeTab === "keybinding" && <SettingsKeyBindingsDialog />}

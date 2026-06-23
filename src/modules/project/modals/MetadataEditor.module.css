@@ -159,6 +159,11 @@
 	overflow: auto;
 }
 
+.contentTransition {
+	min-height: 100%;
+	will-change: opacity, transform, filter;
+}
+
 .editorPanel {
 	display: flex;
 	min-height: 100%;
