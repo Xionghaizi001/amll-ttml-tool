@@ -1,4 +1,4 @@
-import { Card, Flex, Heading, Text, Checkbox } from "@radix-ui/themes";
+import { Card, Flex, Text, Checkbox } from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
@@ -33,7 +33,6 @@ export const SettingsAMLLTab = () => {
 	return (
 		<Flex direction="column" gap="4">
 			<Flex direction="column" gap="1">
-				<Heading size="4">{t("settings.amll.title", "AMLL")}</Heading>
 				<Text size="2" color="gray">
 					{t("settings.amll.subtitle", "歌词优化选项")}
 				</Text>

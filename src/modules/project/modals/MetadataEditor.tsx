@@ -608,6 +608,34 @@ export const MetadataEditor = () => {
 		[setLyricLines],
 	);
 
+	const hasMetadataValue = useCallback(
+		(key: string) =>
+			lyricLines.metadata
+				.find((item) => item.key === key)
+				?.value.some((value) => value.trim() !== "") ?? false,
+		[lyricLines.metadata],
+	);
+
+	const fillMetadataValuesIfEmpty = useCallback(
+		(key: string, values: string[]) => {
+			const normalized = values
+				.map((value) => value.trim())
+				.filter((value) => value !== "");
+			if (normalized.length === 0) return;
+			setLyricLines((prev) => {
+				let entry = prev.metadata.find((item) => item.key === key);
+				if (entry?.value.some((value) => value.trim() !== "")) return;
+				if (!entry) {
+					entry = { key, value: [] };
+					prev.metadata.push(entry);
+				}
+				entry.value = normalized;
+				entry.autoSuggested = false;
+			});
+		},
+		[setLyricLines],
+	);
+
 	const requestNeteaseMeta = useCallback(
 		async (id: string) => {
 			const trimmed = id.trim();
@@ -640,29 +668,40 @@ export const MetadataEditor = () => {
 		const trimmedLogin = githubLogin.trim();
 		const trimmedPat = githubPat.trim();
 		if (!trimmedLogin && !trimmedPat) return;
+		const hasGithubId = hasMetadataValue("ttmlAuthorGithub");
+		const hasGithubLogin = hasMetadataValue("ttmlAuthorGithubLogin");
+		if (hasGithubId && hasGithubLogin) return;
 		let active = true;
 		const loadGithubIdentity = async () => {
-			if (trimmedLogin) {
-				appendMetadataValues("ttmlAuthorGithubLogin", [trimmedLogin]);
+			if (trimmedLogin && !hasGithubLogin) {
+				fillMetadataValuesIfEmpty("ttmlAuthorGithubLogin", [trimmedLogin]);
 			}
-			if (!trimmedPat) return;
+			if (!trimmedPat || (hasGithubId && hasGithubLogin)) return;
 			const result = await fetchGithubUserProfile(trimmedPat);
 			if (!active) return;
 			if (result.status !== "ok") return;
-			if (result.profile.login.trim()) {
-				appendMetadataValues("ttmlAuthorGithubLogin", [
+			if (result.profile.login.trim() && !hasGithubLogin) {
+				fillMetadataValuesIfEmpty("ttmlAuthorGithubLogin", [
 					result.profile.login.trim(),
 				]);
 			}
-			if (typeof result.profile.id === "number") {
-				appendMetadataValues("ttmlAuthorGithub", [String(result.profile.id)]);
+			if (typeof result.profile.id === "number" && !hasGithubId) {
+				fillMetadataValuesIfEmpty("ttmlAuthorGithub", [
+					String(result.profile.id),
+				]);
 			}
 		};
 		void loadGithubIdentity();
 		return () => {
 			active = false;
 		};
-	}, [appendMetadataValues, githubLogin, githubPat, metadataEditorDialog]);
+	}, [
+		fillMetadataValuesIfEmpty,
+		githubLogin,
+		githubPat,
+		hasMetadataValue,
+		metadataEditorDialog,
+	]);
 
 	const builtinOptions: SelectOption[] = useMemo(() => {
 		const numeric = (value: string) => /^\d+$/.test(value);

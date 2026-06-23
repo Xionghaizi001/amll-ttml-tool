@@ -17,9 +17,14 @@ import { uid } from "uid";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import { extractAudioMetadata } from "$/modules/audio/metadata-extractor";
 import { getProjectList } from "$/modules/project/autosave/autosave";
+import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { isProjectMatch } from "$/modules/project/logic/project-match";
 import { parseLyric as parseTTML } from "$/modules/project/logic/ttml-parser";
 import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
+import {
+	defaultTtmlAuthorGithubAtom,
+	defaultTtmlAuthorGithubLoginAtom,
+} from "$/modules/settings/states";
 import { confirmDialogAtom } from "$/states/dialogs.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import {
@@ -107,6 +112,7 @@ const mergeExtractedMetadata = (
 	currentMetadata: TTMLMetadata[],
 	extractedMetadata: TTMLMetadata[],
 ) => {
+	let changed = false;
 	for (const extracted of extractedMetadata) {
 		const values = extracted.value
 			.map((value) => value.trim())
@@ -116,12 +122,15 @@ const mergeExtractedMetadata = (
 		const current = currentMetadata.find((item) => item.key === extracted.key);
 		if (!current) {
 			currentMetadata.push({ key: extracted.key, value: values });
+			changed = true;
 			continue;
 		}
 
 		if (current.value.some((value) => value.trim() !== "")) continue;
 		current.value = values;
+		changed = true;
 	}
+	return changed;
 };
 
 export const useFileOpener = () => {
@@ -132,6 +141,10 @@ export const useFileOpener = () => {
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
+	const defaultTtmlAuthorGithub = useAtomValue(defaultTtmlAuthorGithubAtom);
+	const defaultTtmlAuthorGithubLogin = useAtomValue(
+		defaultTtmlAuthorGithubLoginAtom,
+	);
 	const { t } = useTranslation();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 
@@ -165,24 +178,31 @@ export const useFileOpener = () => {
 		(file: File) => {
 			void extractAudioMetadata(file)
 				.then((metadata) => {
-					if (metadata.length === 0) return;
-					setLyricLines((prev) => ({
-						...prev,
-						metadata: (() => {
-							const nextMetadata = prev.metadata.map((item) => ({
-								...item,
-								value: [...item.value],
-							}));
-							mergeExtractedMetadata(nextMetadata, metadata);
-							return nextMetadata;
-						})(),
-					}));
+					setLyricLines((prev) => {
+						const nextMetadata = prev.metadata.map((item) => ({
+							...item,
+							value: [...item.value],
+						}));
+						const metadataChanged = mergeExtractedMetadata(
+							nextMetadata,
+							metadata,
+						);
+						const defaultChanged = applyDefaultTtmlAuthorMetadata(
+							nextMetadata,
+							{
+								githubId: defaultTtmlAuthorGithub,
+								githubLogin: defaultTtmlAuthorGithubLogin,
+							},
+						);
+						if (!metadataChanged && !defaultChanged) return prev;
+						return { ...prev, metadata: nextMetadata };
+					});
 				})
 				.catch((e) => {
 					logError(`Failed to extract audio metadata: ${file.name}`, e);
 				});
 		},
-		[setLyricLines],
+		[defaultTtmlAuthorGithub, defaultTtmlAuthorGithubLogin, setLyricLines],
 	);
 
 	const loadAudioFile = useCallback(
@@ -236,6 +256,11 @@ export const useFileOpener = () => {
 
 				if (!lyricData) return;
 
+				applyDefaultTtmlAuthorMetadata(lyricData.metadata, {
+					githubId: defaultTtmlAuthorGithub,
+					githubLogin: defaultTtmlAuthorGithubLogin,
+				});
+
 				let resolvedProjectId = uid();
 
 				try {
@@ -279,6 +304,8 @@ export const useFileOpener = () => {
 			setSaveFileName,
 			loadAudioFile,
 			normalizeLyricLines,
+			defaultTtmlAuthorGithub,
+			defaultTtmlAuthorGithubLogin,
 			t,
 			setPushNotification,
 		],

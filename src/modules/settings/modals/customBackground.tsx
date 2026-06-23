@@ -3,14 +3,7 @@ import {
 	ChevronRight24Regular,
 	Image24Regular,
 } from "@fluentui/react-icons";
-import {
-	Button,
-	Card,
-	Flex,
-	IconButton,
-	Slider,
-	Text,
-} from "@radix-ui/themes";
+import { Button, Flex, IconButton, Slider, Text } from "@radix-ui/themes";
 import { openDB } from "idb";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
@@ -21,7 +14,7 @@ import {
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
 } from "$/modules/settings/states/background";
-import styles from "./SettingsDialog.module.css";
+import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 
 const CUSTOM_BACKGROUND_DB = "amll-custom-background";
 const CUSTOM_BACKGROUND_STORE = "background-image";
@@ -161,52 +154,59 @@ export const SettingsCustomBackgroundSettings = () => {
 		[setCustomBackgroundImage],
 	);
 
+	const resetButtonLabel = t("settings.common.customBackgroundReset", "重置");
+
 	return (
 		<Flex direction="column" gap="4">
-			<Card>
-				<Flex direction="column" gap="3">
-					<Text size="1" color="gray">
-						{t(
-							"settings.common.customBackgroundDesc",
-							"选择一张图片作为背景。",
-						)}
-					</Text>
-					<input
-						ref={backgroundFileInputRef}
-						type="file"
-						accept="image/*"
-						style={{ display: "none" }}
-						onChange={(event) => {
-							const file = event.target.files?.[0];
-							if (!file) return;
-							onSelectBackgroundFile(file);
-							event.target.value = "";
-						}}
-					/>
-					<Flex gap="2" align="center">
-						<Button
-							variant="soft"
-							onClick={() => backgroundFileInputRef.current?.click()}
-						>
-							{t("settings.common.customBackgroundPick", "选择图片")}
-						</Button>
-						<Button
-							variant="ghost"
-							disabled={!customBackgroundImage}
-							onClick={() => setCustomBackgroundImage(null)}
-						>
-							{t("settings.common.customBackgroundClear", "清除")}
-						</Button>
-					</Flex>
-				</Flex>
-			</Card>
+			<SettingsGroup
+				title={t("settings.common.customBackground", "自定义背景")}
+			>
+				<SettingsRow
+					icon={<Image24Regular />}
+					title={t("settings.common.customBackgroundImage", "背景图片")}
+					description={t(
+						"settings.common.customBackgroundDesc",
+						"选择一张图片作为背景。",
+					)}
+					action={
+						<Flex gap="2" align="center">
+							<input
+								ref={backgroundFileInputRef}
+								type="file"
+								accept="image/*"
+								style={{ display: "none" }}
+								onChange={(event) => {
+									const file = event.target.files?.[0];
+									if (!file) return;
+									onSelectBackgroundFile(file);
+									event.target.value = "";
+								}}
+							/>
+							<Button
+								variant="soft"
+								onClick={() => backgroundFileInputRef.current?.click()}
+							>
+								{t("settings.common.customBackgroundPick", "选择图片")}
+							</Button>
+							<Button
+								variant="ghost"
+								disabled={!customBackgroundImage}
+								onClick={() => setCustomBackgroundImage(null)}
+							>
+								{t("settings.common.customBackgroundClear", "清除")}
+							</Button>
+						</Flex>
+					}
+				/>
+			</SettingsGroup>
 
-			<Card>
-				<Flex direction="column" gap="2">
-					<Flex align="center" justify="between">
-						<Text>
-							{t("settings.common.customBackgroundOpacity", "透明度")}
-						</Text>
+			<SettingsGroup
+				title={t("settings.common.customBackgroundStyle", "背景效果")}
+			>
+				<SettingsRow
+					icon={<Image24Regular />}
+					title={t("settings.common.customBackgroundOpacity", "透明度")}
+					action={
 						<Flex align="center" gap="2">
 							<Text wrap="nowrap" color="gray" size="1">
 								{Math.round(customBackgroundOpacity * 100)}%
@@ -215,13 +215,15 @@ export const SettingsCustomBackgroundSettings = () => {
 								<IconButton
 									variant="ghost"
 									size="1"
+									aria-label={resetButtonLabel}
 									onClick={() => setCustomBackgroundOpacity(0.4)}
 								>
 									<ArrowHookUpLeft24Regular />
 								</IconButton>
 							)}
 						</Flex>
-					</Flex>
+					}
+				>
 					<Slider
 						min={0}
 						max={1}
@@ -237,13 +239,12 @@ export const SettingsCustomBackgroundSettings = () => {
 							)}
 						</Text>
 					)}
-				</Flex>
-			</Card>
+				</SettingsRow>
 
-			<Card style={{ marginBottom: "var(--space-1)" }}>
-				<Flex direction="column" gap="2">
-					<Flex align="center" justify="between">
-						<Text>{t("settings.common.customBackgroundMask", "遮罩")}</Text>
+				<SettingsRow
+					icon={<Image24Regular />}
+					title={t("settings.common.customBackgroundMask", "遮罩")}
+					action={
 						<Flex align="center" gap="2">
 							<Text wrap="nowrap" color="gray" size="1">
 								{Math.round(customBackgroundMask * 100)}%
@@ -252,13 +253,15 @@ export const SettingsCustomBackgroundSettings = () => {
 								<IconButton
 									variant="ghost"
 									size="1"
+									aria-label={resetButtonLabel}
 									onClick={() => setCustomBackgroundMask(0.2)}
 								>
 									<ArrowHookUpLeft24Regular />
 								</IconButton>
 							)}
 						</Flex>
-					</Flex>
+					}
+				>
 					<Slider
 						min={0}
 						max={1}
@@ -266,13 +269,12 @@ export const SettingsCustomBackgroundSettings = () => {
 						value={[customBackgroundMask]}
 						onValueChange={(v) => setCustomBackgroundMask(v[0])}
 					/>
-				</Flex>
-			</Card>
+				</SettingsRow>
 
-			<Card>
-				<Flex direction="column" gap="2">
-					<Flex align="center" justify="between">
-						<Text>{t("settings.common.customBackgroundBlur", "模糊半径")}</Text>
+				<SettingsRow
+					icon={<Image24Regular />}
+					title={t("settings.common.customBackgroundBlur", "模糊半径")}
+					action={
 						<Flex align="center" gap="2">
 							<Text wrap="nowrap" color="gray" size="1">
 								{customBackgroundBlur.toFixed(0)}px
@@ -281,13 +283,15 @@ export const SettingsCustomBackgroundSettings = () => {
 								<IconButton
 									variant="ghost"
 									size="1"
+									aria-label={resetButtonLabel}
 									onClick={() => setCustomBackgroundBlur(0)}
 								>
 									<ArrowHookUpLeft24Regular />
 								</IconButton>
 							)}
 						</Flex>
-					</Flex>
+					}
+				>
 					<Slider
 						min={0}
 						max={30}
@@ -295,15 +299,12 @@ export const SettingsCustomBackgroundSettings = () => {
 						value={[customBackgroundBlur]}
 						onValueChange={(v) => setCustomBackgroundBlur(v[0])}
 					/>
-				</Flex>
-			</Card>
+				</SettingsRow>
 
-			<Card>
-				<Flex direction="column" gap="2">
-					<Flex align="center" justify="between">
-						<Text>
-							{t("settings.common.customBackgroundBrightness", "亮度")}
-						</Text>
+				<SettingsRow
+					icon={<Image24Regular />}
+					title={t("settings.common.customBackgroundBrightness", "亮度")}
+					action={
 						<Flex align="center" gap="2">
 							<Text wrap="nowrap" color="gray" size="1">
 								{Math.round(customBackgroundBrightness * 100)}%
@@ -312,13 +313,15 @@ export const SettingsCustomBackgroundSettings = () => {
 								<IconButton
 									variant="ghost"
 									size="1"
+									aria-label={resetButtonLabel}
 									onClick={() => setCustomBackgroundBrightness(1)}
 								>
 									<ArrowHookUpLeft24Regular />
 								</IconButton>
 							)}
 						</Flex>
-					</Flex>
+					}
+				>
 					<Slider
 						min={0.5}
 						max={1.5}
@@ -326,8 +329,8 @@ export const SettingsCustomBackgroundSettings = () => {
 						value={[customBackgroundBrightness]}
 						onValueChange={(v) => setCustomBackgroundBrightness(v[0])}
 					/>
-				</Flex>
-			</Card>
+				</SettingsRow>
+			</SettingsGroup>
 		</Flex>
 	);
 };
@@ -341,25 +344,23 @@ export const SettingsCustomBackgroundCard = ({
 	const { t } = useTranslation();
 
 	return (
-		<div className={styles.settingsRow}>
-			<Image24Regular className={styles.settingsRowIcon} />
-			<div className={styles.settingsRowContent}>
-				<Text weight="bold">
-					{t("settings.common.customBackground", "自定义背景")}
-				</Text>
-				<Text size="1" color="gray">
-					{customBackgroundImage
-						? t("settings.common.customBackgroundEnabled", "已设置背景")
-						: t("settings.common.customBackgroundDesc", "选择一张图片作为背景。")}
-				</Text>
-			</div>
-			<IconButton
-				variant="ghost"
-				aria-label={t("settings.common.customBackgroundManage", "设置")}
-				onClick={onOpen}
-			>
-				<ChevronRight24Regular />
-			</IconButton>
-		</div>
+		<SettingsRow
+			icon={<Image24Regular />}
+			title={t("settings.common.customBackground", "自定义背景")}
+			description={
+				customBackgroundImage
+					? t("settings.common.customBackgroundEnabled", "已设置背景")
+					: t("settings.common.customBackgroundDesc", "选择一张图片作为背景。")
+			}
+			action={
+				<IconButton
+					variant="ghost"
+					aria-label={t("settings.common.customBackgroundManage", "设置")}
+					onClick={onOpen}
+				>
+					<ChevronRight24Regular />
+				</IconButton>
+			}
+		/>
 	);
 };
