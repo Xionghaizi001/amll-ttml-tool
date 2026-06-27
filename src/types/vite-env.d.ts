@@ -10,6 +10,12 @@
  */
 
 /// <reference types="vite/client" />
+
+declare module "*.module.css" {
+	const classes: Record<string, string>;
+	export default classes;
+}
+
 declare module "virtual:i18next-loader" {
 	const value: typeof import("../../locales/zh-CN/translation.json");
 	export default value;

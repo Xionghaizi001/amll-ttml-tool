@@ -5,6 +5,7 @@ import styles from "./SettingsDialog.module.css";
 interface SettingsGroupProps {
 	title?: ReactNode;
 	children: ReactNode;
+	className?: string;
 }
 
 interface SettingsRowProps {
@@ -16,10 +17,16 @@ interface SettingsRowProps {
 	asLabel?: boolean;
 }
 
-export const SettingsGroup = ({ title, children }: SettingsGroupProps) => (
+export const SettingsGroup = ({
+	title,
+	children,
+	className,
+}: SettingsGroupProps) => (
 	<Flex direction="column" gap="2">
 		{title && <Heading size="4">{title}</Heading>}
-		<div className={styles.settingsGroup}>{children}</div>
+		<div className={[styles.settingsGroup, className].filter(Boolean).join(" ")}>
+			{children}
+		</div>
 	</Flex>
 );
 

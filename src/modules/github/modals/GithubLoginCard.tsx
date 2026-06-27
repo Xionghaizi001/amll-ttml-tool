@@ -21,8 +21,6 @@ import {
 	githubPatAtom,
 	githubRiskConfirmedAtom,
 	reviewHiddenLabelsAtom,
-	reviewHiddenUsersAtom,
-	reviewHiddenUsersModeAtom,
 	reviewLabelsAtom,
 } from "$/modules/settings/states";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
@@ -34,19 +32,18 @@ const REPO_NAME = "amll-ttml-db";
 
 type AuthStatus = "idle" | "checking" | "authorized" | "unauthorized" | "error";
 
-export const GithubLoginCard = () => {
+export const GithubLoginCard = ({
+	showHeader = true,
+}: {
+	showHeader?: boolean;
+}) => {
 	const { t } = useTranslation();
 	const [pat, setPat] = useAtom(githubPatAtom);
 	const [login, setLogin] = useAtom(githubLoginAtom);
 	const [hasAccess, setHasAccess] = useAtom(githubAmlldbAccessAtom);
 	const [riskConfirmed, setRiskConfirmed] = useAtom(githubRiskConfirmedAtom);
-	const [hiddenLabels, setHiddenLabels] = useAtom(reviewHiddenLabelsAtom);
-	const [labels, setLabels] = useAtom(reviewLabelsAtom);
-	const [hiddenUsers, setHiddenUsers] = useAtom(reviewHiddenUsersAtom);
-	const [hiddenUsersMode, setHiddenUsersMode] = useAtom(
-		reviewHiddenUsersModeAtom,
-	);
-	const [newHiddenUser, setNewHiddenUser] = useState("");
+	const [, setHiddenLabels] = useAtom(reviewHiddenLabelsAtom);
+	const [, setLabels] = useAtom(reviewLabelsAtom);
 	const [status, setStatus] = useState<AuthStatus>("idle");
 	const [message, setMessage] = useState("");
 	const [hasPrivilegedAccess, setHasPrivilegedAccess] = useState(false);
@@ -235,70 +232,6 @@ export const GithubLoginCard = () => {
 		}
 	}, [trimmedPat, login, hasAccess, status, t, useNormalIdentity]);
 
-	const hiddenLabelSet = useMemo(
-		() =>
-			new Set(
-				hiddenLabels
-					.map((label) => label.trim().toLowerCase())
-					.filter((label) => label.length > 0),
-			),
-		[hiddenLabels],
-	);
-
-	const visibleLabels = useMemo(
-		() =>
-			labels.filter((label) => !hiddenLabelSet.has(label.name.toLowerCase())),
-		[hiddenLabelSet, labels],
-	);
-
-	const hiddenLabelList = useMemo(
-		() =>
-			labels.filter((label) => hiddenLabelSet.has(label.name.toLowerCase())),
-		[hiddenLabelSet, labels],
-	);
-
-	const showReviewHiddenLabels = Boolean(login.trim()) && hasAccess;
-
-	const hideLabel = useCallback(
-		(name: string) => {
-			setHiddenLabels((prev) => {
-				if (prev.some((item) => item.toLowerCase() === name.toLowerCase()))
-					return prev;
-				return [...prev, name];
-			});
-		},
-		[setHiddenLabels],
-	);
-
-	const showLabel = useCallback(
-		(name: string) => {
-			setHiddenLabels((prev) =>
-				prev.filter((item) => item.toLowerCase() !== name.toLowerCase()),
-			);
-		},
-		[setHiddenLabels],
-	);
-
-	const addHiddenUser = useCallback(() => {
-		const trimmed = newHiddenUser.trim();
-		if (!trimmed) return;
-		setHiddenUsers((prev) => {
-			if (prev.some((u) => u.toLowerCase() === trimmed.toLowerCase()))
-				return prev;
-			return [...prev, trimmed];
-		});
-		setNewHiddenUser("");
-	}, [newHiddenUser, setHiddenUsers]);
-
-	const removeHiddenUser = useCallback(
-		(name: string) => {
-			setHiddenUsers((prev) =>
-				prev.filter((u) => u.toLowerCase() !== name.toLowerCase()),
-			);
-		},
-		[setHiddenUsers],
-	);
-
 	const toggleIdentity = useCallback(() => {
 		if (useNormalIdentity) {
 			setUseNormalIdentity(false);
@@ -353,15 +286,17 @@ export const GithubLoginCard = () => {
 	return (
 		<Card>
 			<Flex direction="column" gap="4">
-				<Flex direction="column" gap="1">
-					<Heading size="3">GitHub</Heading>
-					<Text size="2" color="gray">
-						{t(
-							"settings.connect.github.desc",
-							"用于登录 GitHub 并使用相关能力",
-						)}
-					</Text>
-				</Flex>
+				{showHeader && (
+					<Flex direction="column" gap="1">
+						<Heading size="3">GitHub</Heading>
+						<Text size="2" color="gray">
+							{t(
+								"settings.connect.github.desc",
+								"用于登录 GitHub 并使用相关能力",
+							)}
+						</Text>
+					</Flex>
+				)}
 				<Flex direction="column" gap="3">
 					<Box>
 						<Text as="label" size="2">
@@ -451,197 +386,6 @@ export const GithubLoginCard = () => {
 				</Flex>
 
 				<Flex direction="column" gap="3">
-					{showReviewHiddenLabels && (
-						<Box asChild>
-							<details open>
-								<Text asChild size="2">
-									<summary style={{ cursor: "pointer" }}>
-										{t(
-											"settings.connect.reviewHiddenLabelsTitle",
-											"审阅隐藏标签",
-										)}
-									</summary>
-								</Text>
-								<Flex direction="column" gap="3" mt="2">
-									<Text size="1" color="gray">
-										{t(
-											"settings.connect.reviewHiddenLabelsDesc",
-											"点击标签可在未隐藏与已隐藏之间切换",
-										)}
-									</Text>
-									<Flex gap="4" wrap="wrap">
-										<Flex
-											direction="column"
-											gap="2"
-											style={{ minWidth: "240px" }}
-										>
-											<Text size="1" color="gray">
-												{t(
-													"settings.connect.reviewHiddenLabelsVisible",
-													"未隐藏",
-												)}
-											</Text>
-											<Flex gap="2" wrap="wrap">
-												{visibleLabels.length === 0 ? (
-													<Text size="1" color="gray">
-														{t(
-															"settings.connect.reviewHiddenLabelsEmpty",
-															"暂无标签",
-														)}
-													</Text>
-												) : (
-													visibleLabels.map((label) => (
-														<Button
-															key={`visible-${label.name}`}
-															size="1"
-															variant="soft"
-															color="gray"
-															onClick={() => hideLabel(label.name)}
-														>
-															<Flex align="center" gap="2">
-																<Box
-																	style={{
-																		width: "8px",
-																		height: "8px",
-																		borderRadius: "999px",
-																		backgroundColor: `#${label.color}`,
-																	}}
-																/>
-																<Text size="1" weight="medium">
-																	{label.name}
-																</Text>
-															</Flex>
-														</Button>
-													))
-												)}
-											</Flex>
-										</Flex>
-										<Flex
-											direction="column"
-											gap="2"
-											style={{ minWidth: "240px" }}
-										>
-											<Text size="1" color="gray">
-												{t(
-													"settings.connect.reviewHiddenLabelsHidden",
-													"已隐藏",
-												)}
-											</Text>
-											<Flex gap="2" wrap="wrap">
-												{hiddenLabelList.length === 0 ? (
-													<Text size="1" color="gray">
-														{t(
-															"settings.connect.reviewHiddenLabelsNone",
-															"暂无隐藏标签",
-														)}
-													</Text>
-												) : (
-													hiddenLabelList.map((label) => (
-														<Button
-															key={`hidden-${label.name}`}
-															size="1"
-															variant="soft"
-															color="red"
-															onClick={() => showLabel(label.name)}
-														>
-															<Flex align="center" gap="2">
-																<Box
-																	style={{
-																		width: "8px",
-																		height: "8px",
-																		borderRadius: "999px",
-																		backgroundColor: `#${label.color}`,
-																	}}
-																/>
-																<Text size="1" weight="medium">
-																	{label.name}
-																</Text>
-															</Flex>
-														</Button>
-													))
-												)}
-											</Flex>
-										</Flex>
-									</Flex>
-								</Flex>
-							</details>
-						</Box>
-					)}
-					<Box asChild>
-						<details>
-							<Text asChild size="2">
-								<summary style={{ cursor: "pointer" }}>
-									{t("settings.connect.reviewHiddenUsersTitle", "隐藏指定用户")}
-								</summary>
-							</Text>
-							<Flex direction="column" gap="3" mt="2">
-								<Text size="1" color="gray">
-									{t(
-										"settings.connect.reviewHiddenUsersDesc",
-										"稿件所属用户在隐藏列表中时，该稿件不会在审阅页面显示",
-									)}
-								</Text>
-								<Flex align="center" gap="2">
-									<TextField.Root
-										placeholder={t(
-											"settings.connect.reviewHiddenUsersPlaceholder",
-											"输入 GitHub 或歌词站用户名",
-										)}
-										value={newHiddenUser}
-										onChange={(e) => setNewHiddenUser(e.currentTarget.value)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") addHiddenUser();
-										}}
-										autoComplete="off"
-										style={{ flex: 1 }}
-									/>
-									<Button
-										size="2"
-										variant="soft"
-										onClick={addHiddenUser}
-										disabled={!newHiddenUser.trim()}
-									>
-										{t("settings.connect.reviewHiddenUsersAdd", "添加")}
-									</Button>
-								</Flex>
-								{hiddenUsers.length > 0 && (
-									<Flex gap="2" wrap="wrap" align="center">
-										{hiddenUsers.map((user) => (
-											<Button
-												key={user}
-												size="1"
-												variant="soft"
-												color="red"
-												onClick={() => removeHiddenUser(user)}
-											>
-												@{user}
-											</Button>
-										))}
-										<Button
-											size="1"
-											variant="outline"
-											color="gray"
-											onClick={() =>
-												setHiddenUsersMode((prev) =>
-													prev === "any" ? "all" : "any",
-												)
-											}
-										>
-											{hiddenUsersMode === "any"
-												? t(
-														"settings.connect.reviewHiddenUsersModeAny",
-														"包含即隐藏",
-													)
-												: t(
-														"settings.connect.reviewHiddenUsersModeAll",
-														"全含才隐藏",
-													)}
-										</Button>
-									</Flex>
-								)}
-							</Flex>
-						</details>
-					</Box>
 					{(hasPrivilegedAccess || useNormalIdentity) && (
 						<Button variant="soft" onClick={toggleIdentity}>
 							{useNormalIdentity

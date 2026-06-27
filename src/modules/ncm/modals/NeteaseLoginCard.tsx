@@ -27,7 +27,11 @@ import {
 import { riskConfirmDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 
-export const NeteaseLoginCard = () => {
+export const NeteaseLoginCard = ({
+	showHeader = true,
+}: {
+	showHeader?: boolean;
+}) => {
 	const { t } = useTranslation();
 	const [neteaseCookie, setNeteaseCookie] = useAtom(neteaseCookieAtom);
 	const [neteaseUser, setNeteaseUser] = useAtom(neteaseUserAtom);
@@ -320,17 +324,19 @@ export const NeteaseLoginCard = () => {
 	return (
 		<Card>
 			<Flex direction="column" gap="4">
-				<Flex direction="column" gap="1">
-					<Heading size="3">
-						{t("settings.connect.netease.title", "网易云音乐")}
-					</Heading>
-					<Text size="2" color="gray">
-						{t(
-							"settings.connect.netease.desc",
-							"登录后可使用网易云账号相关能力",
-						)}
-					</Text>
-				</Flex>
+				{showHeader && (
+					<Flex direction="column" gap="1">
+						<Heading size="3">
+							{t("settings.connect.netease.title", "网易云音乐")}
+						</Heading>
+						<Text size="2" color="gray">
+							{t(
+								"settings.connect.netease.desc",
+								"登录后可使用网易云账号相关能力",
+							)}
+						</Text>
+					</Flex>
+				)}
 
 				<Flex align="center" gap="3" wrap="wrap">
 					{neteaseUser ? (

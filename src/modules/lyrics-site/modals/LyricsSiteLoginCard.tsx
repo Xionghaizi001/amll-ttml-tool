@@ -6,7 +6,11 @@ import {
 	useLyricsSiteAuth,
 } from "$/modules/review/services/remote-service";
 
-export const LyricsSiteLoginCard = () => {
+export const LyricsSiteLoginCard = ({
+	showHeader = true,
+}: {
+	showHeader?: boolean;
+}) => {
 	const { t } = useTranslation();
 	const user = useAtomValue(lyricsSiteUserAtom);
 	const { isLoggedIn, hasReviewPermission, initiateLogin, logout } =
@@ -51,15 +55,19 @@ export const LyricsSiteLoginCard = () => {
 	return (
 		<Card>
 			<Flex direction="column" gap="3">
-				<Text weight="medium">
-					{t("settings.connect.lyricsSite", "歌词站")}
-				</Text>
-				<Text size="2" color="gray">
-					{t(
-						"settings.connect.lyricsSiteDesc",
-						"登录歌词站以使用歌词站相关功能",
-					)}
-				</Text>
+				{showHeader && (
+					<>
+						<Text weight="medium">
+							{t("settings.connect.lyricsSite", "歌词站")}
+						</Text>
+						<Text size="2" color="gray">
+							{t(
+								"settings.connect.lyricsSiteDesc",
+								"登录歌词站以使用歌词站相关功能",
+							)}
+						</Text>
+					</>
+				)}
 				<Button variant="soft" onClick={initiateLogin}>
 					{t("settings.connect.loginLyricsSite", "登录歌词站")}
 				</Button>
