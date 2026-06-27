@@ -1,5 +1,5 @@
-import { Button, Card, Dialog, Flex, Text } from "@radix-ui/themes";
 import { Delete20Regular } from "@fluentui/react-icons";
+import { Button, Card, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,12 +21,52 @@ const KNOWN_DB_NAMES = [
 	"review-template-db",
 ];
 
+const IDB_REQUEST_TIMEOUT_MS = 2000;
+
+const withTimeout = <T,>(promise: Promise<T>) =>
+	new Promise<T>((resolve, reject) => {
+		const timeoutId = setTimeout(
+			() => reject(new Error("IndexedDB request timed out")),
+			IDB_REQUEST_TIMEOUT_MS,
+		);
+		promise.then(
+			(value) => {
+				clearTimeout(timeoutId);
+				resolve(value);
+			},
+			(error) => {
+				clearTimeout(timeoutId);
+				reject(error);
+			},
+		);
+	});
+
 const openDb = (name: string) =>
 	new Promise<IDBDatabase>((resolve, reject) => {
+		let settled = false;
+		const finish = (callback: () => void) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutId);
+			callback();
+		};
+		const timeoutId = setTimeout(
+			() => finish(() => reject(new Error("IndexedDB open timed out"))),
+			IDB_REQUEST_TIMEOUT_MS,
+		);
 		const request = indexedDB.open(name);
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error);
-		request.onupgradeneeded = () => resolve(request.result);
+		request.onsuccess = () => {
+			const db = request.result;
+			if (settled) {
+				db.close();
+				return;
+			}
+			finish(() => resolve(db));
+		};
+		request.onerror = () =>
+			finish(() => reject(request.error ?? new Error("IndexedDB open failed")));
+		request.onblocked = () =>
+			finish(() => reject(new Error("IndexedDB open blocked")));
 	});
 
 const estimateValueSize = (
@@ -60,32 +100,55 @@ const estimateValueSize = (
 };
 
 const estimateStoreSize = (db: IDBDatabase, storeName: string) =>
-	new Promise<number>((resolve) => {
+	new Promise<number | null>((resolve) => {
 		let size = 0;
-		const tx = db.transaction(storeName, "readonly");
-		const store = tx.objectStore(storeName);
-		const request = store.openCursor();
-		request.onsuccess = () => {
-			const cursor = request.result;
-			if (!cursor) {
-				resolve(size);
-				return;
-			}
-			size += estimateValueSize(cursor.value, new WeakSet());
-			cursor.continue();
+		let settled = false;
+		const finish = (value: number | null) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutId);
+			resolve(value);
 		};
-		request.onerror = () => resolve(size);
+		const timeoutId = setTimeout(() => finish(null), IDB_REQUEST_TIMEOUT_MS);
+		try {
+			const tx = db.transaction(storeName, "readonly");
+			const store = tx.objectStore(storeName);
+			const request = store.openCursor();
+			request.onsuccess = () => {
+				if (settled) return;
+				const cursor = request.result;
+				if (!cursor) {
+					finish(size);
+					return;
+				}
+				size += estimateValueSize(cursor.value, new WeakSet());
+				cursor.continue();
+			};
+			request.onerror = () => finish(null);
+			tx.onabort = () => finish(null);
+			tx.onerror = () => finish(null);
+		} catch {
+			finish(null);
+		}
 	});
 
 const estimateDbSize = async (name: string) => {
-	const db = await openDb(name);
-	const storeNames = Array.from(db.objectStoreNames);
-	let total = 0;
-	for (const storeName of storeNames) {
-		total += await estimateStoreSize(db, storeName);
+	let db: IDBDatabase | null = null;
+	try {
+		db = await openDb(name);
+		const storeNames = Array.from(db.objectStoreNames);
+		let total = 0;
+		for (const storeName of storeNames) {
+			const storeSize = await estimateStoreSize(db, storeName);
+			if (storeSize === null) return null;
+			total += storeSize;
+		}
+		return total;
+	} catch {
+		return null;
+	} finally {
+		db?.close();
 	}
-	db.close();
-	return total;
 };
 
 const getDbNames = async () => {
@@ -94,12 +157,33 @@ const getDbNames = async () => {
 	};
 	if (!factory.databases) return [];
 	try {
-		const databases = await factory.databases();
+		const databases = await withTimeout(factory.databases());
 		return databases.map((db) => db.name).filter(Boolean) as string[];
 	} catch {
 		return [];
 	}
 };
+
+type DeleteDbResult = "deleted" | "blocked" | "failed";
+
+const deleteDb = (name: string) =>
+	new Promise<DeleteDbResult>((resolve) => {
+		let settled = false;
+		const finish = (result: DeleteDbResult) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutId);
+			resolve(result);
+		};
+		const timeoutId = setTimeout(
+			() => finish("blocked"),
+			IDB_REQUEST_TIMEOUT_MS,
+		);
+		const request = indexedDB.deleteDatabase(name);
+		request.onsuccess = () => finish("deleted");
+		request.onerror = () => finish("failed");
+		request.onblocked = () => finish("blocked");
+	});
 
 const formatBytes = (value: number) => {
 	if (value <= 0) return "0 B";
@@ -149,10 +233,16 @@ export const StorageManagerDialog = () => {
 			let otherSize: number | null = shouldEstimate ? 0 : null;
 			if (shouldEstimate) {
 				let sum = 0;
+				let hasUnknownSize = false;
 				for (const name of otherNames) {
-					sum += await estimateDbSize(name);
+					const size = await estimateDbSize(name);
+					if (size === null) {
+						hasUnknownSize = true;
+						continue;
+					}
+					sum += size;
 				}
-				otherSize = sum;
+				otherSize = hasUnknownSize ? null : sum;
 			}
 			knownEntries.push({
 				key: "other",
@@ -161,7 +251,7 @@ export const StorageManagerDialog = () => {
 				dbNames: otherNames,
 			});
 			setEntries(knownEntries);
-		} catch (error) {
+		} catch {
 			setEntries([]);
 			setPushNotification({
 				title: t("storage.loadFailed", "读取存储信息失败"),
@@ -203,22 +293,26 @@ export const StorageManagerDialog = () => {
 			}
 			setClearingKey(entry.key);
 			try {
-				await Promise.all(
-					entry.dbNames.map(
-						(name) =>
-							new Promise<void>((resolve) => {
-								const request = indexedDB.deleteDatabase(name);
-								request.onsuccess = () => resolve();
-								request.onerror = () => resolve();
-								request.onblocked = () => resolve();
-							}),
-					),
-				);
-				setPushNotification({
-					title: t("storage.clearSuccess", "已清除缓存"),
-					level: "success",
-					source: "Storage",
-				});
+				const results = await Promise.all(entry.dbNames.map(deleteDb));
+				if (results.includes("blocked")) {
+					setPushNotification({
+						title: t("storage.clearBlocked", "缓存正在被使用，稍后将重新计算"),
+						level: "warning",
+						source: "Storage",
+					});
+				} else if (results.includes("failed")) {
+					setPushNotification({
+						title: t("storage.clearFailed", "清除缓存失败"),
+						level: "error",
+						source: "Storage",
+					});
+				} else {
+					setPushNotification({
+						title: t("storage.clearSuccess", "已清除缓存"),
+						level: "success",
+						source: "Storage",
+					});
+				}
 				await refreshEntries();
 			} finally {
 				setClearingKey(null);
