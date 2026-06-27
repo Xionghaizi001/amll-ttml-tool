@@ -51,9 +51,9 @@ const contentTransition = {
 } as const;
 
 const contentVariants = {
-	initial: { opacity: 0, y: 4, filter: "blur(4px)" },
-	animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-	exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+	initial: { opacity: 0 },
+	animate: { opacity: 1 },
+	exit: { opacity: 0 },
 } as const;
 
 export const SettingsDialog = memo(() => {
