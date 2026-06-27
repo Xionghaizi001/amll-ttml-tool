@@ -1,10 +1,15 @@
-import { Delete20Regular } from "@fluentui/react-icons";
-import { Button, Card, Dialog, Flex, Text } from "@radix-ui/themes";
-import { useAtom, useSetAtom } from "jotai";
+import {
+	ArrowSync20Regular,
+	Database24Regular,
+	Delete20Regular,
+	Storage24Regular,
+} from "@fluentui/react-icons";
+import { Button, Flex, IconButton, Tooltip } from "@radix-ui/themes";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { storageManagerDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
+import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 
 type StorageEntry = {
 	key: string;
@@ -198,13 +203,13 @@ const formatBytes = (value: number) => {
 	return `${size.toFixed(size >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 };
 
-export const StorageManagerDialog = () => {
+export const SettingsStorageTab = () => {
 	const { t } = useTranslation();
-	const [open, setOpen] = useAtom(storageManagerDialogAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const [entries, setEntries] = useState<StorageEntry[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [clearingKey, setClearingKey] = useState<string | null>(null);
+	const [totalSize, setTotalSize] = useState<number | null>(null);
 
 	const refreshEntries = useCallback(async () => {
 		setLoading(true);
@@ -212,7 +217,7 @@ export const StorageManagerDialog = () => {
 			const availableNames = await getDbNames();
 			const availableSet = new Set(availableNames);
 			const shouldEstimate = availableNames.length > 0;
-			const knownEntries: StorageEntry[] = [];
+			const nextEntries: StorageEntry[] = [];
 			for (const name of KNOWN_DB_NAMES) {
 				const size =
 					shouldEstimate && availableSet.has(name)
@@ -220,7 +225,7 @@ export const StorageManagerDialog = () => {
 						: shouldEstimate
 							? 0
 							: null;
-				knownEntries.push({
+				nextEntries.push({
 					key: name,
 					label: name,
 					size,
@@ -244,15 +249,21 @@ export const StorageManagerDialog = () => {
 				}
 				otherSize = hasUnknownSize ? null : sum;
 			}
-			knownEntries.push({
+			nextEntries.push({
 				key: "other",
 				label: "other",
 				size: otherSize,
 				dbNames: otherNames,
 			});
-			setEntries(knownEntries);
+			setEntries(nextEntries);
+			setTotalSize(
+				nextEntries.every((entry) => entry.size !== null)
+					? nextEntries.reduce((sum, entry) => sum + (entry.size ?? 0), 0)
+					: null,
+			);
 		} catch {
 			setEntries([]);
+			setTotalSize(null);
 			setPushNotification({
 				title: t("storage.loadFailed", "读取存储信息失败"),
 				level: "error",
@@ -264,10 +275,8 @@ export const StorageManagerDialog = () => {
 	}, [setPushNotification, t]);
 
 	useEffect(() => {
-		if (open) {
-			refreshEntries();
-		}
-	}, [open, refreshEntries]);
+		refreshEntries();
+	}, [refreshEntries]);
 
 	const labelMap = useMemo(
 		() => ({
@@ -331,37 +340,56 @@ export const StorageManagerDialog = () => {
 		return formatBytes(entry.size);
 	};
 
+	const describeTotalSize = () => {
+		if (loading && totalSize === null) {
+			return t("storage.loading", "加载中");
+		}
+		if (totalSize === null) {
+			return t("storage.unknown", "未知");
+		}
+		return formatBytes(totalSize);
+	};
+
 	return (
-		<Dialog.Root open={open} onOpenChange={setOpen}>
-			<Dialog.Content maxWidth="640px">
-				<Dialog.Title>{t("storage.dialogTitle", "存储管理")}</Dialog.Title>
-				<Flex direction="column" gap="3">
-					<Text size="2" color="gray">
-						{t("storage.dialogDesc", "查看并清理本地 IndexedDB 缓存")}
-					</Text>
-					{entries.map((entry) => (
-						<Card key={entry.key}>
-							<Flex align="center" justify="between" gap="4">
-								<Flex direction="column" gap="1">
-									<Text>{labelMap[entry.key as keyof typeof labelMap]}</Text>
-									<Text size="1" color="gray">
-										{describeSize(entry)}
-									</Text>
-								</Flex>
-								<Button
+		<Flex direction="column" gap="4">
+			<SettingsGroup title={t("storage.localCaches", "本地缓存")}>
+				<SettingsRow
+					icon={<Storage24Regular />}
+					title={t("storage.totalUsage", "总占用空间")}
+					description={describeTotalSize()}
+					action={
+						<Button variant="soft" disabled={loading} onClick={refreshEntries}>
+							<ArrowSync20Regular />
+							{t("storage.refresh", "刷新")}
+						</Button>
+					}
+				/>
+				{entries.map((entry) => (
+					<SettingsRow
+						key={entry.key}
+						icon={<Database24Regular />}
+						title={labelMap[entry.key as keyof typeof labelMap]}
+						description={describeSize(entry)}
+						action={
+							<Tooltip content={t("storage.clear", "清除")}>
+								<IconButton
+									aria-label={t("storage.clear", "清除")}
 									variant="soft"
 									color="red"
+									disabled={
+										loading ||
+										clearingKey === entry.key ||
+										entry.dbNames.length === 0
+									}
 									onClick={() => handleClear(entry)}
-									disabled={loading || clearingKey === entry.key}
 								>
 									<Delete20Regular />
-									{t("storage.clear", "清除")}
-								</Button>
-							</Flex>
-						</Card>
-					))}
-				</Flex>
-			</Dialog.Content>
-		</Dialog.Root>
+								</IconButton>
+							</Tooltip>
+						}
+					/>
+				))}
+			</SettingsGroup>
+		</Flex>
 	);
 };

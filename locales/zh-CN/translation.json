@@ -344,8 +344,7 @@
 				"syncLineTimestamps": "同步行时间戳",
 				"reduceStutter": "消减卡顿"
 			},
-			"perWordRomanization": 
-			{
+			"perWordRomanization": {
 				"index": "逐字音译",
 				"check": "检查逐字音译一致性",
 				"distribute": "自动分配罗马音...",
@@ -459,7 +458,8 @@
 			"common": "常规",
 			"keybindings": "按键绑定",
 			"spectrogram": "频谱图",
-			"connect": "连接"
+			"connect": "连接",
+			"storage": "存储"
 		}
 	},
 	"error": {
@@ -845,6 +845,25 @@
 		"buildDate": "构建日期：{date}",
 		"gitCommit": "Git 提交：{commit}",
 		"unknown": "unknown"
+	},
+	"storage": {
+		"audioCache": "音频缓存",
+		"autosaveCache": "自动保存缓存",
+		"backgroundCache": "背景图像缓存",
+		"reviewCache": "审阅功能缓存",
+		"reviewTemplateCache": "审阅模板缓存",
+		"otherCache": "其他",
+		"localCaches": "本地缓存",
+		"totalUsage": "总占用空间",
+		"refresh": "刷新",
+		"clear": "清除",
+		"loading": "加载中",
+		"unknown": "未知",
+		"loadFailed": "读取存储信息失败",
+		"clearEmpty": "没有可清除的缓存",
+		"clearBlocked": "缓存正在被使用，稍后将重新计算",
+		"clearFailed": "清除缓存失败",
+		"clearSuccess": "已清除缓存"
 	},
 	"spectrogram": {
 		"invalidEndTime": "不能选择此结束时间",

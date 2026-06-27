@@ -1,4 +1,5 @@
 import {
+	Database24Regular,
 	Info24Regular,
 	Keyboard24Regular,
 	Link24Regular,
@@ -14,11 +15,12 @@ import { useTranslation } from "react-i18next";
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs.ts";
 import { SettingsAboutTab } from "./about";
 import { SettingsAMLLTab } from "./amll";
-import { SettingsConnectTab } from "./connect";
 import { SettingsCommonTab } from "./common";
+import { SettingsConnectTab } from "./connect";
 import { SettingsKeyBindingsDialog } from "./keybindings";
 import { SettingsPersonalizationTab } from "./personalization";
 import styles from "./SettingsDialog.module.css";
+import { SettingsStorageTab } from "./storage";
 
 const tabConfig = [
 	{
@@ -50,6 +52,12 @@ const tabConfig = [
 		icon: SpeakerSettings24Regular,
 		labelKey: "settingsDialog.tab.amll",
 		fallback: "AMLL",
+	},
+	{
+		value: "storage",
+		icon: Database24Regular,
+		labelKey: "settingsDialog.tab.storage",
+		fallback: "存储",
 	},
 	{
 		value: "about",
@@ -176,6 +184,7 @@ export const SettingsDialog = memo(() => {
 								)}
 								{activeTab === "connect" && <SettingsConnectTab />}
 								{activeTab === "amll" && <SettingsAMLLTab />}
+								{activeTab === "storage" && <SettingsStorageTab />}
 								{activeTab === "about" && <SettingsAboutTab />}
 							</motion.div>
 						</AnimatePresence>

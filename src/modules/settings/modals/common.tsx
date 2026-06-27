@@ -39,10 +39,7 @@ import {
 	smartLastWordAtom,
 	syncJudgeModeAtom,
 } from "$/modules/settings/states";
-import {
-	metaSuggestionManagerDialogAtom,
-	storageManagerDialogAtom,
-} from "$/states/dialogs";
+import { metaSuggestionManagerDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom } from "$/states/main";
 import {
 	KeyBindingTriggerMode,
@@ -75,7 +72,6 @@ export const SettingsCommonTab = () => {
 	const setMetaSuggestionManagerOpen = useSetAtom(
 		metaSuggestionManagerDialogAtom,
 	);
-	const setStorageManagerOpen = useSetAtom(storageManagerDialogAtom);
 	const { t, i18n } = useTranslation();
 	const currentLanguage = i18n.resolvedLanguage || i18n.language;
 
@@ -459,19 +455,6 @@ export const SettingsCommonTab = () => {
 							onClick={() => setMetaSuggestionManagerOpen(true)}
 						>
 							{t("settings.common.metaSuggestion.action", "打开管理器")}
-						</Button>
-					}
-				/>
-			</SettingsGroup>
-
-			<SettingsGroup title={t("settings.group.storage", "存储")}>
-				<SettingsRow
-					icon={<Save24Regular />}
-					title={t("settings.common.storage.title", "管理存储空间")}
-					description={t("settings.common.storage.desc", "查看或清理本地缓存")}
-					action={
-						<Button variant="soft" onClick={() => setStorageManagerOpen(true)}>
-							{t("settings.common.storage.action", "打开管理器")}
 						</Button>
 					}
 				/>
