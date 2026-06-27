@@ -321,6 +321,16 @@ export const StorageManagerDialog = () => {
 		[refreshEntries, setPushNotification, t],
 	);
 
+	const describeSize = (entry: StorageEntry) => {
+		if (loading && entry.size === null) {
+			return t("storage.loading", "加载中");
+		}
+		if (entry.size === null) {
+			return t("storage.unknown", "未知");
+		}
+		return formatBytes(entry.size);
+	};
+
 	return (
 		<Dialog.Root open={open} onOpenChange={setOpen}>
 			<Dialog.Content maxWidth="640px">
@@ -335,11 +345,7 @@ export const StorageManagerDialog = () => {
 								<Flex direction="column" gap="1">
 									<Text>{labelMap[entry.key as keyof typeof labelMap]}</Text>
 									<Text size="1" color="gray">
-										{loading
-											? t("storage.loading", "加载中")
-											: entry.size === null
-												? t("storage.unknown", "未知")
-												: formatBytes(entry.size)}
+										{describeSize(entry)}
 									</Text>
 								</Flex>
 								<Button
