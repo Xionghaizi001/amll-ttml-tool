@@ -1,17 +1,8 @@
-import { Badge, Button, Card, Flex, Text } from "@radix-ui/themes";
+import { Badge, Button, Card, Flex, Progress, Text } from "@radix-ui/themes";
 import { open } from "@tauri-apps/plugin-shell";
 import { motion } from "framer-motion";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import {
-	notificationCenterDialogAtom,
-	reviewReportDialogAtom,
-} from "$/states/dialogs";
-import {
-	removeNotificationAtom,
-	type AppNotification,
-} from "$/states/notifications";
-import { reviewReportDraftsAtom } from "$/states/main";
 import {
 	createReviewReportDraftHandler,
 	getReviewReportDraftAction,
@@ -20,6 +11,15 @@ import {
 	createReviewUpdateActionHandler,
 	getReviewUpdateAction,
 } from "$/modules/user/services/update-service";
+import {
+	notificationCenterDialogAtom,
+	reviewReportDialogAtom,
+} from "$/states/dialogs";
+import { reviewReportDraftsAtom } from "$/states/main";
+import {
+	type AppNotification,
+	removeNotificationAtom,
+} from "$/states/notifications";
 import { notificationCenterStyles } from "./notification-center.styles";
 
 type NotificationEntryProps = {
@@ -128,6 +128,9 @@ export const NotificationEntry = ({
 							<Text size="1" color="gray" wrap="wrap">
 								{item.description}
 							</Text>
+						)}
+						{item.progress && (
+							<Progress color={accentColor} value={item.progress.value ?? 0} />
 						)}
 					</Flex>
 					<Flex

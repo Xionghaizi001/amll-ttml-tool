@@ -1,11 +1,16 @@
-import { getAudioFileUrl } from "../index";
-import {
-	lyricsSiteTokenAtom,
-	audioProxyUrlAtom,
-} from "$/modules/settings/states";
-import { globalStore } from "$/states/store";
-import type { AppNotification } from "$/states/notifications";
 import { audioEngine } from "$/modules/audio/audio-engine";
+import { readResponseBlobWithProgress } from "$/modules/audio/services/download";
+import {
+	removeAudioDownloadProgressNotification,
+	upsertAudioDownloadProgressNotification,
+} from "$/modules/audio/services/download-notification";
+import {
+	audioProxyUrlAtom,
+	lyricsSiteTokenAtom,
+} from "$/modules/settings/states";
+import type { AppNotification } from "$/states/notifications";
+import { globalStore } from "$/states/store";
+import { getAudioFileUrl } from "../index";
 
 export const getLyricsSiteAudioSourceInfo = async (
 	audioFileName?: string,
@@ -70,8 +75,18 @@ export const loadLyricsSiteAudio = async (options: {
 		if (!response.ok) {
 			throw new Error(`下载失败：${response.status}`);
 		}
-		const blob = await response.blob();
 		const fileName = audioFileName.split("/").pop() ?? audioFileName;
+		let blob: Blob;
+		try {
+			blob = await readResponseBlobWithProgress(response, (progress) => {
+				upsertAudioDownloadProgressNotification(
+					audioTitle || fileName,
+					progress,
+				);
+			});
+		} finally {
+			removeAudioDownloadProgressNotification();
+		}
 		const file = new File([blob], fileName, { type: blob.type || "audio/*" });
 
 		openFile(file);

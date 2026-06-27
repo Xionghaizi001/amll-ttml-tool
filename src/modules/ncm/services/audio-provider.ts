@@ -1,12 +1,18 @@
 import { openDB } from "idb";
 import type { Dispatch, SetStateAction } from "react";
-import type { AppNotification } from "$/states/notifications";
-import { requestNetease } from "./index";
+import { readResponseBlobWithProgress } from "$/modules/audio/services/download";
+import {
+	removeAudioDownloadProgressNotification,
+	upsertAudioDownloadProgressNotification,
+} from "$/modules/audio/services/download-notification";
 import {
 	audioProxyUrlAtom,
 	neteaseCookieAtom,
 } from "$/modules/settings/states";
+import type { AppNotification } from "$/states/notifications";
 import { globalStore } from "$/states/store";
+import { requestNetease } from "./index";
+
 const AUDIO_CACHE_DB = "amll-audio-cache";
 const AUDIO_CACHE_STORE = "audio-files";
 const AUDIO_CACHE_KEY = "last-audio";
@@ -202,20 +208,24 @@ export const cacheNeteaseAudioToIndexedDb = async (
 		throw new Error(`音频下载失败：${response.status}`);
 	}
 
+	const responseType = response.headers.get("content-type");
+	const fileName = buildAudioFileName(detail, id, responseType);
 	let blob: Blob;
 	try {
-		blob = await response.blob();
+		blob = await readResponseBlobWithProgress(response, (progress) => {
+			upsertAudioDownloadProgressNotification(fileName, progress);
+		});
 	} catch (blobError) {
 		throw new Error(
 			`读取响应失败: ${blobError instanceof Error ? blobError.message : "未知错误"}`,
 		);
+	} finally {
+		removeAudioDownloadProgressNotification();
 	}
-	const responseType = response.headers.get("content-type");
 	const contentType = blob.type || responseType;
 	if (isImageContentType(contentType) || isImageContentType(responseType)) {
 		return null;
 	}
-	const fileName = buildAudioFileName(detail, id, contentType);
 	const file = new File([blob], fileName, {
 		type: contentType || "audio/*",
 	});

@@ -12,6 +12,9 @@ export type AppNotification = {
 	source?: string;
 	pinned?: boolean;
 	dismissible?: boolean;
+	progress?: {
+		value: number | null;
+	};
 	action?:
 		| {
 				type: "open-review-report";
