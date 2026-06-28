@@ -370,6 +370,8 @@
 		}
 	},
 	"header": {
+		"rename": "Rename",
+		"renameFromMetadata": "Rename from metadata",
 		"status": {
 			"saving": "Saving...",
 			"pending": "Saving...",
@@ -691,6 +693,14 @@
 		"pickSuggestion": "Select match",
 		"clear": "Clear",
 		"info": "Learn more"
+	},
+	"metadataRenameDialog": {
+		"title": "Rename from Metadata",
+		"empty": "No metadata",
+		"splayerSupport": "Enable SPlayer local lyrics support",
+		"goToMetadataEditor": "Go to metadata editor",
+		"filenamePlaceholder": "Filename",
+		"apply": "Apply"
 	},
 	"metaSuggestion": {
 		"dialogTitle": "Metadata editor",

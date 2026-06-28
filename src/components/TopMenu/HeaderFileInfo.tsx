@@ -1,23 +1,20 @@
 import { HistoryRegular } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text, TextField } from "@radix-ui/themes";
+import { Box, Button, DropdownMenu, Flex, Text, TextField } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
+import { historyRestoreDialogAtom, metadataRenameDialogAtom } from "$/states/dialogs";
 import {
 	lastSavedTimeAtom,
-	lyricLinesAtom,
 	saveFileNameAtom,
 } from "$/states/main";
-import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
 
 export const HeaderFileInfo = () => {
 	const { t } = useTranslation();
 	const [filename, setFilename] = useAtom(saveFileNameAtom);
 	const lastSavedTime = useAtomValue(lastSavedTimeAtom);
 	const setHistoryDialogOpen = useSetAtom(historyRestoreDialogAtom);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
-	const metadata = useAtomValue(lyricLinesAtom).metadata;
+	const setRenameDialog = useSetAtom(metadataRenameDialogAtom);
 	const [isEditing, setIsEditing] = useState(false);
 	const [draftName, setDraftName] = useState("");
 	const [autoSaveExpanded, setAutoSaveExpanded] = useState(false);
@@ -25,7 +22,6 @@ export const HeaderFileInfo = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const lastSavedTimeRef = useRef<number | null>(null);
 	const suffix = ".ttml";
-	const suggestedFile = getSuggestedTtmlFileName(metadata);
 
 	const getBaseName = useCallback(
 		(value: string) =>
@@ -68,26 +64,6 @@ export const HeaderFileInfo = () => {
 		}, 4000);
 		return () => window.clearTimeout(timer);
 	}, [lastSavedTime]);
-
-	const handleNameClick = useCallback(() => {
-		const isDefaultName = filename.toLowerCase() === "lyric.ttml";
-		if (isDefaultName && suggestedFile) {
-			setConfirmDialog({
-				open: true,
-				title: t("confirmDialog.useMetadataName.title", "使用元数据命名？"),
-				description: t(
-					"confirmDialog.useMetadataName.description",
-					'是否使用"{name}"作为文件名？',
-					{ name: suggestedFile.baseName },
-				),
-				onConfirm: () => {
-					setFilename(suggestedFile.fileName);
-				},
-			});
-			return;
-		}
-		setIsEditing(true);
-	}, [filename, setConfirmDialog, setFilename, suggestedFile, t]);
 
 	return (
 		<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
@@ -139,41 +115,52 @@ export const HeaderFileInfo = () => {
 						<Text size="2">{suffix}</Text>
 					</Flex>
 				) : (
-					<Button
-						variant="ghost"
-						color="gray"
-						style={{
-							height: "auto",
-							padding: "6px 10px",
-							fontWeight: "normal",
-							color: "var(--gray-12)",
-							maxWidth: "100%",
-						}}
-						onClick={handleNameClick}
-					>
-						<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
-							<Flex
-								align="center"
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							<Button
+								variant="ghost"
+								color="gray"
 								style={{
-									maxWidth: "10rem",
-									overflow: "hidden",
-									whiteSpace: "nowrap",
+									height: "auto",
+									padding: "6px 10px",
+									fontWeight: "normal",
+									color: "var(--gray-12)",
+									maxWidth: "100%",
 								}}
 							>
-								<Text
-									weight="bold"
-									size="2"
-									style={{
-										overflow: "hidden",
-										textOverflow: "ellipsis",
-									}}
-								>
-									{getBaseName(filename)}
-								</Text>
-								<Text size="2">{suffix}</Text>
-							</Flex>
-						</Flex>
-					</Button>
+								<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
+									<Flex
+										align="center"
+										style={{
+											maxWidth: "10rem",
+											overflow: "hidden",
+											whiteSpace: "nowrap",
+										}}
+									>
+										<Text
+											weight="bold"
+											size="2"
+											style={{
+												overflow: "hidden",
+												textOverflow: "ellipsis",
+											}}
+										>
+											{getBaseName(filename)}
+										</Text>
+										<Text size="2">{suffix}</Text>
+									</Flex>
+								</Flex>
+							</Button>
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content>
+							<DropdownMenu.Item onSelect={() => setIsEditing(true)}>
+								{t("header.rename", "重命名")}
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onSelect={() => setRenameDialog(true)}>
+								{t("header.renameFromMetadata", "从元数据重命名")}
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 				)}
 			</Box>
 		</Flex>

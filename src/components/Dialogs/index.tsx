@@ -7,6 +7,7 @@ import { DistributeRomanizationDialog } from "$/modules/project/modals/Distribut
 import { HistoryRestoreDialog } from "$/modules/project/modals/HistoryRestore.tsx";
 import { ImportFromText } from "$/modules/project/modals/ImportFromText.tsx";
 import { MetadataEditor } from "$/modules/project/modals/MetadataEditor.tsx";
+import { MetadataRenameDialog } from "$/modules/project/modals/MetadataRenameDialog.tsx";
 import { VocalTagsEditor } from "$/modules/project/modals/VocalTagsEditor.tsx";
 import { ReviewReportDialog } from "$/modules/review/modals/ReviewReportDialog.tsx";
 import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
@@ -27,6 +28,7 @@ export const Dialogs = () => {
 			<ImportFromText />
 			<ImportFromLRCLIB />
 			<MetadataEditor />
+			<MetadataRenameDialog />
 			<VocalTagsEditor />
 			<AgentManager />
 			<SettingsDialog />
