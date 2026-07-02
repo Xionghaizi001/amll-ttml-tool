@@ -281,6 +281,12 @@ function EditField<
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
+								const updates = new Map<
+									string,
+									{ startTime?: number; endTime?: number }
+								>();
+
+								// First pass: Calculate all new end times for selected words
 								for (
 									let wordIndex = 0;
 									wordIndex < line.words.length;

@@ -998,11 +998,20 @@ export const LyricLineView: FC<{
 										ref={endTimeRef}
 										onClick={onToggleEndTimeLink}
 									>
-										{endTimeLinked ? (
-											<LinkMultiple20Regular />
-										) : (
-											msToTimestamp(line.endTime)
-										)}
+										<span
+											style={{
+												display: "inline-flex",
+												alignItems: "center",
+											}}
+										>
+											{endTimeLinked ? (
+												<LinkMultiple20Regular />
+											) : showEndTimeAsDuration ? (
+												`+${line.endTime - line.startTime}ms`
+											) : (
+												msToTimestamp(line.endTime)
+											)}
+										</span>
 									</button>
 								</Flex>
 							)}

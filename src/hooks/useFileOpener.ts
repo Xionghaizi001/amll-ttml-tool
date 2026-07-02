@@ -15,12 +15,11 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { uid } from "uid";
 import { audioEngine } from "$/modules/audio/audio-engine";
-import { extractAudioMetadata } from "$/modules/audio/metadata-extractor";
 import { getProjectList } from "$/modules/project/autosave/autosave";
 import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
+import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
 import { isProjectMatch } from "$/modules/project/logic/project-match";
 import { parseLyric as parseTTML } from "$/modules/project/logic/ttml-parser";
-import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
 import {
 	defaultTtmlAuthorGithubAtom,
 	defaultTtmlAuthorGithubLoginAtom,
@@ -48,19 +47,46 @@ const LYRIC_PARSERS: Record<string, (text: string) => LyricLine[]> = {
 };
 
 const AUDIO_EXTENSIONS = new Set([
-	"opus",
 	"flac",
-	"webm",
-	"weba",
 	"wav",
-	"ogg",
 	"m4a",
-	"oga",
-	"mid",
-	"mp3",
+	"alac",
+	"ape",
+	"mac",
+	"wv",
+	"tta",
+	"tak",
 	"aiff",
+	"aif",
+	"aifc",
+	"mp3",
+	"aac",
+	"mp4",
+	"ogg",
+	"oga",
+	"opus",
 	"wma",
+	"asf",
+	"mpc",
+	"mpp",
+	"mp+",
+	"dsf",
+	"ac3",
+	"eac3",
+	"dts",
+	"dtshd",
+	"thd",
+	"mlp",
+	"mka",
+	"amr",
+	"rm",
+	"ra",
 	"au",
+	"snd",
+	"caf",
+	"w64",
+	"iff",
+	"8svx",
 ]);
 
 const AUDIO_CACHE_DB = "amll-audio-cache";
@@ -230,7 +256,36 @@ export const useFileOpener = () => {
 
 			try {
 				if (AUDIO_EXTENSIONS.has(ext)) {
-					await loadAudioFile(file, { cache: true });
+					void audioEngine
+						.loadMusic(file)
+						.then((metadata) => {
+							setLyricLines((prev) => {
+								const nextMetadata = prev.metadata.map((item) => ({
+									...item,
+									value: [...item.value],
+								}));
+								const metadataChanged = mergeExtractedMetadata(
+									nextMetadata,
+									metadata,
+								);
+								const defaultChanged = applyDefaultTtmlAuthorMetadata(
+									nextMetadata,
+									{
+										githubId: defaultTtmlAuthorGithub,
+										githubLogin: defaultTtmlAuthorGithubLogin,
+									},
+								);
+
+								if (!metadataChanged && !defaultChanged) return prev;
+								return { ...prev, metadata: nextMetadata };
+							});
+						})
+						.catch((e) => {
+							logError(
+								`Failed to load audio or extract metadata: ${file.name}`,
+								e,
+							);
+						});
 					return;
 				}
 

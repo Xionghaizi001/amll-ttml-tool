@@ -10,10 +10,9 @@ import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 	upsertNotificationAtom,
-} from "$/states/notifications";
+}
 
 export const useAudioFeedback = () => {
-	const taskState = useAtomValue(audioTaskStateAtom);
 	const [errorMsg, setErrorMsg] = useAtom(audioErrorAtom);
 	const notificationId = useRef<string | null>(null);
 	const { t } = useTranslation();

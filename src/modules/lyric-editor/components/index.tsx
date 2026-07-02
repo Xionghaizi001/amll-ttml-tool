@@ -26,12 +26,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
 import { lyricLinesAtom, selectedLinesAtom, ToolMode, toolModeAtom } from "$/states/main.ts";
-import { LyricLineView } from "./lyric-line-view";
-import styles from "./index.module.css";
 import {
 	playbackHighlightedLineIdAtom,
 	playbackLocatedLineIndexAtom,
 } from "../utils/playback-locate";
+import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import type { LyricLine } from "$/types/ttml.ts";
+import styles from "./index.module.css";
+import { LyricLineView } from "./lyric-line-view";
 
 const lyricLinesOnlyAtom = splitAtom(
 	focusAtom(lyricLinesAtom, (o) => o.prop("lyricLines")),
@@ -39,6 +41,7 @@ const lyricLinesOnlyAtom = splitAtom(
 
 export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const editLyric = useAtomValue(lyricLinesOnlyAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom).lyricLines;
 	const viewRef = useRef<ViewportListRef>(null);
 	const viewElRef = useRef<HTMLDivElement>(null);
 	const toolMode = useAtomValue(toolModeAtom);
@@ -89,6 +92,12 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 		if (playbackLocatedLineIndex === undefined) return;
 		scrollToLineIndex(playbackLocatedLineIndex);
 	}, [playbackLocatedLineIndex, scrollToLineIndex]);
+	const handleLocate = useCallback(() => {
+		const currentTime = audioEngine.musicCurrentTime * 1000;
+		const index = findCurrentLineIndex(lyricLines, currentTime);
+		if (index === -1) return;
+		scrollToLineIndex(index);
+	}, [lyricLines, scrollToLineIndex]);
 
 	useImperativeHandle(ref, () => viewElRef.current as HTMLDivElement, []);
 
