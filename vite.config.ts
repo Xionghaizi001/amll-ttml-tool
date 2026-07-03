@@ -1,13 +1,13 @@
-// import MillionLint from "@million/lint";
 import { exec } from "node:child_process";
-import type { Readable } from "node:stream";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import react from "@vitejs/plugin-react";
-import jotaiDebugLabel from "jotai/babel/plugin-debug-label";
-import jotaiReactRefresh from "jotai/babel/plugin-react-refresh";
+import type { Readable } from "node:stream";
+import babel from "@rolldown/plugin-babel";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import jotaiDebugLabel from "jotai-babel/plugin-debug-label";
+import jotaiReactRefresh from "jotai-babel/plugin-react-refresh";
 import ConditionalCompile from "unplugin-preprocessor-directives/vite";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import i18nextLoader from "vite-plugin-i18next-loader";
 // 由于这个插件会除去 Source Map 注释，所以考虑移除
 // https://github.com/Menci/vite-plugin-top-level-await/issues/34
@@ -19,13 +19,9 @@ const AMLL_LOCAL_EXISTS = existsSync(
 	resolve(__dirname, "../applemusic-like-lyrics"),
 );
 
-const ReactCompilerConfig = {
-	target: "19",
-};
-
 process.env.AMLL_LOCAL_EXISTS = AMLL_LOCAL_EXISTS ? "true" : "false";
 
-const plugins: Plugin[] = [
+const plugins: PluginOption[] = [
 	{
 		name: "github-proxy-dev",
 		configureServer(server) {
@@ -85,15 +81,10 @@ const plugins: Plugin[] = [
 	ConditionalCompile(),
 	// topLevelAwait(),
 	// MillionLint.vite(),
-	react({
-		babel: {
-			presets: ["jotai/babel/preset"],
-			plugins: [
-				["babel-plugin-react-compiler", ReactCompilerConfig],
-				jotaiDebugLabel,
-				jotaiReactRefresh,
-			],
-		},
+	react(),
+	babel({
+		presets: [reactCompilerPreset()],
+		plugins: [jotaiDebugLabel, jotaiReactRefresh],
 	}),
 	svgLoader(),
 	wasm(),
@@ -196,6 +187,14 @@ export default defineConfig({
 			process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari15",
 		// produce sourcemaps
 		sourcemap: true,
+
+		rolldownOptions: {
+			// Suppress `Module "node:module" has been externalized for browser compatibility`
+			onLog(level, log, defaultHandler) {
+				if (log.message?.includes("node:module")) return;
+				defaultHandler(level, log);
+			},
+		},
 	},
 	resolve: {
 		alias: Object.assign(
@@ -204,6 +203,10 @@ export default defineConfig({
 			},
 			AMLL_LOCAL_EXISTS
 				? {
+						"@applemusic-like-lyrics/core/style.css": resolve(
+							__dirname,
+							"../applemusic-like-lyrics/packages/core/src/styles/index.css",
+						),
 						// for development, use the local copy of the AMLL library
 						"@applemusic-like-lyrics/core": resolve(
 							__dirname,

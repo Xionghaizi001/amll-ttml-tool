@@ -18,6 +18,7 @@ const catalog = {
   "vite-plugin-wasm": "^3.5.0",
 };
 
+const workspaceMap = {};
 
 function replaceCatalog(deps) {
   if (!deps) return;

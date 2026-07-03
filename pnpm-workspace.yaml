@@ -1,8 +1,4 @@
-packages:
-  - .
-
 allowBuilds:
-  '@applemusic-like-lyrics/core': true
-  '@applemusic-like-lyrics/lyric': true
-  '@applemusic-like-lyrics/react': true
-  esbuild: true
+  "@swc/core": true
+patchedDependencies:
+  jotai-babel@0.2.0: patches/jotai-babel@0.2.0.patch

@@ -1,13 +1,9 @@
-export function log(...messages: unknown[]) {
-	// #if DEV
+export function log(...messages: any[]) {
 	console.log(...messages);
-	// #endif
 }
 
-export function warn(...messages: unknown[]) {
-	// #if DEV
+export function warn(...messages: any[]) {
 	console.warn(...messages);
-	// #endif
 }
 
 export function error(...messages: unknown[]) {

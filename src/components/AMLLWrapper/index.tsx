@@ -1,10 +1,5 @@
-// #if AMLL_LOCAL_EXISTS
-// #warning Using local Apple Music Like Lyrics, skip importing css style
-// #else
 import "@applemusic-like-lyrics/core/style.css";
-
-// #endif
-
+// import { MaskObsceneWordsMode } from "@applemusic-like-lyrics/core";
 import {
 	LyricPlayer,
 	type LyricPlayerRef,

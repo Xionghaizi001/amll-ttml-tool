@@ -1,0 +1,18 @@
+diff --git a/dist/plugin-debug-label.js b/dist/plugin-debug-label.js
+index a29e4fccd34cbd7aa484af0a96561e9e9b242562..89d01018d910d7a9578b084bc489633c26288ebd 100644
+--- a/dist/plugin-debug-label.js
++++ b/dist/plugin-debug-label.js
+@@ -1,4 +1,3 @@
+-import babel from '@babel/core';
+ import _templateBuilder from '@babel/template';
+ import { isAtom } from './utils.js';
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+diff --git a/dist/plugin-react-refresh.js b/dist/plugin-react-refresh.js
+index 47cb820657745c0cad04de13a7bce8aa0b4c0c1a..10c27094f5e51e88f001a10b1bc28664fc3a710c 100644
+--- a/dist/plugin-react-refresh.js
++++ b/dist/plugin-react-refresh.js
+@@ -1,4 +1,3 @@
+-import babel from '@babel/core';
+ import _templateBuilder from '@babel/template';
+ import { isAtom } from './utils.js';
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
