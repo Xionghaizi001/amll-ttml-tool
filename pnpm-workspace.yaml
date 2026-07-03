@@ -1,0 +1,4 @@
+allowBuilds:
+  "@swc/core": true
+patchedDependencies:
+  jotai-babel@0.2.0: patches/jotai-babel@0.2.0.patch
