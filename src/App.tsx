@@ -93,7 +93,13 @@ const ReviewPage = lazy(() => import("./modules/review"));
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 
-const AppErrorPage = ({ error, resetErrorBoundary }: FallbackProps) => {
+const AppErrorPage = ({
+	error,
+	resetErrorBoundary,
+}: {
+	error: unknown;
+	resetErrorBoundary: () => void;
+}) => {
 	const store = useStore();
 	const { t } = useTranslation();
 	const errorValue = error instanceof Error ? error : new Error(String(error));
