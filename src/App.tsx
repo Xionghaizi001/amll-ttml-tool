@@ -71,7 +71,7 @@ const AppErrorPage = ({
 	error,
 	resetErrorBoundary,
 }: {
-	error: Error;
+	error: unknown;
 	resetErrorBoundary: () => void;
 }) => {
 	const store = useStore();
