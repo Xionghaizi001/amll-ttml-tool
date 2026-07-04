@@ -82,10 +82,39 @@ export function ttmlToAmll(
 	const result = rawTtmlToAmll(ttmlContent, options) as Result<AmllLyricResult>;
 	if (!result.success) return result;
 
+	const processedLyricLines = result.data.lyricLines.map((line) => {
+		const newWords: AmllLyricWord[] = [];
+
+		for (const word of line.words) {
+			const trailingSpaceMatch = word.word.match(/(\s+)$/);
+
+			if (trailingSpaceMatch && word.word !== trailingSpaceMatch[0]) {
+				const spaces = trailingSpaceMatch[0];
+				const pureWord = word.word.slice(0, -spaces.length);
+
+				newWords.push({ ...word, word: pureWord });
+
+				newWords.push({
+					startTime: 0,
+					endTime: 0,
+					word: spaces,
+				});
+			} else {
+				newWords.push(word);
+			}
+		}
+
+		return {
+			...line,
+			words: newWords,
+		};
+	});
+
 	return {
 		success: true,
 		data: {
 			...result.data,
+			lyricLines: processedLyricLines,
 			metadata: result.data.metadata
 				.filter((meta) => !IGNORED_METADATA_KEYS.has(meta.key))
 				.map((meta) => ({
