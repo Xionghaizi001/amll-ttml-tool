@@ -51,7 +51,7 @@ import {
 	customBackgroundImageInitAtom,
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
-} from "./modules/settings/modals/customBackground";
+} from "./modules/settings/states/custom-background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import {
 	amllToTTML,
