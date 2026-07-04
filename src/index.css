@@ -63,3 +63,8 @@
 	margin: 0 !important;
 	padding: 0 !important;
 }
+
+.Toastify__toast-container {
+	/* 避免 Radix UI 锁定焦点时把 Toast 也加上 pointer-events: none; 吞掉鼠标事件 */
+	pointer-events: auto;
+}

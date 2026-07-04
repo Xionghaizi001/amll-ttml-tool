@@ -11,7 +11,7 @@ if (!import.meta.env.TAURI_ENV_PLATFORM) {
 			);
 		},
 		onNeedRefresh() {
-			toast.info(
+			toast.info(() => (
 				<Flex direction="column" gap="2" align="stretch">
 					<div>
 						{t("pwa.updateRefresh", "网站已更新，刷新网页以使用最新版本！")}
@@ -24,8 +24,8 @@ if (!import.meta.env.TAURI_ENV_PLATFORM) {
 					>
 						{t("pwa.refresh", "刷新")}
 					</Button>
-				</Flex>,
-			);
+				</Flex>
+			));
 		},
 	});
 }

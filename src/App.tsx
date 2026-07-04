@@ -28,6 +28,7 @@ import { platform, version } from "@tauri-apps/plugin-os";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { ToastContainer, toast } from "react-toastify";
@@ -173,13 +174,15 @@ function App() {
 			hasNotifiedRef.current = true;
 
 			toast.info(
-				<div>
-					<div style={{ fontWeight: "bold" }}>
-						{t("app.update.updateAvailable", "发现新版本: {version}", {
-							version: update.version,
-						})}
+				() => (
+					<div>
+						<div style={{ fontWeight: "bold" }}>
+							{t("app.update.updateAvailable", "发现新版本: {version}", {
+								version: update.version,
+							})}
+						</div>
 					</div>
-				</div>,
+				),
 				{
 					autoClose: 5000,
 					onClick: () => {
@@ -298,90 +301,94 @@ function App() {
 	}, [setIsGlobalDragging, openFile]);
 
 	return (
-		<>
-			<Theme
-				appearance={effectiveTheme}
-				panelBackground="solid"
-				hasBackground={hasBackground}
-				accentColor={effectiveTheme === "dark" ? "jade" : "green"}
-				className={styles.radixTheme}
+		<Theme
+			appearance={effectiveTheme}
+			panelBackground="solid"
+			hasBackground={hasBackground}
+			accentColor={effectiveTheme === "dark" ? "jade" : "green"}
+			className={styles.radixTheme}
+		>
+			<ErrorBoundary
+				FallbackComponent={AppErrorPage}
+				onReset={(_details) => {
+					// TODO
+				}}
 			>
-				<ErrorBoundary
-					FallbackComponent={AppErrorPage}
-					onReset={(_details) => {
-						// TODO
-					}}
-				>
-					{customBackgroundImage && (
-						<div className={styles.customBackgroundLayer} aria-hidden="true">
-							<div
-								className={styles.customBackgroundImage}
-								style={{
-									backgroundImage: `linear-gradient(rgba(0, 0, 0, ${customBackgroundMask}), rgba(0, 0, 0, ${customBackgroundMask})), url(${customBackgroundImage})`,
-									opacity: customBackgroundOpacity,
-									filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
-								}}
-							/>
-						</div>
-					)}
-					<div className={styles.appContent}>
-						<AutosaveManager />
-						<GlobalDragOverlay />
-						{toolMode === ToolMode.Sync && <SyncKeyBinding />}
-						<DarkThemeDetector />
-						<Flex direction="column" height="100vh">
-							<TitleBar />
-							<RibbonBar />
-							<Box flexGrow="1" overflow="hidden">
-								<AnimatePresence mode="wait">
-									{toolMode !== ToolMode.Preview && (
-										<SuspensePlaceHolder key="edit">
+				{customBackgroundImage && (
+					<div className={styles.customBackgroundLayer} aria-hidden="true">
+						<div
+							className={styles.customBackgroundImage}
+							style={{
+								backgroundImage: `linear-gradient(rgba(0, 0, 0, ${customBackgroundMask}), rgba(0, 0, 0, ${customBackgroundMask})), url(${customBackgroundImage})`,
+								opacity: customBackgroundOpacity,
+								filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
+							}}
+						/>
+					</div>
+				)}
+				<div className={styles.appContent}>
+					<AutosaveManager />
+					<GlobalDragOverlay />
+					{toolMode === ToolMode.Sync && <SyncKeyBinding />}
+					<DarkThemeDetector />
+					<Flex direction="column" height="100vh">
+						<TitleBar />
+						<RibbonBar />
+						<Box flexGrow="1" overflow="hidden">
+							<AnimatePresence mode="wait">
+								{toolMode !== ToolMode.Preview && (
+									<SuspensePlaceHolder key="edit">
+										<motion.div
+											layout="position"
+											style={{
+												height: "100%",
+												maxHeight: "100%",
+												overflowY: "hidden",
+											}}
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0 }}
+										>
+											<LyricLinesView key="edit" />
+										</motion.div>
+									</SuspensePlaceHolder>
+								)}
+								{toolMode === ToolMode.Preview && (
+									<SuspensePlaceHolder key="amll-preview">
+										<Box height="100%" key="amll-preview" p="2" asChild>
 											<motion.div
 												layout="position"
-												style={{
-													height: "100%",
-													maxHeight: "100%",
-													overflowY: "hidden",
-												}}
 												initial={{ opacity: 0 }}
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 											>
-												<LyricLinesView key="edit" />
+												<AMLLWrapper />
 											</motion.div>
-										</SuspensePlaceHolder>
-									)}
-									{toolMode === ToolMode.Preview && (
-										<SuspensePlaceHolder key="amll-preview">
-											<Box height="100%" key="amll-preview" p="2" asChild>
-												<motion.div
-													layout="position"
-													initial={{ opacity: 0 }}
-													animate={{ opacity: 1 }}
-													exit={{ opacity: 0 }}
-												>
-													<AMLLWrapper />
-												</motion.div>
-											</Box>
-										</SuspensePlaceHolder>
-									)}
-								</AnimatePresence>
-							</Box>
-							{showTouchSyncPanel && toolMode === ToolMode.Sync && (
-								<TouchSyncPanel />
-							)}
-							<Box flexShrink="0">
-								<AudioControls />
-							</Box>
-						</Flex>
-						<Suspense fallback={null}>
-							<Dialogs />
-						</Suspense>
-					</div>
-				</ErrorBoundary>
-			</Theme>
-			<ToastContainer theme={effectiveTheme} />
-		</>
+										</Box>
+									</SuspensePlaceHolder>
+								)}
+							</AnimatePresence>
+						</Box>
+						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
+							<TouchSyncPanel />
+						)}
+						<Box flexShrink="0">
+							<AudioControls />
+						</Box>
+					</Flex>
+					<Suspense fallback={null}>
+						<Dialogs />
+					</Suspense>
+				</div>
+
+				{createPortal(
+					<Theme appearance={effectiveTheme} style={{ display: "contents" }}>
+						<ToastContainer theme={effectiveTheme} />
+					</Theme>,
+					document.body,
+				)}
+			</ErrorBoundary>
+		</Theme>
 	);
 }
 
