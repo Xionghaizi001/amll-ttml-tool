@@ -42,7 +42,6 @@ import AudioControls from "./modules/audio/components/index.tsx";
 import { useAudioFeedback } from "./modules/audio/hooks/useAudioFeedback.ts";
 import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybinding.tsx";
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
-import exportTTMLText from "./modules/project/logic/ttml-writer.ts";
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
 import {
 	customBackgroundBlurAtom,
@@ -53,6 +52,11 @@ import {
 	customBackgroundOpacityAtom,
 } from "./modules/settings/modals/customBackground";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
+import {
+	amllToTTML,
+	ttmlLyricToAmllResult,
+} from "./modules/ttml-processor/index.ts";
+import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	isDarkThemeAtom,
@@ -74,6 +78,8 @@ const AppErrorPage = ({
 	error: unknown;
 	resetErrorBoundary: () => void;
 }) => {
+	const handleTtmlError = useTtmlErrorHandler();
+
 	const store = useStore();
 	const { t } = useTranslation();
 
@@ -91,8 +97,15 @@ const AppErrorPage = ({
 					<Button
 						onClick={() => {
 							try {
-								const ttmlText = exportTTMLText(store.get(lyricLinesAtom));
-								const b = new Blob([ttmlText], { type: "text/plain" });
+								const amllResult = ttmlLyricToAmllResult(
+									store.get(lyricLinesAtom),
+								);
+								const result = amllToTTML(amllResult);
+								if (!result.success) {
+									handleTtmlError(result.error, `Error when generating TTML`);
+									return;
+								}
+								const b = new Blob([result.data], { type: "text/xml" });
 								saveFile(b, "lyric.ttml").catch(logError);
 							} catch (e) {
 								logError("Failed to save TTML file", e);
@@ -285,88 +298,90 @@ function App() {
 	}, [setIsGlobalDragging, openFile]);
 
 	return (
-		<Theme
-			appearance={effectiveTheme}
-			panelBackground="solid"
-			hasBackground={hasBackground}
-			accentColor={effectiveTheme === "dark" ? "jade" : "green"}
-			className={styles.radixTheme}
-		>
-			<ErrorBoundary
-				FallbackComponent={AppErrorPage}
-				onReset={(_details) => {
-					// TODO
-				}}
+		<>
+			<Theme
+				appearance={effectiveTheme}
+				panelBackground="solid"
+				hasBackground={hasBackground}
+				accentColor={effectiveTheme === "dark" ? "jade" : "green"}
+				className={styles.radixTheme}
 			>
-				{customBackgroundImage && (
-					<div className={styles.customBackgroundLayer} aria-hidden="true">
-						<div
-							className={styles.customBackgroundImage}
-							style={{
-								backgroundImage: `linear-gradient(rgba(0, 0, 0, ${customBackgroundMask}), rgba(0, 0, 0, ${customBackgroundMask})), url(${customBackgroundImage})`,
-								opacity: customBackgroundOpacity,
-								filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
-							}}
-						/>
-					</div>
-				)}
-				<div className={styles.appContent}>
-					<AutosaveManager />
-					<GlobalDragOverlay />
-					{toolMode === ToolMode.Sync && <SyncKeyBinding />}
-					<DarkThemeDetector />
-					<Flex direction="column" height="100vh">
-						<TitleBar />
-						<RibbonBar />
-						<Box flexGrow="1" overflow="hidden">
-							<AnimatePresence mode="wait">
-								{toolMode !== ToolMode.Preview && (
-									<SuspensePlaceHolder key="edit">
-										<motion.div
-											layout="position"
-											style={{
-												height: "100%",
-												maxHeight: "100%",
-												overflowY: "hidden",
-											}}
-											initial={{ opacity: 0 }}
-											animate={{ opacity: 1 }}
-											exit={{ opacity: 0 }}
-										>
-											<LyricLinesView key="edit" />
-										</motion.div>
-									</SuspensePlaceHolder>
-								)}
-								{toolMode === ToolMode.Preview && (
-									<SuspensePlaceHolder key="amll-preview">
-										<Box height="100%" key="amll-preview" p="2" asChild>
+				<ErrorBoundary
+					FallbackComponent={AppErrorPage}
+					onReset={(_details) => {
+						// TODO
+					}}
+				>
+					{customBackgroundImage && (
+						<div className={styles.customBackgroundLayer} aria-hidden="true">
+							<div
+								className={styles.customBackgroundImage}
+								style={{
+									backgroundImage: `linear-gradient(rgba(0, 0, 0, ${customBackgroundMask}), rgba(0, 0, 0, ${customBackgroundMask})), url(${customBackgroundImage})`,
+									opacity: customBackgroundOpacity,
+									filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
+								}}
+							/>
+						</div>
+					)}
+					<div className={styles.appContent}>
+						<AutosaveManager />
+						<GlobalDragOverlay />
+						{toolMode === ToolMode.Sync && <SyncKeyBinding />}
+						<DarkThemeDetector />
+						<Flex direction="column" height="100vh">
+							<TitleBar />
+							<RibbonBar />
+							<Box flexGrow="1" overflow="hidden">
+								<AnimatePresence mode="wait">
+									{toolMode !== ToolMode.Preview && (
+										<SuspensePlaceHolder key="edit">
 											<motion.div
 												layout="position"
+												style={{
+													height: "100%",
+													maxHeight: "100%",
+													overflowY: "hidden",
+												}}
 												initial={{ opacity: 0 }}
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 											>
-												<AMLLWrapper />
+												<LyricLinesView key="edit" />
 											</motion.div>
-										</Box>
-									</SuspensePlaceHolder>
-								)}
-							</AnimatePresence>
-						</Box>
-						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
-							<TouchSyncPanel />
-						)}
-						<Box flexShrink="0">
-							<AudioControls />
-						</Box>
-					</Flex>
-					<Suspense fallback={null}>
-						<Dialogs />
-					</Suspense>
-					<ToastContainer theme={effectiveTheme} />
-				</div>
-			</ErrorBoundary>
-		</Theme>
+										</SuspensePlaceHolder>
+									)}
+									{toolMode === ToolMode.Preview && (
+										<SuspensePlaceHolder key="amll-preview">
+											<Box height="100%" key="amll-preview" p="2" asChild>
+												<motion.div
+													layout="position"
+													initial={{ opacity: 0 }}
+													animate={{ opacity: 1 }}
+													exit={{ opacity: 0 }}
+												>
+													<AMLLWrapper />
+												</motion.div>
+											</Box>
+										</SuspensePlaceHolder>
+									)}
+								</AnimatePresence>
+							</Box>
+							{showTouchSyncPanel && toolMode === ToolMode.Sync && (
+								<TouchSyncPanel />
+							)}
+							<Box flexShrink="0">
+								<AudioControls />
+							</Box>
+						</Flex>
+						<Suspense fallback={null}>
+							<Dialogs />
+						</Suspense>
+					</div>
+				</ErrorBoundary>
+			</Theme>
+			<ToastContainer theme={effectiveTheme} />
+		</>
 	);
 }
 

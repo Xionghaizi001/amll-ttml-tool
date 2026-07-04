@@ -1,2 +1,2 @@
-src/modules/ffmpeg/worker/wasm/ffmpeg_wasm.js linguist-generated
-src/modules/ffmpeg/worklet/wasm/soundtouch.js linguist-generated
+**/wasm/** linguist-generated
+**/vendor/** linguist-generated

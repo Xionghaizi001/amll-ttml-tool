@@ -318,7 +318,33 @@
 	},
 	"error": {
 		"unsupportedFileFormat": "不支持的文件格式: {ext}",
-		"openFileFailed": "打开文件失败"
+		"openFileFailed": "打开文件失败",
+		"ttml": {
+			"copied": "错误日志已复制到剪贴板",
+			"kind": {
+				"AttrError": "XML 属性解析错误",
+				"EntityError": "未知的 XML 实体",
+				"InvalidTimestamp": "时间戳格式无效",
+				"MissingAttribute": "缺失必需的属性",
+				"UnexpectedEof": "文件提前意外结束",
+				"XmlError": "XML 结构损坏或存在语法错误",
+				"ParseError": "常规解析错误"
+			},
+			"title": "TTML 处理失败",
+			"subtitle": "处理 TTML 文件时发生了一个错误",
+			"close": "关闭",
+			"copyError": "复制日志",
+			"suggestion": {
+				"AttrError": "请检查 XML 属性的格式是否正确。",
+				"EntityError": "检查使用的 XML 预定义实体引用是否有效",
+				"InvalidTimestamp": "允许的时间戳格式为 'hh:mm:ss.sss'，前导零可以省略。例如 '1:03:36.120'。",
+				"MissingAttribute": "请检查上方的提示并补充需要的属性。",
+				"UnexpectedEof": "请确保所有打开的标签（如 </tt>、</body>）都已正确闭合。",
+				"XmlError": "请检查文件是否存在 XML 语法错误。",
+				"ParseError": "请参考上方提示请检查文件格式是否正确。"
+			},
+			"copyFailed": "复制失败"
+		}
 	},
 	"audioPanel": {
 		"volume": "音量",
@@ -617,7 +643,8 @@
 		"appName": "Apple Music-like lyrics TTML Tools",
 		"description": "一个用于 Apple Music-like lyrics 生态的逐词歌词 TTML 编辑和时间轴工具",
 		"buildDate": "构建日期：{date}",
-		"gitCommit": "Git 提交：{commit}"
+		"gitCommit": "Git 提交：{commit}",
+		"unknown": "unknown"
 	},
 	"spectrogram": {
 		"invalidEndTime": "不能选择此结束时间",

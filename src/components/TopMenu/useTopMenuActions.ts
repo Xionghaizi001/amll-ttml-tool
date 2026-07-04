@@ -6,15 +6,16 @@ import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
-import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
 	segmentLyricLines,
 	segmentWord,
 } from "$/modules/segmentation/utils/segmentation";
+import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import {
 	advancedSegmentationDialogAtom,
 	confirmDialogAtom,
@@ -81,6 +82,7 @@ export const useTopMenuActions = () => {
 		keySelectWordsOfMatchedSelectionAtom,
 	);
 	const deleteSelectionKey = useAtomValue(keyDeleteSelectionAtom);
+	const handleTtmlError = useTtmlErrorHandler();
 
 	const buildRubySegments = useCallback(
 		(text: string, baseWord: LyricWordBase) => {
@@ -171,13 +173,18 @@ export const useTopMenuActions = () => {
 
 	const onSaveFile = useCallback(() => {
 		try {
-			const ttmlText = exportTTMLText(store.get(lyricLinesAtom));
-			const b = new Blob([ttmlText], { type: "text/plain" });
+			const amllResult = ttmlLyricToAmllResult(store.get(lyricLinesAtom));
+			const result = amllToTTML(amllResult);
+			if (!result.success) {
+				handleTtmlError(result.error, `Error when generating TTML`);
+				return;
+			}
+			const b = new Blob([result.data], { type: "text/xml" });
 			saveFile(b, saveFileName).catch(error);
 		} catch (e) {
 			error("Failed to save TTML file", e);
 		}
-	}, [saveFileName, store]);
+	}, [saveFileName, store, handleTtmlError]);
 
 	const onOpenHistoryRestore = useCallback(() => {
 		setHistoryRestoreDialog(true);
@@ -186,12 +193,17 @@ export const useTopMenuActions = () => {
 	const onSaveFileToClipboard = useCallback(async () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
-			const ttml = exportTTMLText(lyric);
-			await navigator.clipboard.writeText(ttml);
+			const amllResult = ttmlLyricToAmllResult(lyric);
+			const result = amllToTTML(amllResult);
+			if (!result.success) {
+				handleTtmlError(result.error, `Error when generating TTML`);
+				return;
+			}
+			await navigator.clipboard.writeText(result.data);
 		} catch (e) {
 			error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store]);
+	}, [store, handleTtmlError]);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);

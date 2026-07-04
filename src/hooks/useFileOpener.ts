@@ -19,11 +19,13 @@ import { getProjectList } from "$/modules/project/autosave/autosave";
 import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
 import { isProjectMatch } from "$/modules/project/logic/project-match";
-import { parseLyric as parseTTML } from "$/modules/project/logic/ttml-parser";
 import {
 	defaultTtmlAuthorGithubAtom,
 	defaultTtmlAuthorGithubLoginAtom,
 } from "$/modules/settings/states";
+import { ttmlToAmll } from "$/modules/ttml-processor";
+import type { AmllLyricResult } from "$/modules/ttml-processor/types";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import { confirmDialogAtom } from "$/states/dialogs.ts";
 import {
 	isDirtyAtom,
@@ -123,6 +125,7 @@ export const useFileOpener = () => {
 	const defaultTtmlAuthorGithubLogin = useAtomValue(
 		defaultTtmlAuthorGithubLoginAtom,
 	);
+	const handleTtmlError = useTtmlErrorHandler();
 	const { t } = useTranslation();
 
 	const normalizeLyricLines = useCallback(
@@ -140,6 +143,26 @@ export const useFileOpener = () => {
 					id: uid(),
 				})),
 				metadata: [],
+			};
+		},
+		[],
+	);
+
+	const normalizeAmllLyricResult = useCallback(
+		(amllResult: AmllLyricResult): TTMLLyric => {
+			return {
+				metadata: amllResult.metadata.map((meta) => ({ ...meta })),
+				lyricLines: amllResult.lyricLines.map((line) => ({
+					...line,
+					words: line.words.map((word) => ({
+						...word,
+						id: uid(),
+						obscene: word.obscene ?? false,
+						emptyBeat: word.emptyBeat ?? 0,
+					})),
+					ignoreSync: false,
+					id: uid(),
+				})),
 			};
 		},
 		[],
@@ -189,7 +212,19 @@ export const useFileOpener = () => {
 				const text = await file.text();
 
 				if (ext === "ttml") {
-					lyricData = parseTTML(text);
+					const result = ttmlToAmll(text);
+
+					if (result.success) {
+						lyricData = normalizeAmllLyricResult(result.data);
+					} else {
+						handleTtmlError(
+							result.error,
+							`Error when parsing TTML: ${file.name}`,
+							text,
+						);
+
+						return;
+					}
 				} else if (ext in LYRIC_PARSERS) {
 					const parser = LYRIC_PARSERS[ext];
 					const rawLines = parser(text);
@@ -249,9 +284,11 @@ export const useFileOpener = () => {
 			setProjectId,
 			setSaveFileName,
 			normalizeLyricLines,
+			normalizeAmllLyricResult,
 			defaultTtmlAuthorGithub,
 			defaultTtmlAuthorGithubLogin,
 			t,
+			handleTtmlError,
 		],
 	);
 

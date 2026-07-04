@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { JsError } from "$/modules/ttml-processor/types";
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
@@ -23,3 +24,7 @@ export const confirmDialogAtom = atom<{
 });
 export const historyRestoreDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
+export const ttmlErrorDialogAtom = atom<{
+	error: JsError;
+	rawText?: string;
+} | null>(null);

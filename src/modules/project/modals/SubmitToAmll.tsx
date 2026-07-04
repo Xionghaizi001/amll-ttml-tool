@@ -17,11 +17,12 @@ import { atomWithStorage } from "jotai/utils";
 import { memo, useCallback, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import {
 	generateNameFromMetadataAtom,
 	hideSubmitAMLLDBWarningAtom,
 } from "$/modules/settings/states";
+import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import { submitToAMLLDBDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main";
 import type { TTMLMetadata } from "$/types/ttml";
@@ -134,6 +135,8 @@ export const SubmitToAMLLDBDialog = memo(() => {
 	);
 	const store = useStore();
 
+	const handleTtmlError = useTtmlErrorHandler();
+
 	const onSubmit = useCallback(async () => {
 		if (processing) return;
 		setProcessing(true);
@@ -155,8 +158,16 @@ export const SubmitToAMLLDBDialog = memo(() => {
 				return;
 			}
 
-			const ttmlText = exportTTMLText(store.get(lyricLinesAtom));
-			const ttmlBlob = new Blob([ttmlText], { type: "text/xml" });
+			const amllResult = ttmlLyricToAmllResult(store.get(lyricLinesAtom));
+			const result = amllToTTML(amllResult);
+
+			if (!result.success) {
+				handleTtmlError(result.error, `Error when generating TTML`);
+				setProcessing(false);
+				return;
+			}
+
+			const ttmlBlob = new Blob([result.data], { type: "text/xml" });
 
 			const formData = new FormData();
 			formData.append("file", ttmlBlob, "lyrics.ttml");
@@ -226,6 +237,7 @@ ${comment}
 		t,
 		metadatas,
 		processing,
+		handleTtmlError,
 	]);
 
 	useLayoutEffect(() => {
