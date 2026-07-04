@@ -49,10 +49,6 @@ import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx"
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
 import { useReviewSessionLifecycle } from "./modules/review";
 import {
-	customBackgroundImageAtom,
-	customBackgroundImageInitAtom,
-} from "./modules/settings/modals/customBackground";
-import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
 	githubPatAtom,
@@ -62,9 +58,11 @@ import {
 import {
 	customBackgroundBlurAtom,
 	customBackgroundBrightnessAtom,
+	customBackgroundImageAtom,
+	customBackgroundImageInitAtom,
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
-} from "./modules/settings/states/background";
+} from "./modules/settings/states/custom-background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import {
 	amllToTTML,
