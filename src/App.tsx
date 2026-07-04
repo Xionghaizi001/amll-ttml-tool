@@ -29,31 +29,29 @@ import { platform, version } from "@tauri-apps/plugin-os";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import semverGt from "semver/functions/gt";
 import styles from "./App.module.css";
 import DarkThemeDetector from "./components/DarkThemeDetector";
+import { OAuthCallbackHandler } from "./components/OAuthCallbackHandler";
 import RibbonBar from "./components/RibbonBar";
 import { TitleBar } from "./components/TitleBar";
 import { useFileOpener } from "./hooks/useFileOpener.ts";
+import { useRawLyricsIndex } from "./hooks/useRawLyricsIndex.ts";
 import AudioControls from "./modules/audio/components/index.tsx";
 import { useAudioFeedback } from "./modules/audio/hooks/useAudioFeedback.ts";
+import { verifyGithubAccess } from "./modules/github/services/identity-service.ts";
+import { syncPendingUpdateNotices } from "./modules/github/services/notice-service.ts";
 import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybinding.tsx";
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
-import exportTTMLText from "./modules/project/logic/ttml-writer.ts";
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
+import { useReviewSessionLifecycle } from "./modules/review";
 import {
 	customBackgroundImageAtom,
 	customBackgroundImageInitAtom,
 } from "./modules/settings/modals/customBackground";
-import {
-	customBackgroundBlurAtom,
-	customBackgroundBrightnessAtom,
-	customBackgroundMaskAtom,
-	customBackgroundOpacityAtom,
-} from "./modules/settings/states/background";
 import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
@@ -61,29 +59,35 @@ import {
 	reviewHiddenLabelsAtom,
 	reviewLabelsAtom,
 } from "./modules/settings/states";
+import {
+	customBackgroundBlurAtom,
+	customBackgroundBrightnessAtom,
+	customBackgroundMaskAtom,
+	customBackgroundOpacityAtom,
+} from "./modules/settings/states/background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import {
+	amllToTTML,
+	ttmlLyricToAmllResult,
+} from "./modules/ttml-processor/index.ts";
+import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
+import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
+import {
+	fileUpdateSessionAtom,
 	isDarkThemeAtom,
 	isGlobalFileDraggingAtom,
-	fileUpdateSessionAtom,
 	lyricLinesAtom,
 	reviewSessionAtom,
 	ToolMode,
 	toolModeAtom,
 } from "./states/main.ts";
-import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "./states/notifications.ts";
-import { useAppUpdate } from "./utils/useAppUpdate.ts";
-import { syncPendingUpdateNotices } from "./modules/github/services/notice-service.ts";
-import { verifyGithubAccess } from "./modules/github/services/identity-service.ts";
-import { useReviewSessionLifecycle } from "./modules/review";
 import { setupDevTestHooks } from "./utils/test.ts";
-import { OAuthCallbackHandler } from "./components/OAuthCallbackHandler";
-import { useRawLyricsIndex } from "./hooks/useRawLyricsIndex.ts";
+import { useAppUpdate } from "./utils/useAppUpdate.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
 const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
@@ -100,6 +104,8 @@ const AppErrorPage = ({
 	error: unknown;
 	resetErrorBoundary: () => void;
 }) => {
+	const handleTtmlError = useTtmlErrorHandler();
+
 	const store = useStore();
 	const { t } = useTranslation();
 	const errorValue = error instanceof Error ? error : new Error(String(error));
@@ -118,8 +124,15 @@ const AppErrorPage = ({
 					<Button
 						onClick={() => {
 							try {
-								const ttmlText = exportTTMLText(store.get(lyricLinesAtom));
-								const b = new Blob([ttmlText], { type: "text/plain" });
+								const amllResult = ttmlLyricToAmllResult(
+									store.get(lyricLinesAtom),
+								);
+								const result = amllToTTML(amllResult);
+								if (!result.success) {
+									handleTtmlError(result.error, `Error when generating TTML`);
+									return;
+								}
+								const b = new Blob([result.data], { type: "text/xml" });
 								saveFile(b, "lyric.ttml").catch(logError);
 							} catch (e) {
 								logError("Failed to save TTML file", e);

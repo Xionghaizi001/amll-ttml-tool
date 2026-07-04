@@ -6,18 +6,22 @@ import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
-import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
-import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import {
 	segmentLyricLines,
 	segmentWord,
 } from "$/modules/segmentation/utils/segmentation";
+import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
+import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
+import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
 	advancedSegmentationDialogAtom,
+	agentManagerDialogAtom,
 	confirmDialogAtom,
+	duplicateSongIdDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
@@ -26,10 +30,7 @@ import {
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
-	duplicateSongIdDialogAtom,
-	agentManagerDialogAtom,
 } from "$/states/dialogs.ts";
-import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
 	keyDeleteSelectionAtom,
 	keyNewFileAtom,
@@ -53,7 +54,12 @@ import {
 	undoableLyricLinesAtom,
 	undoLyricLinesAtom,
 } from "$/states/main.ts";
-import { type LyricWord, type LyricWordBase, newLyricWord } from "$/types/ttml";
+import {
+	type LyricWord,
+	type LyricWordBase,
+	newLyricWord,
+	type TTMLLyric,
+} from "$/types/ttml";
 import { error, log } from "$/utils/logging.ts";
 
 export const useTopMenuActions = () => {
@@ -89,6 +95,20 @@ export const useTopMenuActions = () => {
 		keySelectWordsOfMatchedSelectionAtom,
 	);
 	const deleteSelectionKey = useAtomValue(keyDeleteSelectionAtom);
+	const handleTtmlError = useTtmlErrorHandler();
+
+	const generateTtmlText = useCallback(
+		(lyric: TTMLLyric) => {
+			const amllResult = ttmlLyricToAmllResult(lyric);
+			const result = amllToTTML(amllResult);
+			if (!result.success) {
+				handleTtmlError(result.error, "Error when generating TTML");
+				return null;
+			}
+			return result.data;
+		},
+		[handleTtmlError],
+	);
 
 	const buildRubySegments = useCallback(
 		(text: string, baseWord: LyricWordBase) => {
@@ -180,6 +200,12 @@ export const useTopMenuActions = () => {
 	const onSaveFile = useCallback(async () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
+			const saveLyric = () => {
+				const ttmlText = generateTtmlText(lyric);
+				if (!ttmlText) return;
+				const b = new Blob([ttmlText], { type: "text/xml" });
+				saveFile(b, saveFileName).catch(error);
+			};
 
 			// 检查歌曲 ID 是否已存在
 			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
@@ -187,23 +213,16 @@ export const useTopMenuActions = () => {
 				setDuplicateSongIdDialog({
 					open: true,
 					existingIds,
-					onConfirm: () => {
-						// 用户确认后执行保存
-						const ttmlText = exportTTMLText(lyric);
-						const b = new Blob([ttmlText], { type: "text/plain" });
-						saveFile(b, saveFileName).catch(error);
-					},
+					onConfirm: saveLyric,
 				});
 				return;
 			}
 
-			const ttmlText = exportTTMLText(lyric);
-			const b = new Blob([ttmlText], { type: "text/plain" });
-			saveFile(b, saveFileName).catch(error);
+			saveLyric();
 		} catch (e) {
 			error("Failed to save TTML file", e);
 		}
-	}, [saveFileName, store, setDuplicateSongIdDialog]);
+	}, [generateTtmlText, saveFileName, store, setDuplicateSongIdDialog]);
 
 	const onOpenHistoryRestore = useCallback(() => {
 		setHistoryRestoreDialog(true);
@@ -212,6 +231,11 @@ export const useTopMenuActions = () => {
 	const onSaveFileToClipboard = useCallback(async () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
+			const copyLyric = async () => {
+				const ttml = generateTtmlText(lyric);
+				if (!ttml) return;
+				await navigator.clipboard.writeText(ttml);
+			};
 
 			// 检查歌曲 ID 是否已存在
 			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
@@ -219,21 +243,20 @@ export const useTopMenuActions = () => {
 				setDuplicateSongIdDialog({
 					open: true,
 					existingIds,
-					onConfirm: async () => {
-						// 用户确认后执行保存到剪切板
-						const ttml = exportTTMLText(lyric);
-						await navigator.clipboard.writeText(ttml);
+					onConfirm: () => {
+						copyLyric().catch((e) => {
+							error("Failed to save TTML file into clipboard", e);
+						});
 					},
 				});
 				return;
 			}
 
-			const ttml = exportTTMLText(lyric);
-			await navigator.clipboard.writeText(ttml);
+			await copyLyric();
 		} catch (e) {
 			error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store, setDuplicateSongIdDialog]);
+	}, [generateTtmlText, store, setDuplicateSongIdDialog]);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);

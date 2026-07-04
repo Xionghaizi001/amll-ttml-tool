@@ -26,6 +26,10 @@ body,
 .radix-themes {
 	--default-font-family:
 		"MiSans", Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+	--default-font-family-mono:
+		ui-monospace, SFMono-Regular, "SF Pro Mono", "JetBrains Mono", Menlo,
+		Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 ::-webkit-scrollbar-track {

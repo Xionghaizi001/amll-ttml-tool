@@ -1,5 +1,6 @@
 import { atom } from "jotai";
 import type { ReviewReport } from "$/modules/review/services/report-service/types";
+import type { JsError } from "$/modules/ttml-processor/types";
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
@@ -88,3 +89,7 @@ export const reduceStutterDialogAtom = atom<{
 }>({
 	open: false,
 });
+export const ttmlErrorDialogAtom = atom<{
+	error: JsError;
+	rawText?: string;
+} | null>(null);

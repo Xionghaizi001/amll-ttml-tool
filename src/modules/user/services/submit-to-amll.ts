@@ -1,11 +1,15 @@
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import { createGithubGist } from "$/modules/github/services/gist-service";
+import { createGithubIssue } from "$/modules/github/services/issue-service";
 import {
 	githubPatAtom,
 	hideSubmitAMLLDBWarningAtom,
 } from "$/modules/settings/states";
+import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
+import { buildSubmitLyricIssueContent } from "$/modules/user/services/issue-builder";
 import {
 	confirmDialogAtom,
 	submitToAMLLDBDialogAtom,
@@ -14,9 +18,6 @@ import { lyricLinesAtom } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLMetadata } from "$/types/ttml";
 import { log } from "$/utils/logging.ts";
-import { createGithubGist } from "$/modules/github/services/gist-service";
-import { buildSubmitLyricIssueContent } from "$/modules/user/services/issue-builder";
-import { createGithubIssue } from "$/modules/github/services/issue-service";
 
 export type NameFieldKey = "artists" | "musicName" | "album" | "remark";
 export type NameFieldItem = {
@@ -130,6 +131,7 @@ export const useSubmitToAMLLDBDialog = () => {
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const lyric = useAtomValue(lyricLinesAtom);
+	const handleTtmlError = useTtmlErrorHandler();
 
 	const artistOptions = useMemo(
 		() => normalizeMetaValues(metadatas, "artists"),
@@ -298,7 +300,13 @@ export const useSubmitToAMLLDBDialog = () => {
 			}
 
 			// 1. Generate TTML
-			const ttmlContent = exportTTMLText(lyric);
+			const amllResult = ttmlLyricToAmllResult(lyric);
+			const result = amllToTTML(amllResult);
+			if (!result.success) {
+				handleTtmlError(result.error, "Error when generating TTML");
+				return;
+			}
+			const ttmlContent = result.data;
 			const fileName = buildGistFileName(name);
 
 			// 2. Upload to Gist
@@ -415,6 +423,7 @@ export const useSubmitToAMLLDBDialog = () => {
 		setPushNotification,
 		setConfirmDialog,
 		setDialogOpen,
+		handleTtmlError,
 	]);
 
 	return {

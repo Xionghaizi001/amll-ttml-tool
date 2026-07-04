@@ -20,6 +20,7 @@ import { MetaSuggestionManagerDialog } from "./meta-suggestion-manager.tsx";
 import { NotificationCenterDialog } from "./notification-center.tsx";
 import { ReduceStutterDialog } from "./reduce-stutter.tsx";
 import { RiskConfirmationDialog } from "./risk-confirmation.tsx";
+import { TtmlErrorDialog } from "./TtmlErrorDialog.tsx";
 
 export const Dialogs = () => {
 	return (
@@ -47,6 +48,7 @@ export const Dialogs = () => {
 			<DuplicateSongIdDialog />
 			<ReduceStutterDialog />
 			<AgentManager />
+			<TtmlErrorDialog />
 		</>
 	);
 };

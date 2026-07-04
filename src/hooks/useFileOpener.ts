@@ -19,13 +19,14 @@ import { getProjectList } from "$/modules/project/autosave/autosave";
 import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
 import { isProjectMatch } from "$/modules/project/logic/project-match";
-import { parseLyric as parseTTML } from "$/modules/project/logic/ttml-parser";
 import {
 	defaultTtmlAuthorGithubAtom,
 	defaultTtmlAuthorGithubLoginAtom,
 } from "$/modules/settings/states";
+import { ttmlToAmll } from "$/modules/ttml-processor";
+import type { AmllLyricResult } from "$/modules/ttml-processor/types";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import { confirmDialogAtom } from "$/states/dialogs.ts";
-import { pushNotificationAtom } from "$/states/notifications";
 import {
 	fileUpdateSessionAtom,
 	isDirtyAtom,
@@ -34,6 +35,7 @@ import {
 	projectIdAtom,
 	saveFileNameAtom,
 } from "$/states/main.ts";
+import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import { log, error as logError } from "$/utils/logging.ts";
 import { parseLrc } from "$/utils/parse-lrc";
@@ -171,6 +173,7 @@ export const useFileOpener = () => {
 	const defaultTtmlAuthorGithubLogin = useAtomValue(
 		defaultTtmlAuthorGithubLoginAtom,
 	);
+	const handleTtmlError = useTtmlErrorHandler();
 	const { t } = useTranslation();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 
@@ -200,33 +203,51 @@ export const useFileOpener = () => {
 		[],
 	);
 
-	const mergeAudioMetadataFromFile = useCallback(
-		(file: File) => {
-			void extractAudioMetadata(file)
-				.then((metadata) => {
-					setLyricLines((prev) => {
-						const nextMetadata = prev.metadata.map((item) => ({
-							...item,
-							value: [...item.value],
-						}));
-						const metadataChanged = mergeExtractedMetadata(
-							nextMetadata,
-							metadata,
-						);
-						const defaultChanged = applyDefaultTtmlAuthorMetadata(
-							nextMetadata,
-							{
-								githubId: defaultTtmlAuthorGithub,
-								githubLogin: defaultTtmlAuthorGithubLogin,
-							},
-						);
-						if (!metadataChanged && !defaultChanged) return prev;
-						return { ...prev, metadata: nextMetadata };
-					});
-				})
-				.catch((e) => {
-					logError(`Failed to extract audio metadata: ${file.name}`, e);
+	const normalizeAmllLyricResult = useCallback(
+		(amllResult: AmllLyricResult): TTMLLyric => {
+			return {
+				metadata: amllResult.metadata.map((meta) => ({
+					...meta,
+					value: [...meta.value],
+				})),
+				lyricLines: amllResult.lyricLines.map((line) => ({
+					...line,
+					words: line.words.map((word) => ({
+						...word,
+						id: uid(),
+						romanWord: word.romanWord ?? "",
+						obscene: word.obscene ?? false,
+						emptyBeat: word.emptyBeat ?? 0,
+					})),
+					translatedLyric: line.translatedLyric || "",
+					romanLyric: line.romanLyric || "",
+					isBG: line.isBG || false,
+					isDuet: line.isDuet || false,
+					ignoreSync: false,
+					id: uid(),
+				})),
+				agents: [],
+			};
+		},
+		[],
+	);
+
+	const mergeAudioMetadata = useCallback(
+		(metadata: TTMLMetadata[]) => {
+			setLyricLines((prev) => {
+				const nextMetadata = prev.metadata.map((item) => ({
+					...item,
+					value: [...item.value],
+				}));
+				const metadataChanged = mergeExtractedMetadata(nextMetadata, metadata);
+				const defaultChanged = applyDefaultTtmlAuthorMetadata(nextMetadata, {
+					githubId: defaultTtmlAuthorGithub,
+					githubLogin: defaultTtmlAuthorGithubLogin,
 				});
+
+				if (!metadataChanged && !defaultChanged) return prev;
+				return { ...prev, metadata: nextMetadata };
+			});
 		},
 		[defaultTtmlAuthorGithub, defaultTtmlAuthorGithubLogin, setLyricLines],
 	);
@@ -236,17 +257,20 @@ export const useFileOpener = () => {
 			file: File,
 			options?: { cache?: boolean; extractMetadata?: boolean },
 		) => {
-			void audioEngine.loadMusic(file).catch((e) => {
-				logError(`Failed to load audio: ${file.name}`, e);
-			});
+			try {
+				const metadata = await audioEngine.loadMusic(file);
+				if (options?.extractMetadata !== false) {
+					mergeAudioMetadata(metadata);
+				}
+			} catch (e) {
+				logError(`Failed to load audio or extract metadata: ${file.name}`, e);
+			}
+
 			if (options?.cache) {
 				await writeAudioCache(file);
 			}
-			if (options?.extractMetadata !== false) {
-				mergeAudioMetadataFromFile(file);
-			}
 		},
-		[mergeAudioMetadataFromFile],
+		[mergeAudioMetadata],
 	);
 
 	const performOpenFile = useCallback(
@@ -256,36 +280,7 @@ export const useFileOpener = () => {
 
 			try {
 				if (AUDIO_EXTENSIONS.has(ext)) {
-					void audioEngine
-						.loadMusic(file)
-						.then((metadata) => {
-							setLyricLines((prev) => {
-								const nextMetadata = prev.metadata.map((item) => ({
-									...item,
-									value: [...item.value],
-								}));
-								const metadataChanged = mergeExtractedMetadata(
-									nextMetadata,
-									metadata,
-								);
-								const defaultChanged = applyDefaultTtmlAuthorMetadata(
-									nextMetadata,
-									{
-										githubId: defaultTtmlAuthorGithub,
-										githubLogin: defaultTtmlAuthorGithubLogin,
-									},
-								);
-
-								if (!metadataChanged && !defaultChanged) return prev;
-								return { ...prev, metadata: nextMetadata };
-							});
-						})
-						.catch((e) => {
-							logError(
-								`Failed to load audio or extract metadata: ${file.name}`,
-								e,
-							);
-						});
+					await loadAudioFile(file, { cache: true });
 					return;
 				}
 
@@ -293,7 +288,19 @@ export const useFileOpener = () => {
 				const text = await file.text();
 
 				if (ext === "ttml") {
-					lyricData = parseTTML(text);
+					const result = ttmlToAmll(text);
+
+					if (result.success) {
+						lyricData = normalizeAmllLyricResult(result.data);
+					} else {
+						handleTtmlError(
+							result.error,
+							`Error when parsing TTML: ${file.name}`,
+							text,
+						);
+
+						return;
+					}
 				} else if (ext in LYRIC_PARSERS) {
 					const parser = LYRIC_PARSERS[ext];
 					const rawLines = parser(text);
@@ -359,10 +366,12 @@ export const useFileOpener = () => {
 			setSaveFileName,
 			loadAudioFile,
 			normalizeLyricLines,
+			normalizeAmllLyricResult,
 			defaultTtmlAuthorGithub,
 			defaultTtmlAuthorGithubLogin,
 			t,
 			setPushNotification,
+			handleTtmlError,
 		],
 	);
 

@@ -470,7 +470,33 @@
 	},
 	"error": {
 		"unsupportedFileFormat": "Unsupported file format: {ext}",
-		"openFileFailed": "Failed to open file"
+		"openFileFailed": "Failed to open file",
+		"ttml": {
+			"copied": "Copied to clipboard",
+			"kind": {
+				"AttrError": "XML Attribute Error",
+				"EntityError": "Unknown XML Entity",
+				"InvalidTimestamp": "Invalid Timestamp Format",
+				"MissingAttribute": "Missing Required Attribute",
+				"UnexpectedEof": "Unexpected End of File",
+				"XmlError": "XML Syntax Error",
+				"ParseError": "General Parse Error"
+			},
+			"title": "Failed to Process TTML",
+			"subtitle": "An error occurred while processing the TTML file.",
+			"close": "Close",
+			"copyError": "Copy Error Log",
+			"suggestion": {
+				"AttrError": "Please check that the XML attributes are correctly formatted.",
+				"EntityError": "Check that the XML predefined entity references used are valid.",
+				"InvalidTimestamp": "The allowed timestamp format is 'hh:mm:ss.sss'; leading zeros may be omitted. For example, '1:03:36.120'.",
+				"MissingAttribute": "Please check the log above and add the required attributes.",
+				"UnexpectedEof": "Please ensure that all open tags (such as </tt> or </body>) are properly closed.",
+				"XmlError": "Please check the file for XML syntax errors.",
+				"ParseError": "Please refer to the log above and check that the file format is correct."
+			},
+			"copyFailed": "Failed to copy"
+		}
 	},
 	"audioPanel": {
 		"volume": "Volume",
