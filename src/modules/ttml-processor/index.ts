@@ -183,6 +183,29 @@ export function ttmlLyricToAmllResult(
 	};
 }
 
+function roundAmllTimestamps(amllResult: AmllLyricResult): AmllLyricResult {
+	return {
+		...amllResult,
+		lyricLines: amllResult.lyricLines.map((line) => ({
+			...line,
+			startTime: Math.round(line.startTime),
+			endTime: Math.round(line.endTime),
+			words: line.words.map((word) => ({
+				...word,
+				startTime: Math.round(word.startTime),
+				endTime: Math.round(word.endTime),
+				ruby: word.ruby
+					? word.ruby.map((r) => ({
+							...r,
+							startTime: Math.round(r.startTime),
+							endTime: Math.round(r.endTime),
+						}))
+					: undefined,
+			})),
+		})),
+	};
+}
+
 /**
  * 便捷方法，将 AMLL 格式的歌词和元数据生成为 TTML 字符串
  *
@@ -197,7 +220,8 @@ export function amllToTTML(
 	options?: Partial<AmllToTtmlOptions>,
 	config?: Partial<GeneratorConfig>,
 ): Result<string> {
-	return rawAmllToTtml(amllResult, options, config) as Result<string>;
+	const roundedAmllResult = roundAmllTimestamps(amllResult);
+	return rawAmllToTtml(roundedAmllResult, options, config) as Result<string>;
 }
 
 /**
@@ -225,6 +249,7 @@ export function amllToTTMLResult(
 	amllResult: AmllLyricResult,
 	options?: Partial<AmllToTtmlOptions>,
 ): Result<TTMLResult> {
-	return rawAmllToTtmlResult(amllResult, options) as Result<TTMLResult>;
+	const roundedAmllResult = roundAmllTimestamps(amllResult);
+	return rawAmllToTtmlResult(roundedAmllResult, options) as Result<TTMLResult>;
 }
 //#endregion
