@@ -1,5 +1,4 @@
 import { exec } from "node:child_process";
-import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
@@ -9,17 +8,13 @@ import { defineConfig, type PluginOption } from "vite";
 import i18nextLoader from "vite-plugin-i18next-loader";
 import { VitePWA } from "vite-plugin-pwa";
 
-const AMLL_LOCAL_EXISTS = existsSync(
-	resolve(__dirname, "../applemusic-like-lyrics"),
-);
-
-process.env.AMLL_LOCAL_EXISTS = AMLL_LOCAL_EXISTS ? "true" : "false";
+const isProduction = process.env.NODE_ENV === "production";
 
 const plugins: PluginOption = [
 	react(),
 	babel({
 		presets: [reactCompilerPreset()],
-		plugins: [jotaiDebugLabel, jotaiReactRefresh],
+		plugins: isProduction ? [] : [jotaiDebugLabel, jotaiReactRefresh],
 	}),
 	i18nextLoader({
 		paths: ["./locales"],
@@ -131,6 +126,36 @@ export default defineConfig({
 			onLog(level, log, defaultHandler) {
 				if (log.message?.includes("node:module")) return;
 				defaultHandler(level, log);
+			},
+
+			output: {
+				codeSplitting: {
+					groups: [
+						{
+							name: "react-vendor",
+							test: /node_modules[\\/](react|react-dom)[\\/]/,
+							priority: 20,
+						},
+						{
+							name: "radix-vendor",
+							test: /node_modules[\\/]@radix/,
+							priority: 15,
+						},
+						{
+							name: "amll-vendor",
+							test: /node_modules[\\/]@applemusic-like-lyrics/,
+							priority: 10,
+						},
+						{
+							name: "vendor",
+							test(id) {
+								// 排除掉 hyphen 以便动态导入能够工作
+								return id.includes("node_modules") && !id.includes("hyphen");
+							},
+							priority: 10,
+						},
+					],
+				},
 			},
 		},
 	},
