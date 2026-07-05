@@ -15,7 +15,7 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 	private currentRate: number = 1.0;
 	private playbackFractional: number = 0.0;
 
-	private wasSeeking: boolean = false;
+	private lastSeekGeneration: number = 0;
 
 	constructor() {
 		super();
@@ -73,11 +73,13 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 		}
 
 		const isCurrentlySeeking = this.audioReader.isSeeking();
-		if (this.wasSeeking && !isCurrentlySeeking) {
+		const currentSeekGeneration = this.audioReader.getSeekGeneration();
+
+		if (this.lastSeekGeneration !== currentSeekGeneration) {
 			this.stProcessor.clear();
 			this.playbackFractional = 0.0;
+			this.lastSeekGeneration = currentSeekGeneration;
 		}
-		this.wasSeeking = isCurrentlySeeking;
 
 		if (!this.audioReader.isPlaying() || isCurrentlySeeking) {
 			this.fillSilence(output, WORKLET_BLOCK_SIZE);
