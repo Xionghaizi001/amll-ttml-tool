@@ -7,6 +7,7 @@ const STATE_READ_INDEX = 2;
 const STATE_WRITE_INDEX = 3;
 const STATE_PLAYBACK_INDEX = 4;
 const STATE_PAUSE_AT_INDEX = 5;
+const STATE_SEEK_GENERATION = 6;
 
 const RING_BUFFER_CAPACITY = 192000 * 2;
 const RING_BUFFER_BYTES_PER_CHANNEL = RING_BUFFER_CAPACITY * 4;
@@ -122,6 +123,7 @@ export interface AudioReader {
 	getPauseAtIndex(): number;
 	clearPauseAtIndex(): void;
 	pausePlayback(): void;
+	getSeekGeneration(): number;
 }
 //#endregion
 
@@ -222,6 +224,7 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		Atomics.store(this.controlBlock, STATE_WRITE_INDEX, 0);
 		Atomics.store(this.controlBlock, STATE_READ_INDEX, 0);
 		Atomics.store(this.controlBlock, STATE_PLAYBACK_INDEX, 0);
+		Atomics.add(this.controlBlock, STATE_SEEK_GENERATION, 1);
 		Atomics.notify(this.controlBlock, STATE_READ_INDEX, 1);
 	}
 
@@ -265,6 +268,10 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		}
 
 		return { isDrained: false };
+	}
+
+	getSeekGeneration(): number {
+		return Atomics.load(this.controlBlock, STATE_SEEK_GENERATION);
 	}
 	//#endregion
 
