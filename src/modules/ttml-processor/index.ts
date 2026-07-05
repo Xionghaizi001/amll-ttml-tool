@@ -183,25 +183,33 @@ export function ttmlLyricToAmllResult(
 	};
 }
 
-function roundAmllTimestamps(amllResult: AmllLyricResult): AmllLyricResult {
+function postProcessLyricLines(amllResult: AmllLyricResult): AmllLyricResult {
 	return {
 		...amllResult,
 		lyricLines: amllResult.lyricLines.map((line) => ({
 			...line,
 			startTime: Math.round(line.startTime),
 			endTime: Math.round(line.endTime),
-			words: line.words.map((word) => ({
-				...word,
-				startTime: Math.round(word.startTime),
-				endTime: Math.round(word.endTime),
-				ruby: word.ruby
-					? word.ruby.map((r) => ({
-							...r,
-							startTime: Math.round(r.startTime),
-							endTime: Math.round(r.endTime),
-						}))
-					: undefined,
-			})),
+			words: line.words.map((word) => {
+				const processedWord: AmllLyricWord = {
+					...word,
+					startTime: Math.round(word.startTime),
+					endTime: Math.round(word.endTime),
+					ruby: word.ruby
+						? word.ruby.map((r) => ({
+								...r,
+								startTime: Math.round(r.startTime),
+								endTime: Math.round(r.endTime),
+							}))
+						: undefined,
+				};
+
+				if (processedWord.emptyBeat == null || processedWord.emptyBeat === 0) {
+					processedWord.emptyBeat = undefined;
+				}
+
+				return processedWord;
+			}),
 		})),
 	};
 }
@@ -220,8 +228,8 @@ export function amllToTTML(
 	options?: Partial<AmllToTtmlOptions>,
 	config?: Partial<GeneratorConfig>,
 ): Result<string> {
-	const roundedAmllResult = roundAmllTimestamps(amllResult);
-	return rawAmllToTtml(roundedAmllResult, options, config) as Result<string>;
+	const processedAmllResult = postProcessLyricLines(amllResult);
+	return rawAmllToTtml(processedAmllResult, options, config) as Result<string>;
 }
 
 /**
@@ -249,7 +257,10 @@ export function amllToTTMLResult(
 	amllResult: AmllLyricResult,
 	options?: Partial<AmllToTtmlOptions>,
 ): Result<TTMLResult> {
-	const roundedAmllResult = roundAmllTimestamps(amllResult);
-	return rawAmllToTtmlResult(roundedAmllResult, options) as Result<TTMLResult>;
+	const processedAmllResult = postProcessLyricLines(amllResult);
+	return rawAmllToTtmlResult(
+		processedAmllResult,
+		options,
+	) as Result<TTMLResult>;
 }
 //#endregion
