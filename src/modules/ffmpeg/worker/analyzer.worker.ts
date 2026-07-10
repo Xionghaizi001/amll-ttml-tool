@@ -1,7 +1,11 @@
-import type { FFmpegWasmModule, FFmpegWasmModuleFactory } from "./types.ts";
+import { getErrorMessage } from "../utils";
+import type { FFmpegAudioModule } from "./types";
 import createModule from "./wasm/ffmpeg_wasm.js";
 
-let wasmModule: FFmpegWasmModule | null = null;
+const THRESHOLD_50MB = 50 * 1024 * 1024;
+
+let ffmpegModule: FFmpegAudioModule | null = null;
+let audioData: Uint8Array | null = null;
 let decoderPtr: number = 0;
 let audioFile: File | null = null;
 const readerSync = new FileReaderSync();
@@ -25,27 +29,54 @@ const TARGET_SAMPLE_RATE = 48000;
 
 const opfsChannel = new BroadcastChannel("opfs-lock-channel");
 
-async function initWasm(ffmpegWasmUrl: string): Promise<FFmpegWasmModule> {
-	return await (createModule as unknown as FFmpegWasmModuleFactory)({
+function getLastErrorMsg(): string {
+	if (!ffmpegModule) return "Wasm module not loaded";
+
+	const err = ffmpegModule.UTF8ToString(ffmpegModule._wasm_get_last_error());
+
+	if (!err) return "Unknown FFmpeg error";
+	return err;
+}
+
+async function initWasm(ffmpegWasmUrl: string): Promise<FFmpegAudioModule> {
+	return await createModule({
 		locateFile: () => ffmpegWasmUrl,
 
 		js_get_file_size: (_file_id: number): number => {
-			return audioFile ? audioFile.size : -1;
+			return audioData ? audioData.byteLength : audioFile ? audioFile.size : -1;
 		},
 
 		js_read_file: (
 			_file_id: number,
 			offset: number,
 			length: number,
-		): ArrayBuffer | null => {
-			if (!audioFile) return null;
-			try {
-				const blobSlice = audioFile.slice(offset, offset + length);
-				return readerSync.readAsArrayBuffer(blobSlice);
-			} catch (err) {
-				console.error("read error:", err);
-				return null;
+			buffer_ptr: number,
+		): number => {
+			if (!ffmpegModule) return -1;
+
+			if (audioData) {
+				const maxRead = Math.min(length, audioData.byteLength - offset);
+				if (maxRead <= 0) return 0;
+
+				const slice = audioData.subarray(offset, offset + maxRead);
+				ffmpegModule.HEAPU8.set(slice, buffer_ptr);
+				return maxRead;
 			}
+
+			if (audioFile) {
+				try {
+					const blobSlice = audioFile.slice(offset, offset + length);
+					const buffer = readerSync.readAsArrayBuffer(blobSlice);
+					const u8 = new Uint8Array(buffer);
+					ffmpegModule.HEAPU8.set(u8, buffer_ptr);
+					return u8.length;
+				} catch (err) {
+					console.error("Chunk read error:", err);
+					return -1;
+				}
+			}
+
+			return -1;
 		},
 	});
 }
@@ -108,7 +139,7 @@ const yieldChannel = new MessageChannel();
 yieldChannel.port1.onmessage = () => analyzeLoop();
 
 function analyzeLoop() {
-	if (!isAnalyzing || !wasmModule || decoderPtr === 0) return;
+	if (!isAnalyzing || !ffmpegModule || decoderPtr === 0) return;
 	const BATCH_FRAMES = 1000;
 
 	let eof = false;
@@ -116,15 +147,22 @@ function analyzeLoop() {
 	const expectedTotalSamples = totalDuration * TARGET_SAMPLE_RATE;
 
 	for (let i = 0; i < BATCH_FRAMES; i++) {
-		const status = wasmModule._wasm_decoder_decode_frame(decoderPtr);
+		let status = -1;
+
+		try {
+			status = ffmpegModule._wasm_decoder_decode_frame(decoderPtr);
+		} catch (wasmErr) {
+			console.warn(`Crash during frame decode: ${getErrorMessage(wasmErr)}`);
+		}
+
 		if (status === 1) {
 			const frameSamples =
-				wasmModule._wasm_decoder_get_frame_samples(decoderPtr);
+				ffmpegModule._wasm_decoder_get_frame_samples(decoderPtr);
 
 			if (opfsAccessHandle && frameSamples > 0) {
-				const ptr = wasmModule._wasm_decoder_get_channel_ptr(decoderPtr, 0);
+				const ptr = ffmpegModule._wasm_decoder_get_channel_ptr(decoderPtr, 0);
 				const pcmView = new Float32Array(
-					wasmModule.wasmMemory.buffer,
+					ffmpegModule.wasmMemory.buffer,
 					ptr,
 					frameSamples,
 				);
@@ -136,17 +174,16 @@ function analyzeLoop() {
 			let progress =
 				expectedTotalSamples > 0 ? totalSamples / expectedTotalSamples : 0;
 			progress = Math.min(progress, 1.0);
-			const min = wasmModule._wasm_decoder_get_frame_min(decoderPtr);
-			const max = wasmModule._wasm_decoder_get_frame_max(decoderPtr);
+			const min = ffmpegModule._wasm_decoder_get_frame_min(decoderPtr);
+			const max = ffmpegModule._wasm_decoder_get_frame_max(decoderPtr);
 
 			pushPeak(progress, min, max);
 		} else if (status === 0) {
 			eof = true;
 			break;
 		} else {
-			console.error("[Analyzer] decode error");
-			eof = true;
-			break;
+			const rawErr = getLastErrorMsg();
+			console.warn(`Corrupted frame skipped: ${rawErr}`);
 		}
 	}
 
@@ -176,7 +213,7 @@ function analyzeLoop() {
 
 		self.postMessage({ type: "ANALYZE_DONE" });
 
-		wasmModule._wasm_decoder_destroy(decoderPtr);
+		ffmpegModule._wasm_decoder_destroy(decoderPtr);
 		decoderPtr = 0;
 	}
 }
@@ -195,7 +232,15 @@ self.onmessage = async (e: MessageEvent) => {
 			color,
 		} = payload;
 
-		audioFile = file;
+		if (file.size < THRESHOLD_50MB) {
+			const arrayBuffer = await file.arrayBuffer();
+			audioData = new Uint8Array(arrayBuffer);
+			audioFile = null;
+		} else {
+			audioFile = file;
+			audioData = null;
+		}
+
 		canvasWidth = width;
 		canvasHeight = height;
 		dpr = deviceDpr;
@@ -224,12 +269,16 @@ self.onmessage = async (e: MessageEvent) => {
 				opfsAccessHandle = await fileHandle.createSyncAccessHandle();
 				opfsAccessHandle.truncate(0);
 
-				wasmModule = await initWasm(ffmpegWasmUrl);
-				decoderPtr = wasmModule._wasm_decoder_create(1, TARGET_SAMPLE_RATE, 1);
+				ffmpegModule = await initWasm(ffmpegWasmUrl);
+				decoderPtr = ffmpegModule._wasm_decoder_create(
+					1,
+					TARGET_SAMPLE_RATE,
+					1,
+				);
 
 				if (decoderPtr === 0) throw new Error("Failed to create Wasm Decoder");
-				wasmModule._wasm_decoder_set_compute_peaks(decoderPtr, 1);
-				totalDuration = wasmModule._wasm_decoder_get_duration(decoderPtr);
+				ffmpegModule._wasm_decoder_set_compute_peaks(decoderPtr, 1);
+				totalDuration = ffmpegModule._wasm_decoder_get_duration(decoderPtr);
 
 				peaksCount = 0;
 				totalSamples = 0;

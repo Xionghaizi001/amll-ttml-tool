@@ -6,6 +6,7 @@ export class SoundTouchProcessor {
     [Symbol.dispose](): void;
     clear(): void;
     extractOutput(max_samples: number): number;
+    getInputChunkSize(): number;
     getInputPtr(channel: number): number;
     getOutputPtr(channel: number): number;
     constructor(channels: number, sample_rate: number);
@@ -23,6 +24,7 @@ export interface InitOutput {
     readonly __wbg_soundtouchprocessor_free: (a: number, b: number) => void;
     readonly soundtouchprocessor_clear: (a: number) => void;
     readonly soundtouchprocessor_extractOutput: (a: number, b: number, c: number) => void;
+    readonly soundtouchprocessor_getInputChunkSize: (a: number) => number;
     readonly soundtouchprocessor_getInputPtr: (a: number, b: number) => number;
     readonly soundtouchprocessor_getOutputPtr: (a: number, b: number) => number;
     readonly soundtouchprocessor_new: (a: number, b: number, c: number) => void;
