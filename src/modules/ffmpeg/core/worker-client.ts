@@ -1,3 +1,6 @@
+import { EngineErrorCode, type EngineErrorCodeValue } from "../types";
+import type { WorkerCommand, WorkerEvent } from "../worker/types";
+
 export interface WorkerClientCallbacks {
 	onInitDone: (payload: {
 		duration: number;
@@ -6,7 +9,7 @@ export interface WorkerClientCallbacks {
 		coverMime: string | null;
 	}) => void;
 	onEnded: () => void;
-	onError: (code: number, message: string) => void;
+	onError: (code: EngineErrorCodeValue, message: string) => void;
 }
 
 export class DecoderWorkerClient {
@@ -24,30 +27,37 @@ export class DecoderWorkerClient {
 		sharedBuffer: SharedArrayBuffer,
 		ffmpegWasmUrl: string,
 	): void {
-		this.destroy();
+		if (!this.worker) {
+			this.worker = new Worker(this.workerUrl, { type: "module" });
 
-		this.worker = new Worker(this.workerUrl, { type: "module" });
-		this.worker.onmessage = this.handleMessage.bind(this);
-		this.worker.onerror = (e) => {
-			this.callbacks.onError(4, `Worker error: ${e.message}`);
-		};
+			this.worker.onmessage = (e: MessageEvent<WorkerEvent>) => {
+				this.handleMessage(e);
+			};
 
-		this.worker.postMessage({
+			this.worker.onerror = (e) => {
+				this.callbacks.onError(
+					EngineErrorCode.SrcNotSupported,
+					`Worker error: ${e.message}`,
+				);
+			};
+		}
+
+		this.postCommand({
 			type: "INIT",
 			payload: { file, sampleRate, channels, sharedBuffer, ffmpegWasmUrl },
 		});
 	}
 
 	public play(): void {
-		this.worker?.postMessage({ type: "PLAY" });
+		this.postCommand({ type: "PLAY" });
 	}
 
 	public pause(): void {
-		this.worker?.postMessage({ type: "PAUSE" });
+		this.postCommand({ type: "PAUSE" });
 	}
 
 	public seek(targetSeconds: number): void {
-		this.worker?.postMessage({
+		this.postCommand({
 			type: "SEEK",
 			payload: { targetSeconds },
 		});
@@ -60,22 +70,29 @@ export class DecoderWorkerClient {
 		}
 	}
 
-	private handleMessage(e: MessageEvent): void {
-		const { type, payload } = e.data;
+	private handleMessage(e: MessageEvent<WorkerEvent>): void {
+		const data = e.data;
 
-		switch (type) {
+		switch (data.type) {
 			case "INIT_DONE":
-				this.callbacks.onInitDone(payload);
+				this.callbacks.onInitDone(data.payload);
 				break;
 			case "DECODE_EOF":
 				this.callbacks.onEnded();
 				break;
 			case "DECODE_ERROR":
-				this.callbacks.onError(2, "Fatal decoding error");
+				this.callbacks.onError(EngineErrorCode.Decode, data.error);
 				break;
 			case "INIT_ERROR":
-				this.callbacks.onError(3, payload?.error ?? "Initialization failed");
+				this.callbacks.onError(EngineErrorCode.SrcNotSupported, data.error);
 				break;
 		}
+	}
+
+	/**
+	 * Private helper to enforce typing on outgoing messages to the Decoder Worker
+	 */
+	private postCommand(cmd: WorkerCommand): void {
+		this.worker?.postMessage(cmd);
 	}
 }

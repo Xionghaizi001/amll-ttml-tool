@@ -1,16 +1,23 @@
+import type { QueueConfig } from "../types";
+
 //#region Internal Constants
-const CONTROL_BLOCK_BYTES = 64;
+const CONTROL_BLOCK_BYTES = 128;
 
-const STATE_PLAYING = 0;
-const STATE_IS_SEEKING = 1;
-const STATE_READ_INDEX = 2;
-const STATE_WRITE_INDEX = 3;
-const STATE_PLAYBACK_INDEX = 4;
-const STATE_PAUSE_AT_INDEX = 5;
-const STATE_SEEK_GENERATION = 6;
+// Read-Only Configs (0-15)
+const CONFIG_CHANNELS = 0;
+const CONFIG_CAPACITY_FRAMES = 1;
+const CONFIG_NOTIFY_FRAMES = 2;
+const CONFIG_EMERGENCY_FRAMES = 3;
 
-const RING_BUFFER_CAPACITY = 192000 * 2;
-const RING_BUFFER_BYTES_PER_CHANNEL = RING_BUFFER_CAPACITY * 4;
+// Mutable States (16-31)
+const STATE_PLAYING = 16;
+const STATE_IS_SEEKING = 17;
+const STATE_READ_INDEX = 18;
+const STATE_WRITE_INDEX = 19;
+const STATE_PLAYBACK_INDEX = 20;
+const STATE_PAUSE_AT_INDEX = 21;
+const STATE_SEEK_GENERATION = 22;
+const STATE_UNNOTIFIED_FRAMES = 23;
 //#endregion
 
 //#region Public Interfaces
@@ -73,7 +80,10 @@ export interface AudioWriter {
 	 * @returns An object indicating whether the thread was suspended. If `async` is true,
 	 * the `promise` resolves when space might be available.
 	 */
-	waitForSpaceAsync(): { async: boolean; promise?: Promise<void> };
+	waitForSpaceAsync(minSpaceReq: number): {
+		async: boolean;
+		promise?: Promise<void>;
+	};
 
 	/**
 	 * Asynchronously waits until all data currently in the buffer has been consumed.
@@ -90,13 +100,6 @@ export interface AudioWriter {
  * Typically used by the AudioWorkletProcessor.
  */
 export interface AudioReader {
-	/**
-	 * Reads audio frames from the buffer into the provided output arrays.
-	 * Automatically outputs silence if playback is paused, seeking, or if underflow occurs.
-	 * @param outputs A 2D array representing the destination channels.
-	 * @param outLen The number of frames requested by the audio context.
-	 */
-	read(outputs: Float32Array[][], outLen: number): void;
 	/**
 	 * Returns true if the playback state is currently set to playing.
 	 */
@@ -132,15 +135,22 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 	private controlBlock: Int32Array;
 	private channelBuffers: Float32Array[] = [];
 	private channels: number;
+	private capacityFrames: number;
 
-	constructor(sab: SharedArrayBuffer, channels: number) {
-		this.channels = channels;
+	constructor(sab: SharedArrayBuffer) {
 		this.controlBlock = new Int32Array(sab, 0, CONTROL_BLOCK_BYTES / 4);
 
-		for (let c = 0; c < channels; c++) {
-			const offset = CONTROL_BLOCK_BYTES + c * RING_BUFFER_BYTES_PER_CHANNEL;
+		this.channels = Atomics.load(this.controlBlock, CONFIG_CHANNELS);
+		this.capacityFrames = Atomics.load(
+			this.controlBlock,
+			CONFIG_CAPACITY_FRAMES,
+		);
+
+		const bytesPerChannel = this.capacityFrames * 4;
+		for (let c = 0; c < this.channels; c++) {
+			const offset = CONTROL_BLOCK_BYTES + c * bytesPerChannel;
 			this.channelBuffers.push(
-				new Float32Array(sab, offset, RING_BUFFER_CAPACITY),
+				new Float32Array(sab, offset, this.capacityFrames),
 			);
 		}
 	}
@@ -179,7 +189,7 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 	getAvailableWriteSpace(): number {
 		const writeIndex = Atomics.load(this.controlBlock, STATE_WRITE_INDEX);
 		const readIndex = Atomics.load(this.controlBlock, STATE_READ_INDEX);
-		return RING_BUFFER_CAPACITY - (writeIndex - readIndex);
+		return this.capacityFrames - (writeIndex - readIndex);
 	}
 
 	writePartial(
@@ -190,15 +200,15 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		const writeIndex = Atomics.load(this.controlBlock, STATE_WRITE_INDEX);
 		const readIndex = Atomics.load(this.controlBlock, STATE_READ_INDEX);
 
-		const availableSpace = RING_BUFFER_CAPACITY - (writeIndex - readIndex);
+		const availableSpace = this.capacityFrames - (writeIndex - readIndex);
 		const writeAmount = Math.min(length, availableSpace);
 
 		if (writeAmount === 0) {
 			return 0;
 		}
 
-		const ringPos = writeIndex % RING_BUFFER_CAPACITY;
-		const spaceToEnd = RING_BUFFER_CAPACITY - ringPos;
+		const ringPos = writeIndex % this.capacityFrames;
+		const spaceToEnd = this.capacityFrames - ringPos;
 
 		for (let c = 0; c < this.channels; c++) {
 			const source = channelDatas[c];
@@ -224,6 +234,7 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		Atomics.store(this.controlBlock, STATE_WRITE_INDEX, 0);
 		Atomics.store(this.controlBlock, STATE_READ_INDEX, 0);
 		Atomics.store(this.controlBlock, STATE_PLAYBACK_INDEX, 0);
+		Atomics.store(this.controlBlock, STATE_UNNOTIFIED_FRAMES, 0);
 		Atomics.add(this.controlBlock, STATE_SEEK_GENERATION, 1);
 		Atomics.notify(this.controlBlock, STATE_READ_INDEX, 1);
 	}
@@ -232,8 +243,20 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		Atomics.store(this.controlBlock, STATE_IS_SEEKING, 0);
 	}
 
-	waitForSpaceAsync(): { async: boolean; promise?: Promise<void> } {
-		const currentReadIndex = Atomics.load(this.controlBlock, STATE_READ_INDEX);
+	waitForSpaceAsync(minSpaceReq: number): {
+		async: boolean;
+		promise?: Promise<void>;
+	} {
+		const writeIndex = Atomics.load(this.controlBlock, STATE_WRITE_INDEX);
+		const readIndex = Atomics.load(this.controlBlock, STATE_READ_INDEX);
+
+		const availableSpace = this.capacityFrames - (writeIndex - readIndex);
+
+		if (availableSpace >= minSpaceReq) {
+			return { async: false };
+		}
+
+		const currentReadIndex = readIndex;
 		const waitResult = Atomics.waitAsync(
 			this.controlBlock,
 			STATE_READ_INDEX,
@@ -276,52 +299,6 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 	//#endregion
 
 	//#region AudioReader
-	read(outputs: Float32Array[][], outLen: number): void {
-		const isPlaying = Atomics.load(this.controlBlock, STATE_PLAYING) === 1;
-		const isSeeking = Atomics.load(this.controlBlock, STATE_IS_SEEKING) === 1;
-
-		if (!isPlaying || isSeeking) {
-			this.fillSilence(outputs);
-			return;
-		}
-
-		const writeIndex = Atomics.load(this.controlBlock, STATE_WRITE_INDEX);
-		const readIndex = Atomics.load(this.controlBlock, STATE_READ_INDEX);
-		const availableData = writeIndex - readIndex;
-
-		if (availableData < outLen) {
-			this.fillSilence(outputs);
-			return;
-		}
-
-		const ringPos = readIndex % RING_BUFFER_CAPACITY;
-		const spaceToEnd = RING_BUFFER_CAPACITY - ringPos;
-		const output = outputs[0];
-
-		for (let c = 0; c < this.channels; c++) {
-			if (!output[c]) continue;
-
-			if (outLen <= spaceToEnd) {
-				output[c].set(
-					this.channelBuffers[c].subarray(ringPos, ringPos + outLen),
-				);
-			} else {
-				output[c].set(
-					this.channelBuffers[c].subarray(ringPos, RING_BUFFER_CAPACITY),
-					0,
-				);
-				const remaining = outLen - spaceToEnd;
-				output[c].set(
-					this.channelBuffers[c].subarray(0, remaining),
-					spaceToEnd,
-				);
-			}
-		}
-
-		Atomics.add(this.controlBlock, STATE_READ_INDEX, outLen);
-		Atomics.notify(this.controlBlock, STATE_READ_INDEX, 1);
-	}
-
 	isPlaying(): boolean {
 		return Atomics.load(this.controlBlock, STATE_PLAYING) === 1;
 	}
@@ -350,8 +327,8 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 			return 0;
 		}
 
-		const ringPos = readIndex % RING_BUFFER_CAPACITY;
-		const spaceToEnd = RING_BUFFER_CAPACITY - ringPos;
+		const ringPos = readIndex % this.capacityFrames;
+		const spaceToEnd = this.capacityFrames - ringPos;
 		for (let c = 0; c < this.channels; c++) {
 			if (!outputs[c]) continue;
 			if (readAmount <= spaceToEnd) {
@@ -360,7 +337,7 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 				);
 			} else {
 				outputs[c].set(
-					this.channelBuffers[c].subarray(ringPos, RING_BUFFER_CAPACITY),
+					this.channelBuffers[c].subarray(ringPos, this.capacityFrames),
 					0,
 				);
 				const remaining = readAmount - spaceToEnd;
@@ -372,7 +349,8 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 		}
 
 		Atomics.add(this.controlBlock, STATE_READ_INDEX, readAmount);
-		Atomics.notify(this.controlBlock, STATE_READ_INDEX, 1);
+		Atomics.add(this.controlBlock, STATE_UNNOTIFIED_FRAMES, readAmount);
+		this.notifyProducerIfNeeded(availableData - readAmount);
 		return readAmount;
 	}
 
@@ -387,18 +365,22 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
 	pausePlayback(): void {
 		Atomics.store(this.controlBlock, STATE_PLAYING, 0);
 	}
-	//#endregion
 
-	private fillSilence(outputs: Float32Array[][]): void {
-		const output = outputs[0];
-		if (!output) return;
+	private notifyProducerIfNeeded(availableData: number): void {
+		const unnotified = Atomics.load(this.controlBlock, STATE_UNNOTIFIED_FRAMES);
 
-		for (let c = 0; c < this.channels; c++) {
-			if (output[c]) {
-				output[c].fill(0);
-			}
+		const notifyFrames = Atomics.load(this.controlBlock, CONFIG_NOTIFY_FRAMES);
+		const emergencyFrames = Atomics.load(
+			this.controlBlock,
+			CONFIG_EMERGENCY_FRAMES,
+		);
+
+		if (unnotified >= notifyFrames || availableData < emergencyFrames) {
+			Atomics.store(this.controlBlock, STATE_UNNOTIFIED_FRAMES, 0);
+			Atomics.notify(this.controlBlock, STATE_READ_INDEX, 1);
 		}
 	}
+	//#endregion
 }
 //#endregion
 
@@ -409,13 +391,31 @@ class AudioQueueCore implements MainAudioController, AudioWriter, AudioReader {
  * @param channels The number of audio channels.
  * @returns A strictly sized SharedArrayBuffer.
  */
-export function allocateAudioQueueMemory(channels: number): SharedArrayBuffer {
-	const sabBytes =
-		CONTROL_BLOCK_BYTES + RING_BUFFER_BYTES_PER_CHANNEL * channels;
+export function allocateAudioQueueMemory(
+	sampleRate: number,
+	channels: number,
+	config: Required<QueueConfig>,
+): SharedArrayBuffer {
+	const capacityFrames =
+		Math.ceil((config.capacitySeconds * sampleRate) / 128) * 128;
+	const notifyFrames = Math.round(config.notifyWatermarkSeconds * sampleRate);
+	const emergencyFrames = Math.round(
+		config.emergencyWatermarkSeconds * sampleRate,
+	);
+
+	const bytesPerChannel = capacityFrames * 4;
+	const sabBytes = CONTROL_BLOCK_BYTES + bytesPerChannel * channels;
 	const sab = new SharedArrayBuffer(sabBytes);
 
 	const controlBlock = new Int32Array(sab, 0, CONTROL_BLOCK_BYTES / 4);
+
+	Atomics.store(controlBlock, CONFIG_CHANNELS, channels);
+	Atomics.store(controlBlock, CONFIG_CAPACITY_FRAMES, capacityFrames);
+	Atomics.store(controlBlock, CONFIG_NOTIFY_FRAMES, notifyFrames);
+	Atomics.store(controlBlock, CONFIG_EMERGENCY_FRAMES, emergencyFrames);
+
 	Atomics.store(controlBlock, STATE_PAUSE_AT_INDEX, -1);
+	Atomics.store(controlBlock, STATE_UNNOTIFIED_FRAMES, 0);
 
 	return sab;
 }
@@ -425,28 +425,21 @@ export function allocateAudioQueueMemory(channels: number): SharedArrayBuffer {
  */
 export function createMainController(
 	sab: SharedArrayBuffer,
-	channels: number,
 ): MainAudioController {
-	return new AudioQueueCore(sab, channels);
+	return new AudioQueueCore(sab);
 }
 
 /**
  * Creates the writer interface for the decoding worker.
  */
-export function createAudioWriter(
-	sab: SharedArrayBuffer,
-	channels: number,
-): AudioWriter {
-	return new AudioQueueCore(sab, channels);
+export function createAudioWriter(sab: SharedArrayBuffer): AudioWriter {
+	return new AudioQueueCore(sab);
 }
 
 /**
  * Creates the reader interface for the audio worklet.
  */
-export function createAudioReader(
-	sab: SharedArrayBuffer,
-	channels: number,
-): AudioReader {
-	return new AudioQueueCore(sab, channels);
+export function createAudioReader(sab: SharedArrayBuffer): AudioReader {
+	return new AudioQueueCore(sab);
 }
 //#endregion

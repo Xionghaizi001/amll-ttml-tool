@@ -34,6 +34,13 @@ export class SoundTouchProcessor {
         }
     }
     /**
+     * @returns {number}
+     */
+    getInputChunkSize() {
+        const ret = wasm.soundtouchprocessor_getInputChunkSize(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * @param {number} channel
      * @returns {number}
      */

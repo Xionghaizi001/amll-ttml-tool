@@ -1,9 +1,10 @@
 import "./polyfill.ts";
 import { type AudioReader, createAudioReader } from "../queue";
-import initWasm, { SoundTouchProcessor } from "./wasm/soundtouch.js";
+import { getErrorMessage } from "../utils";
+import type { WorkletCommand, WorkletEvent } from "./types";
+import initWasm, { SoundTouchProcessor } from "./wasm/soundtouch";
 
 const WORKLET_BLOCK_SIZE = 128;
-const INPUT_CHUNK_SIZE = 2048;
 
 class FFmpegAudioProcessor extends AudioWorkletProcessor {
 	private audioReader: AudioReader | null = null;
@@ -14,37 +15,71 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 	private currentTempo: number = 1.0;
 	private currentRate: number = 1.0;
 	private playbackFractional: number = 0.0;
-
 	private lastSeekGeneration: number = 0;
+	private inputChunkSize: number = 0;
 
 	constructor() {
 		super();
 
-		this.port.addEventListener("message", async (event) => {
-			const { type, payload } = event.data;
+		this.port.onmessage = async (event: MessageEvent<WorkletCommand>) => {
+			const data = event.data;
 
-			if (type === "INIT") {
-				const { sharedBuffer, channels, wasmBytes, initId } = payload;
-				this.channels = channels;
-				this.audioReader = createAudioReader(sharedBuffer, channels);
+			if (data.type === "INIT") {
+				if (this.stProcessor) {
+					this.stProcessor.free();
+					this.stProcessor = null;
+				}
 
-				const wasmInstance = await initWasm({ module_or_path: wasmBytes });
-				this.wasmMemory = wasmInstance.memory;
-				this.stProcessor = new SoundTouchProcessor(channels, sampleRate);
+				const {
+					sharedBuffer,
+					channels,
+					wasmBytes,
+					initId,
+					tempo,
+					pitch,
+					rate,
+				} = data.payload;
 
-				this.port.postMessage({
-					type: "INIT_DONE",
-					payload: { initId },
-				});
-			} else if (type === "SET_TEMPO" && this.stProcessor) {
-				this.stProcessor.setTempo(payload.tempo);
-				this.currentTempo = payload.tempo;
-			} else if (type === "SET_PITCH" && this.stProcessor) {
-				this.stProcessor.setPitch(payload.pitch);
-			} else if (type === "SET_RATE" && this.stProcessor) {
-				this.stProcessor.setRate(payload.rate);
-				this.currentRate = payload.rate;
-			} else if (type === "DESTROY") {
+				try {
+					this.channels = channels;
+					this.audioReader = createAudioReader(sharedBuffer);
+
+					const wasmInstance = await initWasm({ module_or_path: wasmBytes });
+					this.wasmMemory = wasmInstance.memory;
+
+					this.stProcessor = new SoundTouchProcessor(channels, sampleRate);
+
+					this.stProcessor.setTempo(tempo);
+					this.stProcessor.setPitch(pitch);
+					this.stProcessor.setRate(rate);
+
+					this.currentTempo = tempo;
+					this.currentRate = rate;
+
+					this.inputChunkSize = this.stProcessor.getInputChunkSize();
+
+					this.postEvent({
+						type: "INIT_DONE",
+						payload: { initId },
+					});
+				} catch (e) {
+					this.postEvent({
+						type: "INIT_ERROR",
+						payload: {
+							initId,
+							message: getErrorMessage(e),
+						},
+					});
+				}
+			} else if (data.type === "SET_TEMPO" && this.stProcessor) {
+				this.stProcessor.setTempo(data.payload.tempo);
+				this.currentTempo = data.payload.tempo;
+			} else if (data.type === "SET_PITCH" && this.stProcessor) {
+				this.stProcessor.setPitch(data.payload.pitch);
+			} else if (data.type === "SET_RATE" && this.stProcessor) {
+				this.stProcessor.setRate(data.payload.rate);
+				this.currentRate = data.payload.rate;
+			} else if (data.type === "DESTROY") {
 				if (this.stProcessor) {
 					this.stProcessor.free();
 					this.stProcessor = null;
@@ -52,9 +87,13 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 				this.wasmMemory = null;
 				this.audioReader = null;
 			}
-		});
+		};
 
 		this.port.start();
+	}
+
+	private postEvent(event: WorkletEvent): void {
+		this.port.postMessage(event);
 	}
 
 	process(
@@ -67,8 +106,10 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 			!this.audioReader ||
 			!this.stProcessor ||
 			!this.wasmMemory ||
+			this.inputChunkSize === 0 ||
 			!output[0]
 		) {
+			this.fillSilence(output, WORKLET_BLOCK_SIZE);
 			return true;
 		}
 
@@ -99,7 +140,7 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 				this.fillSilence(output, WORKLET_BLOCK_SIZE);
 				this.audioReader.clearPauseAtIndex();
 				this.audioReader.pausePlayback();
-				this.port.postMessage({ type: "AUTO_PAUSED" });
+				this.postEvent({ type: "AUTO_PAUSED" });
 				return true;
 			}
 		}
@@ -110,7 +151,7 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 				break;
 			}
 
-			const readAmount = Math.min(availableInSAB, INPUT_CHUNK_SIZE);
+			const readAmount = Math.min(availableInSAB, this.inputChunkSize);
 
 			const wasmInputs: Float32Array[] = [];
 			for (let c = 0; c < this.channels; c++) {
@@ -180,7 +221,7 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 		if (isHittingTarget) {
 			this.audioReader.clearPauseAtIndex();
 			this.audioReader.pausePlayback();
-			this.port.postMessage({ type: "AUTO_PAUSED" });
+			this.postEvent({ type: "AUTO_PAUSED" });
 		}
 
 		return true;

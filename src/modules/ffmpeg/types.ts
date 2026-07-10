@@ -1,4 +1,16 @@
 /**
+ * Queue memory allocation and buffer watermark configuration (based on seconds)
+ */
+export interface QueueConfig {
+	/** Total capacity of the circular buffer (seconds) */
+	capacitySeconds: number;
+	/** Notification watermark to trigger decoder wakeup (seconds) */
+	notifyWatermarkSeconds: number;
+	/** Emergency watermark; decoder wakes up immediately and unconditionally if below this value (seconds) */
+	emergencyWatermarkSeconds: number;
+}
+
+/**
  * Configuration required to initialize the audio engine.
  */
 export interface EngineConfig {
@@ -21,6 +33,8 @@ export interface EngineConfig {
 		ffmpegWasmUrl: string;
 		soundtouchWasmUrl: string;
 	};
+
+	queueConfig?: Partial<QueueConfig>;
 }
 
 /**
@@ -28,11 +42,25 @@ export interface EngineConfig {
  */
 export type EngineState = "idle" | "loading" | "ready" | "playing" | "paused";
 
+export const EngineErrorCode = {
+	Aborted: 1,
+	Network: 2,
+	Decode: 3,
+	SrcNotSupported: 4,
+} as const;
+
+export type EngineErrorCodeValue =
+	(typeof EngineErrorCode)[keyof typeof EngineErrorCode];
+
 /**
  * Structure for engine-level errors.
+ *
+ * The error codes are aligned with the HTML5 MediaError standard
+ *
+ * [MDN Reference](https://developer.mozilla.org/docs/Web/API/MediaError)
  */
 export interface EngineError {
-	code: number;
+	code: EngineErrorCodeValue;
 	message: string;
 }
 

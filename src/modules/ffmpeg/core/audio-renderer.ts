@@ -1,3 +1,5 @@
+import type { WorkletCommand, WorkletEvent } from "../worklet/types";
+
 export class AudioRenderer {
 	private initCounter = 0;
 
@@ -5,18 +7,16 @@ export class AudioRenderer {
 	private gainNode: GainNode | null;
 	private _isWorkletLoaded = false;
 	private initPromise: Promise<void> | null = null;
-	private stWasmBytes: ArrayBuffer | null = null;
 
 	constructor(
 		private audioCtx: AudioContext,
 		private workletUrl: string,
-		private stWasmUrl: string,
 		gainNode?: GainNode,
 	) {
 		this.gainNode = gainNode || null;
 	}
 
-	public onMessage?: (type: string, payload?: unknown) => void;
+	public onMessage?: (event: WorkletEvent) => void;
 
 	/**
 	 * Returns true if the AudioWorklet has been completely loaded.
@@ -29,9 +29,8 @@ export class AudioRenderer {
 	 * Ensures the AudioWorklet module is added and the node is connected.
 	 */
 	public async initialize(channels: number): Promise<void> {
-		if (!this.stWasmBytes) {
-			const resp = await fetch(this.stWasmUrl);
-			this.stWasmBytes = await resp.arrayBuffer();
+		if (this._isWorkletLoaded && this.workletNode) {
+			return;
 		}
 
 		if (!this.initPromise) {
@@ -59,6 +58,10 @@ export class AudioRenderer {
 	public bindQueue(
 		sharedBuffer: SharedArrayBuffer,
 		channels: number,
+		tempo: number,
+		pitch: number,
+		rate: number,
+		stWasmBytes: ArrayBuffer,
 	): Promise<void> {
 		return new Promise((resolve, reject) => {
 			if (!this._isWorkletLoaded || !this.workletNode) {
@@ -66,48 +69,51 @@ export class AudioRenderer {
 			}
 
 			const currentInitId = ++this.initCounter;
-			this.workletNode.port.onmessage = (event: MessageEvent) => {
-				const { type, payload } = event.data;
+			this.workletNode.port.onmessage = (event: MessageEvent<WorkletEvent>) => {
+				const data = event.data;
 
-				if (type === "INIT_DONE" && payload?.initId === currentInitId) {
+				if (
+					data.type === "INIT_DONE" &&
+					data.payload.initId === currentInitId
+				) {
 					resolve();
+				} else if (
+					data.type === "INIT_ERROR" &&
+					data.payload.initId === currentInitId
+				) {
+					reject(new Error(`Worklet INIT failed: ${data.payload.message}`));
 				} else {
-					this.onMessage?.(type, payload);
+					this.onMessage?.(data);
 				}
 			};
 
 			this.workletNode.port.start();
-			this.workletNode.port.postMessage({
+
+			this.postCommand({
 				type: "INIT",
 				payload: {
 					sharedBuffer,
 					channels,
-					wasmBytes: this.stWasmBytes,
+					wasmBytes: stWasmBytes,
 					initId: currentInitId,
+					tempo,
+					pitch,
+					rate,
 				},
 			});
 		});
 	}
 
 	public setTempo(tempo: number): void {
-		this.workletNode?.port.postMessage({
-			type: "SET_TEMPO",
-			payload: { tempo },
-		});
+		this.postCommand({ type: "SET_TEMPO", payload: { tempo } });
 	}
 
 	public setPitch(pitch: number): void {
-		this.workletNode?.port.postMessage({
-			type: "SET_PITCH",
-			payload: { pitch },
-		});
+		this.postCommand({ type: "SET_PITCH", payload: { pitch } });
 	}
 
 	public setRate(rate: number): void {
-		this.workletNode?.port.postMessage({
-			type: "SET_RATE",
-			payload: { rate },
-		});
+		this.postCommand({ type: "SET_RATE", payload: { rate } });
 	}
 
 	/**
@@ -140,9 +146,16 @@ export class AudioRenderer {
 	 */
 	public destroyNode(): void {
 		if (this.workletNode) {
-			this.workletNode.port.postMessage({ type: "DESTROY" });
+			this.postCommand({ type: "DESTROY" });
 			this.workletNode.disconnect();
 			this.workletNode = null;
 		}
+	}
+
+	/**
+	 * Private helper to enforce typing on outgoing messages to the Worklet
+	 */
+	private postCommand(cmd: WorkletCommand): void {
+		this.workletNode?.port.postMessage(cmd);
 	}
 }
