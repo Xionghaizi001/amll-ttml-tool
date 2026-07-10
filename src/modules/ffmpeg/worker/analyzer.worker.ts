@@ -25,6 +25,11 @@ let isAnalyzing = false;
 let primaryColor = "#00ffa21e";
 
 let opfsAccessHandle: FileSystemSyncAccessHandle | null = null;
+
+const WRITE_BUFFER_CAPACITY = 1024 * 1024;
+const pcmWriteBuffer = new Float32Array(WRITE_BUFFER_CAPACITY);
+let pcmWriteOffset = 0;
+
 const TARGET_SAMPLE_RATE = 48000;
 
 const opfsChannel = new BroadcastChannel("opfs-lock-channel");
@@ -166,7 +171,15 @@ function analyzeLoop() {
 					ptr,
 					frameSamples,
 				);
-				opfsAccessHandle.write(pcmView);
+
+				if (pcmWriteOffset + frameSamples > WRITE_BUFFER_CAPACITY) {
+					const flushData = pcmWriteBuffer.subarray(0, pcmWriteOffset);
+					opfsAccessHandle.write(flushData);
+					pcmWriteOffset = 0;
+				}
+
+				pcmWriteBuffer.set(pcmView, pcmWriteOffset);
+				pcmWriteOffset += frameSamples;
 			}
 
 			totalSamples += frameSamples;
@@ -206,6 +219,12 @@ function analyzeLoop() {
 		drawWaveform();
 
 		if (opfsAccessHandle) {
+			if (pcmWriteOffset > 0) {
+				const finalData = pcmWriteBuffer.subarray(0, pcmWriteOffset);
+				opfsAccessHandle.write(finalData);
+				pcmWriteOffset = 0;
+			}
+
 			opfsAccessHandle.flush();
 			opfsAccessHandle.close();
 			opfsAccessHandle = null;
@@ -268,6 +287,7 @@ self.onmessage = async (e: MessageEvent) => {
 			const acquireLockAndInit = async () => {
 				opfsAccessHandle = await fileHandle.createSyncAccessHandle();
 				opfsAccessHandle.truncate(0);
+				pcmWriteOffset = 0;
 
 				ffmpegModule = await initWasm(ffmpegWasmUrl);
 				decoderPtr = ffmpegModule._wasm_decoder_create(
