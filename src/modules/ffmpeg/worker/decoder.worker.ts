@@ -166,7 +166,9 @@ async function processFrame() {
 		isDecoding = false;
 		postEvent({ type: "DECODE_ERROR", error: getErrorMessage(globalErr) });
 	} finally {
-		isProcessing = false;
+		if (mySessionId === currentSessionId) {
+			isProcessing = false;
+		}
 
 		if (
 			myGeneration !== currentSeekGeneration &&
@@ -209,6 +211,8 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
 
 	if (data.type === "INIT") {
 		currentSessionId++;
+
+		isProcessing = false;
 
 		if (decoderPtr !== 0 && ffmpegModule) {
 			ffmpegModule._wasm_decoder_destroy(decoderPtr);
