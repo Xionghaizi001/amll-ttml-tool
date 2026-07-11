@@ -28,7 +28,7 @@ pub fn generate_spectrogram_image(
     gain: f32,
 ) -> Result<Vec<u8>, JsValue>
 
-// If using the 'wasm-parallel' feature:
+// If using the 'parallel' feature:
 #[wasm_bindgen]
 pub fn init_thread_pool(num_threads: usize) -> js_sys::Promise
 ```
@@ -44,7 +44,7 @@ import init, {
 async function run() {
 	await init();
 
-	// This step is only needed if you compiled with the 'wasm-parallel' feature.
+	// This step is only needed if you compiled with the 'parallel' feature.
 	await initThreadPool(navigator.hardwareConcurrency);
 
 	// --- Your audio loading logic ---
@@ -119,6 +119,12 @@ let pixels = generate_spectrogram_image_native(
 // You can now save this with a crate like `image`
 ```
 
+By default, native processing is single-threaded. If you want to enable multi-threading via Rayon, add the `parallel` feature to your `Cargo.toml`:
+```toml
+wasm-spectrogram = { version = "0.1", features = ["parallel"] }
+```
+
+
 ## Building
 
 1.  **Install the Toolchain:**
@@ -136,17 +142,17 @@ let pixels = generate_spectrogram_image_native(
     ```
 
 3.  **Build (Serial - No Threads):**
-    This builds the standard, single-threaded Wasm module.
+    This builds the standard, single-threaded Wasm module. We use a Python build script to handle cross-platform environments automatically.
 
     ```bash
-    wasm-pack build --target web
+    python build.py
     ```
 
 4.  **Build (Parallel - With Threads):**
-    To enable multi-threading, activate the `wasm-parallel` feature. The required Rust flags are already configured in `.cargo/config.toml`.
+    To enable multi-threading, simply pass the `--parallel` flag to the script. This will automatically inject the necessary `RUSTFLAGS` (for Atomics and Shared Memory) and compile the wasm.
 
     ```bash
-    wasm-pack build --target web -- --features wasm-parallel
+    python build.py --parallel
     ```
 
     **⚠️ Important:** To use the multi-threaded build, your web server **must** set the following headers to enable Cross-Origin Isolation. This is required for `SharedArrayBuffer` (which powers Wasm threads) to work.
