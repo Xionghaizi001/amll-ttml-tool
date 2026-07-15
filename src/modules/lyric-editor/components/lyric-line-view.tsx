@@ -212,8 +212,22 @@ const SubLineEdit = memo(
 			<Flex align="baseline">
 				<Text size="2">{label}</Text>
 				{editing ? (
-					<div className={styles.autoSizeInput}>
-						<div className={styles.autoSizeInputText} style={{ padding: 0 }}>
+					<div
+						className={styles.autoSizeInput}
+						style={{
+							maxWidth: "calc(100% - 4rem)",
+							flexShrink: 1,
+						}}
+						onPointerDown={(e) => e.stopPropagation()}
+					>
+						<div
+							className={styles.autoSizeInputText}
+							style={{
+								padding: 0,
+								maxWidth: "100%",
+								overflow: "hidden",
+							}}
+						>
 							{`${inputValue}  `}
 						</div>
 
@@ -234,9 +248,15 @@ const SubLineEdit = memo(
 						size="2"
 						color="gray"
 						variant="ghost"
+						onPointerDown={(e) => e.stopPropagation()}
 						onClick={(evt) => {
 							evt.stopPropagation();
 							setEditing(true);
+						}}
+						style={{
+							textAlign: "left",
+							maxWidth: "calc(100% - 4rem)",
+							wordBreak: "break-all",
 						}}
 					>
 						{line[type] || (
@@ -517,12 +537,6 @@ export const LyricLineView: FC<{
 						data-absolute-index={lineIndex}
 						data-is-dragged={isDragged}
 						onPointerDown={(evt) => {
-							const target = evt.target as HTMLElement | null;
-
-							if (target?.closest("input, .rt-TextFieldRoot, button")) {
-								return;
-							}
-
 							if (toolMode === ToolMode.Edit) {
 								onPointerDown(evt, line.id, lineIndex);
 							}
@@ -589,6 +603,7 @@ export const LyricLineView: FC<{
 													gap="3"
 													data-word-index={wi}
 													className={styles.wordGroup}
+													onPointerDown={(e) => e.stopPropagation()}
 												>
 													<LyricWordView
 														wordAtom={wordAtom}
@@ -662,6 +677,7 @@ export const LyricLineView: FC<{
 													evt.currentTarget.value = "";
 												}
 											}}
+											onPointerDown={(e) => e.stopPropagation()}
 										/>
 									)}
 								</div>
