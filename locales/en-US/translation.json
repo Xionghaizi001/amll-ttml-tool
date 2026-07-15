@@ -67,7 +67,9 @@
 			"translatedLyric": "Translation",
 			"romanLyric": "Romanization",
 			"layoutMode": "Layout",
-			"auxiliaryLineDisplay": "Auxiliary Line Display"
+			"auxiliaryLineDisplay": "Auxiliary Line Display",
+			"views": "Views",
+			"showOutline": "Outline"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
@@ -413,7 +415,9 @@
 		"time": "Time",
 		"restore": "Restore",
 		"remove": "Remove",
-		"clickToSet": "Click to set "
+		"clickToSet": "Click to set ",
+		"copyTo": "Copy to",
+		"moveTo": "Move to"
 	},
 	"lyricEditor": {
 		"locate": "locate"
@@ -657,5 +661,11 @@
 		"offlineReady": "Site successfully cached for offline use",
 		"updateRefresh": "Site updated, refresh to use the latest version!",
 		"refresh": "Refresh"
+	},
+	"sidebar": {
+		"outline": {
+			"emptyLine": "Empty",
+			"title": "Outline"
+		}
 	}
 }

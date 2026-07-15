@@ -37,10 +37,12 @@ import semverGt from "semver/functions/gt";
 import styles from "./App.module.css";
 import DarkThemeDetector from "./components/DarkThemeDetector";
 import RibbonBar from "./components/RibbonBar";
+import { Sidebar } from "./components/Sidebar/index.tsx";
 import { TitleBar } from "./components/TitleBar";
 import { useFileOpener } from "./hooks/useFileOpener.ts";
 import AudioControls from "./modules/audio/components/index.tsx";
 import { useAudioFeedback } from "./modules/audio/hooks/useAudioFeedback.ts";
+import { DragGhostRenderer } from "./modules/lyric-drag/DragGhostRenderer.tsx";
 import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybinding.tsx";
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
@@ -334,41 +336,44 @@ function App() {
 					<Flex direction="column" height="100vh">
 						<TitleBar />
 						<RibbonBar />
-						<Box flexGrow="1" overflow="hidden">
-							<AnimatePresence mode="wait">
-								{toolMode !== ToolMode.Preview && (
-									<SuspensePlaceHolder key="edit">
-										<motion.div
-											layout="position"
-											style={{
-												height: "100%",
-												maxHeight: "100%",
-												overflowY: "hidden",
-											}}
-											initial={{ opacity: 0 }}
-											animate={{ opacity: 1 }}
-											exit={{ opacity: 0 }}
-										>
-											<LyricLinesView key="edit" />
-										</motion.div>
-									</SuspensePlaceHolder>
-								)}
-								{toolMode === ToolMode.Preview && (
-									<SuspensePlaceHolder key="amll-preview">
-										<Box height="100%" key="amll-preview" p="2" asChild>
+						<Flex flexGrow="1" overflow="hidden" direction="row" mt="2">
+							<Sidebar />
+							<Box flexGrow="1" overflow="hidden" minWidth="0">
+								<AnimatePresence mode="wait">
+									{toolMode !== ToolMode.Preview && (
+										<SuspensePlaceHolder key="edit">
 											<motion.div
 												layout="position"
+												style={{
+													height: "100%",
+													maxHeight: "100%",
+													overflowY: "hidden",
+												}}
 												initial={{ opacity: 0 }}
 												animate={{ opacity: 1 }}
 												exit={{ opacity: 0 }}
 											>
-												<AMLLWrapper />
+												<LyricLinesView key="edit" />
 											</motion.div>
-										</Box>
-									</SuspensePlaceHolder>
-								)}
-							</AnimatePresence>
-						</Box>
+										</SuspensePlaceHolder>
+									)}
+									{toolMode === ToolMode.Preview && (
+										<SuspensePlaceHolder key="amll-preview">
+											<Box height="100%" key="amll-preview" p="2" asChild>
+												<motion.div
+													layout="position"
+													initial={{ opacity: 0 }}
+													animate={{ opacity: 1 }}
+													exit={{ opacity: 0 }}
+												>
+													<AMLLWrapper />
+												</motion.div>
+											</Box>
+										</SuspensePlaceHolder>
+									)}
+								</AnimatePresence>
+							</Box>
+						</Flex>
 						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
 							<TouchSyncPanel />
 						)}
@@ -379,6 +384,7 @@ function App() {
 					<Suspense fallback={null}>
 						<Dialogs />
 					</Suspense>
+					<DragGhostRenderer />
 				</div>
 
 				{createPortal(

@@ -35,6 +35,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import {
 	displayRomanizationInSyncAtom,
@@ -62,7 +63,6 @@ import { RubyEditor } from "../tools/RubyEditor.tsx";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time.ts";
 import styles from "./index.module.css";
-import { LyricLineMenu } from "./lyric-line-menu.tsx";
 import { LyricWordMenu } from "./lyric-word-menu";
 
 const isDraggingAtom = atom(false);

@@ -40,6 +40,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import {
 	enableAutoRomanizationPredictionAtom,
@@ -50,6 +51,8 @@ import {
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
 import {
+	dragSourceAtom,
+	isDraggingGlobalAtom,
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
@@ -60,12 +63,9 @@ import {
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
-import { LyricLineMenu } from "./lyric-line-menu.tsx";
-import { draggingIdAtom } from "./lyric-line-view-states.ts";
 import LyricWordView from "./lyric-word-view.tsx";
 import { RomanWordView } from "./roman-word-view.tsx";
 
-const isDraggingAtom = atom(false);
 const parseRubyShortcut = (value: string) => {
 	if (value.endsWith("|")) {
 		return {
@@ -253,10 +253,10 @@ const SubLineEdit = memo(
 export const LyricLineView: FC<{
 	lineAtom: Atom<LyricLine>;
 	lineIndex: number;
-}> = memo(({ lineAtom, lineIndex }) => {
+	onPointerDown: (e: React.PointerEvent, lineId: string, index: number) => void;
+}> = memo(({ lineAtom, lineIndex, onPointerDown }) => {
 	const { t } = useTranslation();
 	const line = useAtomValue(lineAtom);
-	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const lineSelectedAtom = useMemo(() => {
 		const a = atom((get) => get(selectedLinesAtom).has(line.id));
 		if (import.meta.env.DEV) {
@@ -270,16 +270,17 @@ export const LyricLineView: FC<{
 	);
 	const words = useAtomValue(wordsAtom);
 	const lineSelected = useAtomValue(lineSelectedAtom);
-	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);
 	const showEndTimeAsDuration = useAtomValue(showEndTimeAsDurationAtom);
 	const toolMode = useAtomValue(toolModeAtom);
+	const isDragging = useAtomValue(isDraggingGlobalAtom);
+	const dragSource = useAtomValue(dragSourceAtom);
 	const store = useStore();
+	const isDragged = isDragging && dragSource === "main" && lineSelected;
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
-	const blockDragRef = useRef(false);
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
@@ -513,124 +514,16 @@ export const LyricLineView: FC<{
 						)}
 						align="center"
 						gapX="4"
-						draggable={toolMode === ToolMode.Edit}
+						data-line-id={line.id}
+						data-absolute-index={lineIndex}
+						data-is-dragged={isDragged}
 						onPointerDown={(evt) => {
-							blockDragRef.current =
-								(evt.target as HTMLElement | null)?.tagName === "INPUT";
-						}}
-						onPointerUp={() => {
-							blockDragRef.current = false;
-						}}
-						onDragStart={(evt) => {
-							if (blockDragRef.current) {
-								blockDragRef.current = false;
-								evt.preventDefault();
-								evt.stopPropagation();
+							if ((evt.target as HTMLElement | null)?.tagName === "INPUT") {
 								return;
 							}
-							evt.dataTransfer.dropEffect = "move";
-							store.set(isDraggingAtom, true);
-							store.set(draggingIdAtom, line.id);
-						}}
-						onDragEnd={() => {
-							store.set(isDraggingAtom, false);
-						}}
-						onDragOver={(evt) => {
-							if (!store.get(isDraggingAtom)) return;
-							if (store.get(draggingIdAtom) === line.id) return;
-							if (lineSelected) return;
-							evt.preventDefault();
-							evt.dataTransfer.dropEffect = "move";
-							const rect = evt.currentTarget.getBoundingClientRect();
-							const innerY = evt.clientY - rect.top;
-							if (innerY < rect.height / 2) {
-								evt.currentTarget.classList.add(styles.dropTop);
-								evt.currentTarget.classList.remove(styles.dropBottom);
-							} else {
-								evt.currentTarget.classList.remove(styles.dropTop);
-								evt.currentTarget.classList.add(styles.dropBottom);
-							}
-						}}
-						onDrop={(evt) => {
-							evt.currentTarget.classList.remove(styles.dropTop);
-							evt.currentTarget.classList.remove(styles.dropBottom);
-							if (!store.get(isDraggingAtom)) return;
-							const rect = evt.currentTarget.getBoundingClientRect();
-							const innerY = evt.clientY - rect.top;
-							const selectedLines = store.get(selectedLinesAtom);
-							const selectedLineIds = selectedLines.has(
-								store.get(draggingIdAtom),
-							)
-								? selectedLines
-								: new Set([store.get(draggingIdAtom)]);
-							const indexDelta = innerY >= rect.height / 2 ? 1 : 0;
-							editLyricLines((state) => {
-								const filteredLines = state.lyricLines.filter(
-									(l) => !selectedLineIds.has(l.id),
-								);
-								const targetLines = state.lyricLines.filter((l) =>
-									selectedLineIds.has(l.id),
-								);
-								const targetIndex = filteredLines.findIndex(
-									(l) => l.id === line.id,
-								);
-								if (targetIndex < 0) return;
-								state.lyricLines = [
-									...filteredLines.slice(0, targetIndex + indexDelta),
-									...targetLines,
-									...filteredLines.slice(targetIndex + indexDelta),
-								];
-							});
-						}}
-						onDragLeave={(evt) => {
-							evt.currentTarget.classList.remove(styles.dropTop);
-							evt.currentTarget.classList.remove(styles.dropBottom);
-						}}
-						onClick={(evt) => {
-							evt.stopPropagation();
-							evt.preventDefault();
-							if (evt.ctrlKey) {
-								setSelectedLines((v) => {
-									if (v.has(line.id)) {
-										v.delete(line.id);
-									} else {
-										v.add(line.id);
-									}
-								});
-							} else if (evt.shiftKey) {
-								setSelectedLines((v) => {
-									if (v.size > 0) {
-										let minBoundry = Number.NaN;
-										let maxBoundry = Number.NaN;
-										const lyricLines = store.get(lyricLinesAtom).lyricLines;
-										lyricLines.forEach((line, i) => {
-											if (v.has(line.id)) {
-												if (Number.isNaN(minBoundry)) minBoundry = i;
-												if (Number.isNaN(maxBoundry)) maxBoundry = i;
 
-												minBoundry = Math.min(minBoundry, i, lineIndex);
-												maxBoundry = Math.max(maxBoundry, i, lineIndex);
-											}
-										});
-										for (let i = minBoundry; i <= maxBoundry; i++) {
-											v.add(lyricLines[i].id);
-										}
-									} else {
-										v.add(line.id);
-									}
-								});
-							} else {
-								setSelectedLines((state) => {
-									if (!state.has(line.id) || state.size !== 1) {
-										state.clear();
-										state.add(line.id);
-									}
-								});
-								setSelectedWords((state) => {
-									if (state.size !== 0) {
-										state.clear();
-									}
-								});
+							if (toolMode === ToolMode.Edit) {
+								onPointerDown(evt, line.id, lineIndex);
 							}
 						}}
 						asChild

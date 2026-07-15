@@ -67,7 +67,9 @@
 			"translatedLyric": "翻译歌词",
 			"romanLyric": "音译歌词",
 			"layoutMode": "布局模式",
-			"auxiliaryLineDisplay": "辅助行显示"
+			"auxiliaryLineDisplay": "辅助行显示",
+			"views": "视图",
+			"showOutline": "大纲"
 		},
 		"previewMode": {
 			"lyrics": "歌词",
@@ -413,7 +415,9 @@
 		"time": "时间",
 		"restore": "恢复",
 		"remove": "移除",
-		"clickToSet": "点击设置"
+		"clickToSet": "点击设置",
+		"copyTo": "复制到",
+		"moveTo": "移动到"
 	},
 	"lyricEditor": {
 		"locate": "定位"
@@ -657,5 +661,11 @@
 		"offlineReady": "网站已成功离线缓存，后续可离线访问本网页",
 		"updateRefresh": "网站已更新，刷新网页以使用最新版本！",
 		"refresh": "刷新"
+	},
+	"sidebar": {
+		"outline": {
+			"emptyLine": "空",
+			"title": "大纲"
+		}
 	}
 }

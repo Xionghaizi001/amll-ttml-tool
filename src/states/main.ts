@@ -142,3 +142,23 @@ export const requestFocusAtom = atom<string | null>(null);
  * @description 用于控制全局文件拖拽遮罩层的显示
  */
 export const isGlobalFileDraggingAtom = atom(false);
+
+/**
+ * 是否正在拖拽歌词行
+ */
+export const isDraggingGlobalAtom = atom(false);
+
+/**
+ * 当前正在拖拽的行数量
+ */
+export const draggedCountAtom = atom(0);
+
+/**
+ * 拖拽操作是哪里触发的
+ */
+export const dragSourceAtom = atom<"main" | "outline" | null>(null);
+
+/**
+ * 当前拖拽是否为复制模式
+ */
+export const isCopyModeAtom = atom(false);

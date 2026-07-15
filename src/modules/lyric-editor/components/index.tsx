@@ -26,12 +26,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import { useLyricListDrag } from "$/modules/lyric-drag/useLyricListDrag";
 import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
+import { outlineJumpActionAtom } from "$/states/sidebar.ts";
 import type { LyricLine } from "$/types/ttml.ts";
 import styles from "./index.module.css";
 import { LyricLineView } from "./lyric-line-view";
@@ -117,6 +119,20 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 		scrollToLineIndex(index);
 	}, [lyricLines, scrollToLineIndex]);
 
+	const jumpAction = useAtomValue(outlineJumpActionAtom);
+	useEffect(() => {
+		if (!jumpAction) return;
+		const targetIndex = lyricLines.findIndex((l) => l.id === jumpAction.id);
+		if (targetIndex !== -1) {
+			scrollToLineIndex(targetIndex);
+		}
+	}, [jumpAction, lyricLines, scrollToLineIndex]);
+
+	const { onPointerDown } = useLyricListDrag({
+		containerRef: viewElRef,
+		source: "main",
+	});
+
 	useImperativeHandle(ref, () => viewElRef.current as HTMLDivElement, []);
 
 	if (editLyric.length === 0)
@@ -147,9 +163,12 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 					padding: toolMode === ToolMode.Sync ? "20vh 0" : undefined,
 					maxHeight: "100%",
 					overflowY: "auto",
+					position: "relative",
 				}}
 				ref={viewElRef}
 			>
+				<div className={styles.dropIndicator} />
+
 				<ViewportList
 					overscan={10}
 					items={editLyric}
@@ -161,6 +180,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 							key={`${lineAtom}`}
 							lineAtom={lineAtom}
 							lineIndex={i}
+							onPointerDown={onPointerDown}
 						/>
 					)}
 				</ViewportList>
