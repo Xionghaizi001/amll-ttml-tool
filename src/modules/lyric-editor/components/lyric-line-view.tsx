@@ -242,13 +242,6 @@ const SubLineEdit = memo(
 			}
 		}, [editing, line, type]);
 
-		const inputWidth = useMemo(() => {
-			if (inputValue.length > 0) {
-				return `${Math.min(Math.max(inputValue.length, 2), 60)}ch`;
-			}
-			return "12ch";
-		}, [inputValue]);
-
 		const label = useMemo(
 			() =>
 				type === "translatedLyric"
@@ -261,17 +254,23 @@ const SubLineEdit = memo(
 			<Flex align="baseline">
 				<Text size="2">{label}</Text>
 				{editing ? (
-					<TextField.Root
-						autoFocus
-						size="1"
-						value={inputValue}
-						style={{ width: inputWidth }}
-						onChange={(evt) => setInputValue(evt.currentTarget.value)}
-						onBlur={onEnter}
-						onKeyDown={(evt) => {
-							if (evt.key === "Enter") onEnter(evt);
-						}}
-					/>
+					<div className={styles.autoSizeInput}>
+						<div className={styles.autoSizeInputText} style={{ padding: 0 }}>
+							{`${inputValue}  `}
+						</div>
+
+						<TextField.Root
+							className={styles.autoSizeInputField}
+							autoFocus
+							size="1"
+							value={inputValue}
+							onChange={(evt) => setInputValue(evt.currentTarget.value)}
+							onBlur={onEnter}
+							onKeyDown={(evt) => {
+								if (evt.key === "Enter") onEnter(evt);
+							}}
+						/>
+					</div>
 				) : (
 					<Button
 						size="2"
