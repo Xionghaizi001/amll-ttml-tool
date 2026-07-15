@@ -281,6 +281,12 @@ export const useLyricListDrag = ({
 				const draggedIds = handleDragStart(ctx.current.startLineId);
 				ctx.current.draggedIds = draggedIds;
 
+				draggedIds.forEach((id) => {
+					document.querySelectorAll(`[data-line-id="${id}"]`).forEach((el) => {
+						el.setAttribute("data-is-dragged", "true");
+					});
+				});
+
 				document.documentElement.style.setProperty("--drag-ghost-opacity", "1");
 
 				setIsDraggingGlobal(true);
@@ -358,6 +364,11 @@ export const useLyricListDrag = ({
 			document.documentElement.style.removeProperty("--drag-ghost-x");
 			document.documentElement.style.removeProperty("--drag-ghost-y");
 
+			ctx.current.draggedIds.forEach((id) => {
+				document.querySelectorAll(`[data-line-id="${id}"]`).forEach((el) => {
+					el.removeAttribute("data-is-dragged");
+				});
+			});
 			ctx.current.dropIndex = null;
 			ctx.current.draggedIds = new Set();
 			ctx.current.originalEvent = null;
