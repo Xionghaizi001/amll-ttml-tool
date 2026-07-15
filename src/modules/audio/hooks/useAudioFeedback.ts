@@ -3,16 +3,17 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { uid } from "uid";
 import {
+	audioEngineStateAtom,
 	audioErrorAtom,
-	audioTaskStateAtom,
 } from "$/modules/audio/states/index.ts";
 import {
 	pushNotificationAtom,
 	removeNotificationAtom,
 	upsertNotificationAtom,
-}
+} from "$/states/notifications";
 
 export const useAudioFeedback = () => {
+	const engineState = useAtomValue(audioEngineStateAtom);
 	const [errorMsg, setErrorMsg] = useAtom(audioErrorAtom);
 	const notificationId = useRef<string | null>(null);
 	const { t } = useTranslation();
@@ -21,37 +22,24 @@ export const useAudioFeedback = () => {
 	const removeNotification = useSetAtom(removeNotificationAtom);
 
 	useEffect(() => {
-		const getMessage = (type: string) => {
-			switch (type) {
-				case "TRANSCODING":
-					return t("audio.status.transcoding", "解码失败，正在尝试转码音频...");
-				case "LOADING":
-					return t("audio.status.loading", "正在加载音频...");
-				default:
-					return t("audio.status.processing", "正在处理...");
-			}
-		};
-
-		if (taskState) {
-			const { type } = taskState;
-			const message = getMessage(type);
-
+		if (engineState === "loading") {
 			if (notificationId.current === null) {
 				notificationId.current = uid();
 			}
 			upsertNotification({
 				id: notificationId.current,
-				title: message,
+				title: t("audio.status.loading", "正在加载音频..."),
 				level: "info",
 				source: "Audio",
 			});
-		} else {
-			if (notificationId.current !== null) {
-				removeNotification(notificationId.current);
-				notificationId.current = null;
-			}
+			return;
 		}
-	}, [taskState, t, upsertNotification, removeNotification]);
+
+		if (notificationId.current !== null) {
+			removeNotification(notificationId.current);
+			notificationId.current = null;
+		}
+	}, [engineState, t, upsertNotification, removeNotification]);
 
 	useEffect(() => {
 		if (errorMsg) {

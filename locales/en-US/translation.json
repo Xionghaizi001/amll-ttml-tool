@@ -15,10 +15,6 @@
 		"empty": {
 			"title": "No lyric lines",
 			"description": "Add new lyric lines in the top panel or open/import existing lyrics from the menu"
-		},
-		"useMetadataName": {
-			"title": "Use metadata name?",
-			"description": "Use \"{name}\" as the file name?"
 		}
 	},
 	"confirmDialog": {
@@ -58,7 +54,6 @@
 	"ribbonBar": {
 		"editMode": {
 			"multipleValues": "Multiple values…",
-			"duration": "持续时间",
 			"showTranslation": "Show Translation Line",
 			"showRomanization": "Show Romanization Line",
 			"showWordRomanizationInput": "Show Per-Word Romanization",
@@ -162,6 +157,20 @@
 				"simple": "Simple Mode",
 				"advance": "Advanced Mode"
 			},
+			"customBackground": "Custom Background",
+			"customBackgroundDesc": "Choose an image to use as the background.",
+			"customBackgroundPick": "Choose Image",
+			"customBackgroundClear": "Clear",
+			"customBackgroundManage": "Settings",
+			"customBackgroundEnabled": "Background set",
+			"customBackgroundReset": "Reset",
+			"customBackgroundImage": "Background Image",
+			"customBackgroundStyle": "Background Effects",
+			"customBackgroundOpacity": "Opacity",
+			"customBackgroundOpacityWarning": "If this value is too high, the page content may be hard to read.",
+			"customBackgroundMask": "Mask",
+			"customBackgroundBlur": "Blur Radius",
+			"customBackgroundBrightness": "Brightness",
 			"language": "Interface Language",
 			"languageDesc": "Select the language for the interface",
 			"layoutMode": "Editor Layout Mode",
@@ -313,6 +322,15 @@
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"notificationCenter": "Notification Center",
 		"menu": {
+			"file": "File",
+			"newLyric": "New lyrics",
+			"openLyric": "Open lyrics",
+			"openFromClipboard": "Open TTML from clipboard",
+			"saveLyric": "Save lyrics",
+			"restoreFromHistory": "Restore from history…",
+			"saveLyricToClipboard": "Save TTML to clipboard",
+			"uploadToAMLLDB": "Upload to database (CN only)",
+			"edit": "Edit",
 			"undo": "Undo",
 			"redo": "Redo",
 			"selectAllLines": "Select all lines",
@@ -333,14 +351,14 @@
 				"syncLineTimestamps": "Sync Line Timestamps",
 				"reduceStutter": "Reduce Stutter"
 			},
-			"perWordRomanization":
-			{
+			"perWordRomanization": {
 				"index": "Per-Word Romanization",
 				"distribute": "Distribute Romanization...",
 				"check": "Check Per-Word Romanization",
 				"autoRuby": "Auto Ruby"
 			},
-			"tool": "Tools",
+			"help": "Help",
+			"helpDoc": "Documentation (CN)",
 			"importLyric": {
 				"import": "Import lyrics",
 				"fromPlainText": "Import from plain text…",
@@ -465,6 +483,9 @@
 		"cachedAudioFailed": "Failed to load cached audio"
 	},
 	"audio": {
+		"status": {
+			"loading": "Loading audio..."
+		},
 		"error": {
 			"workerError": "Error processing audio"
 		}
@@ -510,6 +531,7 @@
 		"deleteSuccess": "Delete Success",
 		"time": "Time",
 		"restore": "Restore",
+		"about": "About",
 		"remove": "Remove",
 		"clickToSet": "Click to set ",
 		"selectAll": "Select all",
@@ -529,9 +551,6 @@
 	},
 	"lyricEditor": {
 		"locate": "Locate"
-	},
-	"lyricEditor": {
-		"locate": "locate"
 	},
 	"lyricLineView": {
 		"translatedLabel": "Translation:",
@@ -674,7 +693,6 @@
 		},
 		"title": "Metadata Editor",
 		"customKey": "Custom Key",
-		"addPresets": "Add all preset keys",
 		"pickSuggestion": "Select match",
 		"clear": "Clear",
 		"info": "Learn more"

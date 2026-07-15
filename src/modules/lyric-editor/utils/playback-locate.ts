@@ -1,5 +1,4 @@
 import { atom } from "jotai";
-import { currentTimeAtom } from "$/modules/audio/states";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { LyricLine } from "$/types/ttml.ts";
 
@@ -7,6 +6,8 @@ import type { LyricLine } from "$/types/ttml.ts";
 // are not visually consumed by the list jumping into place.
 const PLAYBACK_SCROLL_LOOKAHEAD_MS = 250;
 const PLAYBACK_LINE_HIGHLIGHT_BRIDGE_GAP_MS = 280;
+
+export const playbackCurrentTimeAtom = atom(0);
 
 export const hasCompleteLineTiming = (line: LyricLine) =>
 	Number.isFinite(line.startTime) &&
@@ -146,14 +147,14 @@ export const findPlaybackHighlightedLineIndex = (
 
 export const playbackLocatedLineIndexAtom = atom((get) => {
 	const lines = get(lyricLinesAtom).lyricLines;
-	const currentTime = get(currentTimeAtom);
+	const currentTime = get(playbackCurrentTimeAtom);
 	const index = findPlaybackLocatedLineIndex(lines, currentTime);
 	return index === -1 ? undefined : index;
 });
 
 export const playbackActiveLineIdAtom = atom((get) => {
 	const lines = get(lyricLinesAtom).lyricLines;
-	const currentTime = get(currentTimeAtom);
+	const currentTime = get(playbackCurrentTimeAtom);
 	const index = findPlaybackActiveLineIndex(lines, currentTime);
 	if (index === -1) return;
 	return lines[index]?.id;
@@ -161,7 +162,7 @@ export const playbackActiveLineIdAtom = atom((get) => {
 
 export const playbackHighlightedLineIdAtom = atom((get) => {
 	const lines = get(lyricLinesAtom).lyricLines;
-	const currentTime = get(currentTimeAtom);
+	const currentTime = get(playbackCurrentTimeAtom);
 	const index = findPlaybackHighlightedLineIndex(lines, currentTime);
 	if (index === -1) return;
 	return lines[index]?.id;

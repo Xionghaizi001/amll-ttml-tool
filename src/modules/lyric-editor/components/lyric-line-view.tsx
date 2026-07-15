@@ -11,12 +11,11 @@
 
 import {
 	AddFilled,
-	People24Regular,
 	LinkMultiple20Regular,
+	People24Regular,
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
-import { motion } from "framer-motion";
 import {
 	Button,
 	ContextMenu,
@@ -26,6 +25,8 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import classNames from "classnames";
+import { motion } from "framer-motion";
+import type { Draft } from "immer";
 import { type Atom, atom, useAtomValue, useStore } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { useSetImmerAtom } from "jotai-immer";
@@ -55,10 +56,16 @@ import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
+	showEndTimeAsDurationAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import {
+	type LyricLine,
+	newLyricLine,
+	newLyricWord,
+	type TTMLLyric,
+} from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
@@ -194,7 +201,7 @@ const SubLineEdit = memo(
 				setEditing(false);
 				const newValue = evt.currentTarget.value;
 				if (newValue !== line[type]) {
-					editLyricLines((state) => {
+					editLyricLines((state: Draft<TTMLLyric>) => {
 						const targetLine = state.lyricLines[lineIndex];
 						const previousValue = targetLine[type];
 						targetLine[type] = newValue;
@@ -378,6 +385,7 @@ export const LyricLineView: FC<{
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
+	const showEndTimeAsDuration = useAtomValue(showEndTimeAsDurationAtom);
 	const editingRomanWordIndexAtom = useMemo(
 		() => atom<number | null>(null),
 		[],
@@ -448,7 +456,7 @@ export const LyricLineView: FC<{
 		if (!endTimeLinked) return;
 		const nextLine = lyricLines.lyricLines[lineIndex + 1];
 		if (!nextLine) {
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				const targetLine = state.lyricLines[lineIndex];
 				if (!targetLine) return;
 				if (targetLine.endTimeLink) delete targetLine.endTimeLink;
@@ -456,7 +464,7 @@ export const LyricLineView: FC<{
 			return;
 		}
 		if (nextLine.startTime === line.endTime) return;
-		editLyricLines((state) => {
+		editLyricLines((state: Draft<TTMLLyric>) => {
 			const targetLine = state.lyricLines[lineIndex + 1];
 			if (!targetLine) return;
 			targetLine.startTime = line.endTime;
@@ -486,7 +494,7 @@ export const LyricLineView: FC<{
 				setEndTimeLinked(false);
 				originalEndTimeRef.current = null;
 				originalNextStartTimeRef.current = null;
-				editLyricLines((state) => {
+				editLyricLines((state: Draft<TTMLLyric>) => {
 					const targetLine = state.lyricLines[lineIndex];
 					if (!targetLine) return;
 					const linkInfo = targetLine.endTimeLink;
@@ -515,7 +523,7 @@ export const LyricLineView: FC<{
 			if (!nextLine) return;
 			originalEndTimeRef.current = line.endTime;
 			originalNextStartTimeRef.current = nextLine?.startTime ?? null;
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				const targetLine = state.lyricLines[lineIndex];
 				if (!targetLine) return;
 				const nextTarget = state.lyricLines[lineIndex + 1];
@@ -556,7 +564,7 @@ export const LyricLineView: FC<{
 						width: "calc(100% - var(--space-4))",
 					}}
 					onClick={() => {
-						editLyricLines((state) => {
+						editLyricLines((state: Draft<TTMLLyric>) => {
 							state.lyricLines.splice(lineIndex, 0, newLyricLine());
 						});
 						// setInsertMode(InsertMode.None);
@@ -588,7 +596,9 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
-							hasAgentWarning && toolMode === ToolMode.Edit && styles.agentWarning,
+							hasAgentWarning &&
+								toolMode === ToolMode.Edit &&
+								styles.agentWarning,
 							hasRadical && styles.radical,
 						)}
 						align="center"
@@ -644,7 +654,7 @@ export const LyricLineView: FC<{
 								? selectedLines
 								: new Set([store.get(draggingIdAtom)]);
 							const indexDelta = innerY >= rect.height / 2 ? 1 : 0;
-							editLyricLines((state) => {
+							editLyricLines((state: Draft<TTMLLyric>) => {
 								const filteredLines = state.lyricLines.filter(
 									(l) => !selectedLineIds.has(l.id),
 								);
@@ -670,7 +680,7 @@ export const LyricLineView: FC<{
 							evt.stopPropagation();
 							evt.preventDefault();
 							if (evt.ctrlKey) {
-								setSelectedLines((v) => {
+								setSelectedLines((v: Draft<Set<string>>) => {
 									if (v.has(line.id)) {
 										v.delete(line.id);
 									} else {
@@ -678,7 +688,7 @@ export const LyricLineView: FC<{
 									}
 								});
 							} else if (evt.shiftKey) {
-								setSelectedLines((v) => {
+								setSelectedLines((v: Draft<Set<string>>) => {
 									if (v.size > 0) {
 										let minBoundry = Number.NaN;
 										let maxBoundry = Number.NaN;
@@ -700,13 +710,13 @@ export const LyricLineView: FC<{
 									}
 								});
 							} else {
-								setSelectedLines((state) => {
+								setSelectedLines((state: Draft<Set<string>>) => {
 									if (!state.has(line.id) || state.size !== 1) {
 										state.clear();
 										state.add(line.id);
 									}
 								});
-								setSelectedWords((state) => {
+								setSelectedWords((state: Draft<Set<string>>) => {
 									if (state.size !== 0) {
 										state.clear();
 									}
@@ -769,7 +779,7 @@ export const LyricLineView: FC<{
 														onClick={(evt) => {
 															evt.preventDefault();
 															evt.stopPropagation();
-															editLyricLines((state) => {
+															editLyricLines((state: Draft<TTMLLyric>) => {
 																state.lyricLines[lineIndex].words.splice(
 																	wi,
 																	0,
@@ -814,7 +824,7 @@ export const LyricLineView: FC<{
 											onClick={(evt) => {
 												evt.preventDefault();
 												evt.stopPropagation();
-												editLyricLines((state) => {
+												editLyricLines((state: Draft<TTMLLyric>) => {
 													state.lyricLines[lineIndex].words.push(
 														newLyricWord(),
 													);
@@ -841,7 +851,7 @@ export const LyricLineView: FC<{
 													const { word, enableRuby } = parseRubyShortcut(
 														evt.currentTarget.value,
 													);
-													editLyricLines((state) => {
+													editLyricLines((state: Draft<TTMLLyric>) => {
 														const newWord = newLyricWord();
 														state.lyricLines[lineIndex].words.push({
 															...newWord,
@@ -921,21 +931,23 @@ export const LyricLineView: FC<{
 																		title={tagName || undefined}
 																		onClick={(evt) => {
 																			evt.stopPropagation();
-																			editLyricLines((state) => {
-																				const targetLine =
-																					state.lyricLines[lineIndex];
-																				const currentIds = parseLineVocalIds(
-																					targetLine.vocal,
-																				);
-																				const existingIndex =
-																					currentIds.indexOf(id);
-																				if (existingIndex > -1) {
-																					currentIds.splice(existingIndex, 1);
-																				} else {
-																					currentIds.push(id);
-																				}
-																				targetLine.vocal = currentIds;
-																			});
+																			editLyricLines(
+																				(state: Draft<TTMLLyric>) => {
+																					const targetLine =
+																						state.lyricLines[lineIndex];
+																					const currentIds = parseLineVocalIds(
+																						targetLine.vocal,
+																					);
+																					const existingIndex =
+																						currentIds.indexOf(id);
+																					if (existingIndex > -1) {
+																						currentIds.splice(existingIndex, 1);
+																					} else {
+																						currentIds.push(id);
+																					}
+																					targetLine.vocal = currentIds;
+																				},
+																			);
 																		}}
 																	>
 																		{tagName || id}
@@ -950,7 +962,7 @@ export const LyricLineView: FC<{
 																className={styles.vocalTagButton}
 																onClick={(evt) => {
 																	evt.stopPropagation();
-																	editLyricLines((state) => {
+																	editLyricLines((state: Draft<TTMLLyric>) => {
 																		const targetLine =
 																			state.lyricLines[lineIndex];
 																		targetLine.vocal = allSelected
@@ -1032,7 +1044,7 @@ export const LyricLineView: FC<{
 						width: "calc(100% - var(--space-4))",
 					}}
 					onClick={() => {
-						editLyricLines((state) => {
+						editLyricLines((state: Draft<TTMLLyric>) => {
 							state.lyricLines.splice(lineIndex + 1, 0, newLyricLine());
 						});
 						// setInsertMode(InsertMode.None);

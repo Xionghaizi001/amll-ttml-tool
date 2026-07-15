@@ -9,6 +9,7 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
+import { Add16Regular } from "@fluentui/react-icons";
 import {
 	Button,
 	Checkbox,
@@ -21,7 +22,7 @@ import {
 	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
-import { Add16Regular } from "@fluentui/react-icons";
+import type { Draft } from "immer";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
@@ -36,6 +37,11 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
+import {
+	calculateDuetState,
+	type DuetStateContext,
+} from "$/modules/project/logic/ttml-parser";
 import {
 	LayoutMode,
 	layoutModeAtom,
@@ -54,16 +60,15 @@ import {
 import {
 	type LyricLine,
 	type LyricWord,
-	type TTMLAgent,
 	newLyricLine,
+	type TTMLAgent,
+	type TTMLLyric,
 } from "$/types/ttml";
-import { calculateDuetState, type DuetStateContext } from "$/modules/project/logic/ttml-parser";
 import {
 	formatDurationMs,
 	msToTimestamp,
 	parseTimespan,
 } from "$/utils/timestamp.ts";
-import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -230,7 +235,8 @@ function EditField<
 	const compareValue = useMemo(() => {
 		if (fieldName === "endTime" && showDurationInput) {
 			if (durationValue === MULTIPLE_VALUES) return "";
-			if (typeof durationValue === "number") return formatDurationMs(durationValue);
+			if (typeof durationValue === "number")
+				return formatDurationMs(durationValue);
 			return "";
 		}
 		if (typeof currentValue === "string") return currentValue;
@@ -263,10 +269,7 @@ function EditField<
 				const isTimeDelta =
 					(fieldName === "startTime" || fieldName === "endTime") &&
 					(trimmedValue.startsWith("+") || trimmedValue.startsWith("-"));
-				if (
-					(fieldName === "endTime" && showDurationInput) ||
-					isTimeDelta
-				) {
+				if ((fieldName === "endTime" && showDurationInput) || isTimeDelta) {
 					const isDurationInput =
 						fieldName === "endTime" && showDurationInput && !isTimeDelta;
 					const parsedValue = Number(trimmedValue);
@@ -278,7 +281,7 @@ function EditField<
 						flashInvalidDurationInput();
 						return;
 					}
-					editLyricLines((state) => {
+					editLyricLines((state: Draft<TTMLLyric>) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
 								const updates = new Map<
@@ -286,7 +289,14 @@ function EditField<
 									{ startTime?: number; endTime?: number }
 								>();
 
-								// First pass: Calculate all new end times for selected words
+								const mergeWordUpdate = (
+									wordId: string,
+									update: { startTime?: number; endTime?: number },
+								) => {
+									const current = updates.get(wordId) ?? {};
+									updates.set(wordId, { ...current, ...update });
+								};
+
 								for (
 									let wordIndex = 0;
 									wordIndex < line.words.length;
@@ -303,16 +313,15 @@ function EditField<
 											word.endTime,
 											Math.max(0, newStartTimeRaw),
 										);
-										word.startTime = newStartTime;
-										if (
-											previousWord &&
-											originalStartTime === previousEndTime
-										) {
-											previousWord.endTime = newStartTime;
-											previousWord.startTime = Math.min(
-												previousWord.startTime,
-												previousWord.endTime,
-											);
+										mergeWordUpdate(word.id, { startTime: newStartTime });
+										if (previousWord && originalStartTime === previousEndTime) {
+											mergeWordUpdate(previousWord.id, {
+												endTime: newStartTime,
+												startTime: Math.min(
+													previousWord.startTime,
+													newStartTime,
+												),
+											});
 										}
 										continue;
 									}
@@ -323,17 +332,38 @@ function EditField<
 										? word.endTime + parsedValue
 										: word.startTime + parsedValue;
 									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
-									word.endTime = newEndTime;
+									mergeWordUpdate(word.id, { endTime: newEndTime });
 									if (
 										isTimeDelta &&
 										nextWord &&
 										originalEndTime === nextStartTime
 									) {
-										nextWord.startTime = newEndTime;
-										nextWord.endTime = Math.max(
-											nextWord.startTime,
-											nextWord.endTime,
-										);
+										const nextUpdate: {
+											startTime: number;
+											endTime?: number;
+										} = {
+											startTime: newEndTime,
+										};
+										if (!selectedItems.has(nextWord.id)) {
+											nextUpdate.endTime = Math.max(
+												nextWord.endTime,
+												newEndTime,
+											);
+										}
+										mergeWordUpdate(nextWord.id, nextUpdate);
+									}
+								}
+								for (const word of line.words) {
+									const update = updates.get(word.id);
+									if (!update) continue;
+									if (update.startTime !== undefined) {
+										word.startTime = update.startTime;
+									}
+									if (update.endTime !== undefined) {
+										word.endTime = update.endTime;
+									}
+									if (word.endTime < word.startTime) {
+										word.endTime = word.startTime;
 									}
 								}
 							} else if (selectedItems.has(line.id)) {
@@ -356,7 +386,7 @@ function EditField<
 					return;
 				}
 				const value = parser(rawValue);
-				editLyricLines((state) => {
+				editLyricLines((state: Draft<TTMLLyric>) => {
 					for (const line of state.lyricLines) {
 						if (isWordField) {
 							for (const word of line.words) {
@@ -577,7 +607,7 @@ function CheckboxField<
 				}
 				onCheckedChange={(value) => {
 					if (value === "indeterminate") return;
-					editLyricLines((state) => {
+					editLyricLines((state: Draft<TTMLLyric>) => {
 						const selectedItems = store.get(itemAtom);
 						for (const line of state.lyricLines) {
 							if (isWordField) {
@@ -774,7 +804,7 @@ const SongPartField: FC = () => {
 
 	const handleSongPartChange = useCallback(
 		(value: string) => {
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				for (const line of state.lyricLines) {
 					if (selectedLines.has(line.id)) {
 						line.songPart = value === NONE_VALUE ? undefined : value;
@@ -794,7 +824,8 @@ const SongPartField: FC = () => {
 		}
 	}, [customPart, handleSongPartChange]);
 
-	const displayValue = currentSongPart === undefined ? NONE_VALUE : currentSongPart;
+	const displayValue =
+		currentSongPart === undefined ? NONE_VALUE : currentSongPart;
 	const songPartLabelId = useId();
 
 	return (
@@ -833,7 +864,10 @@ const SongPartField: FC = () => {
 						<Flex gap="2" p="2" align="center">
 							<TextField.Root
 								size="1"
-								placeholder={t("ribbonBar.editMode.customPartPlaceholder", "Custom part")}
+								placeholder={t(
+									"ribbonBar.editMode.customPartPlaceholder",
+									"Custom part",
+								)}
 								value={customPart}
 								onChange={(e) => setCustomPart(e.target.value)}
 								onKeyDown={(e) => {
@@ -843,11 +877,7 @@ const SongPartField: FC = () => {
 								}}
 								style={{ width: "120px" }}
 							/>
-							<IconButton
-								size="1"
-								variant="soft"
-								onClick={handleAddCustomPart}
-							>
+							<IconButton size="1" variant="soft" onClick={handleAddCustomPart}>
 								<Add16Regular />
 							</IconButton>
 						</Flex>
@@ -925,7 +955,7 @@ const AgentField: FC = () => {
 
 	const handleAgentChange = useCallback(
 		(value: string) => {
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				// 创建 agent 查找映射
 				const agentMap = new Map<string, TTMLAgent>();
 				for (const agent of state.agents) {
@@ -958,7 +988,10 @@ const AgentField: FC = () => {
 				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
 				let firstSelectedIndex = -1;
 				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (selectedLines.has(state.lyricLines[i].id) && !state.lyricLines[i].isBG) {
+					if (
+						selectedLines.has(state.lyricLines[i].id) &&
+						!state.lyricLines[i].isBG
+					) {
 						firstSelectedIndex = i;
 						break;
 					}
@@ -967,7 +1000,7 @@ const AgentField: FC = () => {
 				// 向前查找上一个 single 类型的 agent
 				let singleLastAgentId = singleMainAgentId ?? "v1";
 				let groupLastAgentId = groupMainAgentId ?? "v2";
-				
+
 				if (firstSelectedIndex > 0) {
 					// 向前查找 single 类型的 agent
 					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
@@ -980,7 +1013,7 @@ const AgentField: FC = () => {
 							}
 						}
 					}
-					
+
 					// 向前查找 group 类型的 agent
 					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
 						const line = state.lyricLines[i];
@@ -1024,8 +1057,8 @@ const AgentField: FC = () => {
 
 					// 判断当前行的 agent 类型
 					duetContext.agentId = line.agent;
-					duetContext.isGroup = line.agent 
-						? agentMap.get(line.agent)?.type === "group" 
+					duetContext.isGroup = line.agent
+						? agentMap.get(line.agent)?.type === "group"
 						: false;
 
 					// 使用可复用的对唱状态计算函数（内部会更新上下文）
@@ -1043,30 +1076,60 @@ const AgentField: FC = () => {
 
 	// 构建下拉选项（只显示 id，names 用于 Tooltip）
 	const agentOptions = useMemo(() => {
-		const options: { value: string; label: string; type: string; names: string[] }[] = [];
+		const options: {
+			value: string;
+			label: string;
+			type: string;
+			names: string[];
+		}[] = [];
 
 		// Person 类型
 		for (const agent of groupedAgents.person) {
-			options.push({ value: agent.id, label: agent.id, type: "person", names: agent.names });
+			options.push({
+				value: agent.id,
+				label: agent.id,
+				type: "person",
+				names: agent.names,
+			});
 		}
 
 		// Group 类型（添加分隔线标记）
 		if (groupedAgents.group.length > 0) {
 			if (options.length > 0) {
-				options.push({ value: "__sep_group__", label: "", type: "separator", names: [] });
+				options.push({
+					value: "__sep_group__",
+					label: "",
+					type: "separator",
+					names: [],
+				});
 			}
 			for (const agent of groupedAgents.group) {
-				options.push({ value: agent.id, label: agent.id, type: "group", names: agent.names });
+				options.push({
+					value: agent.id,
+					label: agent.id,
+					type: "group",
+					names: agent.names,
+				});
 			}
 		}
 
 		// Other 类型（添加分隔线标记）
 		if (groupedAgents.other.length > 0) {
 			if (options.length > 0) {
-				options.push({ value: "__sep_other__", label: "", type: "separator", names: [] });
+				options.push({
+					value: "__sep_other__",
+					label: "",
+					type: "separator",
+					names: [],
+				});
 			}
 			for (const agent of groupedAgents.other) {
-				options.push({ value: agent.id, label: agent.id, type: "other", names: agent.names });
+				options.push({
+					value: agent.id,
+					label: agent.id,
+					type: "other",
+					names: agent.names,
+				});
 			}
 		}
 
@@ -1077,7 +1140,8 @@ const AgentField: FC = () => {
 	const agentsList = lyricLines.agents ?? [];
 	const hasAgents = agentsList.length > 0;
 
-	const isAgentSelectDisabled = selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
+	const isAgentSelectDisabled =
+		selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
 
 	return (
 		<>
@@ -1113,11 +1177,9 @@ const AgentField: FC = () => {
 								side="left"
 								align="center"
 							>
-								<Select.Item value={option.value}>
-									{option.label}
-								</Select.Item>
+								<Select.Item value={option.value}>{option.label}</Select.Item>
 							</Tooltip>
-						)
+						),
 					)}
 				</Select.Content>
 			</Select.Root>
@@ -1190,7 +1252,7 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							size="1"
 							variant="soft"
 							onClick={() =>
-								editLyricLines((draft) => {
+								editLyricLines((draft: Draft<TTMLLyric>) => {
 									draft.lyricLines.push(newLyricLine());
 								})
 							}
@@ -1331,14 +1393,12 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 				>
 					<AuxiliaryDisplayField />
 				</RibbonSection>
-				<RibbonSection
-				label={t("ribbonBar.editMode.amllTags", "AM 标记")}
-			>
-				<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
-					<SongPartField />
-					<AgentField />
-				</Grid>
-			</RibbonSection>
+				<RibbonSection label={t("ribbonBar.editMode.amllTags", "AM 标记")}>
+					<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
+						<SongPartField />
+						<AgentField />
+					</Grid>
+				</RibbonSection>
 			</RibbonFrame>
 		);
 	},

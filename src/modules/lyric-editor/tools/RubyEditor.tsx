@@ -1,13 +1,14 @@
 import { Add20Regular, TranslateRegular } from "@fluentui/react-icons";
 import { IconButton, TextField } from "@radix-ui/themes";
 import classNames from "classnames";
+import type { Draft } from "immer";
 import { type Atom, useAtomValue, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { type ComponentPropsWithoutRef, useCallback, useRef } from "react";
 import { recalculateWordTime } from "$/modules/segmentation/utils/segmentation.ts";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
-import type { LyricWord } from "$/types/ttml.ts";
+import type { LyricWord, TTMLLyric } from "$/types/ttml.ts";
 import styles from "../components/index.module.css";
 
 const AutoSizeTextField = ({
@@ -63,7 +64,7 @@ export const RubyEditor = ({
 	const addRubyWord = useCallback(() => {
 		const currentWord = store.get(wordAtom);
 		const nextIndex = currentWord.ruby?.length ?? 0;
-		editLyricLines((state) => {
+		editLyricLines((state: Draft<TTMLLyric>) => {
 			for (const line of state.lyricLines) {
 				for (const word of line.words) {
 					if (word.id !== currentWord.id) continue;
@@ -85,7 +86,7 @@ export const RubyEditor = ({
 	const updateRubyWord = useCallback(
 		(index: number, value: string) => {
 			const currentWord = store.get(wordAtom);
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				for (const line of state.lyricLines) {
 					for (const word of line.words) {
 						if (word.id !== currentWord.id) continue;
@@ -102,7 +103,7 @@ export const RubyEditor = ({
 	const removeRubyWord = useCallback(
 		(index: number) => {
 			const currentWord = store.get(wordAtom);
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				for (const line of state.lyricLines) {
 					for (const word of line.words) {
 						if (word.id !== currentWord.id) continue;
@@ -123,7 +124,7 @@ export const RubyEditor = ({
 			const currentText = currentWord.ruby?.[index]?.word ?? "";
 			const mergedText = `${prevText}${currentText}`;
 
-			editLyricLines((state) => {
+			editLyricLines((state: Draft<TTMLLyric>) => {
 				for (const line of state.lyricLines) {
 					for (const word of line.words) {
 						if (word.id !== currentWord.id) continue;
@@ -159,7 +160,7 @@ export const RubyEditor = ({
 		const rubySegments = currentWord.ruby?.map((ruby) => ruby.word) ?? [];
 		if (rubySegments.length === 0) return;
 
-		editLyricLines((state) => {
+		editLyricLines((state: Draft<TTMLLyric>) => {
 			for (const line of state.lyricLines) {
 				for (const word of line.words) {
 					if (word.word !== currentWord.word) continue;

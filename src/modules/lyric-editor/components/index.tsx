@@ -9,9 +9,10 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
+import { MyLocation24Regular } from "@fluentui/react-icons";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { LayoutGroup } from "framer-motion";
-import { Box, Flex, Text } from "@radix-ui/themes";
-import { atom, useAtomValue } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { focusAtom } from "jotai-optics";
 import {
@@ -25,19 +26,48 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
-import { lyricLinesAtom, selectedLinesAtom, ToolMode, toolModeAtom } from "$/states/main.ts";
+import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import {
+	lyricLinesAtom,
+	selectedLinesAtom,
+	ToolMode,
+	toolModeAtom,
+} from "$/states/main.ts";
+import type { LyricLine } from "$/types/ttml.ts";
+import {
+	playbackCurrentTimeAtom,
 	playbackHighlightedLineIdAtom,
 	playbackLocatedLineIndexAtom,
 } from "../utils/playback-locate";
-import { audioEngine } from "$/modules/audio/audio-engine.ts";
-import type { LyricLine } from "$/types/ttml.ts";
 import styles from "./index.module.css";
 import { LyricLineView } from "./lyric-line-view";
 
 const lyricLinesOnlyAtom = splitAtom(
 	focusAtom(lyricLinesAtom, (o) => o.prop("lyricLines")),
 );
+
+const findCurrentLineIndex = (lines: LyricLine[], currentTime: number) => {
+	const scan = (predicate?: (line: LyricLine) => boolean) => {
+		let previousIndex = -1;
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			if (predicate && !predicate(line)) continue;
+			if (line.endTime <= line.startTime) continue;
+			if (currentTime < line.startTime) {
+				return previousIndex !== -1 ? previousIndex : i;
+			}
+			if (currentTime >= line.startTime && currentTime <= line.endTime) {
+				return i;
+			}
+			previousIndex = i;
+		}
+		return previousIndex;
+	};
+
+	const mainIndex = scan((line) => !line.isBG);
+	if (mainIndex !== -1) return mainIndex;
+	return scan();
+};
 
 export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const editLyric = useAtomValue(lyricLinesOnlyAtom);
@@ -47,6 +77,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const toolMode = useAtomValue(toolModeAtom);
 	const playbackLocatedLineIndex = useAtomValue(playbackLocatedLineIndexAtom);
 	const playbackHighlightedLineId = useAtomValue(playbackHighlightedLineIdAtom);
+	const setPlaybackCurrentTime = useSetAtom(playbackCurrentTimeAtom);
 	const { t } = useTranslation();
 
 	const scrollToIndexAtom = useMemo(
@@ -92,6 +123,17 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 		if (playbackLocatedLineIndex === undefined) return;
 		scrollToLineIndex(playbackLocatedLineIndex);
 	}, [playbackLocatedLineIndex, scrollToLineIndex]);
+
+	useEffect(() => {
+		const updatePlaybackCurrentTime = (timeInSeconds: number) => {
+			setPlaybackCurrentTime(timeInSeconds * 1000);
+		};
+
+		updatePlaybackCurrentTime(audioEngine.musicCurrentTime);
+		audioEngine.onTimeUpdate(updatePlaybackCurrentTime);
+		return () => audioEngine.offTimeUpdate(updatePlaybackCurrentTime);
+	}, [setPlaybackCurrentTime]);
+
 	const handleLocate = useCallback(() => {
 		const currentTime = audioEngine.musicCurrentTime * 1000;
 		const index = findCurrentLineIndex(lyricLines, currentTime);
@@ -150,6 +192,14 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 					</ViewportList>
 				</LayoutGroup>
 			</Box>
+			<Button
+				className={styles.locateButton}
+				variant="soft"
+				onClick={handleLocate}
+				title={t("lyricEditor.locate", "定位")}
+			>
+				<MyLocation24Regular />
+			</Button>
 		</Box>
 	);
 });

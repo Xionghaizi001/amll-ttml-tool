@@ -39,10 +39,6 @@
 		"importFile": {
 			"title": "确认导入歌词",
 			"description": "当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？"
-		},
-		"useMetadataName": {
-			"title": "使用元数据命名？",
-			"description": "是否使用\"{name}\"作为文件名？"
 		}
 	},
 	"addLanguageDialog": {
@@ -63,7 +59,6 @@
 	"ribbonBar": {
 		"editMode": {
 			"multipleValues": "多个值…",
-			"duration": "持续时间",
 			"showTranslation": "显示翻译行",
 			"showRomanization": "显示音译行",
 			"showWordRomanizationInput": "显示逐字音译",
@@ -118,7 +113,6 @@
 			"assistSettings": "辅助设置",
 			"showTimestampUpdate": "呈现时间戳更新",
 			"touchSyncPanel": "触控打轴辅助面板",
-			"bgLyricIgnoreSync": "背景歌词忽略打轴",
 			"displayOptions": "显示选项",
 			"showTimestamps": "显示时间戳",
 			"highlightActiveWord": "高亮当前音节",
@@ -168,6 +162,20 @@
 				"simple": "简单模式",
 				"advance": "高级模式"
 			},
+			"customBackground": "自定义背景",
+			"customBackgroundDesc": "选择一张图片作为背景。",
+			"customBackgroundPick": "选择图片",
+			"customBackgroundClear": "清除",
+			"customBackgroundManage": "设置",
+			"customBackgroundEnabled": "已设置背景",
+			"customBackgroundReset": "重置",
+			"customBackgroundImage": "背景图片",
+			"customBackgroundStyle": "背景效果",
+			"customBackgroundOpacity": "透明度",
+			"customBackgroundOpacityWarning": "如果这个数值太高可能让你看不清页面上的内容。",
+			"customBackgroundMask": "遮罩",
+			"customBackgroundBlur": "模糊半径",
+			"customBackgroundBrightness": "亮度",
 			"language": "界面语言",
 			"languageDesc": "选择界面显示的语言",
 			"layoutMode": "编辑布局模式",
@@ -319,6 +327,15 @@
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"notificationCenter": "通知中心",
 		"menu": {
+			"file": "文件",
+			"newLyric": "新建 TTML 文件",
+			"openLyric": "打开 TTML 文件",
+			"openFromClipboard": "从剪切板打开 TTML 文件",
+			"saveLyric": "保存 TTML 文件",
+			"restoreFromHistory": "从历史记录恢复…",
+			"saveLyricToClipboard": "保存 TTML 文件到剪切板",
+			"uploadToAMLLDB": "上传到 AMLL 歌词数据库",
+			"edit": "编辑",
 			"undo": "撤销",
 			"redo": "重做",
 			"selectAllLines": "选中所有歌词行",
@@ -345,7 +362,8 @@
 				"check": "检查逐字音译一致性",
 				"autoRuby": "自动注音"
 			},
-			"tool": "工具",
+			"help": "帮助",
+			"helpDoc": "使用说明",
 			"importLyric": {
 				"import": "导入歌词",
 				"fromPlainText": "从纯文本导入…",
@@ -471,6 +489,9 @@
 		"cachedAudioFailed": "读取缓存音频失败"
 	},
 	"audio": {
+		"status": {
+			"loading": "正在加载音频..."
+		},
 		"error": {
 			"workerError": "处理音频时出错"
 		}
@@ -516,6 +537,7 @@
 		"deleteSuccess": "删除成功",
 		"time": "时间",
 		"restore": "恢复",
+		"about": "关于",
 		"remove": "移除",
 		"clickToSet": "点击设置",
 		"selectAll": "全选",
@@ -532,9 +554,6 @@
 		"idPlaceholder": "如: v1",
 		"namePlaceholder": "名称",
 		"addName": "添加名称"
-	},
-	"lyricEditor": {
-		"locate": "定位"
 	},
 	"lyricEditor": {
 		"locate": "定位"
@@ -686,7 +705,6 @@
 		},
 		"title": "元数据编辑器",
 		"customKey": "自定义键名",
-		"addPresets": "一键添加所有预设键",
 		"pickSuggestion": "选择匹配项",
 		"clear": "清空",
 		"info": "了解详情"
