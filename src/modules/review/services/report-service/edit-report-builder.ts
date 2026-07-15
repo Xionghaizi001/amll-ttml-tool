@@ -3,6 +3,7 @@ import {
 	buildLineMap,
 	buildWordMap,
 	computeDisplayNumbers,
+	getDisplayNumber,
 	getLineNumber,
 	getLineText,
 	getWordText,
@@ -44,19 +45,19 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const wordRemovals: WordPresenceChange[] = [];
 	const lineChanges: LineChange[] = [];
 	const blocks: ReviewReportBlock[] = [];
-	const matchedStagedLineIds = new Set<string>();
+	const matchedStagedLines = new Set<(typeof staged.lyricLines)[number]>();
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
 		// 优先按稳定 id 对齐；id 不存在或已被消费时再按位置兜底，避免插入/删除行后整段误报。
 		const foundStagedById = stagedLineMap.get(freezeLine.id);
 		const stagedById =
-			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+			foundStagedById && !matchedStagedLines.has(foundStagedById)
 				? foundStagedById
 				: undefined;
 		const fallbackLine = staged.lyricLines[index];
 		const stagedLine =
 			stagedById ??
-			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+			(fallbackLine && !matchedStagedLines.has(fallbackLine)
 				? fallbackLine
 				: undefined);
 		const lineNumber = getLineNumber(
@@ -76,7 +77,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 			});
 			return;
 		}
-		matchedStagedLineIds.add(stagedLine.id);
+		matchedStagedLines.add(stagedLine);
 		const isBG = freezeLine.isBG ?? stagedLine.isBG ?? false;
 		const oldTrans = freezeLine.translatedLyric ?? "";
 		const newTrans = stagedLine.translatedLyric ?? "";
@@ -94,7 +95,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		}
 		const stagedWordMap = buildWordMap(stagedLine.words);
 		const matchedStagedWordIndexes = new Set<number>();
-		const matchedStagedWordIds = new Set<string>();
+		const matchedStagedWords = new Set<(typeof stagedLine.words)[number]>();
 		freezeLine.words.forEach((freezeWord, wordIndex) => {
 			// 逐词也采用 id 优先、位置兜底的匹配策略，以支持分词微调后的报告仍能定位到原行。
 			const foundStagedByWordId = stagedWordMap.get(freezeWord.id);
@@ -105,13 +106,15 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				foundStagedByWordId &&
 				foundStagedIndexById >= 0 &&
 				!matchedStagedWordIndexes.has(foundStagedIndexById) &&
-				!matchedStagedWordIds.has(foundStagedByWordId.id)
+				!matchedStagedWords.has(foundStagedByWordId)
 					? foundStagedByWordId
 					: undefined;
 			const fallbackWord = stagedLine.words[wordIndex];
 			const stagedWord =
 				stagedByWordId ??
-				(fallbackWord && !matchedStagedWordIndexes.has(wordIndex)
+				(fallbackWord &&
+				!matchedStagedWordIndexes.has(wordIndex) &&
+				!matchedStagedWords.has(fallbackWord)
 					? fallbackWord
 					: undefined);
 			if (!stagedWord) {
@@ -129,7 +132,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 					? foundStagedIndexById
 					: wordIndex;
 			matchedStagedWordIndexes.add(stagedWordIndex);
-			matchedStagedWordIds.add(stagedWord.id);
+			matchedStagedWords.add(stagedWord);
 			const oldWord = freezeWord.word ?? "";
 			const newWord = stagedWord.word ?? "";
 			const oldRoman = freezeWord.romanWord ?? "";
@@ -172,7 +175,7 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		stagedLine.words.forEach((stagedWord, wordIndex) => {
 			if (
 				matchedStagedWordIndexes.has(wordIndex) ||
-				matchedStagedWordIds.has(stagedWord.id)
+				matchedStagedWords.has(stagedWord)
 			) {
 				return;
 			}
@@ -187,12 +190,12 @@ export const buildEditReport = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	});
 
 	staged.lyricLines.forEach((stagedLine, index) => {
-		if (matchedStagedLineIds.has(stagedLine.id)) return;
+		if (matchedStagedLines.has(stagedLine)) return;
 		blocks.push({
 			id: createReviewReportBlockId("line-added"),
 			kind: "lineAdded",
 			enabled: true,
-			lineNumber: stagedDisplayMap.get(stagedLine.id) ?? index + 1,
+			lineNumber: getDisplayNumber(stagedLine, index, stagedDisplayMap),
 			isBG: stagedLine.isBG ?? false,
 			text: getLineText(stagedLine),
 		});

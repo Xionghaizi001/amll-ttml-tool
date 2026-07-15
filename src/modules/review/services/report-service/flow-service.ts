@@ -5,6 +5,7 @@ import type {
 } from "../operation-log-service";
 import { replayReviewOperations } from "../operation-log-service";
 import { buildReviewReportFromDiffs } from "./edit-report-builder";
+import { computeDisplayNumbers, getDisplayNumber } from "./lyric-utils";
 import {
 	keepPersistentReviewReportBlocks,
 	mergeReports,
@@ -16,18 +17,6 @@ import type {
 	ReviewReportInput,
 	ReviewReportLineRef,
 } from "./types";
-
-const computeDisplayNumbers = (lyric: TTMLLyric) => {
-	let current = 0;
-	const map = new Map<string, number>();
-	lyric.lyricLines.forEach((line, index) => {
-		if (index === 0 || !line.isBG) {
-			current += 1;
-		}
-		map.set(line.id, current);
-	});
-	return map;
-};
 
 type TimeShiftReportScope = {
 	id: string;
@@ -112,12 +101,12 @@ const buildTimeShiftReportBlock = (
 	scope: TimeShiftReportScope,
 	freeze: TTMLLyric,
 ): Extract<ReviewReportBlock, { kind: "timeShift" }> | null => {
-	const displayNumbers = computeDisplayNumbers(freeze);
+	const displayNumbers = computeDisplayNumbers(freeze.lyricLines);
 	const targetIds = new Set(scope.targetLineIds);
 	const lineRefs: ReviewReportLineRef[] = freeze.lyricLines
 		.filter((line) => targetIds.has(line.id))
 		.map((line, index) => ({
-			lineNumber: displayNumbers.get(line.id) ?? index + 1,
+			lineNumber: getDisplayNumber(line, index, displayNumbers),
 			isBG: line.isBG ?? false,
 		}));
 
@@ -135,20 +124,56 @@ const buildTimeShiftReportBlock = (
 	};
 };
 
+const getLineTextSignature = (line: TTMLLyric["lyricLines"][number]) =>
+	line.words.map((word) => word.word ?? "").join("\u0000");
+
+const getLineTimingSnapshotTextSignature = (
+	snapshot: ReviewLineTimingOperation["before"],
+) =>
+	snapshot.segments
+		.filter((segment) => !segment.isRuby)
+		.map((segment) => segment.word ?? "")
+		.join("\u0000");
+
+const findLineTimingOperationLineIndex = (
+	operation: ReviewLineTimingOperation,
+	freeze: TTMLLyric,
+) => {
+	const candidateIndexes = freeze.lyricLines
+		.map((line, index) => ({ line, index }))
+		.filter(({ line }) => line.id === operation.lineId);
+	const candidates =
+		candidateIndexes.length > 0
+			? candidateIndexes
+			: freeze.lyricLines.map((line, index) => ({ line, index }));
+	const snapshotText = getLineTimingSnapshotTextSignature(operation.before);
+	const timingMatches = candidates.filter(
+		({ line }) =>
+			Math.round(line.startTime) === Math.round(operation.before.startTime) &&
+			Math.round(line.endTime) === Math.round(operation.before.endTime),
+	);
+	const timingAndTextMatch = timingMatches.find(
+		({ line }) => getLineTextSignature(line) === snapshotText,
+	);
+	if (timingAndTextMatch) return timingAndTextMatch.index;
+	if (timingMatches[0]) return timingMatches[0].index;
+	const textMatch = candidates.find(
+		({ line }) => getLineTextSignature(line) === snapshotText,
+	);
+	return textMatch?.index ?? candidateIndexes[0]?.index ?? -1;
+};
+
 const buildLineTimingOperationReportBlocks = (
 	operation: ReviewLineTimingOperation,
 	freeze: TTMLLyric,
 ): ReviewReportBlock[] => {
-	const displayNumbers = computeDisplayNumbers(freeze);
-	const freezeLine = freeze.lyricLines.find(
-		(line) => line.id === operation.lineId,
-	);
-	const fallbackLineIndex = freeze.lyricLines.findIndex(
-		(line) => line.id === operation.lineId,
-	);
-	const lineNumber =
-		displayNumbers.get(operation.lineId) ??
-		(fallbackLineIndex >= 0 ? fallbackLineIndex + 1 : 1);
+	const displayNumbers = computeDisplayNumbers(freeze.lyricLines);
+	const fallbackLineIndex = findLineTimingOperationLineIndex(operation, freeze);
+	const freezeLine =
+		fallbackLineIndex >= 0 ? freeze.lyricLines[fallbackLineIndex] : undefined;
+	const lineNumber = freezeLine
+		? getDisplayNumber(freezeLine, fallbackLineIndex, displayNumbers)
+		: 1;
 	const isBG = freezeLine?.isBG ?? operation.before.isBG ?? false;
 	const blocks: ReviewReportBlock[] = [];
 

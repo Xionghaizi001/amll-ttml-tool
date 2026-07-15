@@ -106,22 +106,22 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 	const freezeDisplayMap = computeDisplayNumbers(freeze.lyricLines);
 	const stagedDisplayMap = computeDisplayNumbers(staged.lyricLines);
 	const reportLines: SyncChangeCandidate[] = [];
-	const matchedStagedLineIds = new Set<string>();
+	const matchedStagedLines = new Set<(typeof staged.lyricLines)[number]>();
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
 		const foundStagedById = stagedLineMap.get(freezeLine.id);
 		const stagedById =
-			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+			foundStagedById && !matchedStagedLines.has(foundStagedById)
 				? foundStagedById
 				: undefined;
 		const fallbackLine = staged.lyricLines[index];
 		const stagedLine =
 			stagedById ??
-			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+			(fallbackLine && !matchedStagedLines.has(fallbackLine)
 				? fallbackLine
 				: undefined);
 		if (!stagedLine) return;
-		matchedStagedLineIds.add(stagedLine.id);
+		matchedStagedLines.add(stagedLine);
 		const lineNumber = getLineNumber(
 			freezeLine,
 			index,
@@ -131,7 +131,7 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 		const isBG = freezeLine.isBG ?? stagedLine.isBG ?? false;
 		const stagedWordMap = buildWordMap(stagedLine.words);
 		const matchedStagedWordIndexes = new Set<number>();
-		const matchedStagedWordIds = new Set<string>();
+		const matchedStagedWords = new Set<(typeof stagedLine.words)[number]>();
 		freezeLine.words.forEach((freezeWord, wordIndex) => {
 			const foundStagedByWordId = stagedWordMap.get(freezeWord.id);
 			const foundStagedIndexById = foundStagedByWordId
@@ -141,13 +141,15 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 				foundStagedByWordId &&
 				foundStagedIndexById >= 0 &&
 				!matchedStagedWordIndexes.has(foundStagedIndexById) &&
-				!matchedStagedWordIds.has(foundStagedByWordId.id)
+				!matchedStagedWords.has(foundStagedByWordId)
 					? foundStagedByWordId
 					: undefined;
 			const fallbackWord = stagedLine.words[wordIndex];
 			const stagedWord =
 				stagedByWordId ??
-				(fallbackWord && !matchedStagedWordIndexes.has(wordIndex)
+				(fallbackWord &&
+				!matchedStagedWordIndexes.has(wordIndex) &&
+				!matchedStagedWords.has(fallbackWord)
 					? fallbackWord
 					: undefined);
 			if (!stagedWord) return;
@@ -156,7 +158,7 @@ export const buildSyncChanges = (freeze: TTMLLyric, staged: TTMLLyric) => {
 					? foundStagedIndexById
 					: wordIndex,
 			);
-			matchedStagedWordIds.add(stagedWord.id);
+			matchedStagedWords.add(stagedWord);
 			const oldStart = Math.round(freezeWord.startTime);
 			const newStart = Math.round(stagedWord.startTime);
 			const oldEnd = Math.round(freezeWord.endTime);
@@ -187,22 +189,22 @@ export const buildLineTimingChanges = (
 	const freezeDisplayMap = computeDisplayNumbers(freeze.lyricLines);
 	const stagedDisplayMap = computeDisplayNumbers(staged.lyricLines);
 	const reportLines: LineTimingChangeCandidate[] = [];
-	const matchedStagedLineIds = new Set<string>();
+	const matchedStagedLines = new Set<(typeof staged.lyricLines)[number]>();
 
 	freeze.lyricLines.forEach((freezeLine, index) => {
 		const foundStagedById = stagedLineMap.get(freezeLine.id);
 		const stagedById =
-			foundStagedById && !matchedStagedLineIds.has(foundStagedById.id)
+			foundStagedById && !matchedStagedLines.has(foundStagedById)
 				? foundStagedById
 				: undefined;
 		const fallbackLine = staged.lyricLines[index];
 		const stagedLine =
 			stagedById ??
-			(fallbackLine && !matchedStagedLineIds.has(fallbackLine.id)
+			(fallbackLine && !matchedStagedLines.has(fallbackLine)
 				? fallbackLine
 				: undefined);
 		if (!stagedLine) return;
-		matchedStagedLineIds.add(stagedLine.id);
+		matchedStagedLines.add(stagedLine);
 
 		const oldStart = Math.round(freezeLine.startTime);
 		const newStart = Math.round(stagedLine.startTime);
