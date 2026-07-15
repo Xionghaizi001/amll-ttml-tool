@@ -1,0 +1,66 @@
+.sidebarContainer {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	height: 100%;
+	background-color: var(--color-panel);
+	border-right: 1px solid var(--gray-a5);
+	overflow: hidden;
+	will-change: width, opacity;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex: 0 0 auto;
+	height: 48px;
+	padding: 0 var(--space-3);
+}
+
+.title {
+	font-weight: 600;
+	color: var(--gray-12);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.content {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.resizer {
+	position: absolute;
+	top: 0;
+	right: -8px;
+	bottom: 0;
+	width: 16px;
+	cursor: ew-resize;
+	z-index: 10;
+}
+
+.resizer::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 4px;
+	background-color: transparent;
+	transition: background-color 0.15s ease;
+}
+
+.resizer:hover::after {
+	background-color: var(--accent-8);
+	transition: background-color 0.15s ease 0.3s;
+}
+
+.resizer[data-dragging="true"]::after {
+	background-color: var(--accent-8);
+	transition: background-color 0.1s ease 0s;
+}

@@ -91,7 +91,9 @@
 			"none": "None",
 			"noSelection": "No selection",
 			"addCustomPart": "Add custom",
-			"customPartPlaceholder": "Custom Part"
+			"customPartPlaceholder": "Custom Part",
+			"views": "Views",
+			"showOutline": "Outline"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
@@ -573,7 +575,9 @@
 		"empty": "No agents available.",
 		"idPlaceholder": "e.g. v1",
 		"namePlaceholder": "Name",
-		"addName": "Add Name"
+		"addName": "Add Name",
+		"copyTo": "Copy to",
+		"moveTo": "Move to"
 	},
 	"lyricEditor": {
 		"locate": "Locate"
@@ -872,5 +876,11 @@
 		"noAudioLoaded": "Please load an audio file to render the spectrogram",
 		"loadAudio": "Load an audio file",
 		"showUnselectedLines": "Show unselected lines"
+	},
+	"sidebar": {
+		"outline": {
+			"emptyLine": "Empty",
+			"title": "Outline"
+		}
 	}
 }

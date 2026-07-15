@@ -170,18 +170,17 @@
 	display: flex;
 	position: relative;
 	isolation: isolate;
+	touch-action: none;
 
 	transition:
 		opacity 0.1s ease-in-out,
 		background-color 0.1s ease,
-		box-shadow 0.1s ease;
+		box-shadow 0.1s ease,
+		transform 0.2s;
 
-	&.dropTop {
-		border-top: solid 3px var(--accent-a11);
-	}
-
-	&.dropBottom {
-		border-bottom: solid 3px var(--accent-a11);
+	&[data-is-dragged="true"] {
+		opacity: 0.4;
+		transform: scale(0.98);
 	}
 
 	&.ignoreSync {
@@ -519,4 +518,19 @@
 	bottom: var(--space-3);
 	z-index: 5;
 	box-shadow: var(--base-card-surface-box-shadow);
+}
+
+.dropIndicator {
+	position: absolute;
+	left: var(--space-2);
+	right: var(--space-2);
+	height: 2px;
+	background-color: var(--accent-9);
+	border-radius: 2px;
+	z-index: 50;
+	pointer-events: none;
+
+	display: var(--drop-indicator-display, none);
+	transform: translateY(var(--drop-indicator-y, 0px));
+	will-change: transform;
 }

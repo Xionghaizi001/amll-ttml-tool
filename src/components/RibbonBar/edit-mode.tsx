@@ -66,6 +66,7 @@ import {
 	msToTimestamp,
 	parseTimespan,
 } from "$/utils/timestamp.ts";
+import { sidebarPanelAtom } from "$/states/sidebar.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -1032,6 +1033,10 @@ const AuxiliaryDisplayField: FC = () => {
 
 export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
+		const [sidebarPanel, setSidebarPanel] = useAtom(sidebarPanelAtom);
+		const isOutlineOpen = sidebarPanel === "outline";
+		const idOutline = useId();
+
 		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 		const { t } = useTranslation();
 
@@ -1189,6 +1194,27 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 						<SongPartField />
 						<AgentField />
 					</Grid>
+				</RibbonSection>
+				<RibbonSection label={t("ribbonBar.editMode.views", "视图")}>
+					<Flex gap="2" flexGrow="1" align="center" justify="center">
+						<Checkbox
+							id={idOutline}
+							checked={isOutlineOpen}
+							onCheckedChange={(checked) => {
+								setSidebarPanel(checked ? "outline" : "none");
+							}}
+						/>
+						<Text size="1" asChild>
+							<label
+								htmlFor={idOutline}
+								style={{
+									userSelect: "none",
+								}}
+							>
+								{t("ribbonBar.editMode.showOutline", "大纲")}
+							</label>
+						</Text>
+					</Flex>
 				</RibbonSection>
 			</RibbonFrame>
 		);

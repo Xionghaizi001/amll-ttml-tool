@@ -96,7 +96,9 @@
 			"none": "无",
 			"noSelection": "未选择",
 			"addCustomPart": "添加自定义",
-			"customPartPlaceholder": "自定义 Part"
+			"customPartPlaceholder": "自定义 Part",
+			"views": "视图",
+			"showOutline": "大纲"
 		},
 		"previewMode": {
 			"lyrics": "歌词",
@@ -579,7 +581,9 @@
 		"empty": "暂无演唱者。",
 		"idPlaceholder": "如: v1",
 		"namePlaceholder": "名称",
-		"addName": "添加名称"
+		"addName": "添加名称",
+		"copyTo": "复制到",
+		"moveTo": "移动到"
 	},
 	"lyricEditor": {
 		"locate": "定位"
@@ -903,5 +907,11 @@
 		"noAudioLoaded": "请先加载一个音频文件来渲染频谱图哦",
 		"loadAudio": "加载音频文件",
 		"showUnselectedLines": "显示未选中行"
+	},
+	"sidebar": {
+		"outline": {
+			"emptyLine": "空",
+			"title": "大纲"
+		}
 	}
 }
