@@ -518,7 +518,9 @@ export const LyricLineView: FC<{
 						data-absolute-index={lineIndex}
 						data-is-dragged={isDragged}
 						onPointerDown={(evt) => {
-							if ((evt.target as HTMLElement | null)?.tagName === "INPUT") {
+							const target = evt.target as HTMLElement | null;
+
+							if (target?.closest("input, .rt-TextFieldRoot, button")) {
 								return;
 							}
 
