@@ -2,9 +2,9 @@ import type { LyricLine, TTMLLyric } from "$/types/ttml";
 import { buildGithubProxyUrl } from "$/modules/github/api";
 import { pushFileUpdateToGist } from "$/modules/github/services/gist-service";
 import { fetchPullRequestStatus } from "$/modules/github/services/PR-service";
+import { generateTTMLLyric } from "$/modules/ttml-processor";
 import type { AppNotification } from "$/states/notifications";
 import type { FileUpdateSession } from "$/states/main";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
 import {
 	stringifyEslrc,
 	stringifyLrc,
@@ -53,7 +53,11 @@ const buildLyricExportContent = (lyric: TTMLLyric, fileName: string) => {
 	if (ext === "qrc") return stringifyQrc(lyricForExport);
 	if (ext === "yrc") return stringifyYrc(lyricForExport);
 	if (ext === "lys") return stringifyLys(lyricForExport);
-	return exportTTMLText(lyric);
+	const result = generateTTMLLyric(lyric);
+	if (!result.success) {
+		throw new Error(result.error.message);
+	}
+	return result.data;
 };
 
 export const requestFileUpdatePush = (options: {

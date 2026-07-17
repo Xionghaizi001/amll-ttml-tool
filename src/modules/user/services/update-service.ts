@@ -6,7 +6,7 @@ import {
 import type { AppNotification } from "$/states/notifications";
 import { loadFileFromPullRequest } from "$/modules/github/services/file-service";
 import { ToolMode, type FileUpdateSession } from "$/states/main";
-import { parseLyric } from "$/modules/project/logic/ttml-parser";
+import { parseTTML } from "$/modules/ttml-processor";
 import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import type { Dispatch, SetStateAction } from "react";
 import { log } from "$/utils/logging";
@@ -37,16 +37,52 @@ const requirePullRequestDetail = async (token: string, prNumber: number) => {
 const readNeteaseIdsFromFile = async (file: File) => {
 	try {
 		const text = await file.text();
-		const lyric = parseLyric(text);
-		const idValues = lyric.metadata
-			.filter((entry) => entry.key.toLowerCase() === "ncmmusicid")
-			.flatMap((entry) => entry.value)
+		const result = parseTTML(text);
+		if (!result.success) return [];
+		const idValues = [
+			...readMetadataValues(result.data.metadata.platformIds, ["ncmMusicId"]),
+			...readMetadataValues(result.data.metadata.rawProperties, [
+				"ncmMusicId",
+				"ncmmusicid",
+			]),
+		]
 			.map((value) => value.trim())
 			.filter(Boolean);
 		return Array.from(new Set(idValues));
 	} catch {
 		return [];
 	}
+};
+
+const readMetadataValues = (source: unknown, keys: string[]) => {
+	const values: string[] = [];
+	if (!source) return values;
+
+	if (source instanceof Map) {
+		for (const key of keys) {
+			values.push(...normalizeMetadataValue(source.get(key)));
+		}
+		return values;
+	}
+
+	if (typeof source !== "object") return values;
+	const entries = Object.entries(source as Record<string, unknown>);
+	for (const key of keys) {
+		const matched = entries.find(
+			([entryKey]) => entryKey.toLowerCase() === key.toLowerCase(),
+		);
+		if (matched) {
+			values.push(...normalizeMetadataValue(matched[1]));
+		}
+	}
+	return values;
+};
+
+const normalizeMetadataValue = (value: unknown): string[] => {
+	if (Array.isArray(value)) {
+		return value.filter((item): item is string => typeof item === "string");
+	}
+	return typeof value === "string" ? [value] : [];
 };
 
 const createPullRequestComment = async (

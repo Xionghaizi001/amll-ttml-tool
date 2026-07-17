@@ -64,10 +64,7 @@ import {
 	customBackgroundOpacityAtom,
 } from "./modules/settings/states/custom-background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
-import {
-	amllToTTML,
-	ttmlLyricToAmllResult,
-} from "./modules/ttml-processor/index.ts";
+import { generateTTMLLyric } from "./modules/ttml-processor/index.ts";
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
@@ -122,10 +119,7 @@ const AppErrorPage = ({
 					<Button
 						onClick={() => {
 							try {
-								const amllResult = ttmlLyricToAmllResult(
-									store.get(lyricLinesAtom),
-								);
-								const result = amllToTTML(amllResult);
+								const result = generateTTMLLyric(store.get(lyricLinesAtom));
 								if (!result.success) {
 									handleTtmlError(result.error, `Error when generating TTML`);
 									return;

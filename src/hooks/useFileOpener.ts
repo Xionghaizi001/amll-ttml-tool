@@ -23,8 +23,7 @@ import {
 	defaultTtmlAuthorGithubAtom,
 	defaultTtmlAuthorGithubLoginAtom,
 } from "$/modules/settings/states";
-import { ttmlToAmll } from "$/modules/ttml-processor";
-import type { AmllLyricResult } from "$/modules/ttml-processor/types";
+import { parseTTMLLyric } from "$/modules/ttml-processor";
 import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import { confirmDialogAtom } from "$/states/dialogs.ts";
 import {
@@ -203,35 +202,6 @@ export const useFileOpener = () => {
 		[],
 	);
 
-	const normalizeAmllLyricResult = useCallback(
-		(amllResult: AmllLyricResult): TTMLLyric => {
-			return {
-				metadata: amllResult.metadata.map((meta) => ({
-					...meta,
-					value: [...meta.value],
-				})),
-				lyricLines: amllResult.lyricLines.map((line) => ({
-					...line,
-					words: line.words.map((word) => ({
-						...word,
-						id: uid(),
-						romanWord: word.romanWord ?? "",
-						obscene: word.obscene ?? false,
-						emptyBeat: word.emptyBeat ?? 0,
-					})),
-					translatedLyric: line.translatedLyric || "",
-					romanLyric: line.romanLyric || "",
-					isBG: line.isBG || false,
-					isDuet: line.isDuet || false,
-					ignoreSync: false,
-					id: uid(),
-				})),
-				agents: [],
-			};
-		},
-		[],
-	);
-
 	const mergeAudioMetadata = useCallback(
 		(metadata: TTMLMetadata[]) => {
 			setLyricLines((prev) => {
@@ -288,10 +258,10 @@ export const useFileOpener = () => {
 				const text = await file.text();
 
 				if (ext === "ttml") {
-					const result = ttmlToAmll(text);
+					const result = parseTTMLLyric(text);
 
 					if (result.success) {
-						lyricData = normalizeAmllLyricResult(result.data);
+						lyricData = result.data;
 					} else {
 						handleTtmlError(
 							result.error,
@@ -366,7 +336,6 @@ export const useFileOpener = () => {
 			setSaveFileName,
 			loadAudioFile,
 			normalizeLyricLines,
-			normalizeAmllLyricResult,
 			defaultTtmlAuthorGithub,
 			defaultTtmlAuthorGithubLogin,
 			t,

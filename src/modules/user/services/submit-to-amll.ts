@@ -7,7 +7,7 @@ import {
 	githubPatAtom,
 	hideSubmitAMLLDBWarningAtom,
 } from "$/modules/settings/states";
-import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { generateTTMLLyric } from "$/modules/ttml-processor";
 import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import { buildSubmitLyricIssueContent } from "$/modules/user/services/issue-builder";
 import {
@@ -300,8 +300,7 @@ export const useSubmitToAMLLDBDialog = () => {
 			}
 
 			// 1. Generate TTML
-			const amllResult = ttmlLyricToAmllResult(lyric);
-			const result = amllToTTML(amllResult);
+			const result = generateTTMLLyric(lyric);
 			if (!result.success) {
 				handleTtmlError(result.error, "Error when generating TTML");
 				return;

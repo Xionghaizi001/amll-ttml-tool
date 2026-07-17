@@ -1,4 +1,5 @@
 import { exec } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Readable } from "node:stream";
 import babel from "@rolldown/plugin-babel";
@@ -15,6 +16,12 @@ import wasm from "vite-plugin-wasm";
 import svgLoader from "vite-svg-loader";
 
 const isProduction = process.env.NODE_ENV === "production";
+const amllLocalRoot = resolve(__dirname, "../applemusic-like-lyrics");
+const AMLL_LOCAL_EXISTS = [
+	"packages/core/src",
+	"packages/core/src/styles/index.css",
+	"packages/react/src",
+].every((path) => existsSync(resolve(amllLocalRoot, path)));
 
 const plugins: PluginOption[] = [
 	{
@@ -229,17 +236,17 @@ export default defineConfig({
 			AMLL_LOCAL_EXISTS
 				? {
 						"@applemusic-like-lyrics/core/style.css": resolve(
-							__dirname,
-							"../applemusic-like-lyrics/packages/core/src/styles/index.css",
+							amllLocalRoot,
+							"packages/core/src/styles/index.css",
 						),
 						// for development, use the local copy of the AMLL library
 						"@applemusic-like-lyrics/core": resolve(
-							__dirname,
-							"../applemusic-like-lyrics/packages/core/src",
+							amllLocalRoot,
+							"packages/core/src",
 						),
 						"@applemusic-like-lyrics/react": resolve(
-							__dirname,
-							"../applemusic-like-lyrics/packages/react/src",
+							amllLocalRoot,
+							"packages/react/src",
 						),
 					}
 				: {},

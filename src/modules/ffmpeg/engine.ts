@@ -17,6 +17,7 @@ import {
 import { getErrorMessage, TypedEventTarget } from "./utils";
 
 const TIMEUPDATE_INTERVAL_MS = 250;
+const ASSET_FETCH_RETRY_DELAYS_MS = [0, 250, 750, 1500] as const;
 
 const DEFAULT_QUEUE_CONFIG: Required<QueueConfig> = {
 	capacitySeconds: 4.0,
@@ -409,9 +410,11 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		url: string,
 		signal: AbortSignal,
 	): Promise<ArrayBuffer> {
-		const resp = await fetch(url, { signal });
+		const resp = await this.fetchResource(url, signal);
 		if (!resp.ok) {
-			throw new Error(`HTTP ${resp.status} - ${resp.statusText}`);
+			throw new Error(
+				`Failed to load WASM (HTTP ${resp.status} - ${resp.statusText}): ${url}`,
+			);
 		}
 
 		const buffer = await resp.arrayBuffer();
@@ -431,11 +434,67 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 	}
 
 	private async pingResource(url: string, signal: AbortSignal): Promise<void> {
-		const resp = await fetch(url, { signal });
+		const resp = await this.fetchResource(url, signal);
 		if (!resp.ok) {
 			throw new Error(`Failed to load resource (HTTP ${resp.status}): ${url}`);
 		}
 		await resp.arrayBuffer();
+	}
+
+	private async fetchResource(
+		url: string,
+		signal: AbortSignal,
+	): Promise<Response> {
+		let lastError: unknown;
+
+		for (const [attempt, delayMs] of ASSET_FETCH_RETRY_DELAYS_MS.entries()) {
+			if (delayMs > 0) {
+				await this.waitForRetry(delayMs, signal);
+			}
+
+			try {
+				const response = await fetch(url, { signal });
+				if (response.ok || response.status < 500) {
+					return response;
+				}
+				lastError = new Error(
+					`HTTP ${response.status} - ${response.statusText}`,
+				);
+			} catch (error) {
+				if (signal.aborted) {
+					throw error;
+				}
+				lastError = error;
+			}
+
+			if (attempt < ASSET_FETCH_RETRY_DELAYS_MS.length - 1) {
+				console.warn(`Audio asset request failed, retrying: ${url}`, lastError);
+			}
+		}
+
+		throw new Error(
+			`Failed to fetch audio asset after ${ASSET_FETCH_RETRY_DELAYS_MS.length} attempts: ${url}. ${getErrorMessage(lastError)}`,
+		);
+	}
+
+	private waitForRetry(delayMs: number, signal: AbortSignal): Promise<void> {
+		if (signal.aborted) {
+			return Promise.reject(
+				new DOMException("Asset preload aborted", "AbortError"),
+			);
+		}
+
+		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => {
+				signal.removeEventListener("abort", handleAbort);
+				resolve();
+			}, delayMs);
+			const handleAbort = () => {
+				clearTimeout(timer);
+				reject(new DOMException("Asset preload aborted", "AbortError"));
+			};
+			signal.addEventListener("abort", handleAbort, { once: true });
+		});
 	}
 
 	private handleWorkerInitDone(payload: {

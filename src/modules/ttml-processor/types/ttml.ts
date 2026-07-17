@@ -46,7 +46,7 @@ export interface LyricLine {
 export interface Agent {
 	id: string;
 	name?: string;
-	type_?: string;
+	type?: string;
 }
 
 export type PlatformId =

@@ -10,9 +10,8 @@ import {
 	Text,
 } from "@radix-ui/themes";
 import { useAtom } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
 import { generateRustcStyleLog } from "$/modules/ttml-processor/message";
 import { ttmlErrorDialogAtom } from "$/states/dialogs.ts";
 import styles from "./TtmlErrorDialog.module.css";
@@ -20,6 +19,9 @@ import styles from "./TtmlErrorDialog.module.css";
 export const TtmlErrorDialog = () => {
 	const [dialogState, setDialogState] = useAtom(ttmlErrorDialogAtom);
 	const { t } = useTranslation();
+	const [copyStatus, setCopyStatus] = useState<"success" | "error" | null>(
+		null,
+	);
 
 	const error = dialogState?.error;
 	const rawText = dialogState?.rawText;
@@ -90,7 +92,10 @@ export const TtmlErrorDialog = () => {
 		[error, rawText],
 	);
 
-	const handleClose = useCallback(() => setDialogState(null), [setDialogState]);
+	const handleClose = useCallback(() => {
+		setCopyStatus(null);
+		setDialogState(null);
+	}, [setDialogState]);
 
 	const handleCopy = useCallback(() => {
 		if (!error) return;
@@ -103,8 +108,8 @@ export const TtmlErrorDialog = () => {
 
 		navigator.clipboard
 			.writeText(clipboardLog)
-			.then(() => toast.success(t("error.ttml.copied", "复制成功")))
-			.catch(() => toast.error(t("error.ttml.copyFailed", "复制失败")));
+			.then(() => setCopyStatus("success"))
+			.catch(() => setCopyStatus("error"));
 	}, [error, rawText, localizedSuggestion, t]);
 
 	if (!error) return null;
@@ -145,6 +150,20 @@ export const TtmlErrorDialog = () => {
 					<Flex direction="column" gap="1" mt="1">
 						<Text color="gray">{localizedSuggestion}</Text>
 					</Flex>
+
+					{copyStatus && (
+						<Callout.Root
+							color={copyStatus === "success" ? "green" : "red"}
+							variant="soft"
+							size="1"
+						>
+							<Callout.Text>
+								{copyStatus === "success"
+									? t("error.ttml.copied", "复制成功")
+									: t("error.ttml.copyFailed", "复制失败")}
+							</Callout.Text>
+						</Callout.Root>
+					)}
 
 					<Flex gap="3" mt="4" justify="end">
 						<Button variant="soft" color="gray" onClick={handleClose}>

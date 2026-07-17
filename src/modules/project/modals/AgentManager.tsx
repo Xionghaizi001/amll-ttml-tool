@@ -23,13 +23,10 @@ import { useAtom } from "jotai";
 import { useImmerAtom } from "jotai-immer";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recalculateDuetStates } from "$/modules/ttml-processor";
 import { agentManagerDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { TTMLAgent } from "$/types/ttml";
-import {
-	calculateDuetState,
-	type DuetStateContext,
-} from "$/modules/project/logic/ttml-parser";
 import styles from "./AgentManager.module.css";
 
 const AGENT_TYPES: Array<{ value: TTMLAgent["type"]; label: string }> = [
@@ -112,56 +109,6 @@ export const AgentManager = () => {
 		names: [],
 	});
 
-	// 重新计算所有行的对唱状态
-	const recalculateDuetState = (draft: typeof lyricLines) => {
-		const agentMap = new Map<string, TTMLAgent>();
-		for (const agent of draft.agents) {
-			agentMap.set(agent.id, agent);
-		}
-
-		// 找到第一个 person 类型的 agent 作为主歌手
-		let mainAgentId = "v1";
-		for (const agent of draft.agents) {
-			if (agent.type === "person") {
-				mainAgentId = agent.id;
-				break;
-			}
-		}
-
-		const duetContext: DuetStateContext = {
-			agentId: undefined,
-			agentMap,
-			isGroup: false,
-			single: {
-				lastAgentId: mainAgentId,
-				currentAgentId: mainAgentId,
-				duetToggle: false,
-			},
-			group: {
-				lastAgentId:
-					draft.agents.find((agent) => agent.type === "group")?.id ?? "v2",
-				currentAgentId:
-					draft.agents.find((agent) => agent.type === "group")?.id ?? "v2",
-				duetToggle: true,
-			},
-		};
-		let lastMainLineIsDuet = false;
-
-		for (const line of draft.lyricLines) {
-			if (line.isBG) {
-				line.isDuet = lastMainLineIsDuet;
-				continue;
-			}
-
-			duetContext.agentId = line.agent;
-			duetContext.isGroup = line.agent
-				? agentMap.get(line.agent)?.type === "group"
-				: false;
-			line.isDuet = calculateDuetState(duetContext);
-			lastMainLineIsDuet = line.isDuet;
-		}
-	};
-
 	const handleAdd = () => {
 		const id = newAgent.id?.trim();
 		if (!id) return;
@@ -173,7 +120,7 @@ export const AgentManager = () => {
 				type: newAgent.type ?? "person",
 				names: newAgent.names?.filter(Boolean) ?? [],
 			});
-			recalculateDuetState(draft);
+			recalculateDuetStates(draft);
 		});
 
 		setIsAdding(false);
@@ -201,7 +148,7 @@ export const AgentManager = () => {
 				}
 			}
 
-			recalculateDuetState(draft);
+			recalculateDuetStates(draft);
 		});
 
 		setEditingIndex(null);
@@ -220,7 +167,7 @@ export const AgentManager = () => {
 				}
 			}
 
-			recalculateDuetState(draft);
+			recalculateDuetStates(draft);
 		});
 	};
 

@@ -38,10 +38,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
-import {
-	calculateDuetState,
-	type DuetStateContext,
-} from "$/modules/project/logic/ttml-parser";
+import { recalculateDuetStates } from "$/modules/ttml-processor";
 import {
 	LayoutMode,
 	layoutModeAtom,
@@ -656,110 +653,6 @@ function EditModeField({
 		</RadioGroup.Root>
 	);
 }
-// function DropdownField<
-// 	L extends Word extends true ? LyricWord : LyricLine,
-// 	F extends keyof L,
-// 	Word extends boolean | undefined = undefined,
-// >({
-// 	label,
-// 	isWordField,
-// 	fieldName,
-// 	children,
-// 	defaultValue,
-// }: {
-// 	label: string;
-// 	isWordField: Word;
-// 	fieldName: F;
-// 	defaultValue: L[F];
-// 	children?: ReactNode | undefined;
-// }) {
-// 	const itemAtom = useMemo(
-// 		() => (isWordField ? selectedWordsAtom : selectedLinesAtom),
-// 		[isWordField],
-// 	);
-// 	const selectedItems = useAtomValue(itemAtom);
-
-// 	const [lyricLines, editLyricLines] = useAtom(currentLyricLinesAtom);
-
-// 	const currentValue = useMemo(() => {
-// 		if (selectedItems.size) {
-// 			if (isWordField) {
-// 				const selectedWords = selectedItems as Set<string>;
-// 				const values = new Set();
-// 				for (const line of lyricLines.lyricLines) {
-// 					for (const word of line.words) {
-// 						if (selectedWords.has(word.id)) {
-// 							values.add(word[fieldName as keyof LyricWord]);
-// 						}
-// 					}
-// 				}
-// 				if (values.size === 1)
-// 					return {
-// 						multiplieValues: false,
-// 						value: values.values().next().value as L[F],
-// 					} as const;
-// 				return {
-// 					multiplieValues: true,
-// 					value: "",
-// 				} as const;
-// 			}
-// 			const selectedLines = selectedItems as Set<string>;
-// 			const values = new Set();
-// 			for (const line of lyricLines.lyricLines) {
-// 				if (selectedLines.has(line.id)) {
-// 					values.add(line[fieldName as keyof LyricLine]);
-// 				}
-// 			}
-// 			if (values.size === 1)
-// 				return {
-// 					multiplieValues: false,
-// 					value: values.values().next().value as L[F],
-// 				} as const;
-// 			return {
-// 				multiplieValues: true,
-// 				value: "",
-// 			} as const;
-// 		}
-// 		return undefined;
-// 	}, [selectedItems, fieldName, isWordField, lyricLines]);
-
-// 	return (
-// 		<>
-// 			<Text wrap="nowrap" size="1">
-// 				{label}
-// 			</Text>
-// 			<Select.Root
-// 				size="1"
-// 				disabled={selectedItems.size === 0}
-// 				defaultValue={defaultValue as string}
-// 				value={(currentValue?.value as string) ?? ""}
-// 				onValueChange={(value) => {
-// 					editLyricLines((state) => {
-// 						for (const line of state.lyricLines) {
-// 							if (isWordField) {
-// 								for (const word of line.words) {
-// 									if (selectedItems.has(word.id)) {
-// 										(word as L)[fieldName] = value as L[F];
-// 									}
-// 								}
-// 							} else {
-// 								if (selectedItems.has(line.id)) {
-// 									(line as L)[fieldName] = value as L[F];
-// 								}
-// 							}
-// 						}
-// 						return state;
-// 					});
-// 				}}
-// 			>
-// 				<Select.Trigger
-// 					placeholder={selectedItems.size > 0 ? "多个值..." : undefined}
-// 				/>
-// 				<Select.Content>{children}</Select.Content>
-// 			</Select.Root>
-// 		</>
-// 	);
-// }
 
 const SONG_PART_OPTIONS = [
 	{ value: "Verse", label: "Verse" },
@@ -956,115 +849,13 @@ const AgentField: FC = () => {
 	const handleAgentChange = useCallback(
 		(value: string) => {
 			editLyricLines((state: Draft<TTMLLyric>) => {
-				// 创建 agent 查找映射
-				const agentMap = new Map<string, TTMLAgent>();
-				for (const agent of state.agents) {
-					agentMap.set(agent.id, agent);
-				}
-
-				// 分别找到 single 和 group 类型的 mainAgentId
-				let singleMainAgentId: string | undefined;
-				let groupMainAgentId: string | undefined;
-				for (const agent of state.agents) {
-					if (agent.type === "person" && !singleMainAgentId) {
-						singleMainAgentId = agent.id;
-					}
-					if (agent.type === "group" && !groupMainAgentId) {
-						groupMainAgentId = agent.id;
-					}
-					// 如果都找到了，提前退出
-					if (singleMainAgentId && groupMainAgentId) {
-						break;
-					}
-				}
-
 				// 首先更新选中行的 agent（跳过背景行）
 				for (const line of state.lyricLines) {
 					if (selectedLines.has(line.id) && !line.isBG) {
 						line.agent = value === NONE_VALUE ? undefined : value;
 					}
 				}
-
-				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
-				let firstSelectedIndex = -1;
-				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (
-						selectedLines.has(state.lyricLines[i].id) &&
-						!state.lyricLines[i].isBG
-					) {
-						firstSelectedIndex = i;
-						break;
-					}
-				}
-
-				// 向前查找上一个 single 类型的 agent
-				let singleLastAgentId = singleMainAgentId ?? "v1";
-				let groupLastAgentId = groupMainAgentId ?? "v2";
-
-				if (firstSelectedIndex > 0) {
-					// 向前查找 single 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "person" || agentType === "other") {
-								singleLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-
-					// 向前查找 group 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "group") {
-								groupLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-				}
-
-				// 对唱状态计算上下文
-				const duetContext: DuetStateContext = {
-					agentId: undefined,
-					agentMap,
-					isGroup: false,
-					single: {
-						lastAgentId: singleLastAgentId,
-						currentAgentId: singleMainAgentId ?? "v1",
-						duetToggle: false,
-					},
-					group: {
-						lastAgentId: groupLastAgentId,
-						currentAgentId: groupMainAgentId ?? "v2",
-						duetToggle: true,
-					},
-				};
-
-				// 记录主行的对唱状态，供背景行继承
-				let lastMainLineIsDuet = false;
-
-				// 重新计算所有行的对唱状态
-				for (const line of state.lyricLines) {
-					if (line.isBG) {
-						// 背景行继承主行的对唱状态
-						line.isDuet = lastMainLineIsDuet;
-						continue;
-					}
-
-					// 判断当前行的 agent 类型
-					duetContext.agentId = line.agent;
-					duetContext.isGroup = line.agent
-						? agentMap.get(line.agent)?.type === "group"
-						: false;
-
-					// 使用可复用的对唱状态计算函数（内部会更新上下文）
-					line.isDuet = calculateDuetState(duetContext);
-					lastMainLineIsDuet = line.isDuet;
-				}
+				recalculateDuetStates(state);
 
 				return state;
 			});
