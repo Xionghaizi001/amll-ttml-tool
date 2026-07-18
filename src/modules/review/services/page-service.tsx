@@ -1,12 +1,12 @@
 import {
+	Avatar,
 	Box,
 	Button,
 	Card,
 	Flex,
+	Select,
 	Spinner,
 	Text,
-	Avatar,
-	Select,
 } from "@radix-ui/themes";
 import {
 	type MouseEvent,
@@ -17,20 +17,20 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useLyricsSiteReviewService } from "$/modules/lyrics-site";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
+import styles from "../index.module.css";
 import {
-	renderCardContent,
+	getReviewItemCreatedAt,
+	getReviewItemId,
 	isGitHubPullRequest,
 	isLyricsSiteSubmission,
-	getReviewItemId,
-	getReviewItemCreatedAt,
 	type ReviewItem,
+	renderCardContent,
 } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
-import { useLyricsSiteReviewService } from "$/modules/lyrics-site";
-import styles from "../index.module.css";
 
 const ReviewPage = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +156,10 @@ const ReviewPage = () => {
 						0,
 						overlayTopInset,
 						window.innerWidth,
-						Math.max(0, window.innerHeight - overlayTopInset - overlayBottomInset),
+						Math.max(
+							0,
+							window.innerHeight - overlayTopInset - overlayBottomInset,
+						),
 					);
 			const padding = 24;
 			const maxWidth = Math.max(0, containerRect.width - padding * 2);
@@ -459,7 +462,7 @@ const ReviewPage = () => {
 						const itemId = getReviewItemId(item);
 						const isExpanded =
 							expandedCard && getReviewItemId(expandedCard.item) === itemId;
-						const isPlaceholder = isExpanded && expandedCard?.phase === "open";
+						const isPlaceholder = Boolean(isExpanded);
 						const placeholderStyle =
 							isPlaceholder && expandedCard
 								? { height: expandedCard.from.height }
@@ -477,20 +480,22 @@ const ReviewPage = () => {
 								ref={setCardRef(itemId)}
 								style={placeholderStyle}
 							>
-								{isPlaceholder
-									? null
-									: renderCardContent({
-											item,
-											hiddenLabelSet,
-											styles,
-											reviewedByUser:
-												isGitHubPullRequest(item) &&
-												reviewedByUserMap[item.number] === true,
-											onSelectUser: (user) =>
-												setSelectedUser((prev) =>
-													prev === user ? null : user,
-												),
-										})}
+								<Box
+									className={`${styles.cardContent} ${
+										isPlaceholder ? styles.cardContentHidden : ""
+									}`}
+								>
+									{renderCardContent({
+										item,
+										hiddenLabelSet,
+										styles,
+										reviewedByUser:
+											isGitHubPullRequest(item) &&
+											reviewedByUserMap[item.number] === true,
+										onSelectUser: (user) =>
+											setSelectedUser((prev) => (prev === user ? null : user)),
+									})}
+								</Box>
 							</Card>
 						);
 					})}
@@ -506,24 +511,21 @@ const ReviewPage = () => {
 						onClick={closeExpanded}
 					>
 						<Card
-							className={`${styles.overlayCard} ${styles.overlayCardExpanded}`}
+							className={`${styles.overlayCard} ${styles.overlayCardExpanded} ${styles.overlayCardDetail} ${
+								expandedCard.phase === "open"
+									? styles.overlayCardDetailVisible
+									: ""
+							}`}
 							style={{
-								left:
-									expandedCard.phase === "open"
-										? expandedCard.to.left
-										: expandedCard.from.left,
-								top:
-									expandedCard.phase === "open"
-										? expandedCard.to.top
-										: expandedCard.from.top,
-								width:
-									expandedCard.phase === "open"
-										? expandedCard.to.width
-										: expandedCard.from.width,
-								height:
-									expandedCard.phase === "open"
-										? expandedCard.to.height
-										: expandedCard.from.height,
+								left: expandedCard.to.left,
+								top: expandedCard.to.top,
+								width: expandedCard.to.width,
+								height: expandedCard.to.height,
+								transform:
+									expandedCard.phase === "opening" ||
+									expandedCard.phase === "closing"
+										? `translate(${expandedCard.from.left - expandedCard.to.left}px, ${expandedCard.from.top - expandedCard.to.top}px) scale(${expandedCard.from.width / Math.max(expandedCard.to.width, 1)}, ${expandedCard.from.height / Math.max(expandedCard.to.height, 1)})`
+										: "translate(0, 0) scale(1, 1)",
 							}}
 							onClick={(event) => event.stopPropagation()}
 						>
@@ -542,6 +544,30 @@ const ReviewPage = () => {
 								styles={styles}
 							/>
 						</Card>
+						<Card
+							className={`${styles.overlayCard} ${styles.overlayCardShell} ${
+								expandedCard.phase === "open"
+									? styles.overlayCardShellHidden
+									: ""
+							}`}
+							style={{
+								left: expandedCard.from.left,
+								top: expandedCard.from.top,
+								width: expandedCard.from.width,
+								height: expandedCard.from.height,
+								transform:
+									expandedCard.phase === "opening" ||
+									expandedCard.phase === "closing"
+										? "translate(0, 0) scale(1, 1)"
+										: `translate(${expandedCard.to.left - expandedCard.from.left}px, ${expandedCard.to.top - expandedCard.from.top}px) scale(${expandedCard.to.width / expandedCard.from.width}, ${expandedCard.to.height / expandedCard.from.height})`,
+								filter:
+									expandedCard.phase === "opening" ||
+									expandedCard.phase === "closing"
+										? "brightness(1.08)"
+										: "brightness(1)",
+							}}
+							onClick={(event) => event.stopPropagation()}
+						/>
 					</Box>
 				)}
 			</Box>

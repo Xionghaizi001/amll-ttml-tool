@@ -54,12 +54,39 @@
 .overlayCard {
 	position: fixed;
 	z-index: 41;
-	transition:
-		left 200ms ease,
-		top 200ms ease,
-		width 200ms ease,
-		height 200ms ease;
+	background-color: var(--color-panel);
 	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.overlayCardShell {
+	z-index: 42;
+	overflow: hidden;
+	pointer-events: none;
+	transform-origin: top left;
+	will-change: transform, opacity, filter;
+	transition:
+		transform 90ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		filter 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		opacity 80ms ease-out;
+}
+
+.overlayCardShellHidden {
+	opacity: 0;
+}
+
+.overlayCardDetail {
+	opacity: 0;
+	pointer-events: none;
+	transform-origin: top left;
+	will-change: transform, opacity;
+	transition:
+		transform 110ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		opacity 70ms ease-out;
+}
+
+.overlayCardDetailVisible {
+	opacity: 1;
+	pointer-events: auto;
 }
 
 .overlayCardExpanded {
@@ -330,10 +357,17 @@
 
 .cardPlaceholder {
 	min-height: 96px;
-	opacity: 0.55;
-	border: 1px dashed var(--gray-6);
 	pointer-events: none;
 	box-sizing: border-box;
+}
+
+.cardContent {
+	opacity: 1;
+	transition: opacity 180ms ease;
+}
+
+.cardContentHidden {
+	opacity: 0;
 }
 
 .reviewCard {

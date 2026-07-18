@@ -9,15 +9,16 @@ import {
 	Stack20Regular,
 } from "@fluentui/react-icons";
 import { Box, Button, Flex, Spinner, Text } from "@radix-ui/themes";
+import { memo, useCallback, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 import {
 	AppleMusicIcon,
 	NeteaseIcon,
 	QQMusicIcon,
 	SpotifyIcon,
 } from "$/modules/project/modals/PlatformIcons";
-import { useCallback, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
 	extractMentions,
 	formatTimeAgo,
@@ -25,11 +26,10 @@ import {
 	isGitHubPullRequest,
 	isLyricsSiteSubmission,
 	parseReviewMetadata,
-	renderMetaValues,
 	type ReviewItem,
 	type ReviewPullRequest,
+	renderMetaValues,
 } from "$/modules/review/services/card-service";
-import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 
 type PlatformItem = {
 	ids: string[];
@@ -736,42 +736,44 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 	);
 };
 
-export const ReviewExpandedContent = (options: {
-	item: ReviewItem;
-	hiddenLabelSet: Set<string>;
-	audioLoadPendingId: string | null;
-	lastNeteaseIdByPr: Record<number, string>;
-	onOpenFile: (item: ReviewItem, ids?: string[]) => void | Promise<void>;
-	reviewedByUser?: boolean;
-	repoOwner: string;
-	repoName: string;
-	styles: Record<string, string>;
-}) => {
-	if (isLyricsSiteSubmission(options.item)) {
-		return (
-			<LyricsSiteExpandedContent
-				item={options.item}
-				onOpenFile={(item) => options.onOpenFile(item)}
-				styles={options.styles}
-			/>
-		);
-	}
+export const ReviewExpandedContent = memo(
+	(options: {
+		item: ReviewItem;
+		hiddenLabelSet: Set<string>;
+		audioLoadPendingId: string | null;
+		lastNeteaseIdByPr: Record<number, string>;
+		onOpenFile: (item: ReviewItem, ids?: string[]) => void | Promise<void>;
+		reviewedByUser?: boolean;
+		repoOwner: string;
+		repoName: string;
+		styles: Record<string, string>;
+	}) => {
+		if (isLyricsSiteSubmission(options.item)) {
+			return (
+				<LyricsSiteExpandedContent
+					item={options.item}
+					onOpenFile={(item) => options.onOpenFile(item)}
+					styles={options.styles}
+				/>
+			);
+		}
 
-	if (isGitHubPullRequest(options.item)) {
-		return (
-			<GitHubExpandedContent
-				item={options.item}
-				hiddenLabelSet={options.hiddenLabelSet}
-				audioLoadPendingId={options.audioLoadPendingId}
-				lastNeteaseIdByPr={options.lastNeteaseIdByPr}
-				onOpenFile={(item, ids) => options.onOpenFile(item, ids)}
-				reviewedByUser={options.reviewedByUser}
-				repoOwner={options.repoOwner}
-				repoName={options.repoName}
-				styles={options.styles}
-			/>
-		);
-	}
+		if (isGitHubPullRequest(options.item)) {
+			return (
+				<GitHubExpandedContent
+					item={options.item}
+					hiddenLabelSet={options.hiddenLabelSet}
+					audioLoadPendingId={options.audioLoadPendingId}
+					lastNeteaseIdByPr={options.lastNeteaseIdByPr}
+					onOpenFile={(item, ids) => options.onOpenFile(item, ids)}
+					reviewedByUser={options.reviewedByUser}
+					repoOwner={options.repoOwner}
+					repoName={options.repoName}
+					styles={options.styles}
+				/>
+			);
+		}
 
-	return null;
-};
+		return null;
+	},
+);
