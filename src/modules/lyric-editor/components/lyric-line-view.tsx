@@ -616,7 +616,7 @@ export const LyricLineView: FC<{
 							const target = evt.target as HTMLElement | null;
 							if (
 								target?.closest(
-									"button, input, textarea, select, a, [contenteditable='true']",
+									"button, input, textarea, select, a, .rt-TextFieldRoot, [contenteditable='true']",
 								)
 							) {
 								return;
