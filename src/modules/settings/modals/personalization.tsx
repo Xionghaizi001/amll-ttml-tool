@@ -15,14 +15,13 @@ import {
 } from "./spectrogram";
 
 const contentTransition = {
-	duration: 0.3,
-	ease: [0.2, 0.8, 0.2, 1],
+	duration: 0.25,
+	ease: [0.4, 0, 0.2, 1],
 } as const;
 
 const contentVariants = {
-	initial: { opacity: 0 },
-	animate: { opacity: 1 },
-	exit: { opacity: 0 },
+	initial: { opacity: 0, y: 12 },
+	animate: { opacity: 1, y: 0 },
 } as const;
 
 export const SettingsPersonalizationTab = ({
@@ -46,7 +45,7 @@ export const SettingsPersonalizationTab = ({
 		) : null;
 
 	return (
-		<AnimatePresence mode="wait" initial={false}>
+		<AnimatePresence initial={false}>
 			{subpage ? (
 				<motion.div
 					key={subpage}
@@ -64,7 +63,6 @@ export const SettingsPersonalizationTab = ({
 					variants={contentVariants}
 					initial="initial"
 					animate="animate"
-					exit="exit"
 					transition={contentTransition}
 				>
 					<Flex direction="column" gap="4">

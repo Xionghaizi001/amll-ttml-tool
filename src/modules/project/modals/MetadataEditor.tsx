@@ -78,14 +78,13 @@ interface MetadataItemEditorProps {
 }
 
 const contentTransition = {
-	duration: 0.3,
-	ease: [0.2, 0.8, 0.2, 1],
+	duration: 0.25,
+	ease: [0.4, 0, 0.2, 1],
 } as const;
 
 const contentVariants = {
-	initial: { opacity: 0, y: 4, filter: "blur(4px)" },
-	animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-	exit: { opacity: 0, y: -4, filter: "blur(4px)" },
+	initial: { opacity: 0, y: 12 },
+	animate: { opacity: 1, y: 0 },
 } as const;
 
 const splitDroppedValues = (text: string) =>
@@ -1053,7 +1052,6 @@ export const MetadataEditor = () => {
 									variants={contentVariants}
 									initial="initial"
 									animate="animate"
-									exit="exit"
 									transition={contentTransition}
 								>
 									<MetadataItemEditor
