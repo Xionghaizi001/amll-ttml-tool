@@ -166,6 +166,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const { onPointerDown } = useLyricListDrag({
 		containerRef: viewElRef,
 		source: "main",
+		disableDrag: toolMode !== ToolMode.Edit,
 	});
 
 	useImperativeHandle(ref, () => viewElRef.current as HTMLDivElement, []);

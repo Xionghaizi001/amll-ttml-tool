@@ -33,6 +33,7 @@ export const OutlinePanel = memo(() => {
 	const { onPointerDown } = useLyricListDrag({
 		containerRef,
 		source: "outline",
+		disableDrag: toolMode !== ToolMode.Edit,
 	});
 
 	const displayNumbers = useMemo(() => {
@@ -95,9 +96,7 @@ export const OutlinePanel = memo(() => {
 									data-selected={isSelected}
 									data-is-dragged={isDragged}
 									onPointerDown={(e) => {
-										if (toolMode === ToolMode.Edit) {
-											onPointerDown(e, line.id, index);
-										}
+										onPointerDown(e, line.id, index);
 									}}
 									onDoubleClick={() => handleItemDoubleClick(line.id)}
 								>

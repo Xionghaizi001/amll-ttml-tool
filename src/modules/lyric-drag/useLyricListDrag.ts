@@ -14,11 +14,13 @@ import {
 export interface UseLyricListDragOptions {
 	containerRef: React.RefObject<HTMLElement | null>;
 	source: "main" | "outline";
+	disableDrag?: boolean;
 }
 
 export const useLyricListDrag = ({
 	containerRef,
 	source,
+	disableDrag = false,
 }: UseLyricListDragOptions) => {
 	const store = useStore();
 
@@ -276,6 +278,7 @@ export const useLyricListDrag = ({
 			);
 
 			if (!ctx.current.isDragging && ctx.current.allowDrag && dist > 3) {
+				if (disableDrag) return;
 				ctx.current.isDragging = true;
 
 				const draggedIds = handleDragStart(ctx.current.startLineId);
@@ -318,6 +321,7 @@ export const useLyricListDrag = ({
 			setDraggedCount,
 			setDragSource,
 			source,
+			disableDrag,
 		],
 	);
 
