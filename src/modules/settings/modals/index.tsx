@@ -11,7 +11,7 @@ import {
 import { Box, Dialog, Heading, Text } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
-import { memo, type ReactNode, useState } from "react";
+import { memo, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 // #if DEV
 import { DevelopmentSettings } from "$/modules/settings/modals/development";
@@ -25,59 +25,6 @@ import { SettingsKeyBindingsDialog } from "./keybindings";
 import { SettingsPersonalizationTab } from "./personalization";
 import styles from "./SettingsDialog.module.css";
 import { SettingsStorageTab } from "./storage";
-
-const tabConfig = [
-	{
-		value: "common",
-		icon: Settings24Regular,
-		labelKey: "settingsDialog.tab.common",
-		fallback: "常规",
-	},
-	{
-		value: "keybinding",
-		icon: Keyboard24Regular,
-		labelKey: "settingsDialog.tab.keybindings",
-		fallback: "按键绑定",
-	},
-	{
-		value: "personalization",
-		icon: PaintBrush24Regular,
-		labelKey: "settingsDialog.tab.personalization",
-		fallback: "个性化",
-	},
-	{
-		value: "connect",
-		icon: Link24Regular,
-		labelKey: "settingsDialog.tab.connect",
-		fallback: "连接",
-	},
-	{
-		value: "amll",
-		icon: SpeakerSettings24Regular,
-		labelKey: "settingsDialog.tab.amll",
-		fallback: "AMLL",
-	},
-	{
-		value: "storage",
-		icon: Database24Regular,
-		labelKey: "settingsDialog.tab.storage",
-		fallback: "存储",
-	},
-	// #if DEV
-	{
-		value: "development",
-		icon: Beaker24Regular,
-		labelKey: "settingsDialog.tab.development",
-		fallback: "开发",
-	},
-	// #endif
-	{
-		value: "about",
-		icon: Info24Regular,
-		labelKey: "common.about",
-		fallback: "关于",
-	},
-] as const;
 
 type SettingsPersonalizationSubpage = "customBackground" | "customPalette";
 type SettingsSubpage = SettingsPersonalizationSubpage | SettingsConnectSubpage;
@@ -101,9 +48,58 @@ export const SettingsDialog = memo(() => {
 		null,
 	);
 	const { t } = useTranslation();
+
+	const tabConfig = useMemo(
+		() => [
+			{
+				value: "common",
+				icon: Settings24Regular,
+				label: t("settingsDialog.tab.general", "常规"),
+			},
+			{
+				value: "keybinding",
+				icon: Keyboard24Regular,
+				label: t("settingsDialog.tab.keybindings", "按键绑定"),
+			},
+			{
+				value: "personalization",
+				icon: PaintBrush24Regular,
+				label: t("settingsDialog.tab.appearance", "个性化"),
+			},
+			{
+				value: "connect",
+				icon: Link24Regular,
+				label: t("settingsDialog.tab.connect", "连接"),
+			},
+			{
+				value: "amll",
+				icon: SpeakerSettings24Regular,
+				label: t("settingsDialog.tab.amll", "AMLL"),
+			},
+			{
+				value: "storage",
+				icon: Database24Regular,
+				label: t("settingsDialog.tab.storage", "存储"),
+			},
+			// #if DEV
+			{
+				value: "development",
+				icon: Beaker24Regular,
+				label: t("settingsDialog.tab.development", "开发"),
+			},
+			// #endif
+			{
+				value: "about",
+				icon: Info24Regular,
+				label: t("settingsDialog.tab.about", "关于"),
+			},
+		],
+		[t],
+	);
+
 	const activeTabConfig =
 		tabConfig.find((tab) => tab.value === activeTab) ?? tabConfig[0];
-	const activeTabTitle = t(activeTabConfig.labelKey, activeTabConfig.fallback);
+	const activeTabTitle = activeTabConfig.label;
 	const personalizationSubpage =
 		activeTab === "personalization" &&
 		(activeSubpage === "customBackground" || activeSubpage === "customPalette")
@@ -168,7 +164,7 @@ export const SettingsDialog = memo(() => {
 									}}
 								>
 									<Icon className={styles.navIcon} />
-									<span>{t(tab.labelKey, tab.fallback)}</span>
+									<span>{tab.label}</span>
 								</button>
 							);
 						})}

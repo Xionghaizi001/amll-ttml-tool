@@ -465,9 +465,12 @@
 		},
 		"tab": {
 			"common": "General",
-			"keybindings": "Keybindings",
+			"connect": "Connect",
 			"spectrogram": "Spectrogram",
-			"connect": "Connect"
+			"keybindings": "Keyboard Shortcuts",
+			"about": "About",
+			"general": "General",
+			"appearance": "Appearance"
 		}
 	},
 	"error": {

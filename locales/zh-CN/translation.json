@@ -470,10 +470,13 @@
 		},
 		"tab": {
 			"common": "常规",
-			"keybindings": "按键绑定",
-			"spectrogram": "频谱图",
 			"connect": "连接",
-			"storage": "存储"
+			"storage": "存储",
+			"spectrogram": "频谱图",
+			"keybindings": "按键绑定",
+			"about": "关于",
+			"general": "常规",
+			"appearance": "个性化"
 		}
 	},
 	"error": {
