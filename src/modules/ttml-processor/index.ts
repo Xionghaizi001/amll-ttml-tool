@@ -713,6 +713,10 @@ function postProcessLyricLines(amllResult: AmllLyricResult): AmllLyricResult {
 					processedWord.emptyBeat = undefined;
 				}
 
+				if (!processedWord.romanWord || processedWord.romanWord.trim() === "") {
+					processedWord.romanWord = undefined;
+				}
+
 				return processedWord;
 			}),
 		})),
