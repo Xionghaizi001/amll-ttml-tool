@@ -398,6 +398,11 @@ export const HistoryRestoreDialog = () => {
 																			key={meta.key}
 																			variant="soft"
 																			color="gray"
+																			style={{
+																				maxWidth: "100%",
+																				whiteSpace: "normal",
+																				wordBreak: "break-all",
+																			}}
 																		>
 																			{meta.key}: {meta.value[0]}
 																		</Badge>
