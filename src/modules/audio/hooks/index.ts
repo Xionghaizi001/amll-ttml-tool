@@ -1,5 +1,7 @@
+export * from "./useAudioFeedback";
 export * from "./useAudioRegion";
 export * from "./useHoverGuide";
+export * from "./useMediaSession";
 
 export const clampZoom = (z: number) => Math.max(50, Math.min(z, 1000));
 export const clampScroll = (

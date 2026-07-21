@@ -46,6 +46,7 @@ import AudioControls from "./modules/audio/components/index.tsx";
 import { useAudioFeedback } from "./modules/audio/hooks/useAudioFeedback.ts";
 import { verifyGithubAccess } from "./modules/github/services/identity-service.ts";
 import { syncPendingUpdateNotices } from "./modules/github/services/notice-service.ts";
+import { useMediaSession } from "./modules/audio/hooks/useMediaSession.ts";
 import { DragGhostRenderer } from "./modules/lyric-drag/DragGhostRenderer.tsx";
 import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybinding.tsx";
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
@@ -296,6 +297,7 @@ function App() {
 	const setIsGlobalDragging = useSetAtom(isGlobalFileDraggingAtom);
 	const { openFile } = useFileOpener();
 	useAudioFeedback();
+	useMediaSession();
 
 	useEffect(() => {
 		if (!import.meta.env.TAURI_ENV_PLATFORM) {

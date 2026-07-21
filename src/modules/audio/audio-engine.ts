@@ -6,6 +6,10 @@ import {
 	isAuditioningAtom,
 	loadedAudioAtom,
 } from "$/modules/audio/states/index.ts";
+import {
+	type AudioTrackMetadata,
+	parseAudioTrackMetadata,
+} from "$/modules/audio/utils/index.ts";
 import { FFmpegAudioEngine } from "$/modules/ffmpeg/index.ts";
 import workerUrl from "$/modules/ffmpeg/worker/decoder.worker.ts?worker&url";
 import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg_wasm.wasm?url";
@@ -14,8 +18,18 @@ import soundtouchWasmUrl from "$/modules/ffmpeg/worklet/wasm/soundtouch_bg.wasm?
 import { globalStore } from "$/states/store.ts";
 import type { TTMLMetadata } from "$/types/ttml";
 
+export type { AudioTrackMetadata };
+
 class AudioEngineWrapper extends EventTarget {
-	public engine: FFmpegAudioEngine;
+	private engine: FFmpegAudioEngine;
+	private _audioTrackMetadata: AudioTrackMetadata = {
+		titles: [],
+		artists: [],
+		albums: [],
+		composers: [],
+		isrcs: [],
+		fileName: "",
+	};
 
 	//#region Audio context basics
 	private _ctx: AudioContext | null = null;
@@ -118,8 +132,13 @@ class AudioEngineWrapper extends EventTarget {
 		});
 
 		this.engine.addEventListener("loadedmetadata", () => {
+			this.updateAudioTrackMetadata();
 			globalStore.set(currentDurationAtom, (this.engine.duration * 1000) | 0);
 			globalStore.set(audioEngineStateAtom, this.engine.state);
+		});
+
+		this.engine.addEventListener("timeupdate", () => {
+			this.dispatchEvent(new Event("timeupdate"));
 		});
 
 		this.engine.addEventListener("ended", () => {
@@ -144,6 +163,14 @@ class AudioEngineWrapper extends EventTarget {
 			this.engine.state === "playing" ||
 			this.engine.state === "paused"
 		);
+	}
+
+	get audioTrackMetadata(): AudioTrackMetadata {
+		return this._audioTrackMetadata;
+	}
+
+	get cover() {
+		return this.engine.cover;
 	}
 
 	get musicPlaying() {
@@ -251,39 +278,40 @@ class AudioEngineWrapper extends EventTarget {
 
 		globalStore.set(loadedAudioAtom, src);
 		await this.engine.loadFile(src);
+		this.updateAudioTrackMetadata(src);
 
-		return this.mapFFmpegMetadataToTTML(this.engine.metadata);
+		return this.mapAudioMetadataToTTML();
 	}
 
-	private mapFFmpegMetadataToTTML(raw: Record<string, string>): TTMLMetadata[] {
-		const mappingRules: Record<string, string> = {
-			title: "musicName",
-			artist: "artists",
-			album: "album",
-			composer: "songwriter",
-			isrc: "isrc",
-		};
+	private mapAudioMetadataToTTML(): TTMLMetadata[] {
+		const mapping: { key: keyof AudioTrackMetadata; targetKey: string }[] = [
+			{ key: "titles", targetKey: "musicName" },
+			{ key: "artists", targetKey: "artists" },
+			{ key: "albums", targetKey: "album" },
+			{ key: "composers", targetKey: "songwriter" },
+			{ key: "isrcs", targetKey: "isrc" },
+		];
 
 		const result: TTMLMetadata[] = [];
-		for (const [rawKey, rawValue] of Object.entries(raw)) {
-			const targetKey = mappingRules[rawKey.toLowerCase()];
-			if (targetKey && rawValue.trim() !== "") {
-				const values = rawValue
-					.split(/[\n,;/，；、|\\]/)
-					.map((s) => s.trim())
-					.filter(Boolean);
-
-				if (values.length > 0) {
-					result.push({
-						key: targetKey,
-						value: Array.from(new Set(values)),
-					});
-				}
+		for (const { key, targetKey } of mapping) {
+			const values = this._audioTrackMetadata[key];
+			if (Array.isArray(values) && values.length > 0) {
+				result.push({
+					key: targetKey,
+					value: [...values],
+				});
 			}
 		}
 		return result;
 	}
 	//#endregion
+
+	private updateAudioTrackMetadata(file?: File) {
+		this._audioTrackMetadata = parseAudioTrackMetadata(
+			this.engine.metadata || {},
+			file,
+		);
+	}
 }
 
 export const audioEngine = new AudioEngineWrapper();
