@@ -1,6 +1,6 @@
 {
 	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-	"productName": "amll-ttml-tool",
+	"productName": "AMLL TTML Tool",
 	"version": "0.1.0",
 	"identifier": "net.stevexmh.amll-ttml-tool",
 	"build": {
@@ -32,6 +32,7 @@
 		}
 	},
 	"bundle": {
+		"category": "Utility",
 		"active": true,
 		"targets": "all",
 		"icon": [
