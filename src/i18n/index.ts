@@ -5,8 +5,6 @@ import { initReactI18next } from "react-i18next";
 
 type TranslationResource = typeof resources;
 
-console.log("Locale Resources", resources);
-
 declare module "i18next" {
 	// Extend CustomTypeOptions
 	interface CustomTypeOptions {
