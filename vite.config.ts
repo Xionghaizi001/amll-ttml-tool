@@ -24,6 +24,7 @@ const AMLL_LOCAL_EXISTS = [
 ].every((path) => existsSync(resolve(amllLocalRoot, path)));
 
 const plugins: PluginOption[] = [
+	ConditionalCompile(),
 	{
 		name: "github-proxy-dev",
 		configureServer(server) {
@@ -80,7 +81,6 @@ const plugins: PluginOption[] = [
 			});
 		},
 	},
-	ConditionalCompile(),
 	// topLevelAwait(),
 	// MillionLint.vite(),
 	react(),

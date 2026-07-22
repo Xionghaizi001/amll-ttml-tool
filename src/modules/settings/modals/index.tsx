@@ -1,4 +1,5 @@
 import {
+	Beaker24Regular,
 	Database24Regular,
 	Info24Regular,
 	Keyboard24Regular,
@@ -10,16 +11,16 @@ import {
 import { Box, Dialog, Heading, Text } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
-import { memo, useState } from "react";
+import { memo, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+// #if DEV
+import { ProjectTestsSettings } from "$/modules/project/tests";
+// #endif
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs.ts";
 import { SettingsAboutTab } from "./about";
 import { SettingsAMLLTab } from "./amll";
 import { SettingsCommonTab } from "./common";
-import {
-	SettingsConnectTab,
-	type SettingsConnectSubpage,
-} from "./connect";
+import { type SettingsConnectSubpage, SettingsConnectTab } from "./connect";
 import { SettingsKeyBindingsDialog } from "./keybindings";
 import { SettingsPersonalizationTab } from "./personalization";
 import styles from "./SettingsDialog.module.css";
@@ -62,6 +63,14 @@ const tabConfig = [
 		labelKey: "settingsDialog.tab.storage",
 		fallback: "存储",
 	},
+	// #if DEV
+	{
+		value: "development",
+		icon: Beaker24Regular,
+		labelKey: "settingsDialog.tab.development",
+		fallback: "开发",
+	},
+	// #endif
 	{
 		value: "about",
 		icon: Info24Regular,
@@ -119,11 +128,17 @@ export const SettingsDialog = memo(() => {
 					: connectSubpage === "reviewHiddenUsers"
 						? t("settings.connect.reviewHiddenUsersTitle", "隐藏指定用户")
 						: null
-			: null;
-	const subpageParentTitle = activeTab === "connect" && connectSubpage ? "Github" : null;
+				: null;
+	const subpageParentTitle =
+		activeTab === "connect" && connectSubpage ? "Github" : null;
 	const onSubpageChange = (nextSubpage: SettingsSubpage | null) => {
 		setActiveSubpage(nextSubpage);
 	};
+	let developmentContent: ReactNode = null;
+	// #if DEV
+	developmentContent =
+		activeTab === "development" ? <ProjectTestsSettings /> : null;
+	// #endif
 
 	return (
 		<Dialog.Root open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
@@ -220,6 +235,7 @@ export const SettingsDialog = memo(() => {
 								)}
 								{activeTab === "amll" && <SettingsAMLLTab />}
 								{activeTab === "storage" && <SettingsStorageTab />}
+								{developmentContent}
 								{activeTab === "about" && <SettingsAboutTab />}
 							</motion.div>
 						</AnimatePresence>

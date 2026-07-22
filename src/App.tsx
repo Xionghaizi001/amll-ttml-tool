@@ -70,11 +70,9 @@ import { generateTTMLLyric } from "./modules/ttml-processor/index.ts";
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
-	fileUpdateSessionAtom,
 	isDarkThemeAtom,
 	isGlobalFileDraggingAtom,
 	lyricLinesAtom,
-	reviewSessionAtom,
 	ToolMode,
 	toolModeAtom,
 } from "./states/main.ts";
@@ -83,7 +81,6 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "./states/notifications.ts";
-import { setupDevTestHooks } from "./utils/test.ts";
 import { useAppUpdate } from "./utils/useAppUpdate.ts";
 
 const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
@@ -189,9 +186,6 @@ function App() {
 	const setRemoveNotification = useSetAtom(removeNotificationAtom);
 	const setSettingsOpen = useSetAtom(settingsDialogAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
-	const setReviewSession = useSetAtom(reviewSessionAtom);
-	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
-	const setToolMode = useSetAtom(toolModeAtom);
 	const initCustomBackgroundImage = useSetAtom(customBackgroundImageInitAtom);
 	const initialPatRef = useRef(pat);
 	const startupPendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
@@ -301,22 +295,6 @@ function App() {
 	const setIsGlobalDragging = useSetAtom(isGlobalFileDraggingAtom);
 	const { openFile } = useFileOpener();
 	useAudioFeedback();
-
-	useEffect(() => {
-		return setupDevTestHooks({
-			openFile,
-			setReviewSession,
-			setFileUpdateSession,
-			setToolMode,
-			pushNotification: setPushNotification,
-		});
-	}, [
-		openFile,
-		setFileUpdateSession,
-		setPushNotification,
-		setReviewSession,
-		setToolMode,
-	]);
 
 	useEffect(() => {
 		if (!import.meta.env.TAURI_ENV_PLATFORM) {
@@ -493,7 +471,8 @@ function App() {
 							<Sidebar />
 							<Box flexGrow="1" overflow="hidden" minWidth="0">
 								<AnimatePresence mode="wait">
-									{(toolMode === ToolMode.Edit || toolMode === ToolMode.Sync) && (
+									{(toolMode === ToolMode.Edit ||
+										toolMode === ToolMode.Sync) && (
 										<SuspensePlaceHolder key="edit">
 											<motion.div
 												layout="position"

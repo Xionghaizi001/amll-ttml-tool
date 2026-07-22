@@ -1,0 +1,67 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-5);
+}
+
+.identityCard,
+.toolCard {
+	padding: var(--space-4);
+	background: var(--gray-a2);
+	border: 1px solid var(--gray-a4);
+	border-radius: var(--radius-3);
+}
+
+.identityCard {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+
+.identityInfo,
+.toolContent {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.toolGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-4);
+}
+
+.fullWidth {
+	grid-column: 1 / -1;
+}
+
+.codeInput {
+	min-height: 180px;
+	font-family: var(--code-font-family);
+	font-size: 12px;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--space-2);
+	margin-top: var(--space-2);
+}
+
+@media (max-width: 820px) {
+	.toolGrid {
+		grid-template-columns: 1fr;
+	}
+
+	.fullWidth {
+		grid-column: auto;
+	}
+
+	.identityCard {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+}
