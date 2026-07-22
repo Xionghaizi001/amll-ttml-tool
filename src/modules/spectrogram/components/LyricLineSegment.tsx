@@ -1,10 +1,23 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import React, { type FC, type ReactNode, useCallback, useContext } from "react";
+import React, {
+	type FC,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useMemo,
+	useState,
+} from "react";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
 import {
 	previewLineAtom,
 	selectedWordIdAtom,
+	timelineDragAtom,
 } from "$/modules/spectrogram/states/dnd.ts";
+import {
+	generateBoundaries,
+	resolveBoundaryVisualState,
+	resolveWordVisualState,
+} from "$/modules/spectrogram/utils/timeline-boundary.ts";
 import { editingTimeFieldAtom, selectedLinesAtom } from "$/states/main.ts";
 import { DividerSegment } from "./DividerSegment.tsx";
 import { GapSegment } from "./GapSegment.tsx";
@@ -14,49 +27,63 @@ import { SpectrogramContext } from "./SpectrogramContext.ts";
 
 interface LyricLineSegmentProps {
 	line: ProcessedLyricLine;
-	allLines: ProcessedLyricLine[];
 	children?: ReactNode;
 }
 
 export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 	line,
-	allLines,
 	children,
 }) => {
 	const previewLine = useAtomValue(previewLineAtom);
 	const setSelectedLines = useSetAtom(selectedLinesAtom);
+	const selectedWordId = useAtomValue(selectedWordIdAtom);
 	const setSelectedWordId = useSetAtom(selectedWordIdAtom);
-	const { zoom } = useContext(SpectrogramContext);
+	const timelineDrag = useAtomValue(timelineDragAtom);
 	const editingTimeField = useAtomValue(editingTimeFieldAtom);
 
-	let displayLine: ProcessedLyricLine;
-	if (previewLine && previewLine.id === line.id) {
-		displayLine = previewLine;
-	} else {
-		displayLine = line;
-	}
+	const { zoom } = useContext(SpectrogramContext);
+
+	const [hoveredWordId, setHoveredWordId] = useState<string | null>(null);
+	const [focusedWordId, setFocusedWordId] = useState<string | null>(null);
+
+	const handleWordPointerEnter = useCallback((wordId: string) => {
+		setHoveredWordId(wordId);
+	}, []);
+
+	const handleWordPointerLeave = useCallback((wordId: string) => {
+		setHoveredWordId((prev) => (prev === wordId ? null : prev));
+	}, []);
+
+	const handleWordFocus = useCallback((wordId: string) => {
+		setFocusedWordId(wordId);
+	}, []);
+
+	const handleWordBlur = useCallback((wordId: string) => {
+		setFocusedWordId((prev) => (prev === wordId ? null : prev));
+	}, []);
+
+	const displayLine = previewLine?.id === line.id ? previewLine : line;
 
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			if (editingTimeField) return;
-
 			if (!displayLine) return;
 			e.stopPropagation();
 
-			const { id } = displayLine;
-
-			setSelectedLines(new Set([id]));
+			setSelectedLines(new Set([displayLine.id]));
 			setSelectedWordId(null);
 		},
 		[editingTimeField, displayLine, setSelectedLines, setSelectedWordId],
 	);
 
-	if (!displayLine) {
-		return null;
-	}
+	const boundaries = useMemo(
+		() => generateBoundaries(displayLine),
+		[displayLine],
+	);
+
+	if (!displayLine) return null;
 
 	const { startTime, endTime, segments } = displayLine;
-	const segmentsLength = segments.length;
 
 	if (startTime == null || endTime == null || endTime <= startTime) {
 		return null;
@@ -65,27 +92,28 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 	const left = (startTime / 1000) * zoom;
 	const width = ((endTime - startTime) / 1000) * zoom;
 
-	if (width < 1) {
-		return null;
+	if (width < 1) return null;
+
+	let draggingBoundaryId: string | null = null;
+
+	if (
+		timelineDrag?.type === "divider" &&
+		timelineDrag.lineId === displayLine.id
+	) {
+		if (timelineDrag.segmentIndex === -1) {
+			draggingBoundaryId = `${displayLine.id}:start`;
+		} else {
+			const draggedSegment = displayLine.segments[timelineDrag.segmentIndex];
+			if (draggedSegment) {
+				draggingBoundaryId = `${displayLine.id}:boundary:${draggedSegment.id}`;
+			}
+		}
 	}
-
-	const isTouchingStart = allLines.some(
-		(l) => l.id !== line.id && l.endTime === startTime,
-	);
-	const isTouchingEnd = allLines.some(
-		(l) => l.id !== line.id && l.startTime === endTime,
-	);
-
-	const dynamicStyles = {
-		left: `${left}px`,
-		width: `${width}px`,
-		cursor: "auto",
-	};
 
 	return (
 		<div
 			className={styles.lineSegment}
-			style={dynamicStyles}
+			style={{ left: `${left}px`, width: `${width}px`, cursor: "auto" }}
 			onMouseDown={handleMouseDown}
 			tabIndex={0}
 			role="button"
@@ -93,38 +121,55 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 		>
 			{children}
 
-			<DividerSegment
-				key="divider-start"
-				lineId={displayLine.id}
-				segmentIndex={-1}
-				timeMs={startTime}
-				lineStartTime={startTime}
-				segmentsLength={segmentsLength}
-				isTouching={isTouchingStart}
-			/>
-
-			{segments.map((segment, index) => (
-				<React.Fragment key={segment.id}>
-					{segment.type === "word" ? (
-						<LyricWordSegment
-							lineId={displayLine.id}
-							segment={segment}
-							lineStartTime={startTime}
-						/>
-					) : (
-						<GapSegment segment={segment} lineStartTime={startTime} />
+			<div className={styles.lineBody}>
+				<div className={styles.segmentLayer}>
+					{segments.map((segment) =>
+						segment.type === "word" ? (
+							<LyricWordSegment
+								key={segment.id}
+								lineId={displayLine.id}
+								segment={segment}
+								lineStartTime={startTime}
+								visualState={resolveWordVisualState(
+									segment.id,
+									selectedWordId,
+									hoveredWordId,
+									focusedWordId,
+								)}
+								onPointerEnter={handleWordPointerEnter}
+								onPointerLeave={handleWordPointerLeave}
+								onFocus={handleWordFocus}
+								onBlur={handleWordBlur}
+							/>
+						) : (
+							<GapSegment
+								key={segment.id}
+								segment={segment}
+								lineStartTime={startTime}
+							/>
+						),
 					)}
+				</div>
+			</div>
+
+			<div className={styles.boundaryLayer}>
+				{boundaries.map((boundary) => (
 					<DividerSegment
-						key={`divider-${segment.id}`}
+						key={boundary.id}
 						lineId={displayLine.id}
-						segmentIndex={index}
-						timeMs={segment.endTime}
+						segmentIndex={boundary.segmentIndex}
+						timeMs={boundary.timeMs}
 						lineStartTime={startTime}
-						segmentsLength={segmentsLength}
-						isTouching={index === segmentsLength - 1 ? isTouchingEnd : false}
+						kind={boundary.kind}
+						visualState={resolveBoundaryVisualState(boundary, {
+							selectedWordId,
+							hoveredWordId,
+							focusedWordId,
+							draggingBoundaryId,
+						})}
 					/>
-				</React.Fragment>
-			))}
+				))}
+			</div>
 		</div>
 	);
 };

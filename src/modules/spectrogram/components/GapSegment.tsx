@@ -23,10 +23,10 @@ export const GapSegment: FC<GapSegmentProps> = ({ segment, lineStartTime }) => {
 		return null;
 	}
 
-	const dynamicStyles = {
-		left: `${left}px`,
-		width: `${width}px`,
-	};
-
-	return <div className={styles.gapSegment} style={dynamicStyles} />;
+	return (
+		<div
+			className={styles.gapSegment}
+			style={{ left: `${left}px`, width: `${width}px` }}
+		/>
+	);
 };

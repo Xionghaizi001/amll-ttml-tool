@@ -1,8 +1,9 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
 	type FC,
 	type KeyboardEvent,
 	type MouseEvent,
+	useCallback,
 	useContext,
 } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
@@ -12,6 +13,7 @@ import {
 	selectedWordIdAtom,
 	timelineDragAtom,
 } from "$/modules/spectrogram/states/dnd.ts";
+import type { WordVisualState } from "$/modules/spectrogram/utils/timeline-boundary.ts";
 import { editingTimeFieldAtom } from "$/states/main.ts";
 import styles from "./LyricWordSegment.module.css";
 import { SpectrogramContext } from "./SpectrogramContext.ts";
@@ -20,19 +22,46 @@ interface LyricWordSegmentProps {
 	lineId: string;
 	segment: WordSegment;
 	lineStartTime: number;
+	visualState: WordVisualState;
+	onPointerEnter: (id: string) => void;
+	onPointerLeave: (id: string) => void;
+	onFocus: (id: string) => void;
+	onBlur: (id: string) => void;
 }
 
 export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 	lineId,
 	segment,
 	lineStartTime,
+	visualState,
+	onPointerEnter,
+	onPointerLeave,
+	onFocus,
+	onBlur,
 }) => {
-	const [selectedWordId, setSelectedWordId] = useAtom(selectedWordIdAtom);
+	const setSelectedWordId = useSetAtom(selectedWordIdAtom);
 	const setTimelineDrag = useSetAtom(timelineDragAtom);
 	const { zoom, scrollLeft, scrollContainerRef } =
 		useContext(SpectrogramContext);
 	const showPerWordRomanization = useAtomValue(displayRomanizationInSyncAtom);
 	const editingTimeField = useAtomValue(editingTimeFieldAtom);
+
+	const handlePointerEnter = useCallback(
+		() => onPointerEnter(segment.id),
+		[onPointerEnter, segment.id],
+	);
+	const handlePointerLeave = useCallback(
+		() => onPointerLeave(segment.id),
+		[onPointerLeave, segment.id],
+	);
+	const handleFocus = useCallback(
+		() => onFocus(segment.id),
+		[onFocus, segment.id],
+	);
+	const handleBlur = useCallback(
+		() => onBlur(segment.id),
+		[onBlur, segment.id],
+	);
 
 	const { startTime, endTime, word, romanWord } = segment;
 
@@ -42,8 +71,6 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 
 	const left = ((startTime - lineStartTime) / 1000) * zoom;
 	const width = ((endTime - startTime) / 1000) * zoom;
-
-	const isSelected = selectedWordId === segment.id;
 
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
 		if (editingTimeField) return;
@@ -97,22 +124,21 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 		}
 	};
 
-	const dynamicStyles = {
-		left: `${left}px`,
-		width: `${width}px`,
-		backgroundColor: isSelected ? "var(--accent-a6)" : "transparent",
-	};
-
 	const hasRoman =
 		showPerWordRomanization && romanWord && romanWord.trim() !== "";
 
 	return (
 		<div
 			className={styles.wordSegment}
-			style={dynamicStyles}
+			style={{ left: `${left}px`, width: `${width}px` }}
+			data-visual-state={visualState}
 			onClick={handleClick}
 			onMouseDown={handlePanStart}
 			onContextMenu={handleContextMenu}
+			onPointerEnter={handlePointerEnter}
+			onPointerLeave={handlePointerLeave}
+			onFocus={handleFocus}
+			onBlur={handleBlur}
 			role="button"
 			tabIndex={0}
 			onKeyDown={handleKeyDown}

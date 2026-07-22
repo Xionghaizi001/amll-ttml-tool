@@ -1,7 +1,11 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { type FC, useCallback, useContext } from "react";
 import { processedLyricLinesAtom } from "$/modules/segmentation/utils/segment-processing.ts";
-import { timelineDragAtom } from "$/modules/spectrogram/states/dnd";
+import { timelineDragAtom } from "$/modules/spectrogram/states/dnd.ts";
+import type {
+	BoundaryKind,
+	BoundaryVisualState,
+} from "$/modules/spectrogram/utils/timeline-boundary.ts";
 import {
 	commitUpdatedLine,
 	getUpdatedLineForDivider,
@@ -14,12 +18,10 @@ interface DividerSegmentProps {
 	segmentIndex: number;
 	timeMs: number;
 	lineStartTime: number;
-	segmentsLength: number;
-	isTouching: boolean;
+	kind: BoundaryKind;
+	visualState: BoundaryVisualState;
 }
 
-const DIVIDER_WIDTH_PX = 15;
-const HALF_DIVIDER_WIDTH_PX = DIVIDER_WIDTH_PX / 2;
 const NUDGE_MS = 10;
 const SHIFT_NUDGE_MS = 50;
 
@@ -28,8 +30,8 @@ export const DividerSegment: FC<DividerSegmentProps> = ({
 	segmentIndex,
 	timeMs,
 	lineStartTime,
-	segmentsLength,
-	isTouching,
+	kind,
+	visualState,
 }) => {
 	const setTimelineDrag = useSetAtom(timelineDragAtom);
 	const processedLines = useAtomValue(processedLyricLinesAtom);
@@ -87,32 +89,13 @@ export const DividerSegment: FC<DividerSegmentProps> = ({
 	if (timeMs == null || timeMs < 0 || lineStartTime == null) return null;
 
 	const timePx = ((timeMs - lineStartTime) / 1000) * zoom;
-	const isLineStartHandle = segmentIndex === -1;
-	const isLineEndHandle = segmentIndex === segmentsLength - 1;
-
-	const handleWidthPx = DIVIDER_WIDTH_PX;
-	let handleOffsetPx: number;
-
-	if (isLineStartHandle && isTouching) {
-		handleOffsetPx = 0;
-	} else if (isLineEndHandle && isTouching) {
-		handleOffsetPx = -DIVIDER_WIDTH_PX;
-	} else {
-		handleOffsetPx = -HALF_DIVIDER_WIDTH_PX;
-	}
-
-	const left = timePx + handleOffsetPx;
-
-	const dynamicStyles = {
-		left: `${left}px`,
-		width: `${handleWidthPx}px`,
-	};
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: <hr> 在这里不适用
 		<div
 			className={styles.divider}
-			style={dynamicStyles}
+			style={{ left: `${timePx}px` }}
+			data-kind={kind}
+			data-visual-state={visualState}
 			onMouseDown={startDrag}
 			onContextMenu={(e) => e.preventDefault()}
 			role="separator"

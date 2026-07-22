@@ -43,6 +43,7 @@ export function getUpdatedLineForDivider(
 	newTime: number,
 	isGapCreation: boolean,
 	zoom: number,
+	lockedGapDirection?: "left" | "right" | null,
 ): ProcessedLyricLine {
 	const segments = [...originalLine.segments];
 	let newStartTime = originalLine.startTime;
@@ -105,13 +106,40 @@ export function getUpdatedLineForDivider(
 	} else {
 		const originalTime = leftSegment.endTime;
 		if (isGapCreation) {
-			if (clampedTime > originalTime) {
+			const effectiveDirection =
+				lockedGapDirection !== undefined ? lockedGapDirection : null;
+
+			if (
+				(effectiveDirection === "right" || effectiveDirection === null) &&
+				clampedTime > originalTime
+			) {
 				newSegments[segmentIndex + 1] = {
 					...rightSegment,
 					startTime: clampedTime,
 				};
-			} else if (clampedTime < originalTime) {
+				newSegments.splice(segmentIndex + 1, 0, {
+					type: "gap",
+					id: `preview-gap-${leftSegment.id}`,
+					startTime: originalTime,
+					endTime: clampedTime,
+				});
+			} else if (
+				(effectiveDirection === "left" || effectiveDirection === null) &&
+				clampedTime < originalTime
+			) {
 				newSegments[segmentIndex] = { ...leftSegment, endTime: clampedTime };
+				newSegments.splice(segmentIndex + 1, 0, {
+					type: "gap",
+					id: `preview-gap-${leftSegment.id}`,
+					startTime: clampedTime,
+					endTime: originalTime,
+				});
+			} else {
+				newSegments[segmentIndex] = { ...leftSegment, endTime: originalTime };
+				newSegments[segmentIndex + 1] = {
+					...rightSegment,
+					startTime: originalTime,
+				};
 			}
 		} else {
 			newSegments[segmentIndex] = { ...leftSegment, endTime: clampedTime };

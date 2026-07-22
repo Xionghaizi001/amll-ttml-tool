@@ -11,6 +11,4 @@
 		var(--gray-a3) 5px,
 		var(--gray-a3) 10px
 	);
-	border: 1px solid var(--accent-8);
-	border-radius: var(--radius-1);
 }
