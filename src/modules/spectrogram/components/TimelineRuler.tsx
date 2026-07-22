@@ -5,25 +5,27 @@ import {
 	useImperativeHandle,
 	useRef,
 } from "react";
-import { msToTimestamp } from "$/utils/timestamp";
 
-export const RULER_HEIGHT = 24;
+export const DEFAULT_RULER_HEIGHT = 30;
 
 export interface TimelineRulerHandle {
 	draw: (scrollLeft: number) => void;
 }
 
-const TICK_INTERVALS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+const TICK_INTERVALS = [
+	0.05, 0.1, 0.2, 0.5, 1, 2, 4, 8, 15, 30, 60, 120, 240, 480, 900, 1800,
+];
 
 interface TimelineRulerProps {
 	zoom: number;
 	duration: number;
 	containerWidth: number;
+	height?: number;
 	onSeek: (timeInSeconds: number) => void;
 }
 
 function getTickInterval(zoom: number) {
-	const minPxPerTick = 50;
+	const minPxPerTick = 65;
 	const minSecondsPerTick = minPxPerTick / zoom;
 	const majorInterval =
 		TICK_INTERVALS.find((i) => i >= minSecondsPerTick) ||
@@ -34,110 +36,143 @@ function getTickInterval(zoom: number) {
 	};
 }
 
+function msToTimestamp(ms: number): string {
+	const totalMs = Math.max(0, Math.round(ms));
+	const milliseconds = totalMs % 1000;
+	const totalSeconds = Math.floor(totalMs / 1000);
+	const seconds = totalSeconds % 60;
+	const minutes = Math.floor(totalSeconds / 60) % 60;
+	const hours = Math.floor(totalSeconds / 3600);
+
+	const msStr = String(milliseconds).padStart(3, "0");
+
+	if (hours > 0) {
+		const mStr = String(minutes).padStart(2, "0");
+		const sStr = String(seconds).padStart(2, "0");
+		return `${hours}:${mStr}:${sStr}.${msStr}`;
+	}
+
+	if (minutes > 0) {
+		const sStr = String(seconds).padStart(2, "0");
+		return `${minutes}:${sStr}.${msStr}`;
+	}
+
+	return `${seconds}.${msStr}`;
+}
+
 export const TimelineRuler = forwardRef<
 	TimelineRulerHandle,
 	TimelineRulerProps
->(({ zoom, duration, containerWidth, onSeek }, ref) => {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const lastScrollLeft = useRef(0);
-
-	const drawRuler = useCallback(
-		(scrollLeft: number) => {
-			lastScrollLeft.current = scrollLeft;
-			const canvas = canvasRef.current;
-			if (!canvas || containerWidth === 0) return;
-
-			const dpr = window.devicePixelRatio || 1;
-			const width = containerWidth * dpr;
-			const height = RULER_HEIGHT * dpr;
-
-			if (canvas.width !== width) canvas.width = width;
-			if (canvas.height !== height) canvas.height = height;
-
-			const ctx = canvas.getContext("2d");
-			if (!ctx) return;
-
-			ctx.scale(dpr, dpr);
-			ctx.clearRect(0, 0, containerWidth, RULER_HEIGHT);
-
-			const styles = getComputedStyle(canvas);
-			const textColor = styles.getPropertyValue("--gray-11").trim();
-			const lineColor = styles.getPropertyValue("--gray-9").trim();
-
-			ctx.fillStyle = textColor;
-			ctx.strokeStyle = lineColor;
-			ctx.textAlign = "center";
-
-			const { major, minor } = getTickInterval(zoom);
-
-			const startTime = scrollLeft / zoom;
-			const endTime = (scrollLeft + containerWidth) / zoom;
-			const firstMajorTick = Math.ceil(startTime / major) * major;
-
-			ctx.beginPath();
-			const firstMinorTick = Math.ceil(startTime / minor) * minor;
-			for (let time = firstMinorTick; time <= endTime; time += minor) {
-				const x = time * zoom - scrollLeft;
-				ctx.moveTo(x, RULER_HEIGHT - 5);
-				ctx.lineTo(x, RULER_HEIGHT);
-			}
-			ctx.stroke();
-
-			ctx.beginPath();
-			for (let time = firstMajorTick; time <= endTime; time += major) {
-				if (time < 0 || time > duration) continue;
-				const x = time * zoom - scrollLeft;
-
-				ctx.moveTo(x, RULER_HEIGHT - 10);
-				ctx.lineTo(x, RULER_HEIGHT);
-
-				const label = msToTimestamp(time * 1000);
-				ctx.fillText(label, x, RULER_HEIGHT - 12);
-			}
-			ctx.stroke();
-		},
-		[containerWidth, duration, zoom],
-	);
-
-	useImperativeHandle(
+>(
+	(
+		{ zoom, duration, containerWidth, height = DEFAULT_RULER_HEIGHT, onSeek },
 		ref,
-		() => ({
-			draw(scrollLeft: number) {
-				drawRuler(scrollLeft);
+	) => {
+		const canvasRef = useRef<HTMLCanvasElement>(null);
+		const lastScrollLeft = useRef(0);
+
+		const drawRuler = useCallback(
+			(scrollLeft: number) => {
+				lastScrollLeft.current = scrollLeft;
+				const canvas = canvasRef.current;
+				if (!canvas || containerWidth === 0) return;
+
+				const dpr = window.devicePixelRatio || 1;
+				const canvasWidth = containerWidth * dpr;
+				const canvasHeight = height * dpr;
+
+				if (canvas.width !== canvasWidth) canvas.width = canvasWidth;
+				if (canvas.height !== canvasHeight) canvas.height = canvasHeight;
+
+				const ctx = canvas.getContext("2d");
+				if (!ctx) return;
+
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+				ctx.clearRect(0, 0, containerWidth, height);
+
+				const styles = getComputedStyle(canvas);
+				const textColor = styles.getPropertyValue("--gray-11").trim();
+				const lineColor = styles.getPropertyValue("--gray-9").trim();
+				const fontFamily =
+					styles.getPropertyValue("--default-font-family-mono").trim() ||
+					"monospace";
+
+				ctx.fillStyle = textColor;
+				ctx.strokeStyle = lineColor;
+				ctx.textAlign = "center";
+				ctx.font = `12px ${fontFamily}`;
+
+				const { major, minor } = getTickInterval(zoom);
+
+				const startTime = scrollLeft / zoom;
+				const endTime = (scrollLeft + containerWidth) / zoom;
+				const firstMajorTick = Math.ceil(startTime / major) * major;
+
+				ctx.beginPath();
+				const firstMinorTick = Math.ceil(startTime / minor) * minor;
+				for (let time = firstMinorTick; time <= endTime; time += minor) {
+					const x = time * zoom - scrollLeft;
+					ctx.moveTo(x, height - 5);
+					ctx.lineTo(x, height);
+				}
+				ctx.stroke();
+
+				ctx.beginPath();
+				for (let time = firstMajorTick; time <= endTime; time += major) {
+					if (time < 0 || time > duration) continue;
+					const x = time * zoom - scrollLeft;
+
+					ctx.moveTo(x, height - 10);
+					ctx.lineTo(x, height);
+
+					const label = msToTimestamp(time * 1000);
+					ctx.fillText(label, x, height - 12);
+				}
+				ctx.stroke();
 			},
-		}),
-		[drawRuler],
-	);
+			[containerWidth, duration, height, zoom],
+		);
 
-	useEffect(() => {
-		drawRuler(lastScrollLeft.current);
-	}, [drawRuler]);
+		useImperativeHandle(
+			ref,
+			() => ({
+				draw(scrollLeft: number) {
+					drawRuler(scrollLeft);
+				},
+			}),
+			[drawRuler],
+		);
 
-	const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
+		useEffect(() => {
+			drawRuler(lastScrollLeft.current);
+		}, [drawRuler]);
 
-		const rect = canvas.getBoundingClientRect();
-		const clickX = event.clientX - rect.left;
-		const scrollLeft = lastScrollLeft.current;
+		const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+			const canvas = canvasRef.current;
+			if (!canvas) return;
 
-		const timeInSeconds = (scrollLeft + clickX) / zoom;
+			const rect = canvas.getBoundingClientRect();
+			const clickX = event.clientX - rect.left;
+			const scrollLeft = lastScrollLeft.current;
 
-		if (timeInSeconds >= 0 && timeInSeconds <= duration) {
-			onSeek(timeInSeconds);
-		}
-	};
+			const timeInSeconds = (scrollLeft + clickX) / zoom;
 
-	return (
-		<canvas
-			ref={canvasRef}
-			style={{
-				width: "100%",
-				height: `${RULER_HEIGHT}px`,
-				backgroundColor: "var(--white-3)",
-			}}
-			onClick={handleClick}
-			onContextMenu={(e) => e.preventDefault()}
-		/>
-	);
-});
+			if (timeInSeconds >= 0 && timeInSeconds <= duration) {
+				onSeek(timeInSeconds);
+			}
+		};
+
+		return (
+			<canvas
+				ref={canvasRef}
+				style={{
+					width: "100%",
+					height: `${height}px`,
+					backgroundColor: "var(--white-3)",
+				}}
+				onClick={handleClick}
+				onContextMenu={(e) => e.preventDefault()}
+			/>
+		);
+	},
+);

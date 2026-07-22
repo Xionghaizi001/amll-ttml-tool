@@ -60,7 +60,7 @@ import {
 } from "./SpectrogramContext.ts";
 import { TileComponent, type TileComponentProps } from "./TileComponent.tsx";
 import {
-	RULER_HEIGHT,
+	DEFAULT_RULER_HEIGHT,
 	TimelineRuler,
 	type TimelineRulerHandle,
 } from "./TimelineRuler.tsx";
@@ -451,6 +451,7 @@ export const AudioSpectrogram: FC = () => {
 					) : (
 						<>
 							<TimelineRuler
+								height={30}
 								ref={rulerRef}
 								zoom={zoom}
 								duration={currentDurationMs / 1000}
@@ -475,7 +476,7 @@ export const AudioSpectrogram: FC = () => {
 										className={`${styles.rulerHoverFade} ${styles.rulerHoverFadeLeft}`}
 										style={{
 											width: `${hoverPx}px`,
-											height: `${RULER_HEIGHT}px`,
+											height: `${DEFAULT_RULER_HEIGHT}px`,
 											opacity: isHovering ? 1 : 0,
 										}}
 									/>
@@ -484,7 +485,7 @@ export const AudioSpectrogram: FC = () => {
 										className={`${styles.rulerHoverFade} ${styles.rulerHoverFadeRight}`}
 										style={{
 											left: `${hoverPx}px`,
-											height: `${RULER_HEIGHT}px`,
+											height: `${DEFAULT_RULER_HEIGHT}px`,
 											opacity: isHovering ? 1 : 0,
 										}}
 									/>

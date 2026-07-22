@@ -121,7 +121,7 @@
 .playheadScrubHandle {
 	position: absolute;
 	top: 23px;
-	margin-top: -10px;
+	margin-top: -5px;
 	z-index: 11;
 	cursor: ew-resize;
 	pointer-events: auto;
@@ -158,7 +158,7 @@
 
 .hoverTimeTooltip {
 	position: absolute;
-	top: 1px;
+	margin-top: 3px;
 	transform: translateX(-50%);
 	z-index: 12;
 	pointer-events: none;
@@ -166,7 +166,8 @@
 	color: var(--gray-1);
 	padding: 2px 6px;
 	border-radius: var(--radius-1);
-	font-size: 11px;
+	font-size: 12px;
+	font-family: var(--default-font-family-mono);
 	white-space: nowrap;
 	box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
 	transition: opacity 100ms ease-out;
