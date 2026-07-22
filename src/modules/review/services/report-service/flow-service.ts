@@ -6,10 +6,7 @@ import type {
 import { replayReviewOperations } from "../operation-log-service";
 import { buildReviewReportFromDiffs } from "./edit-report-builder";
 import { computeDisplayNumbers, getDisplayNumber } from "./lyric-utils";
-import {
-	keepPersistentReviewReportBlocks,
-	mergeReports,
-} from "./merge-service";
+import { mergeReports } from "./merge-service";
 import { createReviewReport } from "./normalize-service";
 import { applyReviewReportSelectionState } from "./selection-service";
 import type {
@@ -321,12 +318,11 @@ export const buildReviewReportFromOperationReplay = (
 		buildOperationReport(freeze, operations),
 		baseReports,
 	);
-	const persistentBaseReports = baseReports.map(
-		keepPersistentReviewReportBlocks,
-	);
 	const currentSyncReport = syncReport ?? createReviewReport();
+	// The diff builder needs the complete previous report to restore enabled states.
+	// It filters persistent blocks itself before assembling the final report.
 	const currentReport = buildReviewReportFromDiffs(
-		persistentBaseReports,
+		baseReports,
 		replayedBase,
 		staged,
 		currentSyncReport,
