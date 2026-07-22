@@ -27,8 +27,10 @@ class SpectrogramWorkerClient {
 			reject: (err: Error) => void;
 		}
 	>();
+	private onInitCompleteCallback?: () => void;
 
-	constructor() {
+	constructor(onInitComplete?: () => void) {
+		this.onInitCompleteCallback = onInitComplete;
 		this.worker = new Worker(
 			new URL("../workers/spectrogram.worker.ts", import.meta.url),
 			{ type: "module" },
@@ -38,7 +40,9 @@ class SpectrogramWorkerClient {
 
 	private handleMessage(event: MessageEvent<WorkerResponse>) {
 		const msg = event.data;
-		if (msg.type === "TILE_READY") {
+		if (msg.type === "INIT_COMPLETE") {
+			this.onInitCompleteCallback?.();
+		} else if (msg.type === "TILE_READY") {
 			const request = this.pendingRequests.get(msg.reqId);
 			if (request) {
 				request.resolve(msg.imageBitmap);
@@ -92,6 +96,7 @@ export const useSpectrogramWorker = (
 	paletteData: Uint8Array,
 ) => {
 	const clientRef = useRef<SpectrogramWorkerClient | null>(null);
+	const [isWorkerReady, setIsWorkerReady] = useState(false);
 	const tileCache = useRef<LRUCache<string, TileEntry>>(
 		new LRUCache(MAX_CACHED_TILES, (_key, entry) => {
 			entry.bitmap.close();
@@ -109,7 +114,10 @@ export const useSpectrogramWorker = (
 	}, [paletteData]);
 
 	useEffect(() => {
-		const client = new SpectrogramWorkerClient();
+		const client = new SpectrogramWorkerClient(() => {
+			setIsWorkerReady(true);
+			setLastTileTimestamp(Date.now());
+		});
 		clientRef.current = client;
 
 		if (paletteDataRef.current) {
@@ -121,6 +129,7 @@ export const useSpectrogramWorker = (
 
 	useEffect(() => {
 		if (pcmDataReady && clientRef.current && durationInMs > 0) {
+			setIsWorkerReady(false);
 			tileCache.current.clear();
 			activeRequests.current.clear();
 
@@ -130,18 +139,15 @@ export const useSpectrogramWorker = (
 			if (paletteDataRef.current) {
 				clientRef.current.setPalette(paletteDataRef.current);
 			}
-
-			setTimeout(() => {
-				setLastTileTimestamp(Date.now());
-			}, 100);
 		} else if (!pcmDataReady && clientRef.current) {
+			setIsWorkerReady(false);
 			clientRef.current.releaseAudio();
 		}
 	}, [pcmDataReady, durationInMs]);
 
 	const requestTileIfNeeded = useCallback(
 		async (params: TileGenerationParams) => {
-			if (!clientRef.current) return;
+			if (!clientRef.current || !isWorkerReady) return;
 
 			const cacheKey = `tile-${params.tileIndex}`;
 			const requestFingerprint = `${params.tileIndex}-w${params.tileWidthPx}-h${params.height}-g${params.gain}-p${params.paletteId}`;
@@ -177,8 +183,8 @@ export const useSpectrogramWorker = (
 				}
 			}
 		},
-		[],
+		[isWorkerReady],
 	);
 
-	return { tileCache, requestTileIfNeeded, lastTileTimestamp };
+	return { tileCache, requestTileIfNeeded, lastTileTimestamp, isWorkerReady };
 };
