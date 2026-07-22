@@ -17,6 +17,9 @@ import workletUrl from "$/modules/ffmpeg/worklet/audio.worklet.ts?worker&url";
 import soundtouchWasmUrl from "$/modules/ffmpeg/worklet/wasm/soundtouch_bg.wasm?url";
 import { globalStore } from "$/states/store.ts";
 import type { TTMLMetadata } from "$/types/ttml";
+import { createLogger } from "$/utils/logger";
+
+export const audioEngineLogger = createLogger("AudioEngine");
 
 export type { AudioTrackMetadata };
 
@@ -151,7 +154,7 @@ class AudioEngineWrapper extends EventTarget {
 		this.engine.addEventListener("error", (e) => {
 			globalStore.set(audioEngineStateAtom, this.engine.state);
 			globalStore.set(audioErrorAtom, e.detail.message);
-			console.error("[AudioEngine] Error:", e.detail.message);
+			audioEngineLogger.error(e.detail.message);
 			this.stopTick();
 		});
 	}
@@ -253,7 +256,7 @@ class AudioEngineWrapper extends EventTarget {
 	 */
 	auditionRange(startTimeInSeconds: number, endTimeInSeconds: number) {
 		if (!this.musicLoaded) {
-			console.warn("音频未加载, 无法预览音频");
+			audioEngineLogger.warn("音频未加载, 无法预览音频");
 			return;
 		}
 

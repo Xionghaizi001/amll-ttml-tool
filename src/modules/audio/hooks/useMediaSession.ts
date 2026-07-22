@@ -8,7 +8,10 @@ import {
 	loadedAudioAtom,
 	playbackRateAtom,
 } from "$/modules/audio/states/index.ts";
+import { createLogger } from "$/utils/logger";
 import { createSilentWavBlob } from "../utils";
+
+export const mediaSessionLogger = createLogger("MediaSession");
 
 export function useMediaSession() {
 	const loadedAudio = useAtomValue(loadedAudioAtom);
@@ -67,7 +70,7 @@ export function useMediaSession() {
 						position: clampedPos,
 					});
 				} catch (e) {
-					console.warn("[MediaSession] Optimistic setPositionState failed", e);
+					mediaSessionLogger.warn("Optimistic setPositionState failed", e);
 				}
 			}
 		},
@@ -183,7 +186,7 @@ export function useMediaSession() {
 					},
 				];
 			} catch (e) {
-				console.warn("[MediaSession] Failed to create artwork Blob URL", e);
+				mediaSessionLogger.warn("Failed to create artwork Blob URL", e);
 			}
 		} else if (prevObjectUrlRef.current) {
 			URL.revokeObjectURL(prevObjectUrlRef.current);
@@ -198,7 +201,7 @@ export function useMediaSession() {
 				artwork,
 			});
 		} catch (e) {
-			console.warn("[MediaSession] Failed to set MediaMetadata", e);
+			mediaSessionLogger.warn("Failed to set MediaMetadata", e);
 		}
 	}, [loadedAudio, engineState]);
 
@@ -245,7 +248,7 @@ export function useMediaSession() {
 						position: clampedPos,
 					});
 				} catch (e) {
-					console.warn("[MediaSession] Failed to setPositionState", e);
+					mediaSessionLogger.warn("Failed to setPositionState", e);
 				}
 			}
 		};

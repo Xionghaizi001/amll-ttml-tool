@@ -17,7 +17,7 @@ import {
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
 import { lyricLinesAtom, saveFileNameAtom } from "$/states/main.ts";
-import { error } from "$/utils/logging.ts";
+import { projectLogger } from "../logger";
 
 export const ImportExportLyric = () => {
 	const store = useStore();
@@ -66,7 +66,10 @@ export const ImportExportLyric = () => {
 				const b = new Blob([data], { type: "text/plain" });
 				await saveFile(b, fileName);
 			} catch (e) {
-				error(`Failed to export lyric with format "${extension}"`, e);
+				projectLogger.error(
+					`Failed to export lyric with format "${extension}"`,
+					e,
+				);
 			}
 		};
 

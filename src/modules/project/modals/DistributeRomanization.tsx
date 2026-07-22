@@ -16,6 +16,7 @@ import { predictLineRomanization } from "$/modules/segmentation/utils/Transliter
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
+import { projectLogger } from "../logger";
 
 type Scope = "all" | "selected" | "selected-following" | "custom";
 
@@ -98,7 +99,7 @@ export const DistributeRomanizationDialog = () => {
 							});
 							applyRomanizationWarnings(line.words);
 						} catch (e) {
-							console.error(
+							projectLogger.error(
 								`Failed to distribute romanization for line ${index + 1}`,
 								e,
 							);

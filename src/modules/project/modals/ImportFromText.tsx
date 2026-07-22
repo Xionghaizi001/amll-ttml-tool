@@ -19,11 +19,11 @@ import {
 import { isDirtyAtom, lyricLinesAtom } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
-import { error as logError } from "$/utils/logging.ts";
 
 // import styles from "./ImportFromText.module.css";
 
 import { useTranslation } from "react-i18next";
+import { projectLogger } from "../logger";
 
 // type IModelDeltaDecoration = monaco.editor.IModelDeltaDecoration;
 // type IEditorDecorationsCollection = monaco.editor.IEditorDecorationsCollection;
@@ -319,7 +319,7 @@ export const ImportFromText = () => {
 										level: "error",
 										source: "ImportFromText",
 									});
-									logError(e);
+									projectLogger.error(e);
 								}
 							}}
 						>

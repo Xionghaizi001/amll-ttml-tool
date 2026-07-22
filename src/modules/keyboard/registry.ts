@@ -1,4 +1,5 @@
 import { atomWithKeybindingStorage } from "$/utils/keybindings";
+import { Logger } from "$/utils/logger";
 import type { I18nKey, KeyBindingCommand, KeyBindingsConfig } from "./types";
 
 /**
@@ -32,7 +33,7 @@ export function registerCommand(
 	};
 
 	if (commandsMap.has(id)) {
-		console.warn(`[Keyboard] Duplicate command registered: ${id}`);
+		Logger.warn("KeyBindingRegistry", `Duplicate command registered: ${id}`);
 	}
 	commandsMap.set(id, command);
 

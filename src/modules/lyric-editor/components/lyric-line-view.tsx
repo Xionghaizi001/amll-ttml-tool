@@ -160,10 +160,8 @@ const LyricLineScroller = ({
 			? scrollToIndex
 			: editingRomanWordIndex;
 		if (targetIndex === null || Number.isNaN(targetIndex)) return;
-		// console.log({ scrollToIndex, wordsContainer });
 		if (!wordsContainer) return;
 		const wordEl = wordsContainer.children[targetIndex] as HTMLElement;
-		// console.log({ wordEl, wordsContainer });
 		if (!wordEl) return;
 		wordsContainer.scrollTo({
 			left: wordEl.offsetLeft - wordsContainer.clientWidth / 2,

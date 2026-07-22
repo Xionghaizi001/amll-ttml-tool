@@ -14,7 +14,7 @@ import {
 	SaveStatus,
 	saveStatusAtom,
 } from "$/states/main";
-import { log, error as logError } from "$/utils/logging";
+import { projectLogger } from "../logger";
 
 export const AutosaveManager = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
@@ -45,7 +45,7 @@ export const AutosaveManager = () => {
 		const timer = setTimeout(() => {
 			if (lyricLines.lyricLines.length > 0) {
 				setSaveStatus(SaveStatus.Saving);
-				log("Auto-saving project...", projectId);
+				projectLogger.info("Auto-saving project...", projectId);
 
 				autoSaveProject(
 					projectId,
@@ -58,7 +58,7 @@ export const AutosaveManager = () => {
 						setLastSavedTime(Date.now());
 					})
 					.catch((err) => {
-						logError("Failed to autosave project", err);
+						projectLogger.error("Failed to autosave project", err);
 						setSaveStatus(SaveStatus.Pending);
 					});
 			}

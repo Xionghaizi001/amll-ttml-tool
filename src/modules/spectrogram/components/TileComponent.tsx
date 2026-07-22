@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from "react";
+import { spectrogramLogger } from "../logger";
 import styles from "./AudioSpectrogram.module.css";
 
 export interface TileComponentProps {
@@ -37,7 +38,7 @@ export const TileComponent = memo(
 					if ((e as Error).name === "InvalidStateError") {
 						ctx.clearRect(0, 0, canvas.width, canvas.height);
 					} else {
-						console.error(`[TileComponent] 绘制瓦片 ${tileId} 失败:`, e);
+						spectrogramLogger.error(`绘制瓦片 ${tileId} 失败:`, e);
 					}
 				}
 			}

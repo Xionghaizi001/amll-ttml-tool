@@ -5,7 +5,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { log, warn } from "$/utils/logging.ts";
+import { Logger } from "$/utils/logger.ts";
 import styles from "./index.module.css";
 import { MacOSSystemsControls } from "./macos.tsx";
 import { WindowsSystemsControls } from "./windows.tsx";
@@ -37,7 +37,8 @@ export default function WindowControls(props: WindowControlsProps) {
 	useLayoutEffect(() => {
 		if (props.variant) return setVariant(props.variant);
 		if (import.meta.env.DEV)
-			log(
+			Logger.info(
+				"WindowControls",
 				"Setting variant based on platform:",
 				import.meta.env.TAURI_ENV_PLATFORM,
 			);
@@ -57,7 +58,7 @@ export default function WindowControls(props: WindowControlsProps) {
 			const tauriWin = import("@tauri-apps/api/window");
 			await (await tauriWin).getCurrentWindow().close();
 		} catch (err) {
-			if (import.meta.env.DEV) warn(err);
+			Logger.warn("WindowControls", err);
 		}
 	}, [props.onClosed]);
 
@@ -73,7 +74,7 @@ export default function WindowControls(props: WindowControlsProps) {
 				await win.maximize();
 			}
 		} catch (err) {
-			if (import.meta.env.DEV) warn(err);
+			Logger.warn("WindowControls", err);
 		}
 	}, [props.onMaximized]);
 
@@ -85,7 +86,7 @@ export default function WindowControls(props: WindowControlsProps) {
 			if (!(await win.isMinimizable())) return;
 			await win.minimize();
 		} catch (err) {
-			if (import.meta.env.DEV) warn(err);
+			Logger.warn("WindowControls", err);
 		}
 	}, [props.onMinimized]);
 

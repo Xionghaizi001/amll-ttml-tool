@@ -1,11 +1,15 @@
-export function log(...messages: any[]) {
-	console.log(...messages);
+import { createLogger } from "./logger";
+
+const legacyLogger = createLogger("Legacy");
+
+export function log(...messages: unknown[]) {
+	legacyLogger.log(...messages);
 }
 
-export function warn(...messages: any[]) {
-	console.warn(...messages);
+export function warn(...messages: unknown[]) {
+	legacyLogger.warn(...messages);
 }
 
 export function error(...messages: unknown[]) {
-	console.error(...messages);
+	legacyLogger.error(...messages);
 }

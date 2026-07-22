@@ -4,6 +4,7 @@ import init, {
 	SpectrogramConfig,
 } from "$/modules/spectrogram/vendor";
 import type { SpectrogramWorkerScope } from "$/modules/spectrogram/workers/types";
+import { spectrogramLogger } from "../logger";
 
 const ctx: SpectrogramWorkerScope = self as SpectrogramWorkerScope;
 
@@ -59,7 +60,7 @@ ctx.onmessage = async (event) => {
 
 				ctx.postMessage({ type: "INIT_COMPLETE" });
 			} catch (e) {
-				console.error("[Spectrogram Worker] 无法打开 OPFS 缓存文件:", e);
+				spectrogramLogger.error("Worker 无法打开 OPFS 缓存文件:", e);
 				ctx.postMessage({
 					type: "ERROR",
 					reqId: -1,

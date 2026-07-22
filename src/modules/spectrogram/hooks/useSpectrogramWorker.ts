@@ -5,6 +5,7 @@ import type {
 	TileGenerationParams,
 	WorkerResponse,
 } from "$/modules/spectrogram/workers/types";
+import { spectrogramLogger } from "../logger";
 
 const MAX_CACHED_TILES = 70;
 
@@ -48,7 +49,7 @@ class SpectrogramWorkerClient {
 		} else if (msg.type === "ERROR") {
 			const request = this.pendingRequests.get(msg.reqId);
 			if (request) {
-				console.warn(`Worker Error req ${msg.reqId}:`, msg.message);
+				spectrogramLogger.warn(`Worker Error req ${msg.reqId}:`, msg.message);
 				request.reject(new Error(msg.message));
 				this.pendingRequests.delete(msg.reqId);
 			}
@@ -170,7 +171,7 @@ export const useSpectrogramWorker = (
 
 					setLastTileTimestamp(Date.now());
 				} catch (err) {
-					console.error("生成频谱图瓦片失败", err);
+					spectrogramLogger.error("生成频谱图瓦片失败", err);
 				} finally {
 					activeRequests.current.delete(requestFingerprint);
 				}

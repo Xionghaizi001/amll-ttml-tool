@@ -1,3 +1,4 @@
+import { lrcLibLogger } from "../logger";
 import type { LrcLibTrack } from "../types";
 
 const BASE_URL = "https://lrclib.net/api";
@@ -22,7 +23,7 @@ export const LrcLibApi = {
 			const data = (await response.json()) as LrcLibTrack[];
 			return data;
 		} catch (error) {
-			console.error("LRCLIB API Error:", error);
+			lrcLibLogger.error("LRCLIB API Error:", error);
 			throw error;
 		}
 	},
@@ -41,7 +42,7 @@ export const LrcLibApi = {
 			}
 			return (await response.json()) as LrcLibTrack;
 		} catch (error) {
-			console.error("LRCLIB API Error:", error);
+			lrcLibLogger.error("LRCLIB API Error:", error);
 			throw error;
 		}
 	},

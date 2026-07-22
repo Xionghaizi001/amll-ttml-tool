@@ -2,6 +2,7 @@ import { useStore } from "jotai";
 import { useEffect } from "react";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { lyricLinesAtom } from "$/states/main";
+import { segmentationLogger } from "../../logger";
 
 export const useRomanDebugger = () => {
 	const store = useStore();
@@ -33,7 +34,7 @@ export const useRomanDebugger = () => {
 			});
 
 			const jsonOutput = JSON.stringify(report, null, 2);
-			console.log(jsonOutput);
+			segmentationLogger.log(jsonOutput);
 		};
 	}, [store]);
 };

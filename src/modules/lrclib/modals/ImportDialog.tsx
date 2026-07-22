@@ -44,8 +44,8 @@ import {
 	saveFileNameAtom,
 } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
-import { error as logError } from "$/utils/logging";
 import { LrcLibApi } from "../api/client";
+import { lrcLibLogger } from "../logger";
 import type { LrcLibTrack } from "../types";
 import { convertLrcLibTrackToTTML } from "../utils/converter";
 import { extractParenthesesToBg } from "../utils/extractParenthesesToBg";
@@ -90,7 +90,7 @@ export const ImportFromLRCLIB = () => {
 			const data = await LrcLibApi.search(query);
 			setResults(data);
 		} catch (e) {
-			logError("LRCLIB Search Error", e);
+			lrcLibLogger.error("LRCLIB Search Error", e);
 			setPushNotification({
 				title: t("lrclib.searchError", "搜索失败，请检查网络或稍后重试"),
 				level: "error",
@@ -145,7 +145,7 @@ export const ImportFromLRCLIB = () => {
 				setResults([]);
 				setHasSearched(false);
 			} catch (e) {
-				logError("LRCLIB Import Error", e);
+				lrcLibLogger.error("LRCLIB Import Error", e);
 				setPushNotification({
 					title: t("lrclib.importError", "导入歌词时发生错误"),
 					level: "error",

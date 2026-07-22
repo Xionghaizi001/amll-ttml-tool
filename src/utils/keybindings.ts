@@ -1,7 +1,9 @@
 import { atom, type createStore, useAtomValue } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { type DependencyList, useEffect } from "react";
-import { warn } from "./logging.ts";
+import { createLogger } from "./logger";
+
+const keyBindingsLogger = createLogger("KeyBindings");
 
 export type KeyBindingsConfig = string[];
 export interface KeyBindingEvent {
@@ -150,7 +152,12 @@ function triggerCallbacks(
 			try {
 				cb(e);
 			} catch (err) {
-				warn("Error in key binding ", joinedKey, "callback", err);
+				keyBindingsLogger.error(
+					"Error in key binding ",
+					joinedKey,
+					"callback",
+					err,
+				);
 			}
 		}
 		evt.preventDefault();
@@ -230,7 +237,12 @@ export function forceInvokeKeyBindingAtom(
 			try {
 				cb(e);
 			} catch (err) {
-				warn("Error in key binding ", joined, "callback", err);
+				keyBindingsLogger.error(
+					"Error in key binding ",
+					joined,
+					"callback",
+					err,
+				);
 			}
 		}
 		evt?.preventDefault();

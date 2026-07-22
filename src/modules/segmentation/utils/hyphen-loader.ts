@@ -3,6 +3,7 @@
  * 用于按需异步加载不同语言的断词模式
  */
 
+import { segmentationLogger } from "../logger";
 import type { HyphenatorFunc } from "../types";
 
 /**
@@ -75,7 +76,7 @@ export async function loadHyphenator(
 		}
 		return null;
 	} catch (error) {
-		console.error(`为 ${lang} 加载分词引擎失败:`, error);
+		segmentationLogger.error(`为 ${lang} 加载分词引擎失败:`, error);
 		return null;
 	}
 }

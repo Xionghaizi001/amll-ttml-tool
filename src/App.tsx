@@ -21,7 +21,7 @@ import {
 } from "@radix-ui/themes";
 import SuspensePlaceHolder from "$/components/SuspensePlaceHolder";
 import { TouchSyncPanel } from "$/modules/lyric-editor/components/TouchSyncPanel/index.tsx";
-import { log, error as logError } from "$/utils/logging.ts";
+import { createLogger } from "$/utils/logger.ts";
 import "@radix-ui/themes/styles.css";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -93,6 +93,8 @@ const ReviewPage = lazy(() => import("./modules/review"));
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 
+const appLogger = createLogger("App");
+
 const AppErrorPage = ({
 	error,
 	resetErrorBoundary,
@@ -126,9 +128,11 @@ const AppErrorPage = ({
 									return;
 								}
 								const b = new Blob([result.data], { type: "text/xml" });
-								saveFile(b, "lyric.ttml").catch(logError);
+								saveFile(b, "lyric.ttml").catch((e) => {
+									appLogger.error("Failed to save TTML file", e);
+								});
 							} catch (e) {
-								logError("Failed to save TTML file", e);
+								appLogger.error("Failed to save TTML file", e);
 							}
 						}}
 					>
@@ -312,7 +316,7 @@ function App() {
 			} | null = await invoke("get_open_file_data");
 
 			if (file) {
-				log("File data from tauri args", file);
+				appLogger.debug("File data from tauri args", file);
 
 				const fileObj = new File([file.data], file.filename, {
 					type: "text/plain",

@@ -9,6 +9,9 @@ import {
 	updateProgressAtom,
 	updateStatusAtom,
 } from "$/states/update";
+import { createLogger } from "./logger";
+
+const updateLogger = createLogger("AppUpdate");
 
 export function useAppUpdate() {
 	const [status, setStatus] = useAtom(updateStatusAtom);
@@ -39,7 +42,7 @@ export function useAppUpdate() {
 				}
 			} catch (e) {
 				if (!silent) {
-					console.error("Failed to check for updates", e);
+					updateLogger.error("Failed to check for updates", e);
 				}
 				setStatus("error");
 				setErrorMsg(String(e));
@@ -85,7 +88,7 @@ export function useAppUpdate() {
 				console.error("Auto relaunch failed", e);
 			}
 		} catch (e) {
-			console.error("Failed to install update", e);
+			updateLogger.error("Failed to install update", e);
 			setStatus("error");
 			setErrorMsg(t("app.update.installError", "安装更新失败"));
 		}

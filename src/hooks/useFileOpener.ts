@@ -37,8 +37,10 @@ import {
 } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
-import { log, error as logError } from "$/utils/logging.ts";
+import { createLogger } from "$/utils/logger";
 import { parseLrc } from "$/utils/parse-lrc";
+
+const fileOpenerLogger = createLogger("FileOpener");
 
 const LYRIC_PARSERS: Record<string, (text: string) => LyricLine[]> = {
 	lrc: parseLrc,
@@ -235,7 +237,10 @@ export const useFileOpener = () => {
 					mergeAudioMetadata(metadata);
 				}
 			} catch (e) {
-				logError(`Failed to load audio or extract metadata: ${file.name}`, e);
+				fileOpenerLogger.error(
+					`Failed to load audio or extract metadata: ${file.name}`,
+					e,
+				);
 			}
 
 			if (options?.cache) {
@@ -306,16 +311,16 @@ export const useFileOpener = () => {
 						);
 
 						if (matchedProject) {
-							log(
+							fileOpenerLogger.debug(
 								`匹配到了已有项目: ${matchedProject.name} (${matchedProject.id})`,
 							);
 							resolvedProjectId = matchedProject.id;
 						} else {
-							log("未匹配已有项目");
+							fileOpenerLogger.debug("未匹配已有项目");
 						}
 					}
 				} catch (e) {
-					logError("解析项目数据时失败", e);
+					fileOpenerLogger.error("解析项目数据时失败", e);
 				}
 
 				setProjectId(resolvedProjectId);
@@ -325,7 +330,7 @@ export const useFileOpener = () => {
 					ext === "ttml" ? file.name : (suggestedFile?.fileName ?? file.name);
 				setSaveFileName(nextFileName);
 			} catch (e) {
-				logError(`Failed to open file: ${file.name}`, e);
+				fileOpenerLogger.error(`Failed to open file: ${file.name}`, e);
 				setPushNotification({
 					title: t("error.openFileFailed", "打开文件失败"),
 					level: "error",
@@ -413,7 +418,7 @@ export const useFileOpener = () => {
 				source: "useFileOpener",
 			});
 		} catch (error) {
-			logError("Failed to load cached audio", error);
+			fileOpenerLogger.error("Failed to load cached audio", error);
 			setPushNotification({
 				title: t("audioPanel.cachedAudioFailed", "读取缓存音频失败"),
 				level: "error",
