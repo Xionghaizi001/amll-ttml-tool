@@ -512,14 +512,6 @@
 	max-height: 100%;
 }
 
-.locateButton {
-	position: absolute;
-	right: var(--space-7);
-	bottom: var(--space-3);
-	z-index: 5;
-	box-shadow: var(--base-card-surface-box-shadow);
-}
-
 .dropIndicator {
 	position: absolute;
 	left: var(--space-2);

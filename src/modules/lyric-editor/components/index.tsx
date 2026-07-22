@@ -9,8 +9,7 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { MyLocation24Regular } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { LayoutGroup } from "framer-motion";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
@@ -29,6 +28,7 @@ import { ViewportList, type ViewportListRef } from "react-viewport-list";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import { useLyricListDrag } from "$/modules/lyric-drag/useLyricListDrag";
 import {
+	locateActionAtom,
 	lyricLinesAtom,
 	selectedLinesAtom,
 	ToolMode,
@@ -136,12 +136,25 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 		return () => audioEngine.offTimeUpdate(updatePlaybackCurrentTime);
 	}, [setPlaybackCurrentTime]);
 
+	const setSelectedLines = useSetAtom(selectedLinesAtom);
+
 	const handleLocate = useCallback(() => {
 		const currentTime = audioEngine.musicCurrentTime * 1000;
 		const index = findCurrentLineIndex(lyricLines, currentTime);
 		if (index === -1) return;
 		scrollToLineIndex(index);
-	}, [lyricLines, scrollToLineIndex]);
+		const targetLine = lyricLines[index];
+		if (targetLine) {
+			setSelectedLines(new Set([targetLine.id]));
+		}
+	}, [lyricLines, scrollToLineIndex, setSelectedLines]);
+
+	const locateAction = useAtomValue(locateActionAtom);
+	useEffect(() => {
+		if (locateAction > 0) {
+			handleLocate();
+		}
+	}, [locateAction, handleLocate]);
 
 	const jumpAction = useAtomValue(outlineJumpActionAtom);
 	useEffect(() => {
@@ -223,14 +236,6 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 					</ViewportList>
 				</LayoutGroup>
 			</Box>
-			<Button
-				className={styles.locateButton}
-				variant="soft"
-				onClick={handleLocate}
-				title={t("lyricEditor.locate", "定位")}
-			>
-				<MyLocation24Regular />
-			</Button>
 		</Box>
 	);
 });

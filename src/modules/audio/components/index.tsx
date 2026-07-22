@@ -13,6 +13,7 @@ import {
 	ChevronDownFilled,
 	ChevronUpFilled,
 	MusicNote2Filled,
+	MyLocationRegular,
 	PauseFilled,
 	PlayFilled,
 } from "@fluentui/react-icons";
@@ -27,7 +28,7 @@ import {
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue, useStore } from "jotai";
+import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { type FC, memo, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
@@ -52,6 +53,7 @@ import {
 	keyVolumeDownAtom,
 	keyVolumeUpAtom,
 } from "$/states/keybindings.ts";
+import { locateActionAtom, lyricLinesAtom } from "$/states/main.ts";
 import { useKeyBinding, useKeyBindingAtom } from "$/utils/keybindings.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 
@@ -144,7 +146,14 @@ export const AudioControls: FC = memo(() => {
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
 	const { openFile, openCachedAudio } = useFileOpener();
+	const { lyricLines } = useAtomValue(lyricLinesAtom);
 	const { t } = useTranslation();
+
+	const setLocateAction = useSetAtom(locateActionAtom);
+
+	const handleLocate = useCallback(() => {
+		setLocateAction((c) => c + 1);
+	}, [setLocateAction]);
 
 	const audioLoaded =
 		engineState === "ready" ||
@@ -283,6 +292,17 @@ export const AudioControls: FC = memo(() => {
 						>
 							{msToTimestamp(currentDuration)}
 						</Text>
+						<Tooltip content={t("lyricEditor.locate", "定位")}>
+							<IconButton
+								my="2"
+								ml="0"
+								variant="soft"
+								onClick={handleLocate}
+								disabled={lyricLines.length === 0}
+							>
+								<MyLocationRegular fontSize={18} />
+							</IconButton>
+						</Tooltip>
 						<Tooltip
 							content={t("audioPanel.expandSpectrogram", "展开 / 收起频谱图")}
 						>
