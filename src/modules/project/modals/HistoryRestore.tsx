@@ -14,10 +14,11 @@ import {
 	Heading,
 	IconButton,
 	ScrollArea,
+	SegmentedControl,
 	Table,
 	Text,
 } from "@radix-ui/themes";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -29,6 +30,12 @@ import {
 	type ProjectInfo,
 	type ProjectVersion,
 } from "$/modules/project/autosave/autosave";
+import { ReviewHistoryPanel } from "$/modules/review/components/ReviewHistoryPanel";
+import {
+	githubAmlldbAccessAtom,
+	githubLoginAtom,
+	githubPatAtom,
+} from "$/modules/settings/states";
 import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
 import { newLyricLinesAtom, projectIdAtom } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
@@ -41,6 +48,15 @@ export const HistoryRestoreDialog = () => {
 		null,
 	);
 	const [versions, setVersions] = useState<ProjectVersion[]>([]);
+	const [historyMode, setHistoryMode] = useState<"projects" | "reviews">(
+		"projects",
+	);
+	const githubLogin = useAtomValue(githubLoginAtom);
+	const githubPat = useAtomValue(githubPatAtom);
+	const githubHasAccess = useAtomValue(githubAmlldbAccessAtom);
+	const canViewReviewHistory = Boolean(
+		githubPat.trim() && githubLogin.trim() && githubHasAccess,
+	);
 
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
@@ -225,10 +241,17 @@ export const HistoryRestoreDialog = () => {
 		if (isOpen) {
 			loadProjects();
 		} else {
+			setHistoryMode("projects");
 			setSelectedProjectId(null);
 			setVersions([]);
 		}
 	}, [isOpen, loadProjects]);
+
+	useEffect(() => {
+		if (!canViewReviewHistory && historyMode === "reviews") {
+			setHistoryMode("projects");
+		}
+	}, [canViewReviewHistory, historyMode]);
 
 	useEffect(() => {
 		if (selectedProjectId) {
@@ -250,249 +273,311 @@ export const HistoryRestoreDialog = () => {
 					padding: 0,
 				}}
 			>
-				<Flex style={{ height: 700 }}>
-					<Flex
-						direction="column"
-						style={{
-							width: "30%",
-							flexShrink: 0,
-							backgroundColor: "var(--gray-2)",
-							borderRight: "1px solid var(--gray-5)",
-						}}
-					>
+				<Flex direction="column" style={{ height: "100%", minHeight: 0 }}>
+					{canViewReviewHistory && (
 						<Flex
-							p="4"
-							align="center"
-							justify="between"
+							p="3"
+							justify="center"
 							style={{ borderBottom: "1px solid var(--gray-5)" }}
 						>
-							<Heading size="3">
-								{t("historyRestoreDialog.projects", "最近项目")}
-							</Heading>
-						</Flex>
-
-						<Box flexGrow="1" style={{ minHeight: 0 }}>
-							<ScrollArea
-								type="auto"
-								scrollbars="vertical"
-								style={{ height: "100%" }}
+							<SegmentedControl.Root
+								value={historyMode}
+								onValueChange={(value) =>
+									setHistoryMode(value as "projects" | "reviews")
+								}
 							>
-								<Flex direction="column">
-									{projects.length === 0 ? (
-										<Box p="4">
-											<Text size="2" color="gray" align="center">
-												{t(
-													"historyRestoreDialog.noProjects",
-													"暂无自动保存记录",
-												)}
-											</Text>
-										</Box>
-									) : (
-										projects.map((project) => (
-											<Box
-												key={project.id}
-												onClick={() => setSelectedProjectId(project.id)}
-												style={{
-													padding: "12px",
-													cursor: "pointer",
-													backgroundColor:
-														selectedProjectId === project.id
-															? "var(--accent-4)"
-															: "transparent",
-													borderBottom: "1px solid var(--gray-4)",
-													transition: "background-color 0.2s",
-												}}
-											>
-												<Flex justify="between" align="start">
-												<Flex
-													direction="column"
-													gap="1"
-													style={{ overflow: "hidden" }}
-												>
-													<Text weight="bold" size="2" truncate>
-														{getProjectDisplayName(project)}
-													</Text>
-													<Flex gap="2" align="center">
-														<IconButton
-															size="1"
-															variant="ghost"
-															color="red"
-															onClick={(e) => handleDeleteProject(e, project.id)}
-														>
-															<DeleteRegular />
-														</IconButton>
-														<ClockRegular fontSize={12} />
-														<Text size="1" color="gray">
-															{formatRelativeTime(project.lastModified)}
-														</Text>
-													</Flex>
-												</Flex>
-											</Flex>
-											</Box>
-										))
-									)}
-								</Flex>
-							</ScrollArea>
+								<SegmentedControl.Item value="projects">
+									{t("historyRestoreDialog.mode.projects", "普通项目")}
+								</SegmentedControl.Item>
+								<SegmentedControl.Item value="reviews">
+									{t("historyRestoreDialog.mode.reviews", "审阅记录")}
+								</SegmentedControl.Item>
+							</SegmentedControl.Root>
+						</Flex>
+					)}
+					{historyMode === "reviews" && canViewReviewHistory ? (
+						<Box flexGrow="1" style={{ minHeight: 0 }}>
+							<ReviewHistoryPanel />
 						</Box>
-					</Flex>
+					) : (
+						<Flex flexGrow="1" style={{ minHeight: 0 }}>
+							<Flex
+								direction="column"
+								style={{
+									width: "30%",
+									flexShrink: 0,
+									backgroundColor: "var(--gray-2)",
+									borderRight: "1px solid var(--gray-5)",
+								}}
+							>
+								<Flex
+									p="4"
+									align="center"
+									justify="between"
+									style={{ borderBottom: "1px solid var(--gray-5)" }}
+								>
+									<Heading size="3">
+										{t("historyRestoreDialog.projects", "最近项目")}
+									</Heading>
+								</Flex>
 
-					<Box
-						style={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
-					>
-						{currentProject ? (
-							<>
-								<Box p="4" style={{ borderBottom: "1px solid var(--gray-5)" }}>
-									<Flex justify="between" align="start" mb="3">
-										<Heading size="4">
-											{getProjectDisplayName(currentProject)}
-										</Heading>
-									</Flex>
-
-									<Card variant="surface">
-										<Flex align="center" gap="3">
-											<Box>
-												<DocumentRegular fontSize={24} />
-											</Box>
-											<Flex direction="column" flexGrow="1">
-												<Text weight="bold">
-													{t("historyRestoreDialog.latestState", "最新版本")}
-												</Text>
-												<Text size="1" color="gray">
-													{new Date(
-														currentProject.lastModified,
-													).toLocaleString()}
-												</Text>
-											</Flex>
-											<Flex gap="2">
-											<Button
-												variant="soft"
-												color="red"
-												onClick={handleDeleteLatestVersion}
-											>
-												{t("historyRestoreDialog.deleteLatest.button", "删除此版本")}
-											</Button>
-											<Button
-												onClick={() => handleRestoreLatest(currentProject)}
-											>
-												{t("historyRestoreDialog.restoreLatest", "恢复此版本")}
-											</Button>
-										</Flex>
-										</Flex>
-									</Card>
-									{currentProject.latestState.metadata &&
-										currentProject.latestState.metadata.length > 0 && (
-											<Box mt="2">
-												<Text size="2" weight="bold" mb="2" as="div">
-													{t("metadata.title", "元数据信息")}
-												</Text>
-												<ScrollArea type="auto" scrollbars="vertical">
-													<Flex gap="2" wrap="wrap" pb="1" pr="3">
-														{currentProject.latestState.metadata.map((meta) => (
-															<Badge key={meta.key} variant="soft" color="gray">
-																{meta.key}: {meta.value[0]}
-															</Badge>
-														))}
-													</Flex>
-												</ScrollArea>
-											</Box>
-										)}
-								</Box>
-
-								<Box p="4" flexGrow="1" style={{ overflow: "hidden" }}>
-									<Flex align="center" gap="2" mb="4">
-										<HistoryRegular />
-										<Text weight="bold" size="2">
-											{t("historyRestoreDialog.historyVersions", "其它版本")}
-										</Text>
-									</Flex>
-
+								<Box flexGrow="1" style={{ minHeight: 0 }}>
 									<ScrollArea
 										type="auto"
 										scrollbars="vertical"
-										style={{ height: "calc(100% - 30px)" }}
+										style={{ height: "100%" }}
 									>
-										<Table.Root variant="surface">
-											<Table.Header>
-												<Table.Row>
-													<Table.ColumnHeaderCell>
-														{t("common.time", "时间")}
-													</Table.ColumnHeaderCell>
-													<Table.ColumnHeaderCell width="140px" />
-												</Table.Row>
-											</Table.Header>
-											<Table.Body>
-												{versions.length === 0 ? (
-													<Table.Row>
-														<Table.Cell colSpan={2} align="center">
-															<Text color="gray" size="2">
-																{t(
-																	"historyRestoreDialog.noHistory",
-																	"没有可用的历史记录",
-																)}
-															</Text>
-														</Table.Cell>
-													</Table.Row>
-												) : (
-													versions.map((version) => (
-														<Table.Row key={version.id}>
-															<Table.RowHeaderCell>
-																<Flex direction="column">
-																	<Text size="2">
-																		{new Date(
-																			version.timestamp,
-																		).toLocaleTimeString()}
-																	</Text>
+										<Flex direction="column">
+											{projects.length === 0 ? (
+												<Box p="4">
+													<Text size="2" color="gray" align="center">
+														{t(
+															"historyRestoreDialog.noProjects",
+															"暂无自动保存记录",
+														)}
+													</Text>
+												</Box>
+											) : (
+												projects.map((project) => (
+													<Box
+														key={project.id}
+														onClick={() => setSelectedProjectId(project.id)}
+														style={{
+															padding: "12px",
+															cursor: "pointer",
+															backgroundColor:
+																selectedProjectId === project.id
+																	? "var(--accent-4)"
+																	: "transparent",
+															borderBottom: "1px solid var(--gray-4)",
+															transition: "background-color 0.2s",
+														}}
+													>
+														<Flex justify="between" align="start">
+															<Flex
+																direction="column"
+																gap="1"
+																style={{ overflow: "hidden" }}
+															>
+																<Text weight="bold" size="2" truncate>
+																	{getProjectDisplayName(project)}
+																</Text>
+																<Flex gap="2" align="center">
+																	<IconButton
+																		size="1"
+																		variant="ghost"
+																		color="red"
+																		onClick={(e) =>
+																			handleDeleteProject(e, project.id)
+																		}
+																	>
+																		<DeleteRegular />
+																	</IconButton>
+																	<ClockRegular fontSize={12} />
 																	<Text size="1" color="gray">
-																		{new Date(
-																			version.timestamp,
-																		).toLocaleDateString()}
+																		{formatRelativeTime(project.lastModified)}
 																	</Text>
 																</Flex>
-															</Table.RowHeaderCell>
-															<Table.Cell justify="end">
-															<Flex gap="2">
-																<Button
-																	size="2"
-																	variant="soft"
-																	color="red"
-																	onClick={() => handleDeleteVersion(version)}
-																>
-																	{t("common.delete", "删除")}
-																</Button>
-																<Button
-																	size="2"
-																	variant="soft"
-																	onClick={() => handleRestoreVersion(version)}
-																>
-																	{t("common.restore", "恢复")}
-																</Button>
 															</Flex>
-														</Table.Cell>
-														</Table.Row>
-													))
-												)}
-											</Table.Body>
-										</Table.Root>
+														</Flex>
+													</Box>
+												))
+											)}
+										</Flex>
 									</ScrollArea>
 								</Box>
-							</>
-						) : (
-							<Flex
-								align="center"
-								justify="center"
-								direction="column"
-								style={{ height: "100%", color: "var(--gray-8)" }}
-							>
-								<DocumentRegular fontSize={48} />
-								<Text mt="2">
-									{t(
-										"historyRestoreDialog.selectProject",
-										"请从左侧选择一个项目",
-									)}
-								</Text>
 							</Flex>
-						)}
-					</Box>
+
+							<Box
+								style={{
+									flexGrow: 1,
+									display: "flex",
+									flexDirection: "column",
+								}}
+							>
+								{currentProject ? (
+									<>
+										<Box
+											p="4"
+											style={{ borderBottom: "1px solid var(--gray-5)" }}
+										>
+											<Flex justify="between" align="start" mb="3">
+												<Heading size="4">
+													{getProjectDisplayName(currentProject)}
+												</Heading>
+											</Flex>
+
+											<Card variant="surface">
+												<Flex align="center" gap="3">
+													<Box>
+														<DocumentRegular fontSize={24} />
+													</Box>
+													<Flex direction="column" flexGrow="1">
+														<Text weight="bold">
+															{t(
+																"historyRestoreDialog.latestState",
+																"最新版本",
+															)}
+														</Text>
+														<Text size="1" color="gray">
+															{new Date(
+																currentProject.lastModified,
+															).toLocaleString()}
+														</Text>
+													</Flex>
+													<Flex gap="2">
+														<Button
+															variant="soft"
+															color="red"
+															onClick={handleDeleteLatestVersion}
+														>
+															{t(
+																"historyRestoreDialog.deleteLatest.button",
+																"删除此版本",
+															)}
+														</Button>
+														<Button
+															onClick={() =>
+																handleRestoreLatest(currentProject)
+															}
+														>
+															{t(
+																"historyRestoreDialog.restoreLatest",
+																"恢复此版本",
+															)}
+														</Button>
+													</Flex>
+												</Flex>
+											</Card>
+											{currentProject.latestState.metadata &&
+												currentProject.latestState.metadata.length > 0 && (
+													<Box mt="2">
+														<Text size="2" weight="bold" mb="2" as="div">
+															{t("metadata.title", "元数据信息")}
+														</Text>
+														<ScrollArea type="auto" scrollbars="vertical">
+															<Flex gap="2" wrap="wrap" pb="1" pr="3">
+																{currentProject.latestState.metadata.map(
+																	(meta) => (
+																		<Badge
+																			key={meta.key}
+																			variant="soft"
+																			color="gray"
+																		>
+																			{meta.key}: {meta.value[0]}
+																		</Badge>
+																	),
+																)}
+															</Flex>
+														</ScrollArea>
+													</Box>
+												)}
+										</Box>
+
+										<Box p="4" flexGrow="1" style={{ overflow: "hidden" }}>
+											<Flex align="center" gap="2" mb="4">
+												<HistoryRegular />
+												<Text weight="bold" size="2">
+													{t(
+														"historyRestoreDialog.historyVersions",
+														"其它版本",
+													)}
+												</Text>
+											</Flex>
+
+											<ScrollArea
+												type="auto"
+												scrollbars="vertical"
+												style={{ height: "calc(100% - 30px)" }}
+											>
+												<Table.Root variant="surface">
+													<Table.Header>
+														<Table.Row>
+															<Table.ColumnHeaderCell>
+																{t("common.time", "时间")}
+															</Table.ColumnHeaderCell>
+															<Table.ColumnHeaderCell width="140px" />
+														</Table.Row>
+													</Table.Header>
+													<Table.Body>
+														{versions.length === 0 ? (
+															<Table.Row>
+																<Table.Cell colSpan={2} align="center">
+																	<Text color="gray" size="2">
+																		{t(
+																			"historyRestoreDialog.noHistory",
+																			"没有可用的历史记录",
+																		)}
+																	</Text>
+																</Table.Cell>
+															</Table.Row>
+														) : (
+															versions.map((version) => (
+																<Table.Row key={version.id}>
+																	<Table.RowHeaderCell>
+																		<Flex direction="column">
+																			<Text size="2">
+																				{new Date(
+																					version.timestamp,
+																				).toLocaleTimeString()}
+																			</Text>
+																			<Text size="1" color="gray">
+																				{new Date(
+																					version.timestamp,
+																				).toLocaleDateString()}
+																			</Text>
+																		</Flex>
+																	</Table.RowHeaderCell>
+																	<Table.Cell justify="end">
+																		<Flex gap="2">
+																			<Button
+																				size="2"
+																				variant="soft"
+																				color="red"
+																				onClick={() =>
+																					handleDeleteVersion(version)
+																				}
+																			>
+																				{t("common.delete", "删除")}
+																			</Button>
+																			<Button
+																				size="2"
+																				variant="soft"
+																				onClick={() =>
+																					handleRestoreVersion(version)
+																				}
+																			>
+																				{t("common.restore", "恢复")}
+																			</Button>
+																		</Flex>
+																	</Table.Cell>
+																</Table.Row>
+															))
+														)}
+													</Table.Body>
+												</Table.Root>
+											</ScrollArea>
+										</Box>
+									</>
+								) : (
+									<Flex
+										align="center"
+										justify="center"
+										direction="column"
+										style={{ height: "100%", color: "var(--gray-8)" }}
+									>
+										<DocumentRegular fontSize={48} />
+										<Text mt="2">
+											{t(
+												"historyRestoreDialog.selectProject",
+												"请从左侧选择一个项目",
+											)}
+										</Text>
+									</Flex>
+								)}
+							</Box>
+						</Flex>
+					)}
 				</Flex>
 			</Dialog.Content>
 		</Dialog.Root>

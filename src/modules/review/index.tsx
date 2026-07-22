@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
-import { log } from "$/utils/logging";
+import { useEffect, useRef } from "react";
+import { uid } from "uid";
 import {
 	lyricLinesAtom,
 	projectIdAtom,
@@ -11,7 +11,17 @@ import {
 	saveFileNameAtom,
 } from "$/states/main";
 import type { TTMLLyric } from "$/types/ttml";
+import { log, error as logError } from "$/utils/logging";
+import { queryTtmlByContentHash } from "$/utils/ttml-content-hash";
 import ReviewPage from "./services/page-service";
+import {
+	getReviewHistoryByHash,
+	saveReviewHistory,
+} from "./services/review-history-db";
+import {
+	createReviewStructuredSnapshot,
+	rebindReviewStructuredSnapshot,
+} from "./services/structured-snapshot";
 
 const cloneLyric = (data: TTMLLyric): TTMLLyric => {
 	return JSON.parse(JSON.stringify(data)) as TTMLLyric;
@@ -81,23 +91,50 @@ export const useReviewSessionLifecycle = () => {
 		});
 		if (!fileReady) return;
 		const snapshot = cloneLyric(lyricLines);
-		setReviewFreeze({
-			prNumber: reviewSession.prNumber,
-			fileName: reviewSession.fileName,
-			data: snapshot,
-		});
-		log("[review]", "freeze set", {
-			prNumber: reviewSession.prNumber,
-			fileName: reviewSession.fileName,
-		});
+		const sessionKey = reviewSessionKeyRef.current;
 		reviewPendingRef.current = false;
-	}, [
-		lyricLines,
-		projectId,
-		reviewSession,
-		saveFileName,
-		setReviewFreeze,
-	]);
+		const captureSnapshot = async () => {
+			try {
+				const { contentHash, matches } = await queryTtmlByContentHash(
+					snapshot,
+					getReviewHistoryByHash,
+				);
+				if (reviewSessionKeyRef.current !== sessionKey) return;
+				const structure = matches[0]
+					? rebindReviewStructuredSnapshot(matches[0].structure, snapshot)
+					: createReviewStructuredSnapshot(snapshot, contentHash);
+				setReviewFreeze({
+					prNumber: reviewSession.prNumber,
+					fileName: reviewSession.fileName,
+					data: snapshot,
+					structure,
+				});
+				await saveReviewHistory({
+					id: uid(20),
+					prNumber: reviewSession.prNumber,
+					prTitle: reviewSession.prTitle,
+					fileName: reviewSession.fileName,
+					source: reviewSession.source,
+					createdAt: Date.now(),
+					contentHash,
+					data: snapshot,
+					structure,
+				});
+				log("[review]", "freeze set", {
+					prNumber: reviewSession.prNumber,
+					fileName: reviewSession.fileName,
+					contentHash,
+					matchedHistory: matches.length > 0,
+				});
+			} catch (cause) {
+				logError("[review] failed to capture structured snapshot", cause);
+				if (reviewSessionKeyRef.current === sessionKey) {
+					reviewPendingRef.current = true;
+				}
+			}
+		};
+		void captureSnapshot();
+	}, [lyricLines, projectId, reviewSession, saveFileName, setReviewFreeze]);
 };
 
 export default ReviewPage;

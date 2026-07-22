@@ -19,6 +19,7 @@ import {
 	type ReviewOperationRecord,
 } from "$/modules/review/services/operation-log-service";
 import type { ReviewReport } from "$/modules/review/services/report-service/types";
+import type { ReviewStructuredSnapshot } from "$/modules/review/services/structured-snapshot";
 import type { TTMLLyric } from "../types/ttml";
 
 export enum DarkMode {
@@ -213,6 +214,7 @@ export type ReviewSnapshot = {
 	prNumber: number;
 	fileName: string;
 	data: TTMLLyric;
+	structure: ReviewStructuredSnapshot;
 };
 export const reviewFreezeAtom = atom<ReviewSnapshot | null>(null);
 export const pushReviewOperationAtom = atom(
