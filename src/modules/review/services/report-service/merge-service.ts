@@ -1,4 +1,5 @@
 import { createReviewReport, normalizeReviewReport } from "./normalize-service";
+import { applyManualReviewReportPlacements } from "./ordering-service";
 import { getReviewReportBlockText } from "./render-service";
 import { getReviewReportSelectionKey } from "./selection-service";
 import type {
@@ -258,7 +259,7 @@ export const mergeReports = (reports: ReviewReportInput[]) => {
 		seen.add(dedupeKey);
 		return true;
 	});
-	return createReviewReport(blocks);
+	return createReviewReport(applyManualReviewReportPlacements(blocks));
 };
 
 const isOperationGeneratedReportBlock = (block: ReviewReportBlock) =>

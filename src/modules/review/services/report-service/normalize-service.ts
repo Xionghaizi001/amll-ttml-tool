@@ -36,6 +36,7 @@ export const createManualReviewReport = (content: string): ReviewReport => {
 			id: createReviewReportBlockId("manual"),
 			kind: "manual",
 			content: trimmed,
+			lineBreakBefore: false,
 			enabled: true,
 		},
 	]);

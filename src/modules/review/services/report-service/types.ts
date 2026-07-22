@@ -70,6 +70,9 @@ export type ReviewReportBlock =
 	| (ReviewReportBlockBase & {
 			kind: "manual";
 			content: string;
+			lineBreakBefore?: boolean;
+			beforeBlockKey?: string;
+			afterBlockKey?: string;
 	  })
 	| (ReviewReportBlockBase & {
 			kind: "wordTextShared";

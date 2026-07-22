@@ -58,6 +58,33 @@
 	padding-right: var(--space-1);
 }
 
+.reportSequenceItem {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--space-1);
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--space-2);
+	border: 1px solid var(--accent-a4);
+	border-radius: var(--radius-3);
+	background: var(--accent-a2);
+}
+
+.reportSequenceScope {
+	display: block;
+	font-weight: 500;
+}
+
+.reportSequenceEntries {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	width: 100%;
+	min-width: 0;
+}
+
 .reportTextArea {
 	flex: 1;
 	height: 100%;
@@ -172,6 +199,26 @@
 	opacity: 0.55;
 }
 
+.reportManualSummary {
+	display: block;
+	width: 100%;
+	margin-top: var(--space-2);
+	padding: var(--space-2);
+	border: 1px dashed var(--gray-a6);
+	border-radius: var(--radius-2);
+	color: var(--gray-11);
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	white-space: pre-wrap;
+	cursor: text;
+}
+
+.reportManualSummary:hover {
+	border-color: var(--accent-a7);
+	background: var(--accent-a2);
+}
+
 .reportChipContent {
 	display: inline-flex;
 	align-items: center;
@@ -261,6 +308,20 @@
 	border-radius: var(--radius-3);
 	background: var(--color-panel);
 	border: 1px solid var(--gray-a5);
+}
+
+.reportManualHeader,
+.reportManualActions {
+	flex-wrap: wrap;
+}
+
+.reportManualActions {
+	justify-content: flex-end;
+}
+
+.reportManualLineBreak {
+	margin-right: var(--space-1);
+	white-space: nowrap;
 }
 
 .formatterPane {

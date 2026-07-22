@@ -1,10 +1,11 @@
-import { Delete20Regular, DocumentSync20Regular } from "@fluentui/react-icons";
+import { Delete20Regular } from "@fluentui/react-icons";
 import {
 	Box,
 	Button,
 	Checkbox,
 	Dialog,
 	Flex,
+	Switch,
 	Tabs,
 	Text,
 	TextArea,
@@ -25,6 +26,7 @@ import {
 	DEFAULT_REVIEW_REPORT_TEXT,
 	normalizeReviewReport,
 } from "$/modules/review/services/report-service/normalize-service";
+import { captureManualReviewReportPlacements } from "$/modules/review/services/report-service/ordering-service";
 import {
 	getReviewReportBlockText,
 	hasReviewReportContent,
@@ -48,187 +50,6 @@ import {
 } from "$/states/notifications";
 import styles from "./ReviewReportDialog.module.css";
 import { ReviewReportFomatter } from "./ReviewReportFomatter";
-
-const blockLineText = (block: ReviewReportBlock) => {
-	switch (block.kind) {
-		case "manual":
-			return "手写";
-		case "wordTextShared":
-			return block.lineRefs
-				.map((item) => `第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`)
-				.join("、");
-		case "wordTextGroup":
-		case "wordText":
-		case "wordRoman":
-		case "wordAdded":
-		case "wordRemoved":
-		case "lineTranslation":
-		case "lineRoman":
-		case "lineAdded":
-		case "lineRemoved":
-		case "wordAndRoman":
-		case "timing":
-		case "lineTiming":
-			return `第 ${block.lineNumber} 行${block.isBG ? "（背景）" : ""}`;
-		case "timeShift":
-			return block.targetCount === block.totalLineCount
-				? "全部歌词行"
-				: block.lineRefs
-						.map(
-							(item) =>
-								`第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`,
-						)
-						.join("、");
-	}
-};
-
-const renderBlockDetails = (
-	block: ReviewReportBlock,
-	onManualChange: (id: string, content: string) => void,
-	reportFormat: ReviewReportFormat,
-) => {
-	if (block.kind === "manual") {
-		return (
-			<TextArea
-				value={block.content}
-				onChange={(event) =>
-					onManualChange(block.id, event.currentTarget.value)
-				}
-				placeholder="手写报告内容"
-				style={{ minHeight: "96px" }}
-			/>
-		);
-	}
-	const text = getReviewReportBlockText(block, reportFormat);
-	return (
-		<Text size="2" color={block.enabled ? undefined : "gray"}>
-			{text}
-		</Text>
-	);
-};
-
-type ReportBlockCategory =
-	| "timeShift"
-	| "timing"
-	| "text"
-	| "translation"
-	| "roman"
-	| "wordRoman"
-	| "manual";
-
-const reportBlockCategories: Array<{
-	value: ReportBlockCategory;
-	label: string;
-}> = [
-	{ value: "text", label: "原文" },
-	{ value: "translation", label: "翻译" },
-	{ value: "roman", label: "音译" },
-	{ value: "wordRoman", label: "逐字音译" },
-	{ value: "timeShift", label: "平移" },
-	{ value: "timing", label: "时轴" },
-	{ value: "manual", label: "手写" },
-];
-
-const getReportBlockCategory = (
-	block: ReviewReportBlock,
-): ReportBlockCategory => {
-	switch (block.kind) {
-		case "timeShift":
-			return "timeShift";
-		case "timing":
-		case "lineTiming":
-			return "timing";
-		case "wordTextShared":
-		case "wordTextGroup":
-		case "wordText":
-		case "wordAdded":
-		case "wordRemoved":
-		case "lineAdded":
-		case "lineRemoved":
-			return "text";
-		case "lineTranslation":
-			return "translation";
-		case "lineRoman":
-			return "roman";
-		case "wordRoman":
-		case "wordAndRoman":
-			return "wordRoman";
-		case "manual":
-			return "manual";
-	}
-};
-
-type ReportBlockGroup = {
-	key: string;
-	label: string;
-	priority: number;
-	sortValue: number;
-	blocks: ReviewReportBlock[];
-};
-
-const getReportBlockPriority = (block: ReviewReportBlock) => {
-	if (block.kind === "manual") return 2;
-	if (
-		block.kind === "timeShift" ||
-		block.kind === "timing" ||
-		block.kind === "lineTiming"
-	) {
-		return 1;
-	}
-	return 0;
-};
-
-const getReportBlockSortValue = (block: ReviewReportBlock) => {
-	if (block.kind === "manual") return Number.MAX_SAFE_INTEGER;
-	if (block.kind === "wordTextShared") {
-		return Math.min(...block.lineRefs.map((item) => item.lineNumber));
-	}
-	if (block.kind === "timeShift") {
-		return Math.min(...block.lineRefs.map((item) => item.lineNumber));
-	}
-	return block.lineNumber;
-};
-
-const getReportBlockGroupKey = (block: ReviewReportBlock) => {
-	if (block.kind === "manual") return "manual";
-	if (block.kind === "wordTextShared") {
-		return `shared:${block.id}`;
-	}
-	if (block.kind === "timeShift") {
-		return `time-shift:${block.id}`;
-	}
-	return `${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
-};
-
-const getReportBlockGroupLabel = (block: ReviewReportBlock) => {
-	if (block.kind === "manual") return "手写条目";
-	if (block.kind === "wordTextShared") return blockLineText(block);
-	if (block.kind === "timeShift") return "平移时间";
-	return blockLineText(block);
-};
-
-const createReportBlockGroups = (blocks: ReviewReportBlock[]) => {
-	const groupMap = new Map<string, ReportBlockGroup>();
-	blocks.forEach((block) => {
-		const key = getReportBlockGroupKey(block);
-		const group = groupMap.get(key) ?? {
-			key,
-			label: getReportBlockGroupLabel(block),
-			priority: getReportBlockPriority(block),
-			sortValue: getReportBlockSortValue(block),
-			blocks: [],
-		};
-		group.blocks.push(block);
-		group.priority = Math.min(group.priority, getReportBlockPriority(block));
-		groupMap.set(key, group);
-	});
-	return Array.from(groupMap.values()).sort(
-		(a, b) =>
-			a.priority - b.priority ||
-			a.sortValue - b.sortValue ||
-			a.label.localeCompare(b.label),
-	);
-};
 
 const renderReportValue = (
 	value: string | number,
@@ -273,8 +94,10 @@ const renderReportBlockVisual = (block: ReviewReportBlock): ReactNode => {
 		case "wordText":
 			return renderReportChange(block.oldWord, block.newWord);
 		case "wordTextGroup":
-			return block.changes.map((change, index) => (
-				<span key={`${change.oldWord}-${change.newWord}-${index}`}>
+			return block.changes.map((change) => (
+				<span
+					key={`${change.wordId ?? `${change.oldWord}->${change.newWord}`}`}
+				>
 					{renderReportChange(change.oldWord, change.newWord)}
 				</span>
 			));
@@ -421,34 +244,143 @@ const isWordTextGroupChangeEnabled = (
 	index: number,
 ) => block.enabled && block.changes[index]?.enabled !== false;
 
-const renderReportBlockChip = (
-	block: ReviewReportBlock,
-	onManualChange: (id: string, content: string) => void,
-	onToggle: (id: string, enabled: boolean) => void,
-	onToggleGroupChange: (id: string, index: number, enabled: boolean) => void,
-	onDelete: (id: string) => void,
-	reportFormat: ReviewReportFormat,
-) => {
-	if (block.kind === "manual") {
-		return (
-			<Box
-				key={block.id}
-				className={`${styles.reportManualBlock} ${
-					block.enabled ? "" : styles.reportBlockChipDisabled
-				}`}
+const getReportBlockScopeLabel = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return null;
+	if (block.kind === "timeShift") {
+		return block.targetCount === block.totalLineCount
+			? "全部歌词行"
+			: block.lineRefs
+					.map(
+						(item) => `第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`,
+					)
+					.join("、");
+	}
+	if (block.kind === "wordTextShared") {
+		return block.lineRefs
+			.map((item) => `第 ${item.lineNumber} 行${item.isBG ? "（背景）" : ""}`)
+			.join("、");
+	}
+	return `第 ${block.lineNumber} 行${block.isBG ? "（背景）" : ""}`;
+};
+
+const getReportBlockScopeKey = (block: ReviewReportBlock) => {
+	if (block.kind === "manual") return null;
+	if (block.kind === "timeShift" || block.kind === "wordTextShared") {
+		return `${block.kind}:${block.id}`;
+	}
+	return `line:${block.lineNumber}:${block.isBG ? "bg" : "main"}`;
+};
+
+type ReportBlockSequenceGroup = {
+	key: string;
+	scopeKey: string | null;
+	scopeLabel: string | null;
+	blocks: ReviewReportBlock[];
+};
+
+const createReportBlockSequenceGroups = (
+	blocks: ReviewReportBlock[],
+): ReportBlockSequenceGroup[] => {
+	const groups: ReportBlockSequenceGroup[] = [];
+	const groupsByScope = new Map<string, ReportBlockSequenceGroup>();
+	for (const block of blocks) {
+		const scopeKey = getReportBlockScopeKey(block);
+		const existingGroup = scopeKey ? groupsByScope.get(scopeKey) : undefined;
+		if (existingGroup) {
+			existingGroup.blocks.push(block);
+			continue;
+		}
+		const group = {
+			key: block.id,
+			scopeKey,
+			scopeLabel: getReportBlockScopeLabel(block),
+			blocks: [block],
+		};
+		groups.push(group);
+		if (scopeKey) groupsByScope.set(scopeKey, group);
+	}
+	return groups;
+};
+
+type ManualReportBlockViewProps = {
+	block: Extract<ReviewReportBlock, { kind: "manual" }>;
+	onManualChange: (id: string, content: string) => void;
+	onLineBreakChange: (id: string, lineBreakBefore: boolean) => void;
+	onToggle: (id: string, enabled: boolean) => void;
+	onDelete: (id: string) => void;
+	onMoveManual: (id: string, direction: -1 | 1) => void;
+	canMoveManual: (id: string, direction: -1 | 1) => boolean;
+};
+
+const ManualReportBlockView = ({
+	block,
+	onManualChange,
+	onLineBreakChange,
+	onToggle,
+	onDelete,
+	onMoveManual,
+	canMoveManual,
+}: ManualReportBlockViewProps) => {
+	const [focused, setFocused] = useState(false);
+	const textAreaRef = useRef<HTMLTextAreaElement>(null);
+	return (
+		<Box
+			className={`${styles.reportManualBlock} ${
+				block.enabled ? "" : styles.reportBlockChipDisabled
+			}`}
+		>
+			<Flex
+				align="center"
+				justify="between"
+				gap="2"
+				className={styles.reportManualHeader}
 			>
-				<Flex align="center" justify="between" gap="2">
-					<Flex align="center" gap="2">
-						<Checkbox
-							checked={block.enabled}
+				<Flex align="center" gap="2">
+					<Checkbox
+						checked={block.enabled}
+						onCheckedChange={(checked) => onToggle(block.id, checked === true)}
+					/>
+					<Text size="2" weight="medium">
+						手写内容
+					</Text>
+				</Flex>
+				<Flex align="center" gap="1" className={styles.reportManualActions}>
+					<Flex
+						align="center"
+						gap="1"
+						className={styles.reportManualLineBreak}
+						title="在 Markdown 预览中另起一行"
+					>
+						<Switch
+							size="1"
+							checked={block.lineBreakBefore === true}
 							onCheckedChange={(checked) =>
-								onToggle(block.id, checked === true)
+								onLineBreakChange(block.id, checked)
 							}
+							aria-label="换行"
 						/>
-						<Text size="2" weight="medium">
-							手写内容
+						<Text size="1" color="gray">
+							换行
 						</Text>
 					</Flex>
+					<Button
+						size="1"
+						variant="soft"
+						disabled={!canMoveManual(block.id, -1)}
+						onClick={() => onMoveManual(block.id, -1)}
+						title="将手写条目上移"
+					>
+						上移
+					</Button>
+					<Button
+						size="1"
+						variant="soft"
+						disabled={!canMoveManual(block.id, 1)}
+						onClick={() => onMoveManual(block.id, 1)}
+						title="将手写条目下移"
+					>
+						下移
+					</Button>
 					<Button
 						size="1"
 						variant="ghost"
@@ -459,8 +391,58 @@ const renderReportBlockChip = (
 						<Delete20Regular />
 					</Button>
 				</Flex>
-				{renderBlockDetails(block, onManualChange, reportFormat)}
-			</Box>
+			</Flex>
+			{focused ? (
+				<TextArea
+					ref={textAreaRef}
+					value={block.content}
+					onChange={(event) =>
+						onManualChange(block.id, event.currentTarget.value)
+					}
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
+					placeholder="手写报告内容"
+					style={{ minHeight: "96px" }}
+				/>
+			) : (
+				<button
+					type="button"
+					className={styles.reportManualSummary}
+					onClick={() => {
+						setFocused(true);
+						window.requestAnimationFrame(() => textAreaRef.current?.focus());
+					}}
+				>
+					{block.content.trim() || "点击展开并编辑手写内容"}
+				</button>
+			)}
+		</Box>
+	);
+};
+
+const renderReportBlockChip = (
+	block: ReviewReportBlock,
+	onManualChange: (id: string, content: string) => void,
+	onManualLineBreakChange: (id: string, lineBreakBefore: boolean) => void,
+	onToggle: (id: string, enabled: boolean) => void,
+	onToggleGroupChange: (id: string, index: number, enabled: boolean) => void,
+	onDelete: (id: string) => void,
+	onMoveManual: (id: string, direction: -1 | 1) => void,
+	canMoveManual: (id: string, direction: -1 | 1) => boolean,
+	reportFormat: ReviewReportFormat,
+) => {
+	if (block.kind === "manual") {
+		return (
+			<ManualReportBlockView
+				key={block.id}
+				block={block}
+				onManualChange={onManualChange}
+				onLineBreakChange={onManualLineBreakChange}
+				onToggle={onToggle}
+				onDelete={onDelete}
+				onMoveManual={onMoveManual}
+				canMoveManual={canMoveManual}
+			/>
 		);
 	}
 	return (
@@ -475,7 +457,7 @@ const renderReportBlockChip = (
 						const enabled = isWordTextGroupChangeEnabled(block, index);
 						return (
 							<button
-								key={`${change.oldWord}-${change.newWord}-${index}`}
+								key={`${change.wordId ?? `${change.oldWord}->${change.newWord}`}`}
 								type="button"
 								className={`${styles.reportResultButton} ${
 									enabled ? "" : styles.reportResultButtonDisabled
@@ -531,15 +513,11 @@ export const ReviewReportDialog = () => {
 	const [sourceReport, setSourceReport] = useState<ReviewReport>(() =>
 		normalizeReviewReport(dialog.report),
 	);
-	const [textReportContent, setTextReportContent] = useState(() =>
-		renderReviewReport(dialog.report, reportFormat),
-	);
-	const [textDirty, setTextDirty] = useState(false);
 	const renderedReport = useMemo(
 		() => renderReviewReport(dialog.report, reportFormat),
 		[dialog.report, reportFormat],
 	);
-	const displayReportText = textDirty ? textReportContent : renderedReport;
+	const displayReportText = renderedReport;
 	const rerenderSourceReport = useMemo(() => {
 		const structuredBlocks = sourceReport.blocks.filter(
 			(block) => block.kind !== "manual",
@@ -552,7 +530,7 @@ export const ReviewReportDialog = () => {
 		[sourceReport],
 	);
 	const reportBlockGroups = useMemo(
-		() => createReportBlockGroups(reportBlocks),
+		() => createReportBlockSequenceGroups(reportBlocks),
 		[reportBlocks],
 	);
 	const titleText = useMemo(() => {
@@ -567,23 +545,18 @@ export const ReviewReportDialog = () => {
 		if (dialog.open && !wasDialogOpenRef.current) {
 			const report = normalizeReviewReport(dialog.report);
 			setSourceReport(report);
-			setTextReportContent(renderReviewReport(report, reportFormat));
-			setTextDirty(false);
 			submittedRef.current = false;
 			setActiveTab("blocks");
 			setFormatDirty(false);
 		}
 		wasDialogOpenRef.current = dialog.open;
-	}, [dialog.open, dialog.report, reportFormat]);
+	}, [dialog.open, dialog.report]);
 
 	useEffect(() => {
 		if (!dialog.open || !wasDialogOpenRef.current) return;
 		const report = normalizeReviewReport(dialog.report);
 		setSourceReport(report);
-		if (!textDirty) {
-			setTextReportContent(renderReviewReport(report, reportFormat));
-		}
-	}, [dialog.open, dialog.report, reportFormat, textDirty]);
+	}, [dialog.open, dialog.report]);
 
 	const collectDraftIds = () => {
 		const draftIds = new Set<string>();
@@ -611,8 +584,7 @@ export const ReviewReportDialog = () => {
 		}
 	};
 
-	const getCurrentReport = () =>
-		textDirty ? createManualReviewReport(textReportContent) : dialog.report;
+	const getCurrentReport = () => normalizeReviewReport(sourceReport);
 
 	const closeDialog = () => {
 		const currentReport = getCurrentReport();
@@ -688,8 +660,6 @@ export const ReviewReportDialog = () => {
 		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
 		setSourceReport(emptyReport);
-		setTextReportContent("");
-		setTextDirty(false);
 		setDialog((prev: ReviewReportDialogState) => ({
 			...prev,
 			report: emptyReport,
@@ -714,9 +684,10 @@ export const ReviewReportDialog = () => {
 	const updateReportBlocks = (
 		updater: (blocks: ReviewReportBlock[]) => ReviewReportBlock[],
 	) => {
-		const report = createReviewReport(
+		const nextBlocks = captureManualReviewReportPlacements(
 			updater(normalizeReviewReport(sourceReport).blocks),
 		);
+		const report = createReviewReport(nextBlocks);
 		setSourceReport(report);
 		setDialog((prev: ReviewReportDialogState) => ({
 			...prev,
@@ -728,7 +699,9 @@ export const ReviewReportDialog = () => {
 		if (!trimmed) return;
 		const manualBlocks = createManualReviewReport(trimmed).blocks;
 		const current = normalizeReviewReport(sourceReport);
-		const report = createReviewReport([...manualBlocks, ...current.blocks]);
+		const report = createReviewReport(
+			captureManualReviewReportPlacements([...manualBlocks, ...current.blocks]),
+		);
 		setSourceReport(report);
 		setDialog((prev: ReviewReportDialogState) => ({
 			...prev,
@@ -742,6 +715,7 @@ export const ReviewReportDialog = () => {
 				id: uid(),
 				kind: "manual",
 				content: "",
+				lineBreakBefore: false,
 				enabled: true,
 			},
 		]);
@@ -751,6 +725,15 @@ export const ReviewReportDialog = () => {
 			blocks.map((block) =>
 				block.id === id && block.kind === "manual"
 					? { ...block, content }
+					: block,
+			),
+		);
+	};
+	const updateManualLineBreak = (id: string, lineBreakBefore: boolean) => {
+		updateReportBlocks((blocks) =>
+			blocks.map((block) =>
+				block.id === id && block.kind === "manual"
+					? { ...block, lineBreakBefore }
 					: block,
 			),
 		);
@@ -789,46 +772,38 @@ export const ReviewReportDialog = () => {
 			}),
 		);
 	};
-	const toggleBlockCategory = (
-		group: ReportBlockGroup,
-		category: ReportBlockCategory,
-		enabled: boolean,
-	) => {
-		const ids = new Set(
-			group.blocks
-				.filter((block) => getReportBlockCategory(block) === category)
-				.map((block) => block.id),
-		);
-		updateReportBlocks((blocks) =>
-			blocks.map((block) =>
-				ids.has(block.id)
-					? block.kind === "wordTextGroup"
-						? {
-								...block,
-								enabled,
-								changes: block.changes.map((change) => ({
-									...change,
-									enabled,
-								})),
-							}
-						: { ...block, enabled }
-					: block,
-			),
-		);
-	};
 	const deleteBlock = (id: string) => {
 		updateReportBlocks((blocks) => blocks.filter((block) => block.id !== id));
 	};
-	const replaceReportWithText = (content: string) => {
-		setTextReportContent(content);
-		setTextDirty(true);
-	};
-	const rerenderReportText = () => {
-		replaceReportWithText(
-			renderReviewReport(rerenderSourceReport, reportFormat),
+	const canMoveManual = (id: string, direction: -1 | 1) => {
+		const blocks = normalizeReviewReport(sourceReport).blocks;
+		const index = blocks.findIndex((block) => block.id === id);
+		return (
+			index >= 0 &&
+			blocks[index]?.kind === "manual" &&
+			index + direction >= 0 &&
+			index + direction < blocks.length
 		);
 	};
-
+	const moveManualBlock = (id: string, direction: -1 | 1) => {
+		updateReportBlocks((blocks) => {
+			const index = blocks.findIndex((block) => block.id === id);
+			const targetIndex = index + direction;
+			if (
+				index < 0 ||
+				targetIndex < 0 ||
+				targetIndex >= blocks.length ||
+				blocks[index]?.kind !== "manual"
+			) {
+				return blocks;
+			}
+			const next = [...blocks];
+			const [moved] = next.splice(index, 1);
+			if (!moved) return blocks;
+			next.splice(targetIndex, 0, moved);
+			return next;
+		});
+	};
 	return (
 		<Dialog.Root
 			open={dialog.open}
@@ -863,122 +838,54 @@ export const ReviewReportDialog = () => {
 								<Tabs.Trigger value="preview">预览</Tabs.Trigger>
 							</Tabs.List>
 							{activeTab === "text" && (
-								<Button
-									size="1"
-									variant="soft"
-									onClick={rerenderReportText}
-									title="按照最新格式重新生成审阅报告文本"
-								>
-									<DocumentSync20Regular />
-									重新渲染文本
-								</Button>
+								<Text size="1" color="gray">
+									文本由条目顺序自动生成，请在“条目”页添加手写内容
+								</Text>
 							)}
 						</Flex>
 						<Tabs.Content value="blocks" className={styles.reportTabsContent}>
 							<Box className={styles.reportBlocksPane}>
+								<Text size="1" color="gray">
+									结构化条目按系统顺序排列；手写条目可通过上移/下移插入序列。
+								</Text>
 								{reportBlocks.length > 0 ? (
-									reportBlockGroups.map((group) => (
-										<Box key={group.key} className={styles.reportLineGroup}>
-											<Flex
-												align="center"
-												justify="between"
-												gap="3"
-												className={styles.reportLineHeader}
+									<Flex direction="column" gap="3">
+										{reportBlockGroups.map((group) => (
+											<Box
+												key={group.key}
+												className={
+													group.scopeLabel
+														? styles.reportSequenceItem
+														: undefined
+												}
 											>
-												<Text size="3" weight="medium">
-													{group.label}
-												</Text>
-												<Flex
-													align="center"
-													gap="2"
-													className={styles.reportCategoryNav}
-												>
-													{reportBlockCategories.map((category) => {
-														const categoryBlocks = group.blocks.filter(
-															(block) =>
-																getReportBlockCategory(block) ===
-																category.value,
-														);
-														if (categoryBlocks.length === 0) return null;
-														const enabledCount = categoryBlocks.filter(
-															(block) => block.enabled,
-														).length;
-														const isEnabled = enabledCount > 0;
-														return (
-															<button
-																key={category.value}
-																type="button"
-																className={`${styles.reportCategoryPill} ${
-																	isEnabled
-																		? ""
-																		: styles.reportCategoryPillDisabled
-																}`}
-																aria-pressed={isEnabled}
-																title={
-																	isEnabled
-																		? `取消筛选${category.label}报告`
-																		: `筛选${category.label}报告`
-																}
-																onClick={() =>
-																	toggleBlockCategory(
-																		group,
-																		category.value,
-																		!isEnabled,
-																	)
-																}
-															>
-																<Text as="span" size="1" weight="medium">
-																	{category.label}
-																</Text>
-																<Text
-																	as="span"
-																	size="1"
-																	className={styles.reportCategoryCount}
-																>
-																	{categoryBlocks.length}
-																</Text>
-															</button>
-														);
-													})}
-												</Flex>
-											</Flex>
-											<Flex direction="column" gap="3">
-												{reportBlockCategories.map((category) => {
-													const blocks = group.blocks.filter(
-														(block) =>
-															getReportBlockCategory(block) === category.value,
-													);
-													if (blocks.length === 0) return null;
-													return (
-														<Box
-															key={category.value}
-															className={styles.reportCategorySection}
-														>
-															<Text
-																size="2"
-																weight="medium"
-																className={styles.reportCategoryTitle}
-															>
-																{category.label}
-															</Text>
-															<Box className={styles.reportChipWrap}>
-																{blocks.map((block) =>
-																	renderReportBlockChip(
-																		block,
-																		updateManualBlock,
-																		toggleBlock,
-																		toggleWordTextGroupChange,
-																		deleteBlock,
-																		reportFormat,
-																	),
-																)}
-															</Box>
-														</Box>
-													);
-												})}
-											</Flex>
-										</Box>
-									))
+												{group.scopeLabel && (
+													<Text
+														size="1"
+														color="gray"
+														className={styles.reportSequenceScope}
+													>
+														{group.scopeLabel}
+													</Text>
+												)}
+												<div className={styles.reportSequenceEntries}>
+													{group.blocks.map((block) =>
+														renderReportBlockChip(
+															block,
+															updateManualBlock,
+															updateManualLineBreak,
+															toggleBlock,
+															toggleWordTextGroupChange,
+															deleteBlock,
+															moveManualBlock,
+															canMoveManual,
+															reportFormat,
+														),
+													)}
+												</div>
+											</Box>
+										))}
+									</Flex>
 								) : (
 									<Flex align="center" justify="center" height="100%">
 										<Text color="gray" size="2">
@@ -1001,10 +908,9 @@ export const ReviewReportDialog = () => {
 						</Tabs.Content>
 						<Tabs.Content value="text" className={styles.reportTabsContent}>
 							<TextArea
-								value={textReportContent}
-								onChange={(event) =>
-									replaceReportWithText(event.currentTarget.value)
-								}
+								value={displayReportText}
+								readOnly
+								aria-label="自动生成的审阅报告文本"
 								className={styles.reportTextArea}
 							/>
 						</Tabs.Content>

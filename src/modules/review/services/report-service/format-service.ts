@@ -411,6 +411,7 @@ type RenderedReviewReportPart = {
 type RenderedReviewReportOutput = {
 	text: string;
 	listItem: boolean;
+	lineBreakBefore: boolean;
 };
 
 const getLineMergeCategory = (block: ReviewReportBlock) => {
@@ -569,12 +570,21 @@ const mergeRenderedLineParts = (
 	return parts
 		.map<RenderedReviewReportOutput | null>((part, index) => {
 			const key = partKeys[index];
-			if (!key) return { text: part.text, listItem: part.listItem };
+			if (!key) {
+				return {
+					text: part.text,
+					listItem: part.listItem,
+					lineBreakBefore:
+						part.block.kind === "manual" &&
+						part.block.lineBreakBefore === true,
+				};
+			}
 			const group = groups.get(key);
 			if (!group || group.firstIndex !== index) return null;
 			return {
 				text: renderMergedLinePart(group.parts),
 				listItem: part.listItem,
+				lineBreakBefore: false,
 			};
 		})
 		.filter((part): part is RenderedReviewReportOutput => Boolean(part));
@@ -603,12 +613,17 @@ export const renderFormattedReviewReport = (
 			};
 		})
 		.filter((part): part is RenderedReviewReportPart => Boolean(part));
-	const mergedParts = mergeRenderedLineParts(parts).map((part) =>
-		part.listItem ? renderMarkdownListItem(part.text) : part.text,
-	);
+	const mergedParts = mergeRenderedLineParts(parts).map((part) => ({
+		...part,
+		text: part.listItem ? renderMarkdownListItem(part.text) : part.text,
+	}));
 	if (mergedParts.length === 0)
 		return format.emptyText || DEFAULT_REVIEW_REPORT_EMPTY_TEXT;
-	return mergedParts.join("\n");
+	return mergedParts.reduce(
+		(output, part, index) =>
+			`${output}${index === 0 ? "" : part.lineBreakBefore ? "\n\n" : "\n"}${part.text}`,
+		"",
+	);
 };
 
 export const updateReviewReportBlockFormat = (
