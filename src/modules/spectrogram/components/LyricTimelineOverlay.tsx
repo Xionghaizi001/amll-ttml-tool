@@ -5,7 +5,7 @@ import type {
 	MouseEvent as ReactMouseEvent,
 	ReactNode,
 } from "react";
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import {
 	type ProcessedLyricLine,
@@ -281,6 +281,21 @@ export const LyricTimelineOverlay: FC<LyricTimelineOverlayProps> = ({
 		processedLines,
 	]);
 
+	const sharedBoundaryTimes = useMemo(() => {
+		const endTimes = new Set<number>();
+		const shared = new Set<number>();
+
+		for (const line of processedLines) {
+			if (line.endTime != null) endTimes.add(line.endTime);
+		}
+		for (const line of processedLines) {
+			if (line.startTime != null && endTimes.has(line.startTime)) {
+				shared.add(line.startTime);
+			}
+		}
+		return shared;
+	}, [processedLines]);
+
 	const bufferPx = 500;
 	const viewStartMs = ((scrollLeft - bufferPx) / zoom) * 1000;
 	const viewEndMs = ((scrollLeft + clientWidth + bufferPx) / zoom) * 1000;
@@ -329,15 +344,11 @@ export const LyricTimelineOverlay: FC<LyricTimelineOverlayProps> = ({
 	return (
 		<div className={styles.overlay}>
 			{linesToRender.map((line) => (
-				<LyricLineSegment key={line.id} line={line}>
-					{renderLineOverlay?.({
-						line,
-						allLines: processedLines,
-						zoom,
-						scrollLeft,
-						clientWidth,
-					})}
-				</LyricLineSegment>
+				<LyricLineSegment
+					key={line.id}
+					line={line}
+					sharedBoundaryTimes={sharedBoundaryTimes}
+				/>
 			))}
 		</div>
 	);

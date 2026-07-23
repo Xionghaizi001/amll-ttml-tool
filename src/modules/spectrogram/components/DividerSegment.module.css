@@ -14,6 +14,24 @@
 	z-index: 10;
 }
 
+.divider[data-shared="true"][data-kind="line-end"] {
+	width: calc(var(--divider-hit-width) / 2);
+	transform: translateX(-100%);
+}
+
+.divider[data-shared="true"][data-kind="line-end"]::before {
+	left: 100%;
+}
+
+.divider[data-shared="true"][data-kind="line-start"] {
+	width: calc(var(--divider-hit-width) / 2);
+	transform: translateX(0);
+}
+
+.divider[data-shared="true"][data-kind="line-start"]::before {
+	left: 0;
+}
+
 .divider:focus-visible {
 	outline: 2px solid var(--accent-12);
 }

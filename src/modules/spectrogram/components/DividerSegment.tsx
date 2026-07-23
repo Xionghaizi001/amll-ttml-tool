@@ -20,6 +20,7 @@ interface DividerSegmentProps {
 	lineStartTime: number;
 	kind: BoundaryKind;
 	visualState: BoundaryVisualState;
+	isShared: boolean;
 }
 
 const NUDGE_MS = 10;
@@ -32,6 +33,7 @@ export const DividerSegment: FC<DividerSegmentProps> = ({
 	lineStartTime,
 	kind,
 	visualState,
+	isShared,
 }) => {
 	const setTimelineDrag = useSetAtom(timelineDragAtom);
 	const processedLines = useAtomValue(processedLyricLinesAtom);
@@ -95,6 +97,7 @@ export const DividerSegment: FC<DividerSegmentProps> = ({
 			className={styles.divider}
 			style={{ left: `${timePx}px` }}
 			data-kind={kind}
+			data-shared={isShared}
 			data-visual-state={visualState}
 			onMouseDown={startDrag}
 			onContextMenu={(e) => e.preventDefault()}
