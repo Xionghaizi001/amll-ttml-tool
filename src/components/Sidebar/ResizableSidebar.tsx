@@ -1,7 +1,7 @@
 import { Dismiss16Regular } from "@fluentui/react-icons";
-import { Box, IconButton, Text } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { motion } from "framer-motion";
-import { type PrimitiveAtom, useAtom } from "jotai";
+import { useAtom, type WritableAtom } from "jotai";
 import {
 	type ReactNode,
 	useCallback,
@@ -13,12 +13,13 @@ import { useTranslation } from "react-i18next";
 import styles from "./ResizableSidebar.module.css";
 
 const SNAP_CLOSE_THRESHOLD = 20;
+type SetPanelAction<Panel> = Panel | ((prev: Panel) => Panel);
 
 export type ResizableSidebarProps<Panel extends string> = {
 	/** 停靠边；决定拖拽方向与边框侧。 */
 	side: "left" | "right";
-	panelAtom: PrimitiveAtom<Panel>;
-	widthAtom: PrimitiveAtom<number>;
+	panelAtom: WritableAtom<Panel, [SetPanelAction<Panel>], void>;
+	widthAtom: WritableAtom<number, [SetPanelAction<number>], void>;
 	/** 关闭态的哨兵值。 */
 	closedPanel: Panel;
 	minWidth: number;
@@ -26,7 +27,9 @@ export type ResizableSidebarProps<Panel extends string> = {
 	maxWidth?: number;
 	maxWidthRatio: number;
 	/** 面板标题；未命中时不显示原始面板名。 */
-	titles: Partial<Record<Panel, string>>;
+	titles: Partial<Record<Panel, ReactNode>>;
+	/** 单标签页标题态。 */
+	headerSingle?: boolean;
 	children: ReactNode;
 };
 
@@ -43,6 +46,7 @@ export const ResizableSidebar = <Panel extends string>({
 	maxWidth,
 	maxWidthRatio,
 	titles,
+	headerSingle,
 	children,
 }: ResizableSidebarProps<Panel>) => {
 	const { t } = useTranslation();
@@ -143,10 +147,10 @@ export const ResizableSidebar = <Panel extends string>({
 					className={styles.inner}
 					style={{ width: contentWidth, minWidth: contentWidth }}
 				>
-					<div className={styles.header}>
-						<Text className={styles.title} size="2">
-							{isOpen ? (titles[activePanel] ?? "") : ""}
-						</Text>
+					<div className={styles.header} data-single-tab={headerSingle}>
+						<div className={styles.title}>
+							{isOpen ? (titles[activePanel] ?? null) : null}
+						</div>
 						<IconButton
 							variant="ghost"
 							color="gray"

@@ -1,7 +1,7 @@
 import { type AudioWriter, createAudioWriter } from "../queue";
 import { getErrorMessage } from "../utils";
 import type { FFmpegAudioModule, WorkerCommand, WorkerEvent } from "./types";
-import createFFmpegAudio from "./wasm/ffmpeg_wasm";
+import createFFmpegAudio from "./wasm/ffmpeg/ffmpeg_wasm";
 
 const THRESHOLD_50MB = 50 * 1024 * 1024;
 

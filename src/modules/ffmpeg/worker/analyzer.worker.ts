@@ -1,6 +1,27 @@
 import { getErrorMessage } from "../utils";
 import type { FFmpegAudioModule } from "./types";
-import createModule from "./wasm/ffmpeg_wasm.js";
+import initBpmWasm, {
+	BpmAnalyzer,
+	type InitOutput,
+	initThreadPool,
+} from "./wasm/bpm-analyzer/bpm_analyzer_wasm";
+import createModule from "./wasm/ffmpeg/ffmpeg_wasm.js";
+
+let bpmWasmInstance: InitOutput | null = null;
+let bpmWasmInitPromise: Promise<InitOutput> | null = null;
+
+async function getBpmWasm(): Promise<InitOutput> {
+	if (bpmWasmInstance) return bpmWasmInstance;
+	if (!bpmWasmInitPromise) {
+		bpmWasmInitPromise = (async () => {
+			const instance = await initBpmWasm();
+			await initThreadPool(navigator.hardwareConcurrency);
+			return instance;
+		})();
+	}
+	bpmWasmInstance = await bpmWasmInitPromise;
+	return bpmWasmInstance;
+}
 
 const THRESHOLD_50MB = 50 * 1024 * 1024;
 
@@ -30,7 +51,7 @@ const WRITE_BUFFER_CAPACITY = 1024 * 1024;
 const pcmWriteBuffer = new Float32Array(WRITE_BUFFER_CAPACITY);
 let pcmWriteOffset = 0;
 
-const TARGET_SAMPLE_RATE = 48000;
+const TARGET_SAMPLE_RATE = 44100;
 
 const opfsChannel = new BroadcastChannel("opfs-lock-channel");
 
@@ -143,7 +164,7 @@ function drawWaveform() {
 const yieldChannel = new MessageChannel();
 yieldChannel.port1.onmessage = () => analyzeLoop();
 
-function analyzeLoop() {
+async function analyzeLoop() {
 	if (!isAnalyzing || !ffmpegModule || decoderPtr === 0) return;
 	const BATCH_FRAMES = 1000;
 
@@ -218,6 +239,12 @@ function analyzeLoop() {
 		}
 		drawWaveform();
 
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		let bpmResult = null;
+		let calculationTime = 0;
+		let bpmErrorMsg: string | null = null;
+
 		if (opfsAccessHandle) {
 			if (pcmWriteOffset > 0) {
 				const finalData = pcmWriteBuffer.subarray(0, pcmWriteOffset);
@@ -226,11 +253,62 @@ function analyzeLoop() {
 			}
 
 			opfsAccessHandle.flush();
+
+			if (totalSamples > 0) {
+				try {
+					const wasmInstance = await getBpmWasm();
+					const analyzer = new BpmAnalyzer(totalSamples, {
+						sample_rate: TARGET_SAMPLE_RATE,
+					});
+
+					const uint8View = new Uint8Array(
+						wasmInstance.memory.buffer,
+						analyzer.byte_ptr,
+						analyzer.byte_capacity,
+					);
+
+					const bytesRead = opfsAccessHandle.read(uint8View, { at: 0 });
+					const samplesRead = Math.floor(bytesRead / 4);
+
+					analyzer.set_length(samplesRead);
+
+					const startTime = performance.now();
+					bpmResult = analyzer.analyze();
+					calculationTime = performance.now() - startTime;
+
+					analyzer.free();
+				} catch (bpmErr) {
+					console.error("BPM calculation failed:", bpmErr);
+					bpmErrorMsg = getErrorMessage(bpmErr);
+				}
+			}
+
 			opfsAccessHandle.close();
 			opfsAccessHandle = null;
 		}
 
-		self.postMessage({ type: "ANALYZE_DONE" });
+		if (bpmResult) {
+			const { bpm, anchorTick, confidence, ticks } = bpmResult;
+			self.postMessage({
+				type: "ANALYZE_DONE",
+				payload: {
+					bpmResult: {
+						bpm,
+						anchorTick,
+						confidence,
+						ticks,
+					},
+					calculationTime,
+				},
+			});
+		} else if (bpmErrorMsg) {
+			self.postMessage({
+				type: "ANALYZE_ERROR",
+				payload: { error: bpmErrorMsg },
+			});
+		} else {
+			self.postMessage({ type: "ANALYZE_DONE" });
+		}
 
 		ffmpegModule._wasm_decoder_destroy(decoderPtr);
 		decoderPtr = 0;
@@ -330,6 +408,11 @@ self.onmessage = async (e: MessageEvent) => {
 				opfsAccessHandle.close();
 				opfsAccessHandle = null;
 			}
+
+			self.postMessage({
+				type: "ANALYZE_ERROR",
+				payload: { error: getErrorMessage(err) },
+			});
 		}
 	} else if (type === "RESIZE") {
 		canvasWidth = payload.width;

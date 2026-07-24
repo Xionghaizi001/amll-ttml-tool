@@ -18,6 +18,7 @@ import {
 	PlayFilled,
 } from "@fluentui/react-icons";
 import {
+	Button,
 	Card,
 	Flex,
 	Grid,
@@ -25,6 +26,7 @@ import {
 	IconButton,
 	Inset,
 	Slider,
+	Spinner,
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
@@ -34,6 +36,7 @@ import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import { AudioSlider } from "$/modules/audio/components/AudioSlider";
+import { useBpmControl } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
 	audioPlayingAtom,
@@ -54,6 +57,7 @@ import {
 	keyVolumeUpAtom,
 } from "$/states/keybindings.ts";
 import { locateActionAtom, lyricLinesAtom } from "$/states/main.ts";
+import { openTabAtom } from "$/states/sidebar.ts";
 import { useKeyBinding, useKeyBindingAtom } from "$/utils/keybindings.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 
@@ -142,12 +146,14 @@ export const AudioControls: FC = memo(() => {
 	const [spectrogramVisible, setSpectrogramVisible] = useState(false);
 	const currentDuration = useAtomValue(currentDurationAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
+	const { bpmState, currentBpm } = useBpmControl();
 	const [audioPlaying, _setAudioPlaying] = useAtom(audioPlayingAtom);
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
 	const { openFile, openCachedAudio } = useFileOpener();
 	const { lyricLines } = useAtomValue(lyricLinesAtom);
 	const { t } = useTranslation();
+	const openTab = useSetAtom(openTabAtom);
 
 	const setLocateAction = useSetAtom(locateActionAtom);
 
@@ -258,6 +264,48 @@ export const AudioControls: FC = memo(() => {
 										<Text wrap="nowrap" color="gray" size="1">
 											{playbackRate.toFixed(2)}x
 										</Text>
+										<Text wrap="nowrap">{t("audioPanel.bpm", "BPM")}</Text>
+										<Flex align="center">
+											{bpmState.status === "analyzing" && (
+												<Button
+													variant="soft"
+													size="1"
+													onClick={() => openTab("bpm")}
+												>
+													<Spinner size="1" />
+												</Button>
+											)}
+											{bpmState.status === "completed" && (
+												<Button
+													variant="soft"
+													size="1"
+													onClick={() => openTab("bpm")}
+												>
+													{currentBpm ?? Math.round(bpmState.result.bpm)}
+												</Button>
+											)}
+											{bpmState.status === "error" && (
+												<Button
+													variant="soft"
+													color="red"
+													size="1"
+													onClick={() => openTab("bpm")}
+												>
+													{t("audioPanel.bpmError", "错误")}
+												</Button>
+											)}
+											{bpmState.status === "idle" && (
+												<Button
+													variant="soft"
+													color="gray"
+													size="1"
+													onClick={() => openTab("bpm")}
+												>
+													-
+												</Button>
+											)}
+										</Flex>
+										<span />
 									</Grid>
 									<Text
 										wrap="nowrap"

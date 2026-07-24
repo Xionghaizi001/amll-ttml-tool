@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import {
 	audioEngineStateAtom,
+	bpmStateAtom,
 	currentDurationAtom,
 	loadedAudioAtom,
 	pcmDataReadyAtom,
 } from "$/modules/audio/states";
 import AnalyzerWorker from "$/modules/ffmpeg/worker/analyzer.worker.ts?worker";
-import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg_wasm.wasm?url";
+import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 import { useHoverGuide } from "../hooks";
 import { AudioRegion } from "./AudioRegion";
@@ -21,6 +22,7 @@ export const AudioSlider = () => {
 	const engineState = useAtomValue(audioEngineStateAtom);
 	const audioFile = useAtomValue(loadedAudioAtom);
 	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
+	const setBpmState = useSetAtom(bpmStateAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 
@@ -50,12 +52,29 @@ export const AudioSlider = () => {
 		workerRef.current.onmessage = (e) => {
 			if (e.data.type === "ANALYZE_DONE") {
 				setPcmDataReady(true);
+				if (e.data.payload?.bpmResult) {
+					setBpmState({
+						status: "completed",
+						result: e.data.payload.bpmResult,
+						calculationTime: e.data.payload.calculationTime,
+					});
+				} else if (e.data.payload?.error) {
+					setBpmState({
+						status: "error",
+						error: e.data.payload.error,
+					});
+				}
+			} else if (e.data.type === "ANALYZE_ERROR") {
+				setBpmState({
+					status: "error",
+					error: e.data.payload?.error || "Unknown analysis error",
+				});
 			}
 		};
 		return () => {
 			workerRef.current?.terminate();
 		};
-	}, [setPcmDataReady]);
+	}, [setPcmDataReady, setBpmState]);
 
 	useEffect(() => {
 		const container = wsContainerRef.current;
@@ -73,17 +92,17 @@ export const AudioSlider = () => {
 	}, []);
 
 	useEffect(() => {
-		if (
-			!audioFile ||
-			audioFile.size === 0 ||
-			!workerRef.current ||
-			!canvasRef.current ||
-			!wsContainerRef.current
-		) {
+		if (!audioFile || audioFile.size === 0) {
+			setBpmState({ status: "idle" });
+			return;
+		}
+
+		if (!workerRef.current || !canvasRef.current || !wsContainerRef.current) {
 			return;
 		}
 
 		setPcmDataReady(false);
+		setBpmState({ status: "analyzing" });
 
 		let canvasPayload: OffscreenCanvas | undefined;
 		let transfer: Transferable[] = [];
@@ -112,7 +131,7 @@ export const AudioSlider = () => {
 			},
 			transfer,
 		);
-	}, [audioFile, setPcmDataReady]);
+	}, [audioFile, setPcmDataReady, setBpmState]);
 
 	useEffect(() => {
 		if (sliderWidthPx > 0 && workerRef.current && wsContainerRef.current) {

@@ -38,7 +38,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { I18nEditor } from "$/modules/lyric-editor/tools/i18nEditor.tsx";
-import { recalculateDuetStates } from "$/modules/ttml-processor";
 import {
 	LayoutMode,
 	layoutModeAtom,
@@ -46,6 +45,7 @@ import {
 	showLineTranslationAtom,
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
+import { recalculateDuetStates } from "$/modules/ttml-processor";
 import {
 	editingTimeFieldAtom,
 	lyricLinesAtom,
@@ -54,6 +54,11 @@ import {
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
+import {
+	openSidebarTabsAtom,
+	rightSidebarPanelAtom,
+	toggleTabAtom,
+} from "$/states/sidebar.ts";
 import {
 	type LyricLine,
 	type LyricWord,
@@ -66,10 +71,6 @@ import {
 	msToTimestamp,
 	parseTimespan,
 } from "$/utils/timestamp.ts";
-import {
-	rightSidebarPanelAtom,
-	sidebarPanelAtom,
-} from "$/states/sidebar.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -1036,13 +1037,16 @@ const AuxiliaryDisplayField: FC = () => {
 
 export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
-		const [sidebarPanel, setSidebarPanel] = useAtom(sidebarPanelAtom);
+		const openTabs = useAtomValue(openSidebarTabsAtom);
+		const toggleTab = useSetAtom(toggleTabAtom);
 		const [rightSidebarPanel, setRightSidebarPanel] = useAtom(
 			rightSidebarPanelAtom,
 		);
-		const isOutlineOpen = sidebarPanel === "outline";
+		const isOutlineOpen = openTabs.includes("outline");
+		const isBpmOpen = openTabs.includes("bpm");
 		const isAnnotationsOpen = rightSidebarPanel === "annotations";
 		const idOutline = useId();
+		const idBpm = useId();
 		const idAnnotations = useId();
 
 		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
@@ -1204,53 +1208,72 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.views", "视图")}>
-						<Flex
-							direction="column"
-							gap="1"
-							flexGrow="1"
-							align="start"
-							justify="center"
-						>
-							<Flex gap="2" align="center">
-								<Checkbox
-									id={idOutline}
-									checked={isOutlineOpen}
-									onCheckedChange={(checked) => {
-										setSidebarPanel(checked ? "outline" : "none");
+					<Flex
+						direction="column"
+						gap="1"
+						flexGrow="1"
+						align="start"
+						justify="center"
+					>
+						<Flex gap="3" align="center">
+							<Text size="1" asChild>
+								<label
+									htmlFor={idOutline}
+									style={{
+										userSelect: "none",
 									}}
-								/>
-								<Text size="1" asChild>
-									<label
-										htmlFor={idOutline}
-										style={{
-											userSelect: "none",
-										}}
-									>
-										{t("ribbonBar.editMode.showOutline", "大纲")}
-									</label>
-								</Text>
-							</Flex>
-							<Flex gap="2" align="center">
-								<Checkbox
-									id={idAnnotations}
-									checked={isAnnotationsOpen}
-									onCheckedChange={(checked) => {
-										setRightSidebarPanel(checked ? "annotations" : "none");
-									}}
-								/>
-								<Text size="1" asChild>
-									<label
-										htmlFor={idAnnotations}
-										style={{
-											userSelect: "none",
-										}}
-									>
-										{t("ribbonBar.editMode.showAnnotations", "批注")}
-									</label>
-								</Text>
-							</Flex>
+								>
+									{t("ribbonBar.editMode.showOutline", "大纲")}
+								</label>
+							</Text>
+							<Checkbox
+								id={idOutline}
+								checked={isOutlineOpen}
+								onCheckedChange={(checked) => {
+									toggleTab({ tabId: "outline", open: Boolean(checked) });
+								}}
+							/>
 						</Flex>
-					</RibbonSection>
+						<Flex gap="3" align="center">
+							<Text size="1" asChild>
+								<label
+									htmlFor={idBpm}
+									style={{
+										userSelect: "none",
+									}}
+								>
+									{t("ribbonBar.editMode.showBpmPanel", "BPM")}
+								</label>
+							</Text>
+							<Checkbox
+								id={idBpm}
+								checked={isBpmOpen}
+								onCheckedChange={(checked) => {
+									toggleTab({ tabId: "bpm", open: Boolean(checked) });
+								}}
+							/>
+						</Flex>
+						<Flex gap="3" align="center">
+							<Text size="1" asChild>
+								<label
+									htmlFor={idAnnotations}
+									style={{
+										userSelect: "none",
+									}}
+								>
+									{t("ribbonBar.editMode.showAnnotations", "批注")}
+								</label>
+							</Text>
+							<Checkbox
+								id={idAnnotations}
+								checked={isAnnotationsOpen}
+								onCheckedChange={(checked) => {
+									setRightSidebarPanel(checked ? "annotations" : "none");
+								}}
+							/>
+						</Flex>
+					</Flex>
+				</RibbonSection>
 			</RibbonFrame>
 		);
 	},

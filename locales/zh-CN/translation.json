@@ -98,7 +98,8 @@
 			"addCustomPart": "添加自定义",
 			"customPartPlaceholder": "自定义 Part",
 			"views": "视图",
-			"showOutline": "大纲"
+			"showOutline": "大纲",
+			"showBpmPanel": "BPM"
 		},
 		"previewMode": {
 			"lyrics": "歌词",
@@ -517,7 +518,9 @@
 		"expandSpectrogram": "展开 / 收起频谱图",
 		"cachedAudioLoaded": "已从缓存加载音频",
 		"cachedAudioMissing": "未找到缓存音频",
-		"cachedAudioFailed": "读取缓存音频失败"
+		"cachedAudioFailed": "读取缓存音频失败",
+		"bpm": "BPM",
+		"bpmError": "错误"
 	},
 	"audio": {
 		"status": {
@@ -915,6 +918,14 @@
 		"outline": {
 			"emptyLine": "空",
 			"title": "大纲"
+		},
+		"bpm": {
+			"title": "BPM",
+			"analyzing": "正在分析",
+			"halve": "减半 BPM",
+			"double": "加倍 BPM",
+			"reset": "重置 BPM",
+			"followPlaybackRate": "跟随音频播放倍速"
 		}
 	}
 }

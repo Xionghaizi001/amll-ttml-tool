@@ -12,7 +12,7 @@ import {
 } from "$/modules/audio/utils/index.ts";
 import { FFmpegAudioEngine } from "$/modules/ffmpeg/index.ts";
 import workerUrl from "$/modules/ffmpeg/worker/decoder.worker.ts?worker&url";
-import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg_wasm.wasm?url";
+import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
 import workletUrl from "$/modules/ffmpeg/worklet/audio.worklet.ts?worker&url";
 import soundtouchWasmUrl from "$/modules/ffmpeg/worklet/wasm/soundtouch_bg.wasm?url";
 import { globalStore } from "$/states/store.ts";

@@ -34,16 +34,20 @@
 	align-items: center;
 	justify-content: space-between;
 	flex: 0 0 auto;
-	height: 48px;
-	padding: 0 var(--space-3);
+	height: 45px;
+	padding: 0 var(--space-4) 0 0;
+	background-color: var(--gray-a2);
+}
+
+.header[data-single-tab="true"] {
+	height: 52px;
+	background-color: var(--gray-a1);
 }
 
 .title {
-	font-weight: 600;
-	color: var(--gray-12);
-	white-space: nowrap;
+	flex: 1 1 auto;
+	min-width: 0;
 	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
 .content {

@@ -93,7 +93,8 @@
 			"addCustomPart": "Add custom",
 			"customPartPlaceholder": "Custom Part",
 			"views": "Views",
-			"showOutline": "Outline"
+			"showOutline": "Outline",
+			"showBpmPanel": "BPM"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
@@ -511,7 +512,9 @@
 		"expandSpectrogram": "Expand / collapse spectrogram",
 		"cachedAudioLoaded": "Loaded audio from cache",
 		"cachedAudioMissing": "No cached audio found",
-		"cachedAudioFailed": "Failed to load cached audio"
+		"cachedAudioFailed": "Failed to load cached audio",
+		"bpm": "BPM",
+		"bpmError": "Error"
 	},
 	"audio": {
 		"status": {
@@ -884,6 +887,14 @@
 		"outline": {
 			"emptyLine": "Empty",
 			"title": "Outline"
+		},
+		"bpm": {
+			"title": "BPM",
+			"analyzing": "Analyzing",
+			"halve": "Halve BPM",
+			"double": "Double BPM",
+			"reset": "Reset BPM",
+			"followPlaybackRate": "Follow audio playback speed"
 		}
 	}
 }

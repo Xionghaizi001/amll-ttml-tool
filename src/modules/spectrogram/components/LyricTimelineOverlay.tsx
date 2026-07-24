@@ -348,7 +348,15 @@ export const LyricTimelineOverlay: FC<LyricTimelineOverlayProps> = ({
 					key={line.id}
 					line={line}
 					sharedBoundaryTimes={sharedBoundaryTimes}
-				/>
+				>
+					{renderLineOverlay?.({
+						line,
+						allLines: processedLines,
+						zoom,
+						scrollLeft,
+						clientWidth,
+					})}
+				</LyricLineSegment>
 			))}
 		</div>
 	);
