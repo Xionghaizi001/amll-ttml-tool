@@ -134,7 +134,7 @@ export const useSpectrogramWorker = (
 			activeRequests.current.clear();
 
 			const durationInSeconds = durationInMs / 1000;
-			clientRef.current.initAudio(48000, durationInSeconds);
+			clientRef.current.initAudio(44100, durationInSeconds);
 
 			if (paletteDataRef.current) {
 				clientRef.current.setPalette(paletteDataRef.current);

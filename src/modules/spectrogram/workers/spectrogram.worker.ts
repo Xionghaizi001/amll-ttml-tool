@@ -13,7 +13,7 @@ let audioDuration: number = 0;
 let wasmInitialized: Promise<void> | null = null;
 let currentPalette: Uint8Array | null = null;
 let opfsAccessHandle: FileSystemSyncAccessHandle | null = null;
-let reusableBuffer = new Float32Array(480000);
+let reusableBuffer = new Float32Array(441000);
 
 const opfsChannel = new BroadcastChannel("opfs-lock-channel");
 
