@@ -26,6 +26,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import { useBpmTapEngine } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
 	currentDurationAtom,
@@ -104,6 +105,19 @@ export const AudioSpectrogram: FC = () => {
 		showUnselectedLinesAtom,
 	);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
+
+	const { setTapMode, isSpectrogramTapMode, totalTapCount, triggerTap } =
+		useBpmTapEngine();
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && isSpectrogramTapMode) {
+				setTapMode("off");
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [isSpectrogramTapMode, setTapMode]);
 
 	const { height: uiHeight, resizeHandleProps } = useSpectrogramResize({
 		initialHeight: dataHeight,
@@ -351,7 +365,12 @@ export const AudioSpectrogram: FC = () => {
 	let tooltipBgColor: string | undefined;
 	let hoverLineColor: string | undefined;
 
-	if (isInvalidEndTime) {
+	if (isSpectrogramTapMode) {
+		const nextBeatIndex = totalTapCount + 1;
+		hoverTimeFormatted = `${t("spectrogram.clickToCalibrateBeatN", "点击校准第 {{n}} 拍", { n: nextBeatIndex })}: ${hoverTimeFormatted}`;
+		tooltipBgColor = "var(--green-9)";
+		hoverLineColor = "var(--green-9)";
+	} else if (isInvalidEndTime) {
 		hoverTimeFormatted = t("spectrogram.invalidEndTime", "不能选择此结束时间");
 		tooltipBgColor = "var(--red-9)";
 		hoverLineColor = "var(--red-9)";
@@ -375,6 +394,22 @@ export const AudioSpectrogram: FC = () => {
 	const gainPercent = ((gain - minGain) / (maxGain - minGain)) * 100;
 	const THUMB_HEIGHT_PX = 13;
 	const thumbOffsetPx = (0.5 - gainPercent / 100) * THUMB_HEIGHT_PX;
+
+	const handleSpectrogramMouseDown = (
+		event: React.MouseEvent<HTMLDivElement>,
+	) => {
+		if (isSpectrogramTapMode) {
+			event.preventDefault();
+			event.stopPropagation();
+			const rect = event.currentTarget.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const clickX = scrollLeft + x;
+			const clickTimeSeconds = clickX / zoom;
+			triggerTap(clickTimeSeconds);
+			return;
+		}
+		handleContainerMouseDown(event);
+	};
 
 	return (
 		<div
@@ -511,7 +546,7 @@ export const AudioSpectrogram: FC = () => {
 								onMouseEnter={handleMouseEnter}
 								onMouseLeave={handleMouseLeave}
 								onMouseMove={handleMouseMove}
-								onMouseDown={handleContainerMouseDown}
+								onMouseDown={handleSpectrogramMouseDown}
 								onContextMenu={(e) => e.preventDefault()}
 								role="group"
 							>

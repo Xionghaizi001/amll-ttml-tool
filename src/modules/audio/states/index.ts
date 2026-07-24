@@ -38,3 +38,12 @@ export const currentDurationAtom = atom(0);
 export const isAuditioningAtom = atom(false);
 export const audioErrorAtom = atom<string | null>(null);
 export const pcmDataReadyAtom = atom(false);
+
+export type BpmTapMode = "off" | "key" | "spectrogram";
+export const bpmTapModeAtom = atom<BpmTapMode>("off");
+export const tapTimesAtom = atom<number[]>([]);
+export const totalTapCountAtom = atom<number>(0);
+export const hasSeenTapWindowTipAtom = atomWithStorage(
+	"hasSeenTapWindowTip",
+	false,
+);

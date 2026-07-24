@@ -1,7 +1,9 @@
 import {
 	ArrowLeft16Regular,
 	ArrowResetRegular,
+	Dismiss16Regular,
 	ErrorCircle16Regular,
+	Info16Regular,
 	Timer16Regular,
 } from "@fluentui/react-icons";
 import {
@@ -16,17 +18,15 @@ import {
 	Tooltip,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { type FC, useCallback, useId, useRef, useState } from "react";
+import { type FC, useCallback, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "$/components/KeyBinding";
-import { audioEngine } from "$/modules/audio/audio-engine";
-import { useBpmControl } from "$/modules/audio/hooks";
+import { useBpmControl, useBpmTapEngine } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
-	bpmScaleAtom,
 	bpmStateAtom,
+	hasSeenTapWindowTipAtom,
 } from "$/modules/audio/states";
-import { SyncJudgeMode, syncJudgeModeAtom } from "$/modules/settings/states";
 import { showBeatLinesAtom } from "$/modules/spectrogram/states";
 import { keySyncNextAtom } from "$/states/keybindings";
 import { useKeyBindingAtom } from "$/utils/keybindings";
@@ -36,42 +36,6 @@ function formatCalculationTime(timeMs: number): string {
 		return `${Math.round(timeMs)} ms`;
 	}
 	return `${(timeMs / 1000).toFixed(2)} s`;
-}
-
-function computeOptimalAnchorTick(tapTimes: number[], bpm: number): number {
-	if (tapTimes.length === 0) return 0;
-	if (tapTimes.length === 1) return tapTimes[0];
-
-	const period = 60 / bpm;
-	if (period <= 0) return tapTimes[0];
-
-	const t0 = tapTimes[0];
-	const stableTaps = tapTimes.length >= 4 ? tapTimes.slice(1) : tapTimes;
-
-	const offsets: number[] = stableTaps.map((t) => {
-		const diff = (t - t0) % period;
-		let normalizedDiff = diff;
-		if (normalizedDiff > period / 2) {
-			normalizedDiff -= period;
-		} else if (normalizedDiff < -period / 2) {
-			normalizedDiff += period;
-		}
-		return normalizedDiff;
-	});
-
-	offsets.sort((a, b) => a - b);
-	const mid = Math.floor(offsets.length / 2);
-	const medianOffset =
-		offsets.length % 2 !== 0
-			? offsets[mid]
-			: (offsets[mid - 1] + offsets[mid]) / 2;
-
-	let optimalAnchor = t0 + medianOffset;
-	while (optimalAnchor < 0) {
-		optimalAnchor += period;
-	}
-
-	return optimalAnchor;
 }
 
 export const BpmPanel: FC = () => {
@@ -89,20 +53,27 @@ export const BpmPanel: FC = () => {
 		resetBpm: rawResetBpm,
 	} = useBpmControl();
 
+	const {
+		setTapMode,
+		isKeyTapMode,
+		isSpectrogramTapMode,
+		tapTimes,
+		triggerTap,
+		resetTapTimes,
+		isHighlighted,
+	} = useBpmTapEngine();
+
 	const setBpmState = useSetAtom(bpmStateAtom);
-	const setScale = useSetAtom(bpmScaleAtom);
-	const syncJudgeMode = useAtomValue(syncJudgeModeAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
+	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
+		hasSeenTapWindowTipAtom,
+	);
 
 	const audioLoaded =
 		engineState === "ready" ||
 		engineState === "playing" ||
 		engineState === "paused";
-
-	const [isTapMode, setIsTapMode] = useState(false);
-	const [tapTimes, setTapTimes] = useState<number[]>([]);
-	const [isHighlighted, setIsHighlighted] = useState(false);
 
 	const initialBpmRef = useRef<typeof bpmState | null>(null);
 	if (
@@ -115,91 +86,19 @@ export const BpmPanel: FC = () => {
 
 	const handleResetBpm = useCallback(() => {
 		rawResetBpm();
-		setTapTimes([]);
+		resetTapTimes();
 		if (initialBpmRef.current) {
 			setBpmState(initialBpmRef.current);
 		}
-	}, [rawResetBpm, setBpmState]);
-
-	const triggerHighlight = useCallback(() => {
-		setIsHighlighted(true);
-		setTimeout(() => {
-			setIsHighlighted(false);
-		}, 150);
-	}, []);
-
-	const handleTap = useCallback(
-		(downTimeOffset = 0) => {
-			triggerHighlight();
-			let hitTime = audioEngine.ctxCurrentTime + audioEngine.ctxOutputLatency;
-			if (hitTime <= 0) {
-				hitTime = performance.now() / 1000;
-			} else {
-				switch (syncJudgeMode) {
-					case SyncJudgeMode.FirstKeyDownTime:
-						hitTime -= downTimeOffset / 1000;
-						break;
-					case SyncJudgeMode.LastKeyUpTime:
-						break;
-					case SyncJudgeMode.MiddleKeyTime:
-						hitTime -= downTimeOffset / 2000;
-						break;
-				}
-			}
-
-			setTapTimes((prev) => {
-				const now = hitTime;
-				let nextTapTimes: number[];
-				if (prev.length > 0) {
-					const last = prev[prev.length - 1];
-					if (now - last > 2.5) {
-						nextTapTimes = [now];
-					} else {
-						nextTapTimes = [...prev, now];
-					}
-				} else {
-					nextTapTimes = [now];
-				}
-
-				if (nextTapTimes.length >= 2) {
-					const interval =
-						(nextTapTimes[nextTapTimes.length - 1] - nextTapTimes[0]) /
-						(nextTapTimes.length - 1);
-					if (interval > 0) {
-						const bpm = Math.round(60 / interval);
-						if (bpm >= 20 && bpm <= 400) {
-							const optimalAnchor = computeOptimalAnchorTick(
-								nextTapTimes,
-								bpm,
-							);
-							setBpmState({
-								status: "completed",
-								result: {
-									bpm,
-									anchorTick: optimalAnchor,
-									confidence: 1,
-									ticks: [],
-								},
-								calculationTime: 0,
-							});
-							setScale(1);
-						}
-					}
-				}
-
-				return nextTapTimes;
-			});
-		},
-		[syncJudgeMode, setBpmState, setScale, triggerHighlight],
-	);
+	}, [rawResetBpm, resetTapTimes, setBpmState]);
 
 	useKeyBindingAtom(
 		keySyncNextAtom,
 		(evt) => {
-			if (!isTapMode) return;
-			handleTap(evt.downTimeOffset);
+			if (!isKeyTapMode) return;
+			triggerTap(undefined, evt.downTimeOffset);
 		},
-		[isTapMode, handleTap],
+		[isKeyTapMode, triggerTap],
 	);
 
 	let bpmValueText = "--";
@@ -350,96 +249,204 @@ export const BpmPanel: FC = () => {
 					</Text>
 				</Flex>
 
-				{!isTapMode && (
-					<Flex justify="start">
+				{!hasSeenTapWindowTip && (isKeyTapMode || isSpectrogramTapMode) && (
+					<Callout.Root
+						color="blue"
+						size="1"
+						variant="soft"
+						style={{
+							display: "flex",
+							alignItems: "center",
+							paddingRight: "10px",
+						}}
+					>
+						<Callout.Icon style={{ display: "flex", alignItems: "center" }}>
+							<Info16Regular style={{ display: "block" }} />
+						</Callout.Icon>
+
+						<Callout.Text size="1" style={{ flex: 1 }}>
+							{t(
+								"sidebar.bpm.slidingWindowTip",
+								"只会使用最近 10 次校准数据计算 BPM",
+							)}
+						</Callout.Text>
+
+						<IconButton
+							size="1"
+							variant="ghost"
+							color="gray"
+							onClick={() => setHasSeenTapWindowTip(true)}
+							style={{
+								margin: 0,
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+							}}
+						>
+							<Dismiss16Regular />
+						</IconButton>
+					</Callout.Root>
+				)}
+
+				{!isKeyTapMode && !isSpectrogramTapMode && (
+					<Flex direction="column" gap="2" align="start">
 						<Button
 							size="2"
-							variant="outline"
+							variant="soft"
 							disabled={!audioLoaded}
-							onClick={() => setIsTapMode(true)}
-							style={{ cursor: audioLoaded ? "pointer" : "not-allowed" }}
+							onClick={() => setTapMode("key")}
+							style={{ alignSelf: "flex-start", cursor: "pointer" }}
 						>
 							{t("sidebar.bpm.manualCalibration", "手动打拍校准")}
+						</Button>
+						<Button
+							size="2"
+							variant="soft"
+							disabled={!audioLoaded}
+							onClick={() => setTapMode("spectrogram")}
+							style={{ alignSelf: "flex-start", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.spectrogramCalibration", "使用频谱图校准")}
 						</Button>
 					</Flex>
 				)}
 
-				{isTapMode && (
-					<Card variant="surface">
-						<Box p="1">
-							<Flex direction="column" gap="3">
+				{isKeyTapMode && (
+					<Card size="2">
+						<Flex direction="column" gap="3" style={{ position: "relative" }}>
+							<Flex align="center" justify="start">
+								<IconButton
+									size="1"
+									variant="ghost"
+									color="gray"
+									onClick={() => {
+										setTapMode("off");
+										resetTapTimes();
+									}}
+									style={{
+										position: "absolute",
+										left: 0,
+										top: 0,
+										cursor: "pointer",
+									}}
+								>
+									<ArrowLeft16Regular />
+								</IconButton>
+
 								<Flex
 									align="center"
 									justify="center"
 									style={{
-										position: "relative",
 										width: "100%",
-										minHeight: "24px",
+										paddingLeft: "28px",
+										paddingRight: "28px",
 									}}
 								>
-									<IconButton
-										size="1"
-										variant="ghost"
-										color="gray"
-										onClick={() => {
-											setIsTapMode(false);
-											setTapTimes([]);
-										}}
+									<Text
+										size="2"
+										weight={isHighlighted ? "bold" : "medium"}
+										onClick={() => triggerTap()}
 										style={{
-											position: "absolute",
-											left: 0,
+											textAlign: "center",
+											color: isHighlighted ? "var(--accent-11)" : undefined,
 											cursor: "pointer",
+											userSelect: "none",
 										}}
 									>
-										<ArrowLeft16Regular />
-									</IconButton>
-
-									<Flex
-										align="center"
-										justify="center"
-										style={{
-											width: "100%",
-											paddingLeft: "28px",
-											paddingRight: "28px",
-										}}
-									>
-										<Text
-											size="2"
-											weight={isHighlighted ? "bold" : "medium"}
-											onClick={() => handleTap(0)}
-											style={{
-												textAlign: "center",
-												color: isHighlighted ? "var(--accent-11)" : undefined,
-												cursor: "pointer",
-												userSelect: "none",
-											}}
-										>
-											{t("sidebar.bpm.tapInstructionPrefix", "根据节拍按下 ")}
-											<KeyBinding kbdAtom={keySyncNextAtom} />
-											{t("sidebar.bpm.tapInstructionSuffix", " 键或点击此处")}
-										</Text>
-									</Flex>
-								</Flex>
-
-								<Flex gap="1" style={{ width: "100%" }} justify="center">
-									{Array.from({ length: 10 }).map((_, index) => (
-										<Box
-											// biome-ignore lint/suspicious/noArrayIndexKey: fixed 10 indicator bars
-											key={index}
-											style={{
-												flex: 1,
-												height: "4px",
-												borderRadius: "2px",
-												backgroundColor:
-													index < Math.min(tapTimes.length, 10)
-														? "var(--accent-9)"
-														: "var(--gray-5)",
-											}}
-										/>
-									))}
+										{t("sidebar.bpm.tapInstructionPrefix", "根据节拍按下 ")}
+										<KeyBinding kbdAtom={keySyncNextAtom} />
+										{t("sidebar.bpm.tapInstructionSuffix", " 或点击此处")}
+									</Text>
 								</Flex>
 							</Flex>
-						</Box>
+
+							<Flex gap="1" style={{ width: "100%" }} justify="center">
+								{Array.from({ length: 10 }).map((_, index) => (
+									<Box
+										// biome-ignore lint/suspicious/noArrayIndexKey: fixed 10 indicator bars
+										key={index}
+										style={{
+											flex: 1,
+											height: "4px",
+											borderRadius: "2px",
+											backgroundColor:
+												index < Math.min(tapTimes.length, 10)
+													? "var(--accent-9)"
+													: "var(--gray-5)",
+										}}
+									/>
+								))}
+							</Flex>
+						</Flex>
+					</Card>
+				)}
+
+				{isSpectrogramTapMode && (
+					<Card size="2">
+						<Flex direction="column" gap="3" style={{ position: "relative" }}>
+							<Flex align="center" justify="start">
+								<IconButton
+									size="1"
+									variant="ghost"
+									color="gray"
+									onClick={() => {
+										setTapMode("off");
+										resetTapTimes();
+									}}
+									style={{
+										position: "absolute",
+										left: 0,
+										top: 0,
+										cursor: "pointer",
+									}}
+								>
+									<ArrowLeft16Regular />
+								</IconButton>
+
+								<Flex
+									align="center"
+									justify="center"
+									style={{
+										width: "100%",
+										paddingLeft: "28px",
+										paddingRight: "28px",
+									}}
+								>
+									<Text
+										size="2"
+										weight={isHighlighted ? "bold" : "medium"}
+										style={{
+											textAlign: "center",
+											color: isHighlighted ? "var(--accent-11)" : undefined,
+											userSelect: "none",
+										}}
+									>
+										{t(
+											"sidebar.bpm.clickOnSpectrogramToCalibrate",
+											"在频谱图上点击以校准",
+										)}
+									</Text>
+								</Flex>
+							</Flex>
+
+							<Flex gap="1" style={{ width: "100%" }} justify="center">
+								{Array.from({ length: 10 }).map((_, index) => (
+									<Box
+										// biome-ignore lint/suspicious/noArrayIndexKey: fixed 10 indicator bars
+										key={index}
+										style={{
+											flex: 1,
+											height: "4px",
+											borderRadius: "2px",
+											backgroundColor:
+												index < Math.min(tapTimes.length, 10)
+													? "var(--accent-9)"
+													: "var(--gray-5)",
+										}}
+									/>
+								))}
+							</Flex>
+						</Flex>
 					</Card>
 				)}
 			</Flex>

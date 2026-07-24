@@ -1,6 +1,7 @@
 export * from "./useAudioFeedback";
 export * from "./useAudioRegion";
 export * from "./useBpmControl";
+export * from "./useBpmTapEngine";
 export * from "./useHoverGuide";
 export * from "./useMediaSession";
 

@@ -913,7 +913,8 @@
 		"noAudioLoaded": "请先加载一个音频文件来渲染频谱图哦",
 		"loadAudio": "加载音频文件",
 		"showUnselectedLines": "显示未选中行",
-		"showBeatLines": "在频谱图上显示拍子"
+		"showBeatLines": "在频谱图上显示拍子",
+		"clickToCalibrateBeatN": "点击校准第 {n} 拍"
 	},
 	"sidebar": {
 		"outline": {
@@ -930,7 +931,10 @@
 			"manualCalibration": "手动打拍校准",
 			"tapInstructionPrefix": "根据节拍按下 ",
 			"tapInstructionSuffix": " 键或点击此处",
-			"showBeatLines": "在频谱图上显示拍子"
+			"showBeatLines": "在频谱图上显示拍子",
+			"slidingWindowTip": "只会使用最近 10 次校准数据计算 BPM",
+			"spectrogramCalibration": "使用频谱图校准",
+			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"
 		}
 	}
 }
