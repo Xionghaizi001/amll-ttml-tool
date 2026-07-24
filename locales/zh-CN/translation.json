@@ -912,7 +912,8 @@
 		"decoding": "正在解码音频，请稍候...",
 		"noAudioLoaded": "请先加载一个音频文件来渲染频谱图哦",
 		"loadAudio": "加载音频文件",
-		"showUnselectedLines": "显示未选中行"
+		"showUnselectedLines": "显示未选中行",
+		"showBeatLines": "在频谱图上显示拍子"
 	},
 	"sidebar": {
 		"outline": {
@@ -928,7 +929,8 @@
 			"followPlaybackRate": "跟随音频播放倍速",
 			"manualCalibration": "手动打拍校准",
 			"tapInstructionPrefix": "根据节拍按下 ",
-			"tapInstructionSuffix": " 键或点击此处"
+			"tapInstructionSuffix": " 键或点击此处",
+			"showBeatLines": "在频谱图上显示拍子"
 		}
 	}
 }

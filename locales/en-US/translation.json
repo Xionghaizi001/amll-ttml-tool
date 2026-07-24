@@ -881,7 +881,8 @@
 		"decoding": "Decoding audio, please wait...",
 		"noAudioLoaded": "Please load an audio file to render the spectrogram",
 		"loadAudio": "Load an audio file",
-		"showUnselectedLines": "Show unselected lines"
+		"showUnselectedLines": "Show unselected lines",
+		"showBeatLines": "Show beats on spectrogram"
 	},
 	"sidebar": {
 		"outline": {
@@ -897,7 +898,8 @@
 			"followPlaybackRate": "Follow audio playback speed",
 			"manualCalibration": "Manual tap calibration",
 			"tapInstructionPrefix": "Press ",
-			"tapInstructionSuffix": " or click here to the beat"
+			"tapInstructionSuffix": " or click here to the beat",
+			"showBeatLines": "Show beats on spectrogram"
 		}
 	}
 }

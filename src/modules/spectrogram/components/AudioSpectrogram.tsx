@@ -2,6 +2,7 @@ import {
 	EyeFilled,
 	EyeOffFilled,
 	MusicNote2Filled,
+	Timer16Regular,
 } from "@fluentui/react-icons";
 import {
 	Button,
@@ -39,6 +40,7 @@ import { useSpectrogramWorker } from "$/modules/spectrogram/hooks/useSpectrogram
 import { useTimelineEditing } from "$/modules/spectrogram/hooks/useTimelineEditing.ts";
 import {
 	currentPaletteAtom,
+	showBeatLinesAtom,
 	spectrogramContainerWidthAtom,
 	spectrogramGainAtom,
 	spectrogramHeightAtom,
@@ -53,6 +55,7 @@ import {
 } from "$/states/main.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./AudioSpectrogram.module.css";
+import { BeatLinesOverlay } from "./BeatLinesOverlay.tsx";
 import { LyricTimelineOverlay } from "./LyricTimelineOverlay.tsx";
 import {
 	type ISpectrogramContext,
@@ -100,6 +103,7 @@ export const AudioSpectrogram: FC = () => {
 	const [showUnselectedLines, setShowUnselectedLines] = useAtom(
 		showUnselectedLinesAtom,
 	);
+	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
 
 	const { height: uiHeight, resizeHandleProps } = useSpectrogramResize({
 		initialHeight: dataHeight,
@@ -548,6 +552,9 @@ export const AudioSpectrogram: FC = () => {
 									)}
 									<SpectrogramContext.Provider value={contextValue}>
 										<Theme appearance="dark">
+											{showBeatLines && (
+												<BeatLinesOverlay clientWidth={containerWidth} />
+											)}
 											{reviewTimingOverlayEnabled ? (
 												<ReviewLyricTimelineOverlay
 													clientWidth={containerWidth}
@@ -586,6 +593,17 @@ export const AudioSpectrogram: FC = () => {
 				</div>
 
 				<div className={`${styles.sidebar} ${styles.rightSidebar}`}>
+					<Tooltip
+						content={t("spectrogram.showBeatLines", "在频谱图上显示拍子")}
+						side="left"
+					>
+						<IconButton
+							variant={showBeatLines ? "solid" : "outline"}
+							onClick={() => setShowBeatLines((prev) => !prev)}
+						>
+							<Timer16Regular />
+						</IconButton>
+					</Tooltip>
 					<Tooltip
 						content={t("spectrogram.showUnselectedLines", "显示未选中行")}
 						side="left"

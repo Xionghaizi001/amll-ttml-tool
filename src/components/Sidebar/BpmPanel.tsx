@@ -15,7 +15,7 @@ import {
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { type FC, useCallback, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "$/components/KeyBinding";
@@ -27,6 +27,7 @@ import {
 	bpmStateAtom,
 } from "$/modules/audio/states";
 import { SyncJudgeMode, syncJudgeModeAtom } from "$/modules/settings/states";
+import { showBeatLinesAtom } from "$/modules/spectrogram/states";
 import { keySyncNextAtom } from "$/states/keybindings";
 import { useKeyBindingAtom } from "$/utils/keybindings";
 
@@ -37,9 +38,46 @@ function formatCalculationTime(timeMs: number): string {
 	return `${(timeMs / 1000).toFixed(2)} s`;
 }
 
+function computeOptimalAnchorTick(tapTimes: number[], bpm: number): number {
+	if (tapTimes.length === 0) return 0;
+	if (tapTimes.length === 1) return tapTimes[0];
+
+	const period = 60 / bpm;
+	if (period <= 0) return tapTimes[0];
+
+	const t0 = tapTimes[0];
+	const stableTaps = tapTimes.length >= 4 ? tapTimes.slice(1) : tapTimes;
+
+	const offsets: number[] = stableTaps.map((t) => {
+		const diff = (t - t0) % period;
+		let normalizedDiff = diff;
+		if (normalizedDiff > period / 2) {
+			normalizedDiff -= period;
+		} else if (normalizedDiff < -period / 2) {
+			normalizedDiff += period;
+		}
+		return normalizedDiff;
+	});
+
+	offsets.sort((a, b) => a - b);
+	const mid = Math.floor(offsets.length / 2);
+	const medianOffset =
+		offsets.length % 2 !== 0
+			? offsets[mid]
+			: (offsets[mid - 1] + offsets[mid]) / 2;
+
+	let optimalAnchor = t0 + medianOffset;
+	while (optimalAnchor < 0) {
+		optimalAnchor += period;
+	}
+
+	return optimalAnchor;
+}
+
 export const BpmPanel: FC = () => {
 	const { t } = useTranslation();
 	const followRateCheckboxId = useId();
+	const showBeatLinesCheckboxId = useId();
 	const {
 		bpmState,
 		currentBpm,
@@ -55,6 +93,7 @@ export const BpmPanel: FC = () => {
 	const setScale = useSetAtom(bpmScaleAtom);
 	const syncJudgeMode = useAtomValue(syncJudgeModeAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
+	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
 
 	const audioLoaded =
 		engineState === "ready" ||
@@ -129,11 +168,15 @@ export const BpmPanel: FC = () => {
 					if (interval > 0) {
 						const bpm = Math.round(60 / interval);
 						if (bpm >= 20 && bpm <= 400) {
+							const optimalAnchor = computeOptimalAnchorTick(
+								nextTapTimes,
+								bpm,
+							);
 							setBpmState({
 								status: "completed",
 								result: {
 									bpm,
-									anchorTick: 0,
+									anchorTick: optimalAnchor,
 									confidence: 1,
 									ticks: [],
 								},
@@ -287,6 +330,22 @@ export const BpmPanel: FC = () => {
 							style={{ userSelect: "none", cursor: "pointer" }}
 						>
 							{t("sidebar.bpm.followPlaybackRate", "跟随音频播放倍速")}
+						</label>
+					</Text>
+				</Flex>
+
+				<Flex align="center" gap="2">
+					<Checkbox
+						id={showBeatLinesCheckboxId}
+						checked={showBeatLines}
+						onCheckedChange={(checked) => setShowBeatLines(Boolean(checked))}
+					/>
+					<Text size="2" asChild>
+						<label
+							htmlFor={showBeatLinesCheckboxId}
+							style={{ userSelect: "none", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.showBeatLines", "在频谱图上显示拍子")}
 						</label>
 					</Text>
 				</Flex>

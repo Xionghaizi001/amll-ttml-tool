@@ -23,6 +23,10 @@ export const spectrogramHeightAtom = atomWithStorage(
 );
 export const spectrogramScrollLeftAtom = atom(0);
 export const spectrogramContainerWidthAtom = atom(0);
+export const showBeatLinesAtom = atomWithStorage(
+	"settings_showBeatLinesOnSpectrogram",
+	false,
+);
 
 const icyBluePalette = {
 	id: "icy_blue",
