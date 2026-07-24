@@ -935,6 +935,7 @@ export const ReviewReportDialog = () => {
 						<ReviewReportSubmissionBar
 							dialog={dialog}
 							getCleanReport={getCleanReport}
+							getCurrentReport={getCurrentReport}
 							onDiscard={discardDraft}
 							onSubmitAndClose={submitAndClose}
 						/>

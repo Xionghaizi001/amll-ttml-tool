@@ -1,5 +1,6 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { ReviewSession } from "$/states/main";
+import type { StructuredReviewReport } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
 import type { ReviewStructuredSnapshot } from "./structured-snapshot";
 
@@ -14,8 +15,10 @@ export type ReviewHistoryRecord = {
 	source: ReviewSession["source"];
 	createdAt: number;
 	contentHash: string;
+	originalTtml?: string;
 	data: TTMLLyric;
 	structure: ReviewStructuredSnapshot;
+	structuredReport?: StructuredReviewReport;
 };
 
 interface ReviewHistoryDBSchema extends DBSchema {
@@ -92,4 +95,14 @@ export const getReviewHistoryByHash = async (
 export const deleteReviewHistory = async (id: string): Promise<void> => {
 	const db = await getDB();
 	await db.delete("sessions", id);
+};
+
+export const updateReviewHistoryReport = async (
+	historyId: string,
+	structuredReport: StructuredReviewReport,
+): Promise<void> => {
+	const db = await getDB();
+	const record = await db.get("sessions", historyId);
+	if (!record) return;
+	await db.put("sessions", { ...record, structuredReport });
 };

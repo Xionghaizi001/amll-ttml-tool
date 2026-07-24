@@ -1,5 +1,9 @@
-import { uid } from "uid";
 import type { TTMLLyric } from "$/types/ttml";
+import {
+	deriveDocumentId,
+	deriveElementId,
+	deriveLineId,
+} from "$/utils/content-addressed-id";
 
 export type ReviewElementPath = Array<string | number>;
 
@@ -12,6 +16,7 @@ export type ReviewStructuredElement = {
 
 export type ReviewStructuredLine = {
 	id: string;
+	/** 编辑器运行时行 id，仅会话内用于 rebind，不进入导出协议。 */
 	sourceLineId: string;
 	lineIndex: number;
 	elementIds: string[];
@@ -19,20 +24,11 @@ export type ReviewStructuredLine = {
 
 export type ReviewStructuredSnapshot = {
 	schemaVersion: 1;
+	/** 等于 contentHash，跨端可复现。 */
 	documentId: string;
 	contentHash: string;
 	lines: ReviewStructuredLine[];
 	elements: ReviewStructuredElement[];
-};
-
-const createIdFactory = () => {
-	const allocatedIds = new Set<string>();
-	return () => {
-		let id = uid(20);
-		while (allocatedIds.has(id)) id = uid(20);
-		allocatedIds.add(id);
-		return id;
-	};
 };
 
 const isPrimitive = (
@@ -44,14 +40,16 @@ const isPrimitive = (
 	typeof value === "boolean";
 
 /**
- * Builds a review-only identity graph. IDs stay outside the TTML model so they
- * can be persisted and replayed without leaking into exported lyrics.
+ * Builds a review-only identity graph.
+ * IDs are content-addressed (contentHash + path) so the same file always yields
+ * the same IDs without persisting a mapping table. Runtime TTML ids stay out of
+ * the export protocol.
  */
 export const createReviewStructuredSnapshot = (
 	lyrics: TTMLLyric,
 	contentHash: string,
 ): ReviewStructuredSnapshot => {
-	const createId = createIdFactory();
+	const documentId = deriveDocumentId(contentHash);
 	const elements: ReviewStructuredElement[] = [];
 	const elementIdsByLine = new Map<number, string[]>();
 
@@ -60,7 +58,7 @@ export const createReviewStructuredSnapshot = (
 		path: ReviewElementPath,
 		value?: ReviewStructuredElement["value"],
 	) => {
-		const id = createId();
+		const id = deriveElementId(contentHash, path);
 		elements.push({
 			id,
 			kind,
@@ -112,7 +110,7 @@ export const createReviewStructuredSnapshot = (
 	}
 
 	const lines = lyrics.lyricLines.map((line, lineIndex) => ({
-		id: createId(),
+		id: deriveLineId(contentHash, lineIndex),
 		sourceLineId: line.id,
 		lineIndex,
 		elementIds: elementIdsByLine.get(lineIndex) ?? [],
@@ -120,7 +118,7 @@ export const createReviewStructuredSnapshot = (
 
 	return {
 		schemaVersion: 1,
-		documentId: createId(),
+		documentId,
 		contentHash,
 		lines,
 		elements,

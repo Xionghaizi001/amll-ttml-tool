@@ -17,12 +17,20 @@ import {
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import saveFile from "save-file";
 import {
 	deleteReviewHistory,
 	getReviewHistory,
 	type ReviewHistoryRecord,
 } from "$/modules/review/services/review-history-db";
-import { confirmDialogAtom } from "$/states/dialogs";
+import { readStructuredReviewReport } from "$/modules/user/services/structured-review-report-reader";
+import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
+import {
+	newLyricLinesAtom,
+	projectIdAtom,
+	saveFileNameAtom,
+	sourceFileContentAtom,
+} from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
 
@@ -60,9 +68,16 @@ const groupByPr = (records: ReviewHistoryRecord[]): ReviewPrGroup[] => {
 const ReviewHistoryCard = ({
 	record,
 	onDelete,
+	onLoad,
+	onExport,
 }: {
 	record: ReviewHistoryRecord;
 	onDelete: (record: ReviewHistoryRecord) => void;
+	onLoad: (
+		record: ReviewHistoryRecord,
+		variant: "original" | "modified",
+	) => void;
+	onExport: (record: ReviewHistoryRecord) => void;
 }) => {
 	const { t } = useTranslation();
 	return (
@@ -105,6 +120,27 @@ const ReviewHistoryCard = ({
 						{record.source}
 					</Badge>
 				</Flex>
+				{record.structuredReport && (
+					<Flex gap="2" wrap="wrap">
+						<Button
+							size="1"
+							variant="soft"
+							onClick={() => onLoad(record, "original")}
+						>
+							原稿
+						</Button>
+						<Button
+							size="1"
+							variant="soft"
+							onClick={() => onLoad(record, "modified")}
+						>
+							修改稿
+						</Button>
+						<Button size="1" variant="soft" onClick={() => onExport(record)}>
+							导出 JSON
+						</Button>
+					</Flex>
+				)}
 				<Text size="1" color="gray" truncate>
 					{t("historyRestoreDialog.review.documentId", "文档 ID：{id}", {
 						id: record.structure.documentId,
@@ -124,6 +160,11 @@ export const ReviewHistoryPanel = () => {
 	const [selectedPr, setSelectedPr] = useState<number | null>(null);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
+	const setNewLyrics = useSetAtom(newLyricLinesAtom);
+	const setProjectId = useSetAtom(projectIdAtom);
+	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const setSourceFileContent = useSetAtom(sourceFileContentAtom);
+	const setHistoryOpen = useSetAtom(historyRestoreDialogAtom);
 
 	const loadHistory = useCallback(async () => {
 		try {
@@ -174,6 +215,68 @@ export const ReviewHistoryPanel = () => {
 				});
 			},
 		});
+	};
+
+	const loadReportVariant = async (
+		record: ReviewHistoryRecord,
+		variant: "original" | "modified",
+	) => {
+		if (!record.structuredReport) return;
+		try {
+			const result = await readStructuredReviewReport(record.structuredReport);
+			if (!result.hashMatches) {
+				throw new Error("原稿内容与报告中的 contentHash 不一致");
+			}
+			const lyric =
+				variant === "original" ? result.originalLyric : result.modifiedLyric;
+			const source =
+				variant === "original"
+					? record.structuredReport.original
+					: record.structuredReport.modified;
+			setConfirmDialog({
+				open: true,
+				title: variant === "original" ? "载入审阅原稿" : "载入审阅修改稿",
+				description: "此操作将覆盖当前编辑器中的所有内容，确定要继续吗？",
+				onConfirm: () => {
+					setProjectId(record.id);
+					setNewLyrics(lyric);
+					setSaveFileName(record.fileName);
+					setSourceFileContent(source);
+					setHistoryOpen(false);
+					setPushNotification({
+						title:
+							variant === "original" ? "已载入审阅原稿" : "已载入审阅修改稿",
+						level: "success",
+						source: "ReviewHistory",
+					});
+				},
+			});
+		} catch (cause) {
+			setPushNotification({
+				title: `载入结构化报告失败：${cause instanceof Error ? cause.message : "未知错误"}`,
+				level: "error",
+				source: "ReviewHistory",
+			});
+		}
+	};
+
+	const exportReport = async (record: ReviewHistoryRecord) => {
+		if (!record.structuredReport) return;
+		try {
+			const blob = new Blob(
+				[JSON.stringify(record.structuredReport, null, 2)],
+				{
+					type: "application/json",
+				},
+			);
+			await saveFile(blob, `structured-review-${record.prNumber}.json`);
+		} catch (cause) {
+			setPushNotification({
+				title: `导出结构化报告失败：${cause instanceof Error ? cause.message : "未知错误"}`,
+				level: "error",
+				source: "ReviewHistory",
+			});
+		}
 	};
 
 	return (
@@ -262,6 +365,10 @@ export const ReviewHistoryPanel = () => {
 										key={record.id}
 										record={record}
 										onDelete={handleDelete}
+										onLoad={(item, variant) =>
+											void loadReportVariant(item, variant)
+										}
+										onExport={(item) => void exportReport(item)}
 									/>
 								))}
 							</Flex>

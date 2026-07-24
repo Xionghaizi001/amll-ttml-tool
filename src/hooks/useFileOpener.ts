@@ -33,6 +33,7 @@ import {
 	newLyricLinesAtom,
 	projectIdAtom,
 	saveFileNameAtom,
+	sourceFileContentAtom,
 } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
@@ -165,6 +166,7 @@ export const useFileOpener = () => {
 	const setLyricLines = useSetAtom(lyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const setSourceFileContent = useSetAtom(sourceFileContentAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
@@ -256,6 +258,7 @@ export const useFileOpener = () => {
 
 				let lyricData: TTMLLyric | null = null;
 				const text = await file.text();
+				setSourceFileContent(text);
 
 				if (ext === "ttml") {
 					const result = parseTTMLLyric(text);
@@ -334,6 +337,7 @@ export const useFileOpener = () => {
 			setNewLyricLines,
 			setProjectId,
 			setSaveFileName,
+			setSourceFileContent,
 			loadAudioFile,
 			normalizeLyricLines,
 			defaultTtmlAuthorGithub,

@@ -17,6 +17,7 @@ import {
 	neteaseCookieAtom,
 } from "$/modules/settings/states";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
+import { StructuredReviewReportTest } from "$/modules/user/tests/StructuredReviewReportTest";
 import {
 	fileUpdateSessionAtom,
 	reviewSessionAtom,
@@ -233,6 +234,11 @@ export const ProjectTestsSettings = () => {
 			</div>
 
 			<div className={styles.toolGrid}>
+				<section className={`${styles.toolCard} ${styles.fullWidth}`}>
+					<div className={styles.toolContent}>
+						<StructuredReviewReportTest />
+					</div>
+				</section>
 				<section className={`${styles.toolCard} ${styles.fullWidth}`}>
 					<div className={styles.toolContent}>
 						<Heading size="4">注入审阅文件</Heading>

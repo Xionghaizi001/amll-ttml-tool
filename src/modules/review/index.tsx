@@ -1,6 +1,7 @@
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useEffect, useRef } from "react";
 import { uid } from "uid";
+import { generateTTMLLyric, parseTTMLLyric } from "$/modules/ttml-processor";
 import {
 	lyricLinesAtom,
 	projectIdAtom,
@@ -9,6 +10,7 @@ import {
 	reviewOperationRedoStackAtom,
 	reviewSessionAtom,
 	saveFileNameAtom,
+	sourceFileContentAtom,
 } from "$/states/main";
 import type { TTMLLyric } from "$/types/ttml";
 import { log, error as logError } from "$/utils/logging";
@@ -33,6 +35,7 @@ export const useReviewSessionLifecycle = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const saveFileName = useAtomValue(saveFileNameAtom);
 	const projectId = useAtomValue(projectIdAtom);
+	const sourceFileContent = useAtomValue(sourceFileContentAtom);
 	const setReviewFreeze = useSetAtom(reviewFreezeAtom);
 	const setReviewOperationLog = useSetAtom(reviewOperationLogAtom);
 	const setReviewOperationRedoStack = useSetAtom(reviewOperationRedoStackAtom);
@@ -92,33 +95,43 @@ export const useReviewSessionLifecycle = () => {
 		if (!fileReady) return;
 		const snapshot = cloneLyric(lyricLines);
 		const sessionKey = reviewSessionKeyRef.current;
+		const generatedOriginal = generateTTMLLyric(snapshot);
+		const originalTtml =
+			sourceFileContent ??
+			(generatedOriginal.success ? generatedOriginal.data : "");
+		const parsedOriginal = parseTTMLLyric(originalTtml);
+		const hashInput = parsedOriginal.success ? parsedOriginal.data : snapshot;
+		const historyId = uid(20);
 		reviewPendingRef.current = false;
 		const captureSnapshot = async () => {
 			try {
 				const { contentHash, matches } = await queryTtmlByContentHash(
-					snapshot,
+					hashInput,
 					getReviewHistoryByHash,
 				);
 				if (reviewSessionKeyRef.current !== sessionKey) return;
 				const structure = matches[0]
 					? rebindReviewStructuredSnapshot(matches[0].structure, snapshot)
 					: createReviewStructuredSnapshot(snapshot, contentHash);
-				setReviewFreeze({
-					prNumber: reviewSession.prNumber,
-					fileName: reviewSession.fileName,
-					data: snapshot,
-					structure,
-				});
 				await saveReviewHistory({
-					id: uid(20),
+					id: historyId,
 					prNumber: reviewSession.prNumber,
 					prTitle: reviewSession.prTitle,
 					fileName: reviewSession.fileName,
 					source: reviewSession.source,
 					createdAt: Date.now(),
 					contentHash,
+					originalTtml,
 					data: snapshot,
 					structure,
+				});
+				setReviewFreeze({
+					prNumber: reviewSession.prNumber,
+					fileName: reviewSession.fileName,
+					data: snapshot,
+					structure,
+					historyId,
+					originalTtml,
 				});
 				log("[review]", "freeze set", {
 					prNumber: reviewSession.prNumber,
@@ -134,7 +147,14 @@ export const useReviewSessionLifecycle = () => {
 			}
 		};
 		void captureSnapshot();
-	}, [lyricLines, projectId, reviewSession, saveFileName, setReviewFreeze]);
+	}, [
+		lyricLines,
+		projectId,
+		reviewSession,
+		saveFileName,
+		setReviewFreeze,
+		sourceFileContent,
+	]);
 };
 
 export default ReviewPage;

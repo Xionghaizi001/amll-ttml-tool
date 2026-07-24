@@ -170,6 +170,9 @@ export const newLyricLinesAtom = atom(
 export const selectedLinesAtom = atom(new Set<string>());
 export const selectedWordsAtom = atom(new Set<string>());
 
+/** 原始打开文件的文本，用于审阅报告闭环导出。 */
+export const sourceFileContentAtom = atom<string | null>(null);
+
 export const saveFileNameAtom = atom("lyric.ttml");
 
 export const showUnselectedLinesAtom = atomWithStorage(
@@ -215,6 +218,8 @@ export type ReviewSnapshot = {
 	fileName: string;
 	data: TTMLLyric;
 	structure: ReviewStructuredSnapshot;
+	historyId: string;
+	originalTtml: string;
 };
 export const reviewFreezeAtom = atom<ReviewSnapshot | null>(null);
 export const pushReviewOperationAtom = atom(

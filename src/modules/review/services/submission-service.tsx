@@ -1,4 +1,5 @@
 import {
+	ArrowDownload20Regular,
 	Checkmark20Regular,
 	Delete20Regular,
 	Dismiss20Regular,
@@ -8,6 +9,7 @@ import {
 import { Button, Flex, Text } from "@radix-ui/themes";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
+import saveFile from "save-file";
 import { githubFetch } from "$/modules/github/api";
 import {
 	ensurePullRequestAssigned,
@@ -15,17 +17,67 @@ import {
 } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
 import { submitReview as submitLyricsSiteReview } from "$/modules/lyrics-site";
-import { githubPatAtom, lyricsSiteTokenAtom } from "$/modules/settings/states";
+import {
+	githubLoginAtom,
+	githubPatAtom,
+	lyricsSiteTokenAtom,
+} from "$/modules/settings/states";
+import { generateTTMLLyric } from "$/modules/ttml-processor";
 import {
 	confirmDialogAtom,
 	type ReviewReportDialogState,
 } from "$/states/dialogs";
-import { reviewReviewedPrsAtom, reviewSingleRefreshAtom } from "$/states/main";
+import {
+	lyricLinesAtom,
+	type ReviewSnapshot,
+	reviewFreezeAtom,
+	reviewReviewedPrsAtom,
+	reviewSingleRefreshAtom,
+} from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
+import type { StructuredReviewReport } from "$/types/structured-review-report";
+import type { TTMLLyric } from "$/types/ttml";
+import { buildStructuredReviewUpdates } from "./report-service/structured-report-builder";
+import type { ReviewReport } from "./report-service/types";
+import { updateReviewHistoryReport } from "./review-history-db";
 
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 const PENDING_LABEL_NAME = "待更新";
+
+const getFirstMetadataValue = (lyrics: TTMLLyric, key: string) =>
+	lyrics.metadata
+		.find((entry) => entry.key === key)
+		?.value.find((value) => value.trim())
+		?.trim() ?? "";
+
+export const buildStructuredReviewReport = (options: {
+	freeze: ReviewSnapshot;
+	staged: TTMLLyric;
+	modifiedTtml: string;
+	report: ReviewReport;
+	submitter: string;
+}): StructuredReviewReport => {
+	const generatedOriginal = generateTTMLLyric(options.freeze.data);
+	const original =
+		options.freeze.originalTtml ||
+		(generatedOriginal.success ? generatedOriginal.data : "");
+	return {
+		original,
+		modified: options.modifiedTtml,
+		metadata: {
+			title: getFirstMetadataValue(options.staged, "musicName"),
+			artist: getFirstMetadataValue(options.staged, "artists"),
+			submitter: options.submitter.trim(),
+		},
+		updates: buildStructuredReviewUpdates({
+			freeze: options.freeze.data,
+			staged: options.staged,
+			structure: options.freeze.structure,
+			report: options.report,
+		}),
+	};
+};
 
 type ReviewSubmissionEvent = "APPROVE" | "REQUEST_CHANGES";
 type ReviewSubmitPending =
@@ -37,6 +89,7 @@ type ReviewSubmitPending =
 export type ReviewReportSubmissionBarProps = {
 	dialog: ReviewReportDialogState;
 	getCleanReport: () => string;
+	getCurrentReport: () => ReviewReport;
 	onDiscard: () => void;
 	onSubmitAndClose: () => void;
 };
@@ -44,6 +97,7 @@ export type ReviewReportSubmissionBarProps = {
 export const ReviewReportSubmissionBar = ({
 	dialog,
 	getCleanReport,
+	getCurrentReport,
 	onDiscard,
 	onSubmitAndClose,
 }: ReviewReportSubmissionBarProps) => {
@@ -55,6 +109,10 @@ export const ReviewReportSubmissionBar = ({
 	const lyricsSiteToken = useAtomValue(lyricsSiteTokenAtom);
 	const [approvedByUser, setApprovedByUser] = useState(false);
 	const [submitPending, setSubmitPending] = useState<ReviewSubmitPending>(null);
+	const [exportPending, setExportPending] = useState(false);
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const reviewFreeze = useAtomValue(reviewFreezeAtom);
+	const githubLogin = useAtomValue(githubLoginAtom);
 
 	useEffect(() => {
 		if (dialog.open) {
@@ -119,6 +177,32 @@ export const ReviewReportSubmissionBar = ({
 		return userLogin;
 	};
 
+	const createCurrentStructuredReport = (): StructuredReviewReport => {
+		if (!reviewFreeze) {
+			throw new Error("当前审阅文件尚未完成结构化快照");
+		}
+		const modifiedResult = generateTTMLLyric(lyricLines);
+		if (!modifiedResult.success) {
+			throw new Error(modifiedResult.error.message);
+		}
+		return buildStructuredReviewReport({
+			freeze: reviewFreeze,
+			staged: lyricLines,
+			modifiedTtml: modifiedResult.data,
+			report: getCurrentReport(),
+			submitter: githubLogin,
+		});
+	};
+
+	const persistCurrentStructuredReport = async () => {
+		if (!reviewFreeze) {
+			throw new Error("当前审阅文件尚未完成结构化快照");
+		}
+		const structuredReport = createCurrentStructuredReport();
+		await updateReviewHistoryReport(reviewFreeze.historyId, structuredReport);
+		return structuredReport;
+	};
+
 	const submitReview = async (event: ReviewSubmissionEvent) => {
 		if (!dialog.prNumber && !dialog.submissionId) {
 			setPushNotification({
@@ -141,6 +225,7 @@ export const ReviewReportSubmissionBar = ({
 
 		setSubmitPending(event);
 		try {
+			await persistCurrentStructuredReport();
 			if (dialog.source === "lyrics-site") {
 				const token = lyricsSiteToken?.trim();
 				if (!token) {
@@ -235,6 +320,31 @@ export const ReviewReportSubmissionBar = ({
 		}
 	};
 
+	const exportStructuredReport = async () => {
+		setExportPending(true);
+		try {
+			const structuredReport = await persistCurrentStructuredReport();
+			const blob = new Blob([JSON.stringify(structuredReport, null, 2)], {
+				type: "application/json",
+			});
+			const suffix = dialog.prNumber ? `pr-${dialog.prNumber}` : "review";
+			await saveFile(blob, `structured-review-${suffix}.json`);
+			setPushNotification({
+				title: "结构化审阅报告已导出",
+				level: "success",
+				source: "Review",
+			});
+		} catch (error) {
+			setPushNotification({
+				title: `导出结构化报告失败：${error instanceof Error ? error.message : "未知错误"}`,
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setExportPending(false);
+		}
+	};
+
 	const submitMissingAudio = async () => {
 		if (!dialog.submissionId && !dialog.prNumber) {
 			setPushNotification({
@@ -302,6 +412,7 @@ export const ReviewReportSubmissionBar = ({
 		}
 		setSubmitPending("MERGE");
 		try {
+			await persistCurrentStructuredReport();
 			const userLogin = await ensureAssigned(token, dialog.prNumber);
 			if (!userLogin) {
 				return;
@@ -432,7 +543,7 @@ export const ReviewReportSubmissionBar = ({
 				variant="soft"
 				color="gray"
 				onClick={onDiscard}
-				disabled={submitPending !== null}
+				disabled={submitPending !== null || exportPending}
 			>
 				<Flex align="center" gap="2">
 					<Delete20Regular />
@@ -440,6 +551,17 @@ export const ReviewReportSubmissionBar = ({
 				</Flex>
 			</Button>
 			<Flex align="center" justify="end" gap="2">
+				<Button
+					size="2"
+					variant="soft"
+					onClick={() => void exportStructuredReport()}
+					disabled={submitPending !== null || exportPending}
+				>
+					<Flex align="center" gap="2">
+						<ArrowDownload20Regular />
+						<Text size="2">{exportPending ? "导出中..." : "导出 JSON"}</Text>
+					</Flex>
+				</Button>
 				<Button
 					size="2"
 					variant="soft"
