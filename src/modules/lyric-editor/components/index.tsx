@@ -146,6 +146,17 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const jumpAction = useAtomValue(outlineJumpActionAtom);
 	useEffect(() => {
 		if (!jumpAction) return;
+		const annotationLinePrefix = "__annotation_line__:";
+		if (jumpAction.id.startsWith(annotationLinePrefix)) {
+			const lineIndex = Number.parseInt(
+				jumpAction.id.slice(annotationLinePrefix.length),
+				10,
+			);
+			if (Number.isFinite(lineIndex) && lineIndex >= 0) {
+				scrollToLineIndex(lineIndex);
+			}
+			return;
+		}
 		const targetIndex = lyricLines.findIndex((l) => l.id === jumpAction.id);
 		if (targetIndex !== -1) {
 			scrollToLineIndex(targetIndex);

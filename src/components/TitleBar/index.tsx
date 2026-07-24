@@ -35,6 +35,8 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
+import { annotationSessionAtom } from "$/modules/user/states/annotation-session";
+import { rightSidebarPanelAtom } from "$/states/sidebar.ts";
 import { useKeyBindingAtom } from "$/utils/keybindings.ts";
 import { log } from "$/utils/logging";
 import { ReviewActionGroup } from "./modals/ReviewActionGroup";
@@ -63,6 +65,8 @@ export const TitleBar: FC = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
 	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
+	const setAnnotationSession = useSetAtom(annotationSessionAtom);
+	const setRightSidebarPanel = useSetAtom(rightSidebarPanelAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const [notificationCenterOpen, setNotificationCenterOpen] = useAtom(
@@ -148,6 +152,8 @@ export const TitleBar: FC = () => {
 			pushNotification: setPushNotification,
 			onAfterPush: () => {
 				setFileUpdateSession(null);
+				setAnnotationSession(null);
+				setRightSidebarPanel("none");
 				log(`已结束更新会话 PR #${fileUpdateSession.prNumber}`);
 			},
 			onSuccess: () => {
@@ -180,16 +186,25 @@ export const TitleBar: FC = () => {
 		fileUpdateSession,
 		lyricLines,
 		pat,
+		setAnnotationSession,
 		setConfirmDialog,
 		setFileUpdateSession,
 		setPushNotification,
+		setRightSidebarPanel,
 	]);
 
 	const onUpdateCancel = useCallback(() => {
 		if (!fileUpdateSession) return;
 		setFileUpdateSession(null);
+		setAnnotationSession(null);
+		setRightSidebarPanel("none");
 		log(`已结束更新会话 PR #${fileUpdateSession.prNumber}`);
-	}, [fileUpdateSession, setFileUpdateSession]);
+	}, [
+		fileUpdateSession,
+		setAnnotationSession,
+		setFileUpdateSession,
+		setRightSidebarPanel,
+	]);
 
 	const updateActionGroup = fileUpdateSession ? (
 		<ReviewActionGroup

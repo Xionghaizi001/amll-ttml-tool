@@ -1,12 +1,23 @@
 import { Button, Flex, Text, TextArea } from "@radix-ui/themes";
+import { useSetAtom } from "jotai";
 import { useRef, useState } from "react";
 import { readStructuredReviewReport } from "$/modules/user/services/structured-review-report-reader";
+import {
+	annotationSessionAtom,
+	createAnnotationSession,
+} from "$/modules/user/states/annotation-session";
+import { newLyricLinesAtom, ToolMode, toolModeAtom } from "$/states/main";
+import { rightSidebarPanelAtom } from "$/states/sidebar";
 
 export const StructuredReviewReportTest = () => {
 	const [input, setInput] = useState("");
 	const [status, setStatus] = useState("尚未读取报告");
 	const [summary, setSummary] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const setAnnotationSession = useSetAtom(annotationSessionAtom);
+	const setRightPanel = useSetAtom(rightSidebarPanelAtom);
+	const setNewLyrics = useSetAtom(newLyricLinesAtom);
+	const setToolMode = useSetAtom(toolModeAtom);
 
 	const readInput = async (value: string) => {
 		setInput(value);
@@ -27,6 +38,16 @@ export const StructuredReviewReportTest = () => {
 				)}`,
 				`内容 Hash：${result.report.updates.contentHash}`,
 			]);
+			// 进入接受端预览：载入原稿并打开批注面板
+			setNewLyrics(result.originalLyric);
+			setAnnotationSession(
+				createAnnotationSession({
+					report: result.report,
+					originalLyric: result.originalLyric,
+				}),
+			);
+			setRightPanel("annotations");
+			setToolMode(ToolMode.Edit);
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : "读取失败");
 			setSummary([]);
@@ -40,7 +61,7 @@ export const StructuredReviewReportTest = () => {
 					结构化审阅报告回读测试
 				</Text>
 				<Text size="2" color="gray">
-					粘贴 JSON 或导入 JSON 文件，验证 TTML 和 contentHash。
+					粘贴 JSON 或导入 JSON 文件，验证 TTML 和 contentHash；成功后会载入原稿并打开批注面板。
 				</Text>
 				<TextArea
 					value={input}

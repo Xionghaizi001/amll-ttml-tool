@@ -66,7 +66,10 @@ import {
 	msToTimestamp,
 	parseTimespan,
 } from "$/utils/timestamp.ts";
-import { sidebarPanelAtom } from "$/states/sidebar.ts";
+import {
+	rightSidebarPanelAtom,
+	sidebarPanelAtom,
+} from "$/states/sidebar.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -1034,8 +1037,13 @@ const AuxiliaryDisplayField: FC = () => {
 export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
 		const [sidebarPanel, setSidebarPanel] = useAtom(sidebarPanelAtom);
+		const [rightSidebarPanel, setRightSidebarPanel] = useAtom(
+			rightSidebarPanelAtom,
+		);
 		const isOutlineOpen = sidebarPanel === "outline";
+		const isAnnotationsOpen = rightSidebarPanel === "annotations";
 		const idOutline = useId();
+		const idAnnotations = useId();
 
 		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 		const { t } = useTranslation();
@@ -1196,24 +1204,45 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.views", "视图")}>
-					<Flex gap="2" flexGrow="1" align="center" justify="center">
-						<Checkbox
-							id={idOutline}
-							checked={isOutlineOpen}
-							onCheckedChange={(checked) => {
-								setSidebarPanel(checked ? "outline" : "none");
-							}}
-						/>
-						<Text size="1" asChild>
-							<label
-								htmlFor={idOutline}
-								style={{
-									userSelect: "none",
+					<Flex gap="3" flexGrow="1" align="center" justify="center">
+						<Flex gap="2" align="center">
+							<Checkbox
+								id={idOutline}
+								checked={isOutlineOpen}
+								onCheckedChange={(checked) => {
+									setSidebarPanel(checked ? "outline" : "none");
 								}}
-							>
-								{t("ribbonBar.editMode.showOutline", "大纲")}
-							</label>
-						</Text>
+							/>
+							<Text size="1" asChild>
+								<label
+									htmlFor={idOutline}
+									style={{
+										userSelect: "none",
+									}}
+								>
+									{t("ribbonBar.editMode.showOutline", "大纲")}
+								</label>
+							</Text>
+						</Flex>
+						<Flex gap="2" align="center">
+							<Checkbox
+								id={idAnnotations}
+								checked={isAnnotationsOpen}
+								onCheckedChange={(checked) => {
+									setRightSidebarPanel(checked ? "annotations" : "none");
+								}}
+							/>
+							<Text size="1" asChild>
+								<label
+									htmlFor={idAnnotations}
+									style={{
+										userSelect: "none",
+									}}
+								>
+									{t("ribbonBar.editMode.showAnnotations", "批注")}
+								</label>
+							</Text>
+						</Flex>
 					</Flex>
 				</RibbonSection>
 			</RibbonFrame>

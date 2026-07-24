@@ -38,6 +38,7 @@ import DarkThemeDetector from "./components/DarkThemeDetector";
 import { OAuthCallbackHandler } from "./components/OAuthCallbackHandler";
 import RibbonBar from "./components/RibbonBar";
 import { Sidebar } from "./components/Sidebar/index.tsx";
+import { RightSidebar } from "./components/Sidebar/RightSidebar.tsx";
 import { TitleBar } from "./components/TitleBar";
 import { useFileOpener } from "./hooks/useFileOpener.ts";
 import { useRawLyricsIndex } from "./hooks/useRawLyricsIndex.ts";
@@ -519,6 +520,9 @@ function App() {
 									)}
 								</AnimatePresence>
 							</Box>
+							{(toolMode === ToolMode.Edit || toolMode === ToolMode.Sync) && (
+								<RightSidebar />
+							)}
 						</Flex>
 						{showTouchSyncPanel && toolMode === ToolMode.Sync && (
 							<TouchSyncPanel />

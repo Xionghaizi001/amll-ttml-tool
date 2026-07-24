@@ -534,3 +534,25 @@
 	transform: translateY(var(--drop-indicator-y, 0px));
 	will-change: transform;
 }
+
+
+.annotationAdded {
+	background-color: var(--blue-a3) !important;
+	box-shadow: inset 0 0 0 1px var(--blue-a6);
+}
+
+.annotationRemoved {
+	opacity: 0.45;
+	filter: saturate(0.35);
+}
+
+.annotationRemoved :global(.rt-TextFieldRoot),
+.annotationRemoved .displayWord {
+	text-decoration: line-through;
+	text-decoration-color: var(--red-a8);
+}
+
+.annotationFocused {
+	outline: 2px solid var(--accent-a9);
+	outline-offset: 1px;
+}

@@ -54,6 +54,10 @@ import {
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
 import {
+	annotationSessionAtom,
+	annotationsByLineAtom,
+} from "$/modules/user/states/annotation-session";
+import {
 	dragSourceAtom,
 	isDraggingGlobalAtom,
 	lyricLinesAtom,
@@ -72,6 +76,7 @@ import {
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
+import { LineAnnotationRail } from "./LineAnnotationRail.tsx";
 import LyricWordView from "./lyric-word-view.tsx";
 import { RomanWordView } from "./roman-word-view.tsx";
 
@@ -333,6 +338,27 @@ export const LyricLineView: FC<{
 		[vocalTags],
 	);
 	const line = useAtomValue(lineAtom);
+	const annotationSession = useAtomValue(annotationSessionAtom);
+	const annotationsByLine = useAtomValue(annotationsByLineAtom);
+	const lineAnnotations = annotationsByLine.get(lineIndex) ?? [];
+	const focusedAnnotationKey = annotationSession?.focusedKey ?? null;
+	const annotationPathKeys = useMemo(() => {
+		const added = new Set<string>();
+		const removed = new Set<string>();
+		const focused = new Set<string>();
+		for (const item of lineAnnotations) {
+			const wordIdx =
+				item.path[2] === "words" && typeof item.path[3] === "number"
+					? item.path[3]
+					: null;
+			if (wordIdx === null) continue;
+			const key = String(wordIdx);
+			if (item.kind === "add") added.add(key);
+			if (item.kind === "remove") removed.add(key);
+			if (item.key === focusedAnnotationKey) focused.add(key);
+		}
+		return { added, removed, focused };
+	}, [lineAnnotations, focusedAnnotationKey]);
 	const isPlaybackHighlighted = playbackHighlightedLineId === line.id;
 	const lineSelectedAtom = useMemo(() => {
 		const a = atom((get) => get(selectedLinesAtom).has(line.id));
@@ -625,6 +651,12 @@ export const LyricLineView: FC<{
 								toolMode === ToolMode.Edit &&
 								styles.agentWarning,
 							hasRadical && styles.radical,
+							lineAnnotations.some(
+								(item) => item.kind === "add" && item.path.length <= 2,
+							) && styles.annotationAdded,
+							lineAnnotations.some(
+								(item) => item.kind === "remove" && item.path.length <= 2,
+							) && styles.annotationRemoved,
 						)}
 						align="center"
 						gapX="4"
@@ -722,7 +754,15 @@ export const LyricLineView: FC<{
 													align="stretch"
 													gap="3"
 													data-word-index={wi}
-													className={styles.wordGroup}
+													className={classNames(
+														styles.wordGroup,
+														annotationPathKeys.added.has(String(wi)) &&
+															styles.annotationAdded,
+														annotationPathKeys.removed.has(String(wi)) &&
+															styles.annotationRemoved,
+														annotationPathKeys.focused.has(String(wi)) &&
+															styles.annotationFocused,
+													)}
 													onPointerDown={(e) => e.stopPropagation()}
 												>
 													<LyricWordView
@@ -955,6 +995,7 @@ export const LyricLineView: FC<{
 									</button>
 								</Flex>
 							)}
+							<LineAnnotationRail lineIndex={lineIndex} />
 						</div>
 					</Flex>
 				</ContextMenu.Trigger>
