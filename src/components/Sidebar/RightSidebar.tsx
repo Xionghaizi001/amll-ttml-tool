@@ -27,14 +27,18 @@ export const RightSidebar = () => {
 
 	const contentWidth = tempWidth > 0 ? tempWidth : savedWidth;
 	const isOpen = activePanel !== "none";
+	const prevSessionRef = useRef(annotationSession);
 
-	// 更新会话有批注时默认展开右侧批注面板
+	// 仅在「新建会话」时自动展开；用户关闭后不强制重开。会话清空时关闭。
 	useEffect(() => {
-		if (annotationSession && activePanel === "none") {
-			setActivePanel("annotations");
+		const prev = prevSessionRef.current;
+		prevSessionRef.current = annotationSession;
+		if (!annotationSession) {
+			if (activePanel === "annotations") setActivePanel("none");
+			return;
 		}
-		if (!annotationSession && activePanel === "annotations") {
-			setActivePanel("none");
+		if (!prev && annotationSession) {
+			setActivePanel("annotations");
 		}
 	}, [annotationSession, activePanel, setActivePanel]);
 
