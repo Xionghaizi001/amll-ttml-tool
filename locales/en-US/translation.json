@@ -894,7 +894,10 @@
 			"halve": "Halve BPM",
 			"double": "Double BPM",
 			"reset": "Reset BPM",
-			"followPlaybackRate": "Follow audio playback speed"
+			"followPlaybackRate": "Follow audio playback speed",
+			"manualCalibration": "Manual tap calibration",
+			"tapInstructionPrefix": "Press ",
+			"tapInstructionSuffix": " or click here to the beat"
 		}
 	}
 }

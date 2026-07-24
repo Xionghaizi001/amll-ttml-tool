@@ -1,4 +1,5 @@
 import {
+	ArrowLeft16Regular,
 	ArrowResetRegular,
 	ErrorCircle16Regular,
 	Timer16Regular,
@@ -7,15 +8,27 @@ import {
 	Box,
 	Button,
 	Callout,
+	Card,
 	Checkbox,
 	Flex,
 	IconButton,
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
-import { type FC, useId } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { type FC, useCallback, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { KeyBinding } from "$/components/KeyBinding";
+import { audioEngine } from "$/modules/audio/audio-engine";
 import { useBpmControl } from "$/modules/audio/hooks";
+import {
+	audioEngineStateAtom,
+	bpmScaleAtom,
+	bpmStateAtom,
+} from "$/modules/audio/states";
+import { SyncJudgeMode, syncJudgeModeAtom } from "$/modules/settings/states";
+import { keySyncNextAtom } from "$/states/keybindings";
+import { useKeyBindingAtom } from "$/utils/keybindings";
 
 function formatCalculationTime(timeMs: number): string {
 	if (timeMs < 1000) {
@@ -35,8 +48,116 @@ export const BpmPanel: FC = () => {
 		isAdjusted,
 		halveBpm,
 		doubleBpm,
-		resetBpm,
+		resetBpm: rawResetBpm,
 	} = useBpmControl();
+
+	const setBpmState = useSetAtom(bpmStateAtom);
+	const setScale = useSetAtom(bpmScaleAtom);
+	const syncJudgeMode = useAtomValue(syncJudgeModeAtom);
+	const engineState = useAtomValue(audioEngineStateAtom);
+
+	const audioLoaded =
+		engineState === "ready" ||
+		engineState === "playing" ||
+		engineState === "paused";
+
+	const [isTapMode, setIsTapMode] = useState(false);
+	const [tapTimes, setTapTimes] = useState<number[]>([]);
+	const [isHighlighted, setIsHighlighted] = useState(false);
+
+	const initialBpmRef = useRef<typeof bpmState | null>(null);
+	if (
+		bpmState.status === "completed" &&
+		initialBpmRef.current === null &&
+		bpmState.calculationTime > 0
+	) {
+		initialBpmRef.current = bpmState;
+	}
+
+	const handleResetBpm = useCallback(() => {
+		rawResetBpm();
+		setTapTimes([]);
+		if (initialBpmRef.current) {
+			setBpmState(initialBpmRef.current);
+		}
+	}, [rawResetBpm, setBpmState]);
+
+	const triggerHighlight = useCallback(() => {
+		setIsHighlighted(true);
+		setTimeout(() => {
+			setIsHighlighted(false);
+		}, 150);
+	}, []);
+
+	const handleTap = useCallback(
+		(downTimeOffset = 0) => {
+			triggerHighlight();
+			let hitTime = audioEngine.ctxCurrentTime + audioEngine.ctxOutputLatency;
+			if (hitTime <= 0) {
+				hitTime = performance.now() / 1000;
+			} else {
+				switch (syncJudgeMode) {
+					case SyncJudgeMode.FirstKeyDownTime:
+						hitTime -= downTimeOffset / 1000;
+						break;
+					case SyncJudgeMode.LastKeyUpTime:
+						break;
+					case SyncJudgeMode.MiddleKeyTime:
+						hitTime -= downTimeOffset / 2000;
+						break;
+				}
+			}
+
+			setTapTimes((prev) => {
+				const now = hitTime;
+				let nextTapTimes: number[];
+				if (prev.length > 0) {
+					const last = prev[prev.length - 1];
+					if (now - last > 2.5) {
+						nextTapTimes = [now];
+					} else {
+						nextTapTimes = [...prev, now];
+					}
+				} else {
+					nextTapTimes = [now];
+				}
+
+				if (nextTapTimes.length >= 2) {
+					const interval =
+						(nextTapTimes[nextTapTimes.length - 1] - nextTapTimes[0]) /
+						(nextTapTimes.length - 1);
+					if (interval > 0) {
+						const bpm = Math.round(60 / interval);
+						if (bpm >= 20 && bpm <= 400) {
+							setBpmState({
+								status: "completed",
+								result: {
+									bpm,
+									anchorTick: 0,
+									confidence: 1,
+									ticks: [],
+								},
+								calculationTime: 0,
+							});
+							setScale(1);
+						}
+					}
+				}
+
+				return nextTapTimes;
+			});
+		},
+		[syncJudgeMode, setBpmState, setScale, triggerHighlight],
+	);
+
+	useKeyBindingAtom(
+		keySyncNextAtom,
+		(evt) => {
+			if (!isTapMode) return;
+			handleTap(evt.downTimeOffset);
+		},
+		[isTapMode, handleTap],
+	);
 
 	let bpmValueText = "--";
 	let durationText = "--";
@@ -50,6 +171,10 @@ export const BpmPanel: FC = () => {
 
 	const isAnalyzing = bpmState.status === "analyzing";
 	const isCompleted = bpmState.status === "completed";
+	const isModified =
+		isAdjusted ||
+		tapTimes.length > 0 ||
+		(isCompleted && bpmState.calculationTime === 0);
 
 	return (
 		<Box p="4">
@@ -108,13 +233,13 @@ export const BpmPanel: FC = () => {
 						</Tooltip>
 					</Flex>
 
-					{isCompleted && isAdjusted && (
+					{isCompleted && isModified && (
 						<Tooltip content={t("sidebar.bpm.reset", "重置 BPM")}>
 							<IconButton
 								size="2"
 								variant="ghost"
 								color="gray"
-								onClick={resetBpm}
+								onClick={handleResetBpm}
 								style={{
 									position: "absolute",
 									right: 0,
@@ -148,7 +273,7 @@ export const BpmPanel: FC = () => {
 					</Callout.Root>
 				)}
 
-				<Flex align="center" gap="2" mt="4">
+				<Flex align="center" gap="2" mt="2">
 					<Checkbox
 						id={followRateCheckboxId}
 						checked={followPlaybackRate}
@@ -165,6 +290,99 @@ export const BpmPanel: FC = () => {
 						</label>
 					</Text>
 				</Flex>
+
+				{!isTapMode && (
+					<Flex justify="start">
+						<Button
+							size="2"
+							variant="outline"
+							disabled={!audioLoaded}
+							onClick={() => setIsTapMode(true)}
+							style={{ cursor: audioLoaded ? "pointer" : "not-allowed" }}
+						>
+							{t("sidebar.bpm.manualCalibration", "手动打拍校准")}
+						</Button>
+					</Flex>
+				)}
+
+				{isTapMode && (
+					<Card variant="surface">
+						<Box p="1">
+							<Flex direction="column" gap="3">
+								<Flex
+									align="center"
+									justify="center"
+									style={{
+										position: "relative",
+										width: "100%",
+										minHeight: "24px",
+									}}
+								>
+									<IconButton
+										size="1"
+										variant="ghost"
+										color="gray"
+										onClick={() => {
+											setIsTapMode(false);
+											setTapTimes([]);
+										}}
+										style={{
+											position: "absolute",
+											left: 0,
+											cursor: "pointer",
+										}}
+									>
+										<ArrowLeft16Regular />
+									</IconButton>
+
+									<Flex
+										align="center"
+										justify="center"
+										style={{
+											width: "100%",
+											paddingLeft: "28px",
+											paddingRight: "28px",
+										}}
+									>
+										<Text
+											size="2"
+											weight={isHighlighted ? "bold" : "medium"}
+											onClick={() => handleTap(0)}
+											style={{
+												textAlign: "center",
+												color: isHighlighted ? "var(--accent-11)" : undefined,
+												cursor: "pointer",
+												userSelect: "none",
+											}}
+										>
+											{t("sidebar.bpm.tapInstructionPrefix", "根据节拍按下 ")}
+											<KeyBinding kbdAtom={keySyncNextAtom} />
+											{t("sidebar.bpm.tapInstructionSuffix", " 键或点击此处")}
+										</Text>
+									</Flex>
+								</Flex>
+
+								<Flex gap="1" style={{ width: "100%" }} justify="center">
+									{Array.from({ length: 10 }).map((_, index) => (
+										<Box
+											// biome-ignore lint/suspicious/noArrayIndexKey: fixed 10 indicator bars
+											key={index}
+											style={{
+												flex: 1,
+												height: "4px",
+												borderRadius: "2px",
+												backgroundColor:
+													index < Math.min(tapTimes.length, 10)
+														? "var(--accent-9)"
+														: "var(--gray-5)",
+											}}
+										/>
+									))}
+								</Flex>
+							</Flex>
+						</Box>
+					</Card>
+				)}
 			</Flex>
 		</Box>
 	);

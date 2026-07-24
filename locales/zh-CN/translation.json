@@ -925,7 +925,10 @@
 			"halve": "减半 BPM",
 			"double": "加倍 BPM",
 			"reset": "重置 BPM",
-			"followPlaybackRate": "跟随音频播放倍速"
+			"followPlaybackRate": "跟随音频播放倍速",
+			"manualCalibration": "手动打拍校准",
+			"tapInstructionPrefix": "根据节拍按下 ",
+			"tapInstructionSuffix": " 键或点击此处"
 		}
 	}
 }
