@@ -347,15 +347,15 @@ export const LyricLineView: FC<{
 		const removed = new Set<string>();
 		const focused = new Set<string>();
 		for (const item of lineAnnotations) {
-			const wordIdx =
-				item.path[2] === "words" && typeof item.path[3] === "number"
-					? item.path[3]
-					: null;
-			if (wordIdx === null) continue;
-			const key = String(wordIdx);
-			if (item.kind === "add") added.add(key);
-			if (item.kind === "remove") removed.add(key);
-			if (item.key === focusedAnnotationKey) focused.add(key);
+			for (const path of item.paths) {
+				const wordIdx =
+					path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
+				if (wordIdx === null) continue;
+				const key = String(wordIdx);
+				if (item.kind === "add") added.add(key);
+				if (item.kind === "remove") removed.add(key);
+				if (item.key === focusedAnnotationKey) focused.add(key);
+			}
 		}
 		return { added, removed, focused };
 	}, [lineAnnotations, focusedAnnotationKey]);
@@ -681,9 +681,7 @@ export const LyricLineView: FC<{
 								);
 							}
 						}}
-						asChild
 					>
-						<div>
 							{isPlaybackHighlighted && (
 								<motion.div
 									layoutId="lyric-playback-active-line"
@@ -995,8 +993,7 @@ export const LyricLineView: FC<{
 									</button>
 								</Flex>
 							)}
-							<LineAnnotationRail lineIndex={lineIndex} />
-						</div>
+						<LineAnnotationRail lineIndex={lineIndex} />
 					</Flex>
 				</ContextMenu.Trigger>
 				<ContextMenu.Content>

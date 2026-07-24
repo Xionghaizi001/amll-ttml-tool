@@ -4,17 +4,36 @@ import type {
 	StructuredReviewReport,
 } from "$/types/structured-review-report";
 import { pathKey } from "$/utils/content-addressed-id";
+import { msToTimestamp } from "$/utils/timestamp";
 
 export type AnnotationDecision = "pending" | "accepted" | "rejected";
 
 export type AnnotationItem = {
 	key: string;
 	path: Array<string | number>;
+	/** 同一条 UI 批注可能对应多条 path 变更（如链接的词界）。 */
+	paths: Array<Array<string | number>>;
+	changes: StructuredReviewChange[];
 	/** 冻结原稿坐标系下行索引；文档级变更无行归属。 */
 	lineIndex: number | null;
-	change: StructuredReviewChange;
 	summary: string;
 	kind: "add" | "remove" | "update";
+};
+
+const FIELD_LABELS: Record<string, string> = {
+	word: "歌词",
+	romanWord: "音译",
+	translatedLyric: "翻译",
+	romanLyric: "行音译",
+	startTime: "开始时间",
+	endTime: "结束时间",
+	isBG: "背景人声",
+	isDuet: "对唱",
+	emptyBeat: "空拍",
+	obscene: "敏感词",
+	agent: "演唱者",
+	songPart: "段落",
+	ignoreSync: "忽略打轴",
 };
 
 const previewValue = (value: unknown, max = 24): string => {
@@ -24,8 +43,12 @@ const previewValue = (value: unknown, max = 24): string => {
 		if (!trimmed) return "（空）";
 		return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
 	}
-	if (typeof value === "number" || typeof value === "boolean") {
+	if (typeof value === "number") {
+		// 时间字段在 summarize 里单独格式化；此处作通用数字
 		return String(value);
+	}
+	if (typeof value === "boolean") {
+		return value ? "是" : "否";
 	}
 	if (Array.isArray(value)) return `[${value.length} 项]`;
 	if (typeof value === "object") {
@@ -37,12 +60,24 @@ const previewValue = (value: unknown, max = 24): string => {
 	return String(value);
 };
 
+const formatTime = (value: unknown): string => {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return msToTimestamp(value);
+	}
+	return previewValue(value);
+};
+
 const leafName = (path: Array<string | number>): string => {
 	const last = path[path.length - 1];
 	if (typeof last === "string") return last;
 	if (path.includes("words")) return "词";
 	if (path[0] === "lyricLines") return "行";
 	return "内容";
+};
+
+const fieldLabel = (path: Array<string | number>): string => {
+	const leaf = leafName(path);
+	return FIELD_LABELS[leaf] ?? leaf;
 };
 
 export const getChangeKind = (
@@ -58,19 +93,26 @@ export const summarizeStructuredChange = (
 ): string => {
 	const kind = getChangeKind(change);
 	const field = leafName(change.path);
+	const label = fieldLabel(change.path);
 	if (kind === "add") {
-		return `添加了 \`${previewValue(change.after)}\``;
+		if (field === "word" || typeof change.after === "string") {
+			return `添加了 \`${previewValue(change.after)}\``;
+		}
+		return `添加了${label}`;
 	}
 	if (kind === "remove") {
-		return `删除了 \`${previewValue(change.before)}\``;
+		if (field === "word" || typeof change.before === "string") {
+			return `删除了 \`${previewValue(change.before)}\``;
+		}
+		return `删除了${label}`;
 	}
-	if (field === "word" || field === "translatedLyric" || field === "romanLyric") {
+	if (field === "word" || field === "translatedLyric" || field === "romanLyric" || field === "romanWord") {
 		return `将 \`${previewValue(change.before)}\` 改为 \`${previewValue(change.after)}\``;
 	}
 	if (field === "startTime" || field === "endTime") {
-		return `调整 ${field}：\`${previewValue(change.before)}\` → \`${previewValue(change.after)}\``;
+		return `调整${label}：\`${formatTime(change.before)}\` → \`${formatTime(change.after)}\``;
 	}
-	return `修改 ${field}：\`${previewValue(change.before)}\` → \`${previewValue(change.after)}\``;
+	return `修改${label}：\`${previewValue(change.before)}\` → \`${previewValue(change.after)}\``;
 };
 
 export const getLineIndexFromPath = (
@@ -78,23 +120,134 @@ export const getLineIndexFromPath = (
 ): number | null =>
 	path[0] === "lyricLines" && typeof path[1] === "number" ? path[1] : null;
 
+/** 词级：words[i].endTime 与 words[i+1].startTime */
+const isWordEndPath = (path: Array<string | number>) =>
+	path[0] === "lyricLines" &&
+	typeof path[1] === "number" &&
+	path[2] === "words" &&
+	typeof path[3] === "number" &&
+	path[4] === "endTime" &&
+	path.length === 5;
+
+const isWordStartPath = (path: Array<string | number>) =>
+	path[0] === "lyricLines" &&
+	typeof path[1] === "number" &&
+	path[2] === "words" &&
+	typeof path[3] === "number" &&
+	path[4] === "startTime" &&
+	path.length === 5;
+
+/** 行级：lyricLines[i].endTime 与 lyricLines[i+1].startTime */
+const isLineEndPath = (path: Array<string | number>) =>
+	path[0] === "lyricLines" &&
+	typeof path[1] === "number" &&
+	path[2] === "endTime" &&
+	path.length === 3;
+
+const isLineStartPath = (path: Array<string | number>) =>
+	path[0] === "lyricLines" &&
+	typeof path[1] === "number" &&
+	path[2] === "startTime" &&
+	path.length === 3;
+
+const sameAfterTime = (a: StructuredReviewChange, b: StructuredReviewChange) =>
+	typeof a.after === "number" &&
+	typeof b.after === "number" &&
+	a.after === b.after;
+
+/**
+ * 合并因 endTime 链接产生的成对时轴变更，避免 UI 显示「A 结尾 + B 开头」两条。
+ * 结构化 JSON 仍保留两条 path；展示层合成一条批注，接受时两条一起应用。
+ */
+const coalesceLinkedTimingChanges = (
+	changes: StructuredReviewChange[],
+): AnnotationItem[] => {
+	const used = new Set<string>();
+	const items: AnnotationItem[] = [];
+	const byKey = new Map(changes.map((c) => [pathKey(c.path), c]));
+
+	const tryPair = (
+		left: StructuredReviewChange,
+		rightPath: Array<string | number>,
+		summary: string,
+	) => {
+		const right = byKey.get(pathKey(rightPath));
+		if (!right) return false;
+		if (used.has(pathKey(left.path)) || used.has(pathKey(right.path))) return false;
+		if (!sameAfterTime(left, right)) return false;
+		if (getChangeKind(left) !== "update" || getChangeKind(right) !== "update")
+			return false;
+		const key = `${pathKey(left.path)}+${pathKey(right.path)}`;
+		used.add(pathKey(left.path));
+		used.add(pathKey(right.path));
+		items.push({
+			key,
+			path: left.path,
+			paths: [left.path, right.path],
+			changes: [left, right],
+			lineIndex: getLineIndexFromPath(left.path),
+			summary,
+			kind: "update",
+		});
+		return true;
+	};
+
+	for (const change of changes) {
+		const key = pathKey(change.path);
+		if (used.has(key)) continue;
+
+		if (isWordEndPath(change.path)) {
+			const lineIndex = change.path[1] as number;
+			const wordIndex = change.path[3] as number;
+			const nextStart = [
+				"lyricLines",
+				lineIndex,
+				"words",
+				wordIndex + 1,
+				"startTime",
+			] as Array<string | number>;
+			const paired = tryPair(
+				change,
+				nextStart,
+				`调整词边界：结束/下一词开始 → \`${formatTime(change.after)}\``,
+			);
+			if (paired) continue;
+		}
+
+		if (isLineEndPath(change.path)) {
+			const lineIndex = change.path[1] as number;
+			const nextStart = ["lyricLines", lineIndex + 1, "startTime"] as Array<
+				string | number
+			>;
+			const paired = tryPair(
+				change,
+				nextStart,
+				`调整行边界：本行结束/下一行开始 → \`${formatTime(change.after)}\``,
+			);
+			if (paired) continue;
+		}
+
+		// 若只扫到 start 侧且 end 侧未处理，留给 start 自己成条（end 已优先配对）
+		used.add(key);
+		items.push({
+			key,
+			path: change.path,
+			paths: [change.path],
+			changes: [change],
+			lineIndex: getLineIndexFromPath(change.path),
+			summary: summarizeStructuredChange(change),
+			kind: getChangeKind(change),
+		});
+	}
+
+	return items;
+};
+
 export const flattenAnnotationItems = (
 	blocks: StructuredReviewChangeBlock[],
 ): AnnotationItem[] => {
-	const items: AnnotationItem[] = [];
-	for (const block of blocks) {
-		for (const change of block.changes) {
-			items.push({
-				key: pathKey(change.path),
-				path: change.path,
-				lineIndex: getLineIndexFromPath(change.path),
-				change,
-				summary: summarizeStructuredChange(change),
-				kind: getChangeKind(change),
-			});
-		}
-	}
-	return items;
+	const changes = blocks.flatMap((block) => block.changes);
+	return coalesceLinkedTimingChanges(changes);
 };
 
 export const buildAnnotationItemsFromReport = (

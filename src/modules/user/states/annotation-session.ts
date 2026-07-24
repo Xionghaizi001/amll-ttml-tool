@@ -14,7 +14,7 @@ import { applyStructuredChanges } from "../services/apply-structured-changes";
 export type AnnotationSession = {
 	report: StructuredReviewReport;
 	originalLyric: TTMLLyric;
-	/** pathKey → 决策 */
+	/** annotation item key → 决策 */
 	decisions: Record<string, AnnotationDecision>;
 	/** 面板二级：聚焦某行的全部批注；null 为总览 */
 	detailLineIndex: number | null;
@@ -46,7 +46,7 @@ export const acceptedChangesAtom = atom<StructuredReviewChange[]>((get) => {
 	const decisions = get(annotationDecisionMapAtom);
 	return items
 		.filter((item) => decisions[item.key] === "accepted")
-		.map((item) => item.change);
+		.flatMap((item) => item.changes);
 });
 
 /** 由已接受变更从原稿推导的当前歌词（接受端应用结果）。 */
