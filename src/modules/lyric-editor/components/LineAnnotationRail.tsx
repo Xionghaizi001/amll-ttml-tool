@@ -3,6 +3,8 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AnnotationItem } from "$/modules/user/services/annotation-summary";
+import { plainAnnotationSummary } from "$/modules/user/services/annotation-summary";
+import { AnnotationSummaryText } from "$/modules/user/components/AnnotationSummaryText";
 import {
 	annotationSessionAtom,
 	annotationsByLineAtom,
@@ -111,9 +113,11 @@ export const LineAnnotationRail = ({ lineIndex }: { lineIndex: number }) => {
 							decision !== "pending" && styles.decided,
 						)}
 						onClick={() => focusOne(item)}
-						title={item.summary}
+						title={plainAnnotationSummary(item.summary)}
 					>
-						<span className={styles.chipText}>{item.summary}</span>
+						<span className={styles.chipText}>
+								<AnnotationSummaryText summary={item.summary} />
+							</span>
 					</button>
 				);
 			})}

@@ -88,6 +88,34 @@ export const getChangeKind = (
 	return "update";
 };
 
+/** 词/行对象等是否值得在总结里写出具体文本 */
+const isConcretePreview = (value: unknown): boolean => {
+	if (value === null || value === undefined) return false;
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return true;
+	}
+	if (typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return typeof record.word === "string" || typeof record.text === "string";
+	}
+	return false;
+};
+
+/** 词级整词 path：lyricLines[i].words[j] */
+export const isWholeWordPath = (path: Array<string | number>): boolean =>
+	path[0] === "lyricLines" &&
+	typeof path[1] === "number" &&
+	path[2] === "words" &&
+	typeof path[3] === "number" &&
+	path.length === 4;
+
+export const getWordTextFromValue = (value: unknown): string =>
+	previewValue(value);
+
 export const summarizeStructuredChange = (
 	change: StructuredReviewChange,
 ): string => {
@@ -95,18 +123,35 @@ export const summarizeStructuredChange = (
 	const field = leafName(change.path);
 	const label = fieldLabel(change.path);
 	if (kind === "add") {
-		if (field === "word" || typeof change.after === "string") {
+		if (
+			field === "word" ||
+			field === "词" ||
+			isWholeWordPath(change.path) ||
+			typeof change.after === "string" ||
+			isConcretePreview(change.after)
+		) {
 			return `添加了 \`${previewValue(change.after)}\``;
 		}
 		return `添加了${label}`;
 	}
 	if (kind === "remove") {
-		if (field === "word" || typeof change.before === "string") {
+		if (
+			field === "word" ||
+			field === "词" ||
+			isWholeWordPath(change.path) ||
+			typeof change.before === "string" ||
+			isConcretePreview(change.before)
+		) {
 			return `删除了 \`${previewValue(change.before)}\``;
 		}
 		return `删除了${label}`;
 	}
-	if (field === "word" || field === "translatedLyric" || field === "romanLyric" || field === "romanWord") {
+	if (
+		field === "word" ||
+		field === "translatedLyric" ||
+		field === "romanLyric" ||
+		field === "romanWord"
+	) {
 		return `将 \`${previewValue(change.before)}\` 改为 \`${previewValue(change.after)}\``;
 	}
 	if (field === "startTime" || field === "endTime") {
@@ -114,6 +159,35 @@ export const summarizeStructuredChange = (
 	}
 	return `修改${label}：\`${previewValue(change.before)}\` → \`${previewValue(change.after)}\``;
 };
+
+export type AnnotationSummarySegment =
+	| { kind: "text"; text: string }
+	| { kind: "code"; text: string };
+
+/** 将 summary 中的 `code` 片段拆成可渲染段（反引号仅作标记，不展示）。 */
+export const parseAnnotationSummary = (
+	summary: string,
+): AnnotationSummarySegment[] => {
+	const segments: AnnotationSummarySegment[] = [];
+	const re = /`([^`]+)`/g;
+	let last = 0;
+	let match: RegExpExecArray | null = re.exec(summary);
+	while (match) {
+		if (match.index > last) {
+			segments.push({ kind: "text", text: summary.slice(last, match.index) });
+		}
+		segments.push({ kind: "code", text: match[1] });
+		last = match.index + match[0].length;
+		match = re.exec(summary);
+	}
+	if (last < summary.length) {
+		segments.push({ kind: "text", text: summary.slice(last) });
+	}
+	return segments.length > 0 ? segments : [{ kind: "text", text: summary }];
+};
+
+export const plainAnnotationSummary = (summary: string): string =>
+	summary.replace(/`/g, "");
 
 export const getLineIndexFromPath = (
 	path: Array<string | number>,
@@ -156,8 +230,9 @@ const sameAfterTime = (a: StructuredReviewChange, b: StructuredReviewChange) =>
 	a.after === b.after;
 
 /**
- * 合并因 endTime 链接产生的成对时轴变更，避免 UI 显示「A 结尾 + B 开头」两条。
- * 结构化 JSON 仍保留两条 path；展示层合成一条批注，接受时两条一起应用。
+ * 合并因 endTime 链接产生的成对时轴变更，避免 UI 显示两条。
+ * 数据层仍保留 end + 下一词/行 start 两条 path；展示只描述当前词/行的结束时间，
+ * 链接的 start 调整隐式随接受一并应用。
  */
 const coalesceLinkedTimingChanges = (
 	changes: StructuredReviewChange[],
@@ -206,10 +281,11 @@ const coalesceLinkedTimingChanges = (
 				wordIndex + 1,
 				"startTime",
 			] as Array<string | number>;
+			// 链接的下一词 startTime 仅隐式一并应用；UI 只说明当前词结束时间
 			const paired = tryPair(
 				change,
 				nextStart,
-				`调整词边界：结束/下一词开始 → \`${formatTime(change.after)}\``,
+				summarizeStructuredChange(change),
 			);
 			if (paired) continue;
 		}
@@ -219,10 +295,11 @@ const coalesceLinkedTimingChanges = (
 			const nextStart = ["lyricLines", lineIndex + 1, "startTime"] as Array<
 				string | number
 			>;
+			// 链接的下一行 startTime 仅隐式一并应用；UI 只说明当前行结束时间
 			const paired = tryPair(
 				change,
 				nextStart,
-				`调整行边界：本行结束/下一行开始 → \`${formatTime(change.after)}\``,
+				summarizeStructuredChange(change),
 			);
 			if (paired) continue;
 		}

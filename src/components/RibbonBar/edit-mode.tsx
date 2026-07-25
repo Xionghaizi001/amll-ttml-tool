@@ -1204,47 +1204,53 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.views", "视图")}>
-					<Flex gap="3" flexGrow="1" align="center" justify="center">
-						<Flex gap="2" align="center">
-							<Checkbox
-								id={idOutline}
-								checked={isOutlineOpen}
-								onCheckedChange={(checked) => {
-									setSidebarPanel(checked ? "outline" : "none");
-								}}
-							/>
-							<Text size="1" asChild>
-								<label
-									htmlFor={idOutline}
-									style={{
-										userSelect: "none",
+						<Flex
+							direction="column"
+							gap="1"
+							flexGrow="1"
+							align="start"
+							justify="center"
+						>
+							<Flex gap="2" align="center">
+								<Checkbox
+									id={idOutline}
+									checked={isOutlineOpen}
+									onCheckedChange={(checked) => {
+										setSidebarPanel(checked ? "outline" : "none");
 									}}
-								>
-									{t("ribbonBar.editMode.showOutline", "大纲")}
-								</label>
-							</Text>
-						</Flex>
-						<Flex gap="2" align="center">
-							<Checkbox
-								id={idAnnotations}
-								checked={isAnnotationsOpen}
-								onCheckedChange={(checked) => {
-									setRightSidebarPanel(checked ? "annotations" : "none");
-								}}
-							/>
-							<Text size="1" asChild>
-								<label
-									htmlFor={idAnnotations}
-									style={{
-										userSelect: "none",
+								/>
+								<Text size="1" asChild>
+									<label
+										htmlFor={idOutline}
+										style={{
+											userSelect: "none",
+										}}
+									>
+										{t("ribbonBar.editMode.showOutline", "大纲")}
+									</label>
+								</Text>
+							</Flex>
+							<Flex gap="2" align="center">
+								<Checkbox
+									id={idAnnotations}
+									checked={isAnnotationsOpen}
+									onCheckedChange={(checked) => {
+										setRightSidebarPanel(checked ? "annotations" : "none");
 									}}
-								>
-									{t("ribbonBar.editMode.showAnnotations", "批注")}
-								</label>
-							</Text>
+								/>
+								<Text size="1" asChild>
+									<label
+										htmlFor={idAnnotations}
+										style={{
+											userSelect: "none",
+										}}
+									>
+										{t("ribbonBar.editMode.showAnnotations", "批注")}
+									</label>
+								</Text>
+							</Flex>
 						</Flex>
-					</Flex>
-				</RibbonSection>
+					</RibbonSection>
 			</RibbonFrame>
 		);
 	},

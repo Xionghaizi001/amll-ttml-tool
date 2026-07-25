@@ -15,6 +15,7 @@ import {
 	documentAnnotationItemsAtom,
 } from "$/modules/user/states/annotation-session";
 import type { AnnotationItem } from "$/modules/user/services/annotation-summary";
+import { AnnotationSummaryText } from "$/modules/user/components/AnnotationSummaryText";
 import { outlineJumpActionAtom } from "$/states/sidebar";
 import styles from "./AnnotationPanel.module.css";
 
@@ -80,8 +81,10 @@ const AnnotationRow = ({
 			<div className={styles.annotationBody}>
 				<div className={styles.kindDot} data-kind={item.kind} />
 				<div className={styles.annotationText}>
-					<Text size="2" className={styles.summary}>
-						{item.summary}
+					<Text size="2" className={styles.summary} asChild>
+						<span>
+							<AnnotationSummaryText summary={item.summary} />
+						</span>
 					</Text>
 					<Flex gap="2" align="center" mt="1">
 						<DecisionBadge decision={decision} />

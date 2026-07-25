@@ -58,6 +58,11 @@ import {
 	annotationsByLineAtom,
 } from "$/modules/user/states/annotation-session";
 import {
+	getChangeKind,
+	getWordTextFromValue,
+	isWholeWordPath,
+} from "$/modules/user/services/annotation-summary";
+import {
 	dragSourceAtom,
 	isDraggingGlobalAtom,
 	lyricLinesAtom,
@@ -342,22 +347,55 @@ export const LyricLineView: FC<{
 	const annotationsByLine = useAtomValue(annotationsByLineAtom);
 	const lineAnnotations = annotationsByLine.get(lineIndex) ?? [];
 	const focusedAnnotationKey = annotationSession?.focusedKey ?? null;
-	const annotationPathKeys = useMemo(() => {
+	const annotationWordMarks = useMemo(() => {
 		const added = new Set<string>();
 		const removed = new Set<string>();
 		const focused = new Set<string>();
+		/** 新增整词（原稿尚无该槽位）→ 在行内插入幽灵预览 */
+		const addedGhosts: Array<{
+			index: number;
+			text: string;
+			focused: boolean;
+			itemKey: string;
+		}> = [];
+		const wordIndexFromPath = (path: Array<string | number>) =>
+			path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
 		for (const item of lineAnnotations) {
-			for (const path of item.paths) {
-				const wordIdx =
-					path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
+			const focusedItem = item.key === focusedAnnotationKey;
+			// 聚焦高亮只跟主 path（item.path），避免链接边界把相邻词一并高亮
+			const primaryWordIdx = wordIndexFromPath(item.path);
+			if (focusedItem && primaryWordIdx !== null) {
+				focused.add(String(primaryWordIdx));
+			}
+			for (const change of item.changes) {
+				const path = change.path;
+				const wordIdx = wordIndexFromPath(path);
 				if (wordIdx === null) continue;
 				const key = String(wordIdx);
-				if (item.kind === "add") added.add(key);
-				if (item.kind === "remove") removed.add(key);
-				if (item.key === focusedAnnotationKey) focused.add(key);
+				const kind = getChangeKind(change);
+				if (kind === "add") {
+					if (isWholeWordPath(path)) {
+						// 整词新增：原稿无该槽位，用幽灵词预览，不标记现有词
+						addedGhosts.push({
+							index: wordIdx,
+							text: getWordTextFromValue(change.after),
+							focused:
+								focusedItem &&
+								primaryWordIdx !== null &&
+								wordIdx === primaryWordIdx,
+							itemKey: item.key,
+						});
+					} else {
+						added.add(key);
+					}
+				}
+				if (kind === "remove") removed.add(key);
 			}
 		}
-		return { added, removed, focused };
+		addedGhosts.sort(
+			(a, b) => a.index - b.index || a.itemKey.localeCompare(b.itemKey),
+		);
+		return { added, removed, focused, addedGhosts };
 	}, [lineAnnotations, focusedAnnotationKey]);
 	const isPlaybackHighlighted = playbackHighlightedLineId === line.id;
 	const lineSelectedAtom = useMemo(() => {
@@ -726,8 +764,24 @@ export const LyricLineView: FC<{
 								>
 									{words.map((wordAtom, wi) => {
 										const word = store.get(wordAtom);
+										const ghostsHere = annotationWordMarks.addedGhosts.filter(
+											(g) => g.index === wi,
+										);
 										return (
 											<Fragment key={`word-${word.id}`}>
+												{ghostsHere.map((ghost) => (
+													<span
+														key={`annotation-add-${ghost.itemKey}-${ghost.index}`}
+														className={classNames(
+															styles.annotationGhostWord,
+															styles.annotationAdded,
+															ghost.focused && styles.annotationFocused,
+														)}
+														title={ghost.text}
+													>
+														{ghost.text}
+													</span>
+												))}
 												{enableInsert && (
 													<IconButton
 														size="1"
@@ -754,11 +808,11 @@ export const LyricLineView: FC<{
 													data-word-index={wi}
 													className={classNames(
 														styles.wordGroup,
-														annotationPathKeys.added.has(String(wi)) &&
+														annotationWordMarks.added.has(String(wi)) &&
 															styles.annotationAdded,
-														annotationPathKeys.removed.has(String(wi)) &&
+														annotationWordMarks.removed.has(String(wi)) &&
 															styles.annotationRemoved,
-														annotationPathKeys.focused.has(String(wi)) &&
+														annotationWordMarks.focused.has(String(wi)) &&
 															styles.annotationFocused,
 													)}
 													onPointerDown={(e) => e.stopPropagation()}
@@ -782,6 +836,21 @@ export const LyricLineView: FC<{
 											</Fragment>
 										);
 									})}
+									{annotationWordMarks.addedGhosts
+										.filter((g) => g.index >= words.length)
+										.map((ghost) => (
+											<span
+												key={`annotation-add-tail-${ghost.itemKey}-${ghost.index}`}
+												className={classNames(
+													styles.annotationGhostWord,
+													styles.annotationAdded,
+													ghost.focused && styles.annotationFocused,
+												)}
+												title={ghost.text}
+											>
+												{ghost.text}
+											</span>
+										))}
 									{enableInsert && (
 										<IconButton
 											size="1"
