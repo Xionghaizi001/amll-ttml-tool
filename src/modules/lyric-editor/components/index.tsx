@@ -9,10 +9,11 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { Box, Flex, Text } from "@radix-ui/themes";
 import { LayoutGroup } from "framer-motion";
+import { Box, ContextMenu, Flex, Text } from "@radix-ui/themes";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
+import { useSetImmerAtom } from "jotai-immer";
 import { focusAtom } from "jotai-optics";
 import {
 	type FC,
@@ -25,6 +26,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
+import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import { useLyricListDrag } from "$/modules/lyric-drag/useLyricListDrag";
 import {
@@ -35,14 +37,17 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { outlineJumpActionAtom } from "$/states/sidebar.ts";
-import type { LyricLine } from "$/types/ttml.ts";
 import {
 	playbackCurrentTimeAtom,
 	playbackHighlightedLineIdAtom,
 	playbackLocatedLineIndexAtom,
 } from "../utils/playback-locate";
+import { type LyricLine, newLyricLine } from "$/types/ttml.ts";
+import { createLogger } from "$/utils/logger.ts";
 import styles from "./index.module.css";
 import { LyricLineView } from "./lyric-line-view";
+
+const lyricLinesViewLogger = createLogger("LyricLinesView");
 
 const lyricLinesOnlyAtom = splitAtom(
 	focusAtom(lyricLinesAtom, (o) => o.prop("lyricLines")),
@@ -74,6 +79,7 @@ const findCurrentLineIndex = (lines: LyricLine[], currentTime: number) => {
 export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const editLyric = useAtomValue(lyricLinesOnlyAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom).lyricLines;
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const viewRef = useRef<ViewportListRef>(null);
 	const viewElRef = useRef<HTMLDivElement>(null);
 	const toolMode = useAtomValue(toolModeAtom);
@@ -81,6 +87,29 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const playbackHighlightedLineId = useAtomValue(playbackHighlightedLineIdAtom);
 	const setPlaybackCurrentTime = useSetAtom(playbackCurrentTimeAtom);
 	const { t } = useTranslation();
+	const { openFile } = useFileOpener();
+
+	const handlePasteTTML = useCallback(async () => {
+		try {
+			const text = await navigator.clipboard.readText();
+			if (!text) return;
+			const file = new File([text], "lyric.ttml", {
+				type: "application/xml",
+			});
+			openFile(file, "ttml");
+		} catch (e) {
+			lyricLinesViewLogger.error(
+				t("error.pasteClipboardFailed", "读取剪贴板失败"),
+				e,
+			);
+		}
+	}, [openFile, t]);
+
+	const handleNewLine = useCallback(() => {
+		editLyricLines((state) => {
+			state.lyricLines.push(newLyricLine());
+		});
+	}, [editLyricLines]);
 
 	const scrollToIndexAtom = useMemo(
 		() =>
@@ -184,8 +213,8 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 
 	useImperativeHandle(ref, () => viewElRef.current as HTMLDivElement, []);
 
-	if (editLyric.length === 0)
-		return (
+	const innerView =
+		editLyric.length === 0 ? (
 			<Flex
 				flexGrow="1"
 				gap="2"
@@ -193,6 +222,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 				justify="center"
 				direction="column"
 				height="100%"
+				style={{ width: "100%", height: "100%" }}
 				ref={ref}
 			>
 				<Text color="gray">{t("app.empty.title", "没有歌词行")}</Text>
@@ -203,40 +233,69 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 					)}
 				</Text>
 			</Flex>
-		);
-	return (
-		<Box flexGrow="1" className={styles.lyricLinesWrapper}>
+		) : (
 			<Box
 				flexGrow="1"
-				style={{
-					padding: toolMode === ToolMode.Sync ? "20vh 0" : undefined,
-					maxHeight: "100%",
-					overflowY: "auto",
-					position: "relative",
-				}}
-				ref={viewElRef}
+				className={styles.lyricLinesWrapper}
+				height="100%"
+				style={{ width: "100%", height: "100%" }}
 			>
-				<LayoutGroup id="lyric-playback-line-highlight">
-					<div className={styles.dropIndicator} />
-					<ViewportList
-						overscan={10}
-						items={editLyric}
-						ref={viewRef}
-						viewportRef={viewElRef}
-					>
-						{(lineAtom, i) => (
-							<LyricLineView
-								key={`${lineAtom}`}
-								lineAtom={lineAtom}
-								lineIndex={i}
-								playbackHighlightedLineId={playbackHighlightedLineId}
-								onPointerDown={onPointerDown}
-							/>
-						)}
-					</ViewportList>
-				</LayoutGroup>
+				<Box
+					flexGrow="1"
+					style={{
+						padding: toolMode === ToolMode.Sync ? "20vh 0" : undefined,
+						maxHeight: "100%",
+						overflowY: "auto",
+						position: "relative",
+					}}
+					ref={viewElRef}
+				>
+					<LayoutGroup id="lyric-playback-line-highlight">
+						<div className={styles.dropIndicator} />
+						<ViewportList
+							overscan={10}
+							items={editLyric}
+							ref={viewRef}
+							viewportRef={viewElRef}
+						>
+							{(lineAtom, i) => (
+								<LyricLineView
+									key={`${lineAtom}`}
+									lineAtom={lineAtom}
+									lineIndex={i}
+									playbackHighlightedLineId={playbackHighlightedLineId}
+									onPointerDown={onPointerDown}
+								/>
+							)}
+						</ViewportList>
+					</LayoutGroup>
+				</Box>
 			</Box>
-		</Box>
+		);
+
+	return (
+		<ContextMenu.Root>
+			<ContextMenu.Trigger
+				style={{
+					display: "flex",
+					flexDirection: "column",
+					flexGrow: 1,
+					width: "100%",
+					height: "100%",
+					minHeight: 0,
+				}}
+			>
+				{innerView}
+			</ContextMenu.Trigger>
+			<ContextMenu.Content>
+				<ContextMenu.Item onSelect={handlePasteTTML}>
+					{t("contextMenu.pasteTTML", "粘贴 TTML")}
+				</ContextMenu.Item>
+				<ContextMenu.Item onSelect={handleNewLine}>
+					{t("contextMenu.newLine", "新建行")}
+				</ContextMenu.Item>
+			</ContextMenu.Content>
+		</ContextMenu.Root>
 	);
 });
 

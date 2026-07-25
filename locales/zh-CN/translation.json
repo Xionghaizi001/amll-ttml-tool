@@ -414,7 +414,9 @@
 		"replaceWord": "替换单词…",
 		"combineWords": "合并单词",
 		"moveFollowingWordToNewLine": "此后单词拆至新行",
-		"moveWordToNewLine": "选中单词拆至新行"
+		"moveWordToNewLine": "选中单词拆至新行",
+		"pasteTTML": "粘贴 TTML",
+		"newLine": "新建行"
 	},
 	"settingsDialog": {
 		"title": "首选项",
@@ -508,7 +510,8 @@
 				"ParseError": "请参考上方提示请检查文件格式是否正确。"
 			},
 			"copyFailed": "复制失败"
-		}
+		},
+		"pasteClipboardFailed": "读取剪贴板失败"
 	},
 	"audioPanel": {
 		"volume": "音量",

@@ -409,7 +409,9 @@
 		"replaceWord": "Replace word…",
 		"combineWords": "Combine words",
 		"moveFollowingWordToNewLine": "Move followings to new line",
-		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line"
+		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line",
+		"pasteTTML": "Paste TTML",
+		"newLine": "New line"
 	},
 	"settingsDialog": {
 		"title": "Preferences",
@@ -502,7 +504,8 @@
 				"ParseError": "Please refer to the log above and check that the file format is correct."
 			},
 			"copyFailed": "Failed to copy"
-		}
+		},
+		"pasteClipboardFailed": "Failed to read clipboard"
 	},
 	"audioPanel": {
 		"volume": "Volume",
