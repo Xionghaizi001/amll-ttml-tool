@@ -129,6 +129,7 @@ export function useBpmTapEngine() {
 								status: "completed",
 								result: {
 									bpm,
+									baseBpm: bpm,
 									anchorTick: optimalAnchor,
 									confidence: 1,
 									ticks: [],

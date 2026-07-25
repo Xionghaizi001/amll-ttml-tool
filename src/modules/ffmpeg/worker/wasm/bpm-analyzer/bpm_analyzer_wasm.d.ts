@@ -1,17 +1,82 @@
 /* tslint:disable */
 /* eslint-disable */
+/** Configuration options for the BPM analyzer. */
+export interface AnalyzerOptions {
+    /**
+     * Audio sample rate (Hz).
+     *
+     * It is recommended to resample to 44100 Hz first, as the algorithm is primarily tuned for
+     * 44100 Hz. Default is 44100.
+     */
+    sampleRate?: number;
+    /** Maximum audio slice length in seconds used for Percival tempo estimation. Default is 120.0. */
+    percivalMaxLengthSeconds?: number;
+    /** Starting ratio offset (0.0 - 1.0) for Percival tempo estimation. Default is 0.05. */
+    percivalBeginRatio?: number;
+    /** Maximum audio slice length in seconds used for beat tracking. Default is 75.0. */
+    beatMaxLengthSeconds?: number;
+    /** Starting ratio offset (0.0 - 1.0) for beat tracking. Default is 0.3. */
+    beatBeginRatio?: number;
+}
 
+/** Result of the BPM detection and beat tracking analysis. */
+export interface BpmAnalysisResult {
+    /** Final estimated tempo in Beats Per Minute (BPM). */
+    bpm: number;
+    /** Base tempo estimated by the Percival algorithm before beat tracking. */
+    baseBpm: number;
+    /** Anchor beat timestamp in seconds. */
+    anchorTick: number;
+    /** Beat tracking confidence score ranging from 0.0 to 1.0. */
+    confidence: number;
+    /** List of absolute beat timestamps in seconds. */
+    ticks: number[];
+}
+
+
+
+/**
+ * WebAssembly BPM Analyzer container managing audio sample buffers.
+ */
 export class BpmAnalyzer {
     free(): void;
     [Symbol.dispose](): void;
-    analyze(): any;
-    constructor(sample_capacity: number, options?: any | null);
+    /**
+     * Runs BPM detection and beat tracking on the buffered audio, returning a JavaScript object
+     * result.
+     */
+    analyze(): BpmAnalysisResult;
+    /**
+     * Creates a new `BpmAnalyzer` with a given sample buffer capacity and optional settings.
+     */
+    constructor(sample_capacity: number, options?: AnalyzerOptions | null);
+    /**
+     * Resizes the internal sample buffer capacity.
+     */
     resize(new_sample_capacity: number): void;
+    /**
+     * Sets the active audio sample length in the buffer.
+     */
     set_length(new_len: number): void;
+    /**
+     * Returns the capacity of the internal buffer in bytes.
+     */
     readonly byte_capacity: number;
+    /**
+     * Returns a raw byte pointer (`u8`) to the internal audio sample buffer.
+     */
     readonly byte_ptr: number;
+    /**
+     * Returns the active length of valid audio samples in the buffer.
+     */
     readonly length: number;
+    /**
+     * Returns a raw pointer to the internal `f32` audio sample buffer.
+     */
     readonly ptr: number;
+    /**
+     * Returns the maximum sample capacity (`f32` count) of the internal buffer.
+     */
     readonly sample_capacity: number;
 }
 

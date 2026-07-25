@@ -1,13 +1,7 @@
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import type { EngineState } from "$/modules/ffmpeg/types.ts";
-
-export interface BpmAnalysisResult {
-	bpm: number;
-	anchorTick: number;
-	confidence: number;
-	ticks: number[];
-}
+import type { BpmAnalysisResult } from "$/modules/ffmpeg/worker/wasm/bpm-analyzer/bpm_analyzer_wasm";
 
 export type BpmState =
 	| { status: "idle" }

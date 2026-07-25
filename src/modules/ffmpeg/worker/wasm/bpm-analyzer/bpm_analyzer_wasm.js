@@ -2,6 +2,9 @@
 import { startWorkers } from './snippets/wasm-bindgen-rayon-38edf6e439f6d70d/src/workerHelpers.js';
 
 
+/**
+ * WebAssembly BPM Analyzer container managing audio sample buffers.
+ */
 export class BpmAnalyzer {
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
@@ -14,7 +17,9 @@ export class BpmAnalyzer {
         wasm.__wbg_bpmanalyzer_free(ptr, 0);
     }
     /**
-     * @returns {any}
+     * Runs BPM detection and beat tracking on the buffered audio, returning a JavaScript object
+     * result.
+     * @returns {BpmAnalysisResult}
      */
     analyze() {
         const ret = wasm.bpmanalyzer_analyze(this.__wbg_ptr);
@@ -24,6 +29,7 @@ export class BpmAnalyzer {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
+     * Returns the capacity of the internal buffer in bytes.
      * @returns {number}
      */
     get byte_capacity() {
@@ -31,6 +37,7 @@ export class BpmAnalyzer {
         return ret >>> 0;
     }
     /**
+     * Returns a raw byte pointer (`u8`) to the internal audio sample buffer.
      * @returns {number}
      */
     get byte_ptr() {
@@ -38,6 +45,7 @@ export class BpmAnalyzer {
         return ret >>> 0;
     }
     /**
+     * Returns the active length of valid audio samples in the buffer.
      * @returns {number}
      */
     get length() {
@@ -45,8 +53,9 @@ export class BpmAnalyzer {
         return ret >>> 0;
     }
     /**
+     * Creates a new `BpmAnalyzer` with a given sample buffer capacity and optional settings.
      * @param {number} sample_capacity
-     * @param {any | null} [options]
+     * @param {AnalyzerOptions | null} [options]
      */
     constructor(sample_capacity, options) {
         const ret = wasm.bpmanalyzer_new(sample_capacity, isLikeNone(options) ? 0 : addToExternrefTable0(options));
@@ -58,6 +67,7 @@ export class BpmAnalyzer {
         return this;
     }
     /**
+     * Returns a raw pointer to the internal `f32` audio sample buffer.
      * @returns {number}
      */
     get ptr() {
@@ -65,12 +75,14 @@ export class BpmAnalyzer {
         return ret >>> 0;
     }
     /**
+     * Resizes the internal sample buffer capacity.
      * @param {number} new_sample_capacity
      */
     resize(new_sample_capacity) {
         wasm.bpmanalyzer_resize(this.__wbg_ptr, new_sample_capacity);
     }
     /**
+     * Returns the maximum sample capacity (`f32` count) of the internal buffer.
      * @returns {number}
      */
     get sample_capacity() {
@@ -78,6 +90,7 @@ export class BpmAnalyzer {
         return ret >>> 0;
     }
     /**
+     * Sets the active audio sample length in the buffer.
      * @param {number} new_len
      */
     set_length(new_len) {

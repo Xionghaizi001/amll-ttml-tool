@@ -1,6 +1,7 @@
 import { getErrorMessage } from "../utils";
 import type { FFmpegAudioModule } from "./types";
 import initBpmWasm, {
+	type BpmAnalysisResult,
 	BpmAnalyzer,
 	type InitOutput,
 	initThreadPool,
@@ -215,7 +216,7 @@ async function analyzeLoop() {
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		let bpmResult = null;
+		let bpmResult: BpmAnalysisResult | null = null;
 		let calculationTime = 0;
 		let bpmErrorMsg: string | null = null;
 
@@ -232,7 +233,7 @@ async function analyzeLoop() {
 				try {
 					const wasmInstance = await getBpmWasm();
 					const analyzer = new BpmAnalyzer(totalSamples, {
-						sample_rate: TARGET_SAMPLE_RATE,
+						sampleRate: TARGET_SAMPLE_RATE,
 					});
 
 					const uint8View = new Uint8Array(
