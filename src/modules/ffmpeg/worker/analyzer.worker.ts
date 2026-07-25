@@ -28,22 +28,12 @@ const THRESHOLD_50MB = 50 * 1024 * 1024;
 let ffmpegModule: FFmpegAudioModule | null = null;
 let audioData: Uint8Array | null = null;
 let decoderPtr: number = 0;
-let audioFile: File | null = null;
+let audioFile: Blob | null = null;
 const readerSync = new FileReaderSync();
-
-let offscreenCtx: OffscreenCanvasRenderingContext2D | null = null;
-let canvasWidth = 0;
-let canvasHeight = 0;
-let dpr = 1;
-
-let peaksCapacity = 16384 * 3;
-let peaksBuffer = new Float32Array(peaksCapacity);
-let peaksCount = 0;
 
 let totalSamples = 0;
 let totalDuration = 0;
 let isAnalyzing = false;
-let primaryColor = "#00ffa21e";
 
 let opfsAccessHandle: FileSystemSyncAccessHandle | null = null;
 
@@ -54,6 +44,51 @@ let pcmWriteOffset = 0;
 const TARGET_SAMPLE_RATE = 44100;
 
 const opfsChannel = new BroadcastChannel("opfs-lock-channel");
+
+const BATCH_TRIPLETS = 1000;
+const BUFFER_SIZE = BATCH_TRIPLETS * 3;
+const freePool: ArrayBuffer[] = [];
+let currentBuffer: Float32Array | null = null;
+let currentBufferCount = 0;
+let rendererPort: MessagePort | null = null;
+
+function getBuffer(): Float32Array {
+	const ab = freePool.pop();
+	if (ab) {
+		return new Float32Array(ab);
+	}
+	return new Float32Array(BUFFER_SIZE);
+}
+
+function flushBuffer() {
+	if (currentBufferCount > 0 && rendererPort && currentBuffer) {
+		const count = currentBufferCount;
+		const buf = currentBuffer.buffer;
+
+		rendererPort.postMessage(
+			{ type: "PEAKS_UPDATE", payload: { buffer: buf, count } },
+			[buf],
+		);
+
+		currentBuffer = null;
+		currentBufferCount = 0;
+	}
+}
+
+function pushPeak(progress: number, min: number, max: number) {
+	if (!currentBuffer) {
+		currentBuffer = getBuffer();
+		currentBufferCount = 0;
+	}
+
+	currentBuffer[currentBufferCount++] = progress;
+	currentBuffer[currentBufferCount++] = min;
+	currentBuffer[currentBufferCount++] = max;
+
+	if (currentBufferCount >= BUFFER_SIZE) {
+		flushBuffer();
+	}
+}
 
 function getLastErrorMsg(): string {
 	if (!ffmpegModule) return "Wasm module not loaded";
@@ -105,60 +140,6 @@ async function initWasm(ffmpegWasmUrl: string): Promise<FFmpegAudioModule> {
 			return -1;
 		},
 	});
-}
-
-function pushPeak(progress: number, min: number, max: number) {
-	if (peaksCount + 3 > peaksCapacity) {
-		peaksCapacity *= 2;
-		const newBuffer = new Float32Array(peaksCapacity);
-		newBuffer.set(peaksBuffer);
-		peaksBuffer = newBuffer;
-	}
-	peaksBuffer[peaksCount++] = progress;
-	peaksBuffer[peaksCount++] = min;
-	peaksBuffer[peaksCount++] = max;
-}
-
-function drawWaveform() {
-	if (
-		!offscreenCtx ||
-		canvasWidth === 0 ||
-		canvasHeight === 0 ||
-		peaksCount === 0
-	)
-		return;
-
-	offscreenCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-	offscreenCtx.fillStyle = primaryColor;
-	offscreenCtx.beginPath();
-
-	const halfH = canvasHeight / 2;
-	const tripletCount = peaksCount / 3;
-	const AMPLITUDE_SCALE = 0.6;
-
-	for (let i = 0; i < tripletCount; i++) {
-		const progress = peaksBuffer[i * 3];
-		const maxVal = peaksBuffer[i * 3 + 2];
-
-		const x = progress * canvasWidth;
-		const yMax = halfH - maxVal * halfH * AMPLITUDE_SCALE;
-
-		if (i === 0) offscreenCtx.moveTo(x, yMax);
-		else offscreenCtx.lineTo(x, yMax);
-	}
-
-	for (let i = tripletCount - 1; i >= 0; i--) {
-		const progress = peaksBuffer[i * 3];
-		const minVal = peaksBuffer[i * 3 + 1];
-
-		const x = progress * canvasWidth;
-		const yMin = halfH - minVal * halfH * AMPLITUDE_SCALE;
-
-		offscreenCtx.lineTo(x, yMin);
-	}
-	offscreenCtx.closePath();
-	offscreenCtx.fill();
 }
 
 const yieldChannel = new MessageChannel();
@@ -221,23 +202,16 @@ async function analyzeLoop() {
 		}
 	}
 
-	drawWaveform();
+	flushBuffer();
 
 	if (!eof) {
 		yieldChannel.port2.postMessage(null);
 	} else {
 		isAnalyzing = false;
 
-		if (peaksCount >= 3) {
-			const maxProgress = peaksBuffer[peaksCount - 3];
-			if (maxProgress > 0 && maxProgress < 1.0) {
-				const tripletCount = peaksCount / 3;
-				for (let i = 0; i < tripletCount; i++) {
-					peaksBuffer[i * 3] /= maxProgress;
-				}
-			}
+		if (rendererPort) {
+			rendererPort.postMessage({ type: "PEAKS_FINALIZE" });
 		}
-		drawWaveform();
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -319,15 +293,21 @@ self.onmessage = async (e: MessageEvent) => {
 	const { type, payload } = e.data;
 
 	if (type === "INIT") {
-		const {
-			file,
-			ffmpegWasmUrl,
-			canvas,
-			width,
-			height,
-			dpr: deviceDpr,
-			color,
-		} = payload;
+		const { file, ffmpegWasmUrl, port } = payload;
+
+		if (rendererPort) {
+			rendererPort.onmessage = null;
+		}
+		rendererPort = port;
+		if (rendererPort) {
+			rendererPort.onmessage = (msg) => {
+				if (msg.data.type === "BUFFER_RETURN") {
+					if (freePool.length < 2) {
+						freePool.push(msg.data.payload);
+					}
+				}
+			};
+		}
 
 		if (file.size < THRESHOLD_50MB) {
 			const arrayBuffer = await file.arrayBuffer();
@@ -336,24 +316,6 @@ self.onmessage = async (e: MessageEvent) => {
 		} else {
 			audioFile = file;
 			audioData = null;
-		}
-
-		canvasWidth = width;
-		canvasHeight = height;
-		dpr = deviceDpr;
-		if (color) primaryColor = color;
-
-		if (canvas) {
-			offscreenCtx = (canvas as OffscreenCanvas).getContext("2d", {
-				alpha: true,
-				desynchronized: true,
-			});
-		}
-
-		if (offscreenCtx) {
-			offscreenCtx.canvas.width = canvasWidth * dpr;
-			offscreenCtx.canvas.height = canvasHeight * dpr;
-			offscreenCtx.scale(dpr, dpr);
 		}
 
 		try {
@@ -378,7 +340,6 @@ self.onmessage = async (e: MessageEvent) => {
 				ffmpegModule._wasm_decoder_set_compute_peaks(decoderPtr, 1);
 				totalDuration = ffmpegModule._wasm_decoder_get_duration(decoderPtr);
 
-				peaksCount = 0;
 				totalSamples = 0;
 				isAnalyzing = true;
 
@@ -413,18 +374,6 @@ self.onmessage = async (e: MessageEvent) => {
 				type: "ANALYZE_ERROR",
 				payload: { error: getErrorMessage(err) },
 			});
-		}
-	} else if (type === "RESIZE") {
-		canvasWidth = payload.width;
-		canvasHeight = payload.height;
-		dpr = payload.dpr;
-		if (payload.color) primaryColor = payload.color;
-
-		if (offscreenCtx && canvasWidth > 0 && canvasHeight > 0) {
-			offscreenCtx.canvas.width = canvasWidth * dpr;
-			offscreenCtx.canvas.height = canvasHeight * dpr;
-			offscreenCtx.scale(dpr, dpr);
-			drawWaveform();
 		}
 	}
 };

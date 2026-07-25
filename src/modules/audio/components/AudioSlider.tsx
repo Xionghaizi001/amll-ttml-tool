@@ -1,18 +1,15 @@
 import { Card } from "@radix-ui/themes";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import {
 	audioEngineStateAtom,
-	bpmStateAtom,
 	currentDurationAtom,
 	loadedAudioAtom,
-	pcmDataReadyAtom,
 } from "$/modules/audio/states";
-import AnalyzerWorker from "$/modules/ffmpeg/worker/analyzer.worker.ts?worker";
-import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 import { useHoverGuide } from "../hooks";
+import { useWaveformAnalyzer } from "../hooks/useWaveformAnalyzer";
 import { AudioRegion } from "./AudioRegion";
 import styles from "./AudioSlider.module.css";
 import { HoverGuide } from "./HoverGuide";
@@ -21,8 +18,6 @@ export const AudioSlider = () => {
 	const currentDuration = useAtomValue(currentDurationAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
 	const audioFile = useAtomValue(loadedAudioAtom);
-	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
-	const setBpmState = useSetAtom(bpmStateAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 
@@ -33,10 +28,6 @@ export const AudioSlider = () => {
 
 	const isScrubbingRef = useRef(false);
 	const scrubProgressRef = useRef(0);
-
-	const workerRef = useRef<Worker | null>(null);
-	const offscreenTransferred = useRef(false);
-
 	const [sliderWidthPx, setSliderWidthPx] = useState(0);
 
 	const {
@@ -46,35 +37,13 @@ export const AudioSlider = () => {
 		isDraggingRef,
 	} = useHoverGuide(sliderWidthPx);
 
-	useEffect(() => {
-		workerRef.current = new AnalyzerWorker();
-
-		workerRef.current.onmessage = (e) => {
-			if (e.data.type === "ANALYZE_DONE") {
-				setPcmDataReady(true);
-				if (e.data.payload?.bpmResult) {
-					setBpmState({
-						status: "completed",
-						result: e.data.payload.bpmResult,
-						calculationTime: e.data.payload.calculationTime,
-					});
-				} else if (e.data.payload?.error) {
-					setBpmState({
-						status: "error",
-						error: e.data.payload.error,
-					});
-				}
-			} else if (e.data.type === "ANALYZE_ERROR") {
-				setBpmState({
-					status: "error",
-					error: e.data.payload?.error || "Unknown analysis error",
-				});
-			}
-		};
-		return () => {
-			workerRef.current?.terminate();
-		};
-	}, [setPcmDataReady, setBpmState]);
+	useWaveformAnalyzer({
+		audioFile,
+		wsContainerRef,
+		canvasRef,
+		sliderWidthPx,
+		engineState,
+	});
 
 	useEffect(() => {
 		const container = wsContainerRef.current;
@@ -90,78 +59,6 @@ export const AudioSlider = () => {
 
 		return () => observer.disconnect();
 	}, []);
-
-	useEffect(() => {
-		if (!audioFile || audioFile.size === 0) {
-			setBpmState({ status: "idle" });
-			return;
-		}
-
-		if (!workerRef.current || !canvasRef.current || !wsContainerRef.current) {
-			return;
-		}
-
-		setPcmDataReady(false);
-		setBpmState({ status: "analyzing" });
-
-		let canvasPayload: OffscreenCanvas | undefined;
-		let transfer: Transferable[] = [];
-
-		if (!offscreenTransferred.current) {
-			const offscreen = canvasRef.current.transferControlToOffscreen();
-			canvasPayload = offscreen;
-			transfer = [offscreen];
-			offscreenTransferred.current = true;
-		}
-		const styles = getComputedStyle(wsContainerRef.current);
-		const waveColor =
-			styles.getPropertyValue("--accent-a4").trim() || "#00ffa21e";
-		workerRef.current.postMessage(
-			{
-				type: "INIT",
-				payload: {
-					file: audioFile,
-					ffmpegWasmUrl,
-					canvas: canvasPayload,
-					width: wsContainerRef.current.clientWidth,
-					height: wsContainerRef.current.clientHeight,
-					dpr: window.devicePixelRatio || 1,
-					color: waveColor,
-				},
-			},
-			transfer,
-		);
-	}, [audioFile, setPcmDataReady, setBpmState]);
-
-	useEffect(() => {
-		if (sliderWidthPx > 0 && workerRef.current && wsContainerRef.current) {
-			const timeoutId = setTimeout(() => {
-				if (!wsContainerRef.current || !workerRef.current) return;
-				const styles = getComputedStyle(wsContainerRef.current);
-				const waveColor =
-					styles.getPropertyValue("--accent-a4").trim() || "#00ffa21e";
-				workerRef.current.postMessage({
-					type: "RESIZE",
-					payload: {
-						width: sliderWidthPx,
-						height: wsContainerRef.current.clientHeight,
-						dpr: window.devicePixelRatio || 1,
-						color: waveColor,
-					},
-				});
-			}, 1000);
-			return () => clearTimeout(timeoutId);
-		}
-	}, [sliderWidthPx]);
-
-	useEffect(() => {
-		if (engineState === "idle" && workerRef.current && sliderWidthPx > 0) {
-			workerRef.current.postMessage({
-				type: "RESIZE",
-				payload: { width: 0, height: 0 },
-			});
-		}
-	}, [engineState, sliderWidthPx]);
 
 	useEffect(() => {
 		let rafId: number;
