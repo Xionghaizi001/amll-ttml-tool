@@ -469,7 +469,7 @@ function App() {
 						<TitleBar />
 						<RibbonBar />
 						<Flex flexGrow="1" overflow="hidden" direction="row" mt="2">
-							<Sidebar />
+							{toolMode !== ToolMode.Review && <Sidebar />}
 							<Box flexGrow="1" overflow="hidden" minWidth="0">
 								<AnimatePresence mode="wait">
 									{(toolMode === ToolMode.Edit ||
