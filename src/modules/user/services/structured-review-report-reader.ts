@@ -78,6 +78,44 @@ function assertReportShape(
 	}
 }
 
+export const unwrapStructuredReviewReport = (
+	input: string | unknown,
+): unknown => {
+	let value: unknown = input;
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch {
+			throw new Error("结构化报告不是有效 JSON");
+		}
+	}
+	if (isObject(value) && "diff" in value) {
+		const wrapper = value;
+		let diffValue = wrapper.diff;
+		if (typeof diffValue === "string") {
+			try {
+				diffValue = JSON.parse(diffValue);
+			} catch {
+				throw new Error("结构化报告 diff 字段不是有效 JSON");
+			}
+		}
+		if (isObject(diffValue)) {
+			value = {
+				...diffValue,
+				metadata: isObject(diffValue.metadata)
+					? diffValue.metadata
+					: wrapper.metadata,
+				updates: isObject(diffValue.updates)
+					? diffValue.updates
+					: wrapper.updates,
+			};
+		} else {
+			value = diffValue;
+		}
+	}
+	return value;
+};
+
 const parseLyric = (content: string, label: string): TTMLLyric => {
 	const result = parseTTMLLyric(content);
 	if (!result.success) {
@@ -89,14 +127,7 @@ const parseLyric = (content: string, label: string): TTMLLyric => {
 export const readStructuredReviewReport = async (
 	input: string | unknown,
 ): Promise<StructuredReviewReportReadResult> => {
-	let value: unknown = input;
-	if (typeof input === "string") {
-		try {
-			value = JSON.parse(input);
-		} catch {
-			throw new Error("结构化报告不是有效 JSON");
-		}
-	}
+	const value = unwrapStructuredReviewReport(input);
 	assertReportShape(value);
 	const originalLyric = parseLyric(value.original, "original");
 	const modifiedLyric = parseLyric(value.modified, "modified");

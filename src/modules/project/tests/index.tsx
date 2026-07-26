@@ -17,14 +17,19 @@ import {
 	neteaseCookieAtom,
 } from "$/modules/settings/states";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
+import { annotationSessionAtom } from "$/modules/user/states/annotation-session";
 import { StructuredReviewReportTest } from "$/modules/user/tests/StructuredReviewReportTest";
 import {
 	fileUpdateSessionAtom,
+	newLyricLinesAtom,
 	reviewSessionAtom,
+	saveFileNameAtom,
+	sourceFileContentAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
+import { rightSidebarPanelAtom } from "$/states/sidebar";
 import styles from "./ProjectTestsSettings.module.css";
 
 type IdentityStatus = "idle" | "checking" | "verified" | "error";
@@ -55,6 +60,11 @@ export const ProjectTestsSettings = () => {
 	const [login, setLogin] = useAtom(githubLoginAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
+	const setNewLyrics = useSetAtom(newLyricLinesAtom);
+	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const setSourceFileContent = useSetAtom(sourceFileContentAtom);
+	const setAnnotationSession = useSetAtom(annotationSessionAtom);
+	const setRightSidebarPanel = useSetAtom(rightSidebarPanelAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
 	const pushNotification = useSetAtom(pushNotificationAtom);
 	const { openFile } = useFileOpener();
@@ -163,8 +173,13 @@ export const ProjectTestsSettings = () => {
 				prNumber,
 				prTitle: updatePrTitle.trim() || `PR#${prNumber}`,
 				openFile,
+				setNewLyrics,
+				setSaveFileName,
+				setSourceFileContent,
 				setFileUpdateSession,
 				setToolMode,
+				setAnnotationSession,
+				setRightSidebarPanel,
 				pushNotification,
 				neteaseCookie,
 				pendingId: pendingIdRef.current,
@@ -192,7 +207,12 @@ export const ProjectTestsSettings = () => {
 		notifyIdentityFailure,
 		openFile,
 		pushNotification,
+		setAnnotationSession,
 		setFileUpdateSession,
+		setNewLyrics,
+		setRightSidebarPanel,
+		setSaveFileName,
+		setSourceFileContent,
 		setToolMode,
 		updatePrNumber,
 		updatePrTitle,

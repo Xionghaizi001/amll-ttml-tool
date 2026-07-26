@@ -1,5 +1,6 @@
 import {
 	ArrowDownload20Regular,
+	ArrowUpload20Regular,
 	Checkmark20Regular,
 	Delete20Regular,
 	Dismiss20Regular,
@@ -24,6 +25,11 @@ import {
 } from "$/modules/settings/states";
 import { generateTTMLLyric } from "$/modules/ttml-processor";
 import {
+	buildStructuredReviewDiffUrl,
+	mapStructuredReviewDiffHttpError,
+	type StructuredReviewDiffPlatform,
+} from "$/modules/user/services/update-service";
+import {
 	confirmDialogAtom,
 	type ReviewReportDialogState,
 } from "$/states/dialogs";
@@ -44,6 +50,74 @@ import { updateReviewHistoryReport } from "./review-history-db";
 const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 const PENDING_LABEL_NAME = "待更新";
+
+type StructuredReviewDiffUploadResult = {
+	success: boolean;
+	message: string;
+	filename: string;
+	createdAt: string;
+};
+
+const resolveReviewDiffPlatform = (
+	source?: "github" | "lyrics-site" | string | null,
+): StructuredReviewDiffPlatform =>
+	source === "lyrics-site" ? "gcz" : "github";
+
+const readDiffErrorDetail = async (response: Response): Promise<string> => {
+	const raw = (await response.text().catch(() => "")).trim();
+	if (!raw) return "";
+	try {
+		const json = JSON.parse(raw) as {
+			message?: unknown;
+			error?: unknown;
+		};
+		if (typeof json.message === "string" && json.message.trim()) {
+			return json.message.trim();
+		}
+		if (typeof json.error === "string" && json.error.trim()) {
+			return json.error.trim();
+		}
+	} catch {
+		// plain text
+	}
+	return raw;
+};
+
+const uploadStructuredReviewDiff = async (options: {
+	token: string;
+	platform: StructuredReviewDiffPlatform | string;
+	id: string | number;
+	report: StructuredReviewReport;
+}): Promise<StructuredReviewDiffUploadResult> => {
+	const token = options.token.trim();
+	if (!token) throw new Error("请先登录歌词站以上传结构化报告");
+	const response = await fetch(buildStructuredReviewDiffUrl(options), {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${token}`,
+			"Content-Type": "application/json",
+			Accept: "application/json",
+		},
+		body: JSON.stringify(options.report),
+	});
+	if (!response.ok) {
+		const detail = await readDiffErrorDetail(response);
+		throw new Error(
+			mapStructuredReviewDiffHttpError(response.status, detail, "上传"),
+		);
+	}
+	const payload = (await response
+		.json()
+		.catch(() => null)) as StructuredReviewDiffUploadResult | null;
+	if (payload?.success !== true) {
+		throw new Error(
+			typeof payload?.message === "string" && payload.message
+				? `上传结构化报告失败：${payload.message}`
+				: "上传结构化报告失败：响应无效",
+		);
+	}
+	return payload;
+};
 
 const getFirstMetadataValue = (lyrics: TTMLLyric, key: string) =>
 	lyrics.metadata
@@ -110,6 +184,7 @@ export const ReviewReportSubmissionBar = ({
 	const [approvedByUser, setApprovedByUser] = useState(false);
 	const [submitPending, setSubmitPending] = useState<ReviewSubmitPending>(null);
 	const [exportPending, setExportPending] = useState(false);
+	const [uploadPending, setUploadPending] = useState(false);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const githubLogin = useAtomValue(githubLoginAtom);
@@ -345,6 +420,60 @@ export const ReviewReportSubmissionBar = ({
 		}
 	};
 
+	const resolveDiffTarget = () => {
+		const platform = resolveReviewDiffPlatform(dialog.source);
+		const id =
+			platform === "gcz"
+				? dialog.submissionId ||
+					(dialog.prNumber != null ? String(dialog.prNumber) : "")
+				: dialog.prNumber != null
+					? String(dialog.prNumber)
+					: (dialog.submissionId ?? "");
+		if (!id) {
+			throw new Error("无法上传：缺少稿件编号");
+		}
+		return { platform, id };
+	};
+
+	const uploadStructuredReport = async () => {
+		const token = lyricsSiteToken?.trim();
+		if (!token) {
+			setPushNotification({
+				title: "请先登录歌词站以上传结构化报告",
+				level: "error",
+				source: "Review",
+			});
+			return;
+		}
+		setUploadPending(true);
+		try {
+			const { platform, id } = resolveDiffTarget();
+			const structuredReport = await persistCurrentStructuredReport();
+			const result = await uploadStructuredReviewDiff({
+				token,
+				platform,
+				id,
+				report: structuredReport,
+			});
+			setPushNotification({
+				title: result.message || "Diff文件已保存",
+				level: "success",
+				source: "Review",
+				description: result.filename
+					? `${result.filename}${result.createdAt ? ` · ${result.createdAt}` : ""}`
+					: undefined,
+			});
+		} catch (error) {
+			setPushNotification({
+				title: error instanceof Error ? error.message : "上传结构化报告失败",
+				level: "error",
+				source: "Review",
+			});
+		} finally {
+			setUploadPending(false);
+		}
+	};
+
 	const submitMissingAudio = async () => {
 		if (!dialog.submissionId && !dialog.prNumber) {
 			setPushNotification({
@@ -543,7 +672,7 @@ export const ReviewReportSubmissionBar = ({
 				variant="soft"
 				color="gray"
 				onClick={onDiscard}
-				disabled={submitPending !== null || exportPending}
+				disabled={submitPending !== null || exportPending || uploadPending}
 			>
 				<Flex align="center" gap="2">
 					<Delete20Regular />
@@ -555,11 +684,23 @@ export const ReviewReportSubmissionBar = ({
 					size="2"
 					variant="soft"
 					onClick={() => void exportStructuredReport()}
-					disabled={submitPending !== null || exportPending}
+					disabled={submitPending !== null || exportPending || uploadPending}
 				>
 					<Flex align="center" gap="2">
 						<ArrowDownload20Regular />
 						<Text size="2">{exportPending ? "导出中..." : "导出 JSON"}</Text>
+					</Flex>
+				</Button>
+				<Button
+					size="2"
+					variant="soft"
+					color="blue"
+					onClick={() => void uploadStructuredReport()}
+					disabled={submitPending !== null || exportPending || uploadPending}
+				>
+					<Flex align="center" gap="2">
+						<ArrowUpload20Regular />
+						<Text size="2">{uploadPending ? "上传中..." : "上传 JSON"}</Text>
 					</Flex>
 				</Button>
 				<Button

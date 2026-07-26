@@ -1,7 +1,18 @@
-import { Button, Flex, Text, TextArea } from "@radix-ui/themes";
+import {
+	Button,
+	Flex,
+	Select,
+	Text,
+	TextArea,
+	TextField,
+} from "@radix-ui/themes";
 import { useSetAtom } from "jotai";
 import { useRef, useState } from "react";
 import { readStructuredReviewReport } from "$/modules/user/services/structured-review-report-reader";
+import {
+	fetchStructuredReviewDiff,
+	type StructuredReviewDiffPlatform,
+} from "$/modules/user/services/update-service";
 import {
 	annotationSessionAtom,
 	createAnnotationSession,
@@ -13,14 +24,44 @@ export const StructuredReviewReportTest = () => {
 	const [input, setInput] = useState("");
 	const [status, setStatus] = useState("尚未读取报告");
 	const [summary, setSummary] = useState<string[]>([]);
+	const [remotePlatform, setRemotePlatform] =
+		useState<StructuredReviewDiffPlatform>("github");
+	const [remoteId, setRemoteId] = useState("");
+	const [remoteLoading, setRemoteLoading] = useState(false);
+	const [localLoading, setLocalLoading] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const textAreaRef = useRef<HTMLTextAreaElement>(null);
 	const setAnnotationSession = useSetAtom(annotationSessionAtom);
 	const setRightPanel = useSetAtom(rightSidebarPanelAtom);
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
 
-	const readInput = async (value: string) => {
-		setInput(value);
+	const loadRemote = async () => {
+		const id = remoteId.trim();
+		if (!id) {
+			setStatus("请填写稿件 ID / PR 号");
+			return;
+		}
+		setRemoteLoading(true);
+		setStatus("正在从云端读取...");
+		try {
+			const remote = await fetchStructuredReviewDiff({
+				platform: remotePlatform,
+				id,
+			});
+			await readInput(remote);
+		} catch (error) {
+			setStatus(error instanceof Error ? error.message : "读取失败");
+			setSummary([]);
+		} finally {
+			setRemoteLoading(false);
+		}
+	};
+
+	const readInput = async (value: string | unknown) => {
+		setInput(
+			typeof value === "string" ? value : JSON.stringify(value, null, 2),
+		);
 		try {
 			const result = await readStructuredReviewReport(value);
 			setStatus(
@@ -54,6 +95,17 @@ export const StructuredReviewReportTest = () => {
 		}
 	};
 
+	const readPastedInput = async () => {
+		const value = textAreaRef.current?.value ?? input;
+		if (!value.trim()) return;
+		setLocalLoading(true);
+		try {
+			await readInput(value);
+		} finally {
+			setLocalLoading(false);
+		}
+	};
+
 	return (
 		<section>
 			<Flex direction="column" gap="3">
@@ -61,9 +113,39 @@ export const StructuredReviewReportTest = () => {
 					结构化审阅报告回读测试
 				</Text>
 				<Text size="2" color="gray">
-					粘贴 JSON 或导入 JSON 文件，验证 TTML 和 contentHash；成功后会载入原稿并打开批注面板。
+					粘贴 JSON 或导入 JSON 文件，验证 TTML 和
+					contentHash；成功后会载入原稿并打开批注面板。
 				</Text>
+				<Flex gap="2" wrap="wrap" align="center">
+					<Select.Root
+						value={remotePlatform}
+						onValueChange={(value) =>
+							setRemotePlatform(value as StructuredReviewDiffPlatform)
+						}
+					>
+						<Select.Trigger aria-label="平台" />
+						<Select.Content>
+							<Select.Item value="github">GitHub PR</Select.Item>
+							<Select.Item value="gcz">歌词站稿件</Select.Item>
+						</Select.Content>
+					</Select.Root>
+					<TextField.Root
+						value={remoteId}
+						onChange={(event) => setRemoteId(event.currentTarget.value)}
+						placeholder="稿件 ID / PR 号"
+						style={{ flex: "1 1 180px" }}
+					/>
+					<Button
+						type="button"
+						variant="soft"
+						onClick={() => void loadRemote()}
+						disabled={remoteLoading || !remoteId.trim()}
+					>
+						{remoteLoading ? "读取中..." : "读取云端 Diff"}
+					</Button>
+				</Flex>
 				<TextArea
+					ref={textAreaRef}
 					value={input}
 					onChange={(event) => setInput(event.currentTarget.value)}
 					placeholder="粘贴结构化审阅报告 JSON"
@@ -71,12 +153,17 @@ export const StructuredReviewReportTest = () => {
 				/>
 				<Flex gap="2" wrap="wrap">
 					<Button
-						onClick={() => void readInput(input)}
-						disabled={!input.trim()}
+						type="button"
+						onClick={() => void readPastedInput()}
+						disabled={localLoading || !input.trim()}
 					>
-						读取粘贴内容
+						{localLoading ? "读取中..." : "读取粘贴内容"}
 					</Button>
-					<Button variant="soft" onClick={() => fileInputRef.current?.click()}>
+					<Button
+						type="button"
+						variant="soft"
+						onClick={() => fileInputRef.current?.click()}
+					>
 						导入 JSON 文件
 					</Button>
 					<input

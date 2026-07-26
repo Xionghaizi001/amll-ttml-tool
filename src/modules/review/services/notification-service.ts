@@ -2,12 +2,15 @@ import type { Dispatch, SetStateAction } from "react";
 import { normalizeReviewReport } from "$/modules/review/services/report-service/normalize-service";
 import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
+import type { AnnotationSession } from "$/modules/user/states/annotation-session";
 import type {
 	FileUpdateSession,
 	ReviewReportDraft,
 	ToolMode,
 } from "$/states/main";
 import type { AppNotification } from "$/states/notifications";
+import type { RightSidebarPanelType } from "$/states/sidebar";
+import type { TTMLLyric } from "$/types/ttml";
 
 type OpenFile = (file: File, forceExt?: string) => void;
 type PushNotification = (
@@ -63,8 +66,13 @@ export const createReviewUpdateNotificationHandler =
 	(options: {
 		pat: string;
 		openFile: OpenFile;
+		setNewLyrics?: (value: TTMLLyric) => void;
+		setSaveFileName?: (value: string) => void;
+		setSourceFileContent?: (value: string | null) => void;
 		setFileUpdateSession: (value: FileUpdateSession | null) => void;
 		setToolMode: (mode: ToolMode) => void;
+		setAnnotationSession?: (value: AnnotationSession | null) => void;
+		setRightSidebarPanel?: (value: RightSidebarPanelType) => void;
 		pushNotification: PushNotification;
 		neteaseCookie: string;
 		pendingId: string | null;
@@ -89,8 +97,13 @@ export const createReviewUpdateNotificationHandler =
 				prNumber: payload.prNumber,
 				prTitle: payload.prTitle,
 				openFile: options.openFile,
+				setNewLyrics: options.setNewLyrics,
+				setSaveFileName: options.setSaveFileName,
+				setSourceFileContent: options.setSourceFileContent,
 				setFileUpdateSession: options.setFileUpdateSession,
 				setToolMode: options.setToolMode,
+				setAnnotationSession: options.setAnnotationSession,
+				setRightSidebarPanel: options.setRightSidebarPanel,
 				pushNotification: options.pushNotification,
 				neteaseCookie: options.neteaseCookie,
 				pendingId: options.pendingId,

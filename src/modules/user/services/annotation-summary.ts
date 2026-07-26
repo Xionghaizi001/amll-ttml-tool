@@ -203,25 +203,11 @@ const isWordEndPath = (path: Array<string | number>) =>
 	path[4] === "endTime" &&
 	path.length === 5;
 
-const isWordStartPath = (path: Array<string | number>) =>
-	path[0] === "lyricLines" &&
-	typeof path[1] === "number" &&
-	path[2] === "words" &&
-	typeof path[3] === "number" &&
-	path[4] === "startTime" &&
-	path.length === 5;
-
 /** 行级：lyricLines[i].endTime 与 lyricLines[i+1].startTime */
 const isLineEndPath = (path: Array<string | number>) =>
 	path[0] === "lyricLines" &&
 	typeof path[1] === "number" &&
 	path[2] === "endTime" &&
-	path.length === 3;
-
-const isLineStartPath = (path: Array<string | number>) =>
-	path[0] === "lyricLines" &&
-	typeof path[1] === "number" &&
-	path[2] === "startTime" &&
 	path.length === 3;
 
 const sameAfterTime = (a: StructuredReviewChange, b: StructuredReviewChange) =>
@@ -248,7 +234,8 @@ const coalesceLinkedTimingChanges = (
 	) => {
 		const right = byKey.get(pathKey(rightPath));
 		if (!right) return false;
-		if (used.has(pathKey(left.path)) || used.has(pathKey(right.path))) return false;
+		if (used.has(pathKey(left.path)) || used.has(pathKey(right.path)))
+			return false;
 		if (!sameAfterTime(left, right)) return false;
 		if (getChangeKind(left) !== "update" || getChangeKind(right) !== "update")
 			return false;
