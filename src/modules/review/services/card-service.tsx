@@ -3,8 +3,10 @@ import {
 	Clock20Regular,
 	Person20Regular,
 } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Card, Flex, Text } from "@radix-ui/themes";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
+import styles from "../index.module.css";
 
 export type ReviewLabel = {
 	name: string;
@@ -36,6 +38,10 @@ export const isGitHubPullRequest = (
 
 export const getReviewItemId = (item: ReviewItem): string | number => {
 	return isLyricsSiteSubmission(item) ? item.id : item.number;
+};
+
+export const getReviewItemKey = (item: ReviewItem): string => {
+	return `${item.source}:${getReviewItemId(item)}`;
 };
 
 export const getReviewItemTitle = (item: ReviewItem): string => {
@@ -161,6 +167,86 @@ export const extractMentions = (body: string | undefined | null) => {
 	const matches = [...content.matchAll(/@([a-zA-Z0-9-]+)/g)];
 	const names = matches.map((match) => match[1]).filter(Boolean);
 	return Array.from(new Set(names));
+};
+
+export const getReviewItemUsernames = (item: ReviewItem) => {
+	if (isLyricsSiteSubmission(item)) {
+		const submitter = item.submitter?.trim();
+		return submitter ? [submitter] : [];
+	}
+	return extractMentions(item.body);
+};
+
+export type ReviewUserCardGroup = {
+	key: string;
+	username: string | null;
+	items: ReviewItem[];
+	latestItem: ReviewItem;
+};
+
+const normalizeUsername = (username: string) => username.trim().toLowerCase();
+
+const getLatestReviewItem = (items: ReviewItem[]) => {
+	return items.reduce((latest, item) => {
+		const latestTime = new Date(getReviewItemCreatedAt(latest)).getTime();
+		const itemTime = new Date(getReviewItemCreatedAt(item)).getTime();
+		return itemTime > latestTime ? item : latest;
+	});
+};
+
+export const groupReviewItemsByUser = (
+	items: ReviewItem[],
+): ReviewUserCardGroup[] => {
+	const grouped = new Map<
+		string,
+		{ username: string; items: ReviewItem[]; firstIndex: number }
+	>();
+	const result: Array<ReviewUserCardGroup & { firstIndex: number }> = [];
+
+	items.forEach((item, index) => {
+		const username = getReviewItemUsernames(item)[0]?.trim();
+		if (!username) {
+			result.push({
+				key: `single:${getReviewItemKey(item)}`,
+				username: null,
+				items: [item],
+				latestItem: item,
+				firstIndex: index,
+			});
+			return;
+		}
+
+		const normalized = normalizeUsername(username);
+		const existing = grouped.get(normalized);
+		if (existing) {
+			existing.items.push(item);
+			return;
+		}
+		grouped.set(normalized, {
+			username,
+			items: [item],
+			firstIndex: index,
+		});
+	});
+
+	grouped.forEach((group, normalized) => {
+		const sortedGroupItems = [...group.items].sort(
+			(a, b) =>
+				new Date(getReviewItemCreatedAt(b)).getTime() -
+				new Date(getReviewItemCreatedAt(a)).getTime(),
+		);
+		result.push({
+			key: `user:${normalized}`,
+			username: group.username,
+			items: sortedGroupItems,
+			latestItem: getLatestReviewItem(group.items),
+			firstIndex: group.firstIndex,
+		});
+	});
+
+	return result
+		.sort((a, b) => a.firstIndex - b.firstIndex)
+		.map(({ firstIndex: _firstIndex, ...group }) => group);
 };
 
 export function parseReviewMetadata(body: string): ReviewMetadata {
@@ -468,5 +554,59 @@ export const renderCardContent = (options: {
 					</Flex>
 				)}
 		</Flex>
+	);
+};
+
+export type ReviewSmallCardProps = {
+	item: ReviewItem;
+	hiddenLabelSet: Set<string>;
+	reviewedByUser: boolean;
+	onSelectUser: (user: string) => void;
+	onClick: (event: MouseEvent<HTMLDivElement>) => void;
+	cardRef?: (node: HTMLDivElement | null) => void;
+	className?: string;
+	style?: CSSProperties;
+	contentHidden?: boolean;
+	childrenBeforeContent?: ReactNode;
+};
+
+export const ReviewSmallCard = (props: ReviewSmallCardProps) => {
+	const {
+		item,
+		hiddenLabelSet,
+		reviewedByUser,
+		onSelectUser,
+		onClick,
+		cardRef,
+		className,
+		style,
+		contentHidden,
+		childrenBeforeContent,
+	} = props;
+
+	return (
+		<Card
+			className={`${styles.card} ${reviewedByUser ? styles.reviewCard : ""} ${
+				className ?? ""
+			}`}
+			onClick={onClick}
+			ref={cardRef}
+			style={style}
+		>
+			{childrenBeforeContent}
+			<Box
+				className={`${styles.cardContent} ${
+					contentHidden ? styles.cardContentHidden : ""
+				}`}
+			>
+				{renderCardContent({
+					item,
+					hiddenLabelSet,
+					styles,
+					reviewedByUser,
+					onSelectUser,
+				})}
+			</Box>
+		</Card>
 	);
 };

@@ -344,6 +344,7 @@
 	background-color: var(--color-panel);
 	max-width: 350px;
 	width: 100%;
+	position: relative;
 }
 
 :global(.radix-themes.dark) .overlay {
@@ -363,6 +364,8 @@
 
 .cardContent {
 	opacity: 1;
+	position: relative;
+	z-index: 2;
 	transition: opacity 180ms ease;
 }
 
@@ -372,6 +375,84 @@
 
 .reviewCard {
 	background-color: var(--orange-5);
+}
+
+.groupedCard {
+	cursor: pointer;
+	overflow: visible;
+}
+
+.cardStackLayerOne,
+.cardStackLayerTwo {
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	height: 20px;
+	border: 1px solid var(--gray-a5);
+	border-radius: var(--radius-4);
+	background-color: var(--color-panel);
+	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+	pointer-events: none;
+}
+
+.cardStackLayerOne {
+	bottom: -6px;
+	z-index: 1;
+}
+
+.cardStackLayerTwo {
+	bottom: -12px;
+	left: 18px;
+	right: 18px;
+	z-index: 0;
+	opacity: 0.72;
+}
+
+.groupCountBadge {
+	position: absolute;
+	right: 8px;
+	bottom: 8px;
+	z-index: 3;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	height: 22px;
+	padding: 0 8px;
+	border-radius: 999px;
+	background-color: var(--accent-9);
+	color: white;
+	box-shadow: 0 0 0 2px var(--color-panel);
+}
+
+.groupPreviewPanel {
+	overflow: hidden;
+	padding: 0;
+}
+
+.groupPreviewHeader {
+	flex-shrink: 0;
+	min-height: 64px;
+	padding: var(--space-3) var(--space-4) 0;
+	gap: var(--space-3);
+}
+
+.groupPreviewGrid {
+	display: grid;
+	flex: 1 1 auto;
+	gap: 12px;
+	min-height: 0;
+	padding: var(--space-3) var(--space-4) var(--space-4);
+	overflow-x: hidden;
+	overflow-y: auto;
+	align-content: start;
+}
+
+.groupPreviewCard {
+	height: 180px;
+	min-width: 0;
+	overflow: hidden;
+	cursor: pointer;
 }
 
 :global(.radix-themes.dark) .reviewCard {
