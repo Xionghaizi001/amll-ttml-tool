@@ -1208,71 +1208,65 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.views", "视图")}>
-					<Flex
-						direction="column"
-						gap="1"
+					<Grid
+						columns="1fr auto"
+						gapX="3"
+						gapY="1"
 						flexGrow="1"
-						align="start"
-						justify="center"
+						align="center"
 					>
-						<Flex gap="3" align="center">
-							<Text size="1" asChild>
-								<label
-									htmlFor={idOutline}
-									style={{
-										userSelect: "none",
-									}}
-								>
-									{t("ribbonBar.editMode.showOutline", "大纲")}
-								</label>
-							</Text>
-							<Checkbox
-								id={idOutline}
-								checked={isOutlineOpen}
-								onCheckedChange={(checked) => {
-									toggleTab({ tabId: "outline", open: Boolean(checked) });
+						<Text size="1" asChild>
+							<label
+								htmlFor={idOutline}
+								style={{
+									userSelect: "none",
 								}}
-							/>
-						</Flex>
-						<Flex gap="3" align="center">
-							<Text size="1" asChild>
-								<label
-									htmlFor={idBpm}
-									style={{
-										userSelect: "none",
-									}}
-								>
-									{t("ribbonBar.editMode.showBpmPanel", "BPM")}
-								</label>
-							</Text>
-							<Checkbox
-								id={idBpm}
-								checked={isBpmOpen}
-								onCheckedChange={(checked) => {
-									toggleTab({ tabId: "bpm", open: Boolean(checked) });
+							>
+								{t("ribbonBar.editMode.showOutline", "大纲")}
+							</label>
+						</Text>
+						<Checkbox
+							id={idOutline}
+							checked={isOutlineOpen}
+							onCheckedChange={(checked) => {
+								toggleTab({ tabId: "outline", open: Boolean(checked) });
+							}}
+						/>
+						<Text size="1" asChild>
+							<label
+								htmlFor={idBpm}
+								style={{
+									userSelect: "none",
 								}}
-							/>
-						</Flex>
-						<Flex gap="3" align="center">
-							<Text size="1" asChild>
-								<label
-									htmlFor={idAnnotations}
-									style={{
-										userSelect: "none",
-									}}
-								>
-									{t("ribbonBar.editMode.showAnnotations", "批注")}
-								</label>
-							</Text>
-							<Checkbox
-								id={idAnnotations}
-								checked={isAnnotationsOpen}
-								onCheckedChange={(checked) => {
-									setRightSidebarPanel(checked ? "annotations" : "none");
+							>
+								{t("ribbonBar.editMode.showBpmPanel", "BPM")}
+							</label>
+						</Text>
+						<Checkbox
+							id={idBpm}
+							checked={isBpmOpen}
+							onCheckedChange={(checked) => {
+								toggleTab({ tabId: "bpm", open: Boolean(checked) });
+							}}
+						/>
+						<Text size="1" asChild>
+							<label
+								htmlFor={idAnnotations}
+								style={{
+									userSelect: "none",
 								}}
-							/>
-						</Flex>
-					</Flex>
+							>
+								{t("ribbonBar.editMode.showAnnotations", "批注")}
+							</label>
+						</Text>
+						<Checkbox
+							id={idAnnotations}
+							checked={isAnnotationsOpen}
+							onCheckedChange={(checked) => {
+								setRightSidebarPanel(checked ? "annotations" : "none");
+							}}
+						/>
+					</Grid>
 				</RibbonSection>
 			</RibbonFrame>
 		);
