@@ -347,57 +347,61 @@ export const LyricLineView: FC<{
 	const annotationsByLine = useAtomValue(annotationsByLineAtom);
 	const lineAnnotations = annotationsByLine.get(lineIndex) ?? [];
 	const focusedAnnotationKey = annotationSession?.focusedKey ?? null;
-	const annotationWordMarks = useMemo(() => {
-		const added = new Set<string>();
-		const removed = new Set<string>();
-		const focused = new Set<string>();
-		/** 新增整词（原稿尚无该槽位）→ 在行内插入幽灵预览 */
-		const addedGhosts: Array<{
-			index: number;
-			text: string;
-			focused: boolean;
-			itemKey: string;
-		}> = [];
-		const wordIndexFromPath = (path: Array<string | number>) =>
-			path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
-		for (const item of lineAnnotations) {
-			const focusedItem = item.key === focusedAnnotationKey;
-			// 聚焦高亮只跟主 path（item.path），避免链接边界把相邻词一并高亮
-			const primaryWordIdx = wordIndexFromPath(item.path);
-			if (focusedItem && primaryWordIdx !== null) {
-				focused.add(String(primaryWordIdx));
-			}
-			for (const change of item.changes) {
-				const path = change.path;
-				const wordIdx = wordIndexFromPath(path);
-				if (wordIdx === null) continue;
-				const key = String(wordIdx);
-				const kind = getChangeKind(change);
-				if (kind === "add") {
-					if (isWholeWordPath(path)) {
-						// 整词新增：原稿无该槽位，用幽灵词预览，不标记现有词
-						addedGhosts.push({
-							index: wordIdx,
-							text: getWordTextFromValue(change.after),
-							focused:
-								focusedItem &&
-								primaryWordIdx !== null &&
-								wordIdx === primaryWordIdx,
-							itemKey: item.key,
-						});
-					} else {
-						added.add(key);
-					}
+	const annotationDecisions = annotationSession?.decisions ?? {};
+		const annotationWordMarks = useMemo(() => {
+			const added = new Set<string>();
+			const removed = new Set<string>();
+			const focused = new Set<string>();
+			/** 新增整词（原稿尚无该槽位）→ 在行内插入幽灵预览 */
+			const addedGhosts: Array<{
+				index: number;
+				text: string;
+				focused: boolean;
+				itemKey: string;
+			}> = [];
+			const wordIndexFromPath = (path: Array<string | number>) =>
+				path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
+			for (const item of lineAnnotations) {
+				const decision = annotationDecisions[item.key] ?? "pending";
+				// 已接受/拒绝：内容已随决策同步，不再叠预览占位
+				if (decision !== "pending") continue;
+				const focusedItem = item.key === focusedAnnotationKey;
+				// 聚焦高亮只跟主 path（item.path），避免链接边界把相邻词一并高亮
+				const primaryWordIdx = wordIndexFromPath(item.path);
+				if (focusedItem && primaryWordIdx !== null) {
+					focused.add(String(primaryWordIdx));
 				}
-				if (kind === "remove") removed.add(key);
+				for (const change of item.changes) {
+					const path = change.path;
+					const wordIdx = wordIndexFromPath(path);
+					if (wordIdx === null) continue;
+					const key = String(wordIdx);
+					const kind = getChangeKind(change);
+					if (kind === "add") {
+						if (isWholeWordPath(path)) {
+							// 整词新增：原稿无该槽位，用幽灵词预览，不标记现有词
+							addedGhosts.push({
+								index: wordIdx,
+								text: getWordTextFromValue(change.after),
+								focused:
+									focusedItem &&
+									primaryWordIdx !== null &&
+									wordIdx === primaryWordIdx,
+								itemKey: item.key,
+							});
+						} else {
+							added.add(key);
+						}
+					}
+					if (kind === "remove") removed.add(key);
+				}
 			}
-		}
-		addedGhosts.sort(
-			(a, b) => a.index - b.index || a.itemKey.localeCompare(b.itemKey),
-		);
-		return { added, removed, focused, addedGhosts };
-	}, [lineAnnotations, focusedAnnotationKey]);
-	const isPlaybackHighlighted = playbackHighlightedLineId === line.id;
+			addedGhosts.sort(
+				(a, b) => a.index - b.index || a.itemKey.localeCompare(b.itemKey),
+			);
+			return { added, removed, focused, addedGhosts };
+		}, [lineAnnotations, focusedAnnotationKey, annotationDecisions]);
+		const isPlaybackHighlighted = playbackHighlightedLineId === line.id;
 	const lineSelectedAtom = useMemo(() => {
 		const a = atom((get) => get(selectedLinesAtom).has(line.id));
 		if (import.meta.env.DEV) {

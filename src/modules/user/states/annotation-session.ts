@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { lyricLinesAtom } from "$/states/main";
 import type {
 	StructuredReviewChange,
 	StructuredReviewReport,
@@ -58,6 +59,17 @@ export const annotationAppliedLyricsAtom = atom((get) => {
 		verifyBefore: false,
 	}).lyrics;
 });
+
+/**
+ * 将「原稿 + 已接受批注」写回编辑器 lyricLines。
+ * 接受/拒绝决策变化后应调用，使文件内容与批注决策一致。
+ */
+export const syncAnnotationAppliedLyricsAtom = atom(null, (get, set) => {
+	const applied = get(annotationAppliedLyricsAtom);
+	if (!applied) return;
+	set(lyricLinesAtom, applied);
+});
+
 
 export const annotationsByLineAtom = atom((get) => {
 	const items = get(annotationItemsAtom);

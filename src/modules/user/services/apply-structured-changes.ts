@@ -4,6 +4,7 @@ import type {
 } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
 import { pathKey } from "$/utils/content-addressed-id";
+import { uid } from "uid";
 
 export type ApplyStructuredChangesOptions = {
 	/** 是否在写入前校验当前值与 before 一致；默认 true。 */
@@ -146,6 +147,20 @@ const compareChangesForApply = (
 	return pathKey(left.path).localeCompare(pathKey(right.path));
 };
 
+/** 结构化 after 可能缺编辑器运行时 id（导出协议不含 id）。 */
+const ensureRuntimeIds = (lyrics: TTMLLyric): TTMLLyric => {
+	for (const line of lyrics.lyricLines) {
+		if (!line.id) line.id = uid();
+		for (const word of line.words ?? []) {
+			if (!word.id) word.id = uid();
+			if (typeof word.obscene !== "boolean") word.obscene = false;
+			if (typeof word.emptyBeat !== "number") word.emptyBeat = 0;
+			if (typeof word.romanWord !== "string") word.romanWord = "";
+		}
+	}
+	return lyrics;
+};
+
 /**
  * 在冻结原稿上应用勾选的结构化变更（path 坐标系）。
  * 不处理「基线已漂移」场景；调用方应先校验 contentHash。
@@ -238,5 +253,5 @@ export const applyStructuredChanges = (
 		failed.push({ path, reason: "无效变更：before/after 均不存在" });
 	}
 
-	return { lyrics, applied, failed };
+	return { lyrics: ensureRuntimeIds(lyrics), applied, failed };
 };

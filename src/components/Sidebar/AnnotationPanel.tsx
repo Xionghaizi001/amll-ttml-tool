@@ -6,13 +6,14 @@ import {
 import { Badge, Box, Button, Flex, IconButton, Text } from "@radix-ui/themes";
 import classNames from "classnames";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	annotationItemsAtom,
 	annotationSessionAtom,
 	annotationsByLineAtom,
 	documentAnnotationItemsAtom,
+	syncAnnotationAppliedLyricsAtom,
 } from "$/modules/user/states/annotation-session";
 import type { AnnotationItem } from "$/modules/user/services/annotation-summary";
 import { AnnotationSummaryText } from "$/modules/user/components/AnnotationSummaryText";
@@ -125,18 +126,44 @@ export const AnnotationPanel = () => {
 	const byLine = useAtomValue(annotationsByLineAtom);
 	const documentItems = useAtomValue(documentAnnotationItemsAtom);
 	const setJumpAction = useSetAtom(outlineJumpActionAtom);
+	const syncAppliedLyrics = useSetAtom(syncAnnotationAppliedLyricsAtom);
 
 	const decisions = session?.decisions ?? {};
 	const detailLineIndex = session?.detailLineIndex ?? null;
 	const focusedKey = session?.focusedKey ?? null;
 
+	// 决策变更后把已接受变更应用到编辑器文件
+	const decisionsFingerprint = useMemo(
+		() =>
+			session
+				? Object.entries(session.decisions)
+						.map(([key, value]) => `${key}:${value}`)
+						.sort()
+						.join("|")
+				: "",
+		[session],
+	);
+	const lastSyncedFingerprint = useRef<string | null>(null);
+	useEffect(() => {
+		if (!session) {
+			lastSyncedFingerprint.current = null;
+			return;
+		}
+		if (lastSyncedFingerprint.current === decisionsFingerprint) return;
+		lastSyncedFingerprint.current = decisionsFingerprint;
+		syncAppliedLyrics();
+	}, [session, decisionsFingerprint, syncAppliedLyrics]);
+
 	const setDecision = useCallback(
 		(key: string, decision: "accepted" | "rejected" | "pending") => {
 			setSession((prev) => {
 				if (!prev) return prev;
+				const current = prev.decisions[key] ?? "pending";
+				// 再次点击同一决策 → 回到待处理，便于撤销
+				const nextDecision = current === decision ? "pending" : decision;
 				return {
 					...prev,
-					decisions: { ...prev.decisions, [key]: decision },
+					decisions: { ...prev.decisions, [key]: nextDecision },
 				};
 			});
 		},
