@@ -7,18 +7,17 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener";
-import { fetchGithubUserProfile } from "$/modules/github/services/identity-service";
 import {
-	githubLoginAtom,
-	githubPatAtom,
-	neteaseCookieAtom,
-} from "$/modules/settings/states";
+	describeGithubIdentityError,
+	fetchGithubUserProfile,
+} from "$/modules/github/services/identity-service";
+import { githubPatAtom, neteaseCookieAtom } from "$/modules/settings/states";
 import { openReviewUpdateFromNotification } from "$/modules/user/services/update-service";
 import { annotationSessionAtom } from "$/modules/user/states/annotation-session";
-import { StructuredReviewReportTest } from "$/modules/user/tests/StructuredReviewReportTest";
 import {
 	fileUpdateSessionAtom,
 	newLyricLinesAtom,
@@ -30,34 +29,17 @@ import {
 } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import { rightSidebarPanelAtom } from "$/states/sidebar";
-import styles from "./ProjectTestsSettings.module.css";
+import { StructuredReviewReportTest } from "./StructuredReviewReportTest";
+import styles from "./index.module.css";
+
+const NOTIFICATION_SOURCE = "Development";
 
 type IdentityStatus = "idle" | "checking" | "verified" | "error";
 
-const describeIdentityError = (
-	status: Exclude<
-		Awaited<ReturnType<typeof fetchGithubUserProfile>>["status"],
-		"ok"
-	>,
-) => {
-	switch (status) {
-		case "missing-token":
-			return "请先在“连接”中填写 GitHub PAT";
-		case "invalid-token":
-			return "GitHub PAT 无效或已过期";
-		case "user-error":
-			return "GitHub 用户接口返回错误";
-		case "user-missing":
-			return "GitHub 返回的数据中没有用户身份";
-		case "network-error":
-			return "无法连接 GitHub，请检查网络后重试";
-	}
-};
-
-export const ProjectTestsSettings = () => {
+export const DevelopmentSettings = () => {
+	const { t } = useTranslation();
 	const pat = useAtomValue(githubPatAtom);
 	const neteaseCookie = useAtomValue(neteaseCookieAtom);
-	const [login, setLogin] = useAtom(githubLoginAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const setFileUpdateSession = useSetAtom(fileUpdateSessionAtom);
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
@@ -73,6 +55,7 @@ export const ProjectTestsSettings = () => {
 	const [identityMessage, setIdentityMessage] = useState(
 		"正在确认当前 GitHub 登录身份",
 	);
+	const [verifiedLogin, setVerifiedLogin] = useState("");
 	const [reviewContent, setReviewContent] = useState("");
 	const [reviewFilename, setReviewFilename] = useState("review.ttml");
 	const [reviewPrNumber, setReviewPrNumber] = useState("0");
@@ -83,25 +66,26 @@ export const ProjectTestsSettings = () => {
 		"review-file" | "review-update" | null
 	>(null);
 	const pendingIdRef = useRef<string | null>(null);
-	const [, setLastNeteaseIdByPr] = useState<Record<number, string>>({});
+	const lastNeteaseIdByPrRef = useRef<Record<number, string>>({});
 
 	const verifyIdentity = useCallback(async () => {
 		setIdentityStatus("checking");
 		setIdentityMessage("正在通过 GitHub 校验 PAT 对应的用户...");
 		const result = await fetchGithubUserProfile(pat);
 		if (result.status !== "ok") {
-			const message = describeIdentityError(result.status);
+			const failure = describeGithubIdentityError(result);
 			setIdentityStatus("error");
-			setIdentityMessage(message);
+			setIdentityMessage(t(failure.key, failure.fallback, failure.values));
+			setVerifiedLogin("");
 			return null;
 		}
 
-		const verifiedLogin = result.profile.login.trim();
-		setLogin(verifiedLogin);
+		const resolvedLogin = result.profile.login.trim();
+		setVerifiedLogin(resolvedLogin);
 		setIdentityStatus("verified");
-		setIdentityMessage(`已验证为 ${verifiedLogin}`);
-		return { token: pat.trim(), login: verifiedLogin };
-	}, [pat, setLogin]);
+		setIdentityMessage(`已验证为 ${resolvedLogin}`);
+		return { token: pat.trim(), login: resolvedLogin };
+	}, [pat, t]);
 
 	useEffect(() => {
 		void verifyIdentity();
@@ -111,7 +95,7 @@ export const ProjectTestsSettings = () => {
 		pushNotification({
 			title: "GitHub 身份验证失败，开发工具操作已取消",
 			level: "warning",
-			source: "ProjectTests",
+			source: NOTIFICATION_SOURCE,
 		});
 	}, [pushNotification]);
 
@@ -140,7 +124,7 @@ export const ProjectTestsSettings = () => {
 			pushNotification({
 				title: `已由 ${identity.login} 注入审阅文件 ${filename}`,
 				level: "success",
-				source: "ProjectTests",
+				source: NOTIFICATION_SOURCE,
 			});
 		} finally {
 			setRunningAction(null);
@@ -186,18 +170,23 @@ export const ProjectTestsSettings = () => {
 				setPendingId: (value) => {
 					pendingIdRef.current = value;
 				},
-				setLastNeteaseIdByPr,
+				setLastNeteaseIdByPr: (update) => {
+					lastNeteaseIdByPrRef.current =
+						typeof update === "function"
+							? update(lastNeteaseIdByPrRef.current)
+							: update;
+				},
 			});
 			pushNotification({
 				title: `已由 ${identity.login} 打开 PR #${prNumber} 更新测试`,
 				level: "success",
-				source: "ProjectTests",
+				source: NOTIFICATION_SOURCE,
 			});
 		} catch (error) {
 			pushNotification({
 				title: `打开 PR 更新失败：${error instanceof Error ? error.message : "未知错误"}`,
 				level: "error",
-				source: "ProjectTests",
+				source: NOTIFICATION_SOURCE,
 			});
 		} finally {
 			setRunningAction(null);
@@ -234,7 +223,7 @@ export const ProjectTestsSettings = () => {
 						<Heading size="4">GitHub 身份</Heading>
 						<Badge color={identityColor}>
 							{verified
-								? login
+								? verifiedLogin
 								: identityStatus === "checking"
 									? "验证中"
 									: "未验证"}

@@ -8,16 +8,18 @@ import classNames from "classnames";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import type { AnnotationItem } from "../services/annotation-summary";
 import {
+	annotationDecisionMapAtom,
 	annotationItemsAtom,
 	annotationSessionAtom,
 	annotationsByLineAtom,
+	closeAnnotationLineDetailAtom,
 	documentAnnotationItemsAtom,
+	focusAnnotationAtom,
 	syncAnnotationAppliedLyricsAtom,
-} from "$/modules/user/states/annotation-session";
-import type { AnnotationItem } from "$/modules/user/services/annotation-summary";
-import { AnnotationSummaryText } from "$/modules/user/components/AnnotationSummaryText";
-import { outlineJumpActionAtom } from "$/states/sidebar";
+} from "../states/annotation-session";
+import { AnnotationSummaryText } from "./AnnotationSummaryText";
 import styles from "./AnnotationPanel.module.css";
 
 const DecisionBadge = ({
@@ -95,7 +97,11 @@ const AnnotationRow = ({
 					</Flex>
 				</div>
 			</div>
-			<Flex gap="1" className={styles.actions} onClick={(e) => e.stopPropagation()}>
+			<Flex
+				gap="1"
+				className={styles.actions}
+				onClick={(e) => e.stopPropagation()}
+			>
 				<IconButton
 					size="1"
 					variant={decision === "accepted" ? "solid" : "soft"}
@@ -125,10 +131,11 @@ export const AnnotationPanel = () => {
 	const items = useAtomValue(annotationItemsAtom);
 	const byLine = useAtomValue(annotationsByLineAtom);
 	const documentItems = useAtomValue(documentAnnotationItemsAtom);
-	const setJumpAction = useSetAtom(outlineJumpActionAtom);
+	const decisions = useAtomValue(annotationDecisionMapAtom);
+	const focusAnnotation = useSetAtom(focusAnnotationAtom);
+	const closeLineDetail = useSetAtom(closeAnnotationLineDetailAtom);
 	const syncAppliedLyrics = useSetAtom(syncAnnotationAppliedLyricsAtom);
 
-	const decisions = session?.decisions ?? {};
 	const detailLineIndex = session?.detailLineIndex ?? null;
 	const focusedKey = session?.focusedKey ?? null;
 
@@ -178,37 +185,25 @@ export const AnnotationPanel = () => {
 				const targetItems =
 					prev.detailLineIndex === null
 						? items
-						: items.filter((item) => item.lineIndex === prev.detailLineIndex);
+						: (byLine.get(prev.detailLineIndex) ?? []);
 				for (const item of targetItems) {
 					next[item.key] = decision;
 				}
 				return { ...prev, decisions: next };
 			});
 		},
-		[items, setSession],
+		[byLine, items, setSession],
 	);
 
 	const focusItem = useCallback(
 		(item: AnnotationItem) => {
-			setSession((prev) =>
-				prev
-					? {
-							...prev,
-							focusedKey: item.key,
-							detailLineIndex:
-								item.lineIndex !== null ? item.lineIndex : prev.detailLineIndex,
-						}
-					: prev,
-			);
-			// 用 path 的行号无法直接拿 runtime line.id；由编辑区按 lineIndex 滚动
-			if (item.lineIndex !== null) {
-				setJumpAction({
-					id: `__annotation_line__:${item.lineIndex}`,
-					ts: Date.now(),
-				});
-			}
+			focusAnnotation({
+				lineIndex: item.lineIndex,
+				focusedKey: item.key,
+				openLineDetail: true,
+			});
 		},
-		[setJumpAction, setSession],
+		[focusAnnotation],
 	);
 
 	const lineGroups = useMemo(() => {
@@ -228,12 +223,7 @@ export const AnnotationPanel = () => {
 	}
 
 	const detailItems =
-		detailLineIndex === null
-			? null
-			: (byLine.get(detailLineIndex) ?? []).concat(
-					// 仅文档级不进行详情
-					[],
-				);
+		detailLineIndex === null ? null : (byLine.get(detailLineIndex) ?? []);
 
 	return (
 		<div className={styles.panel}>
@@ -243,11 +233,7 @@ export const AnnotationPanel = () => {
 						size="1"
 						variant="ghost"
 						color="gray"
-						onClick={() =>
-							setSession((prev) =>
-								prev ? { ...prev, detailLineIndex: null } : prev,
-							)
-						}
+						onClick={() => closeLineDetail()}
 					>
 						<ArrowLeft16Regular />
 						{t("annotation.back", "返回")}
@@ -258,10 +244,20 @@ export const AnnotationPanel = () => {
 					</Text>
 				)}
 				<Flex gap="2">
-					<Button size="1" variant="soft" color="green" onClick={() => setAll("accepted")}>
+					<Button
+						size="1"
+						variant="soft"
+						color="green"
+						onClick={() => setAll("accepted")}
+					>
 						{t("annotation.acceptAll", "全部接受")}
 					</Button>
-					<Button size="1" variant="soft" color="red" onClick={() => setAll("rejected")}>
+					<Button
+						size="1"
+						variant="soft"
+						color="red"
+						onClick={() => setAll("rejected")}
+					>
 						{t("annotation.rejectAll", "全部拒绝")}
 					</Button>
 				</Flex>
@@ -311,21 +307,13 @@ export const AnnotationPanel = () => {
 							<button
 								type="button"
 								className={styles.groupHeader}
-								onClick={() => {
-									setSession((prev) =>
-										prev
-											? {
-													...prev,
-													detailLineIndex: lineIndex,
-													focusedKey: lineItems[0]?.key ?? null,
-												}
-											: prev,
-									);
-									setJumpAction({
-										id: `__annotation_line__:${lineIndex}`,
-										ts: Date.now(),
-									});
-								}}
+								onClick={() =>
+									focusAnnotation({
+										lineIndex,
+										focusedKey: lineItems[0]?.key ?? null,
+										openLineDetail: true,
+									})
+								}
 							>
 								<Text size="1" color="gray">
 									{t("annotation.line", "第 {n} 行", { n: lineIndex + 1 })}
@@ -350,9 +338,11 @@ export const AnnotationPanel = () => {
 									type="button"
 									className={styles.more}
 									onClick={() =>
-										setSession((prev) =>
-											prev ? { ...prev, detailLineIndex: lineIndex } : prev,
-										)
+										focusAnnotation({
+											lineIndex,
+											focusedKey: lineItems[0]?.key ?? null,
+											openLineDetail: true,
+										})
 									}
 								>
 									{t("annotation.more", "另有 {count} 条…", {

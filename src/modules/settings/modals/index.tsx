@@ -14,7 +14,7 @@ import { useAtom } from "jotai";
 import { memo, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 // #if DEV
-import { ProjectTestsSettings } from "$/modules/project/tests";
+import { DevelopmentSettings } from "$/modules/settings/modals/development";
 // #endif
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs.ts";
 import { SettingsAboutTab } from "./about";
@@ -137,7 +137,7 @@ export const SettingsDialog = memo(() => {
 	let developmentContent: ReactNode = null;
 	// #if DEV
 	developmentContent =
-		activeTab === "development" ? <ProjectTestsSettings /> : null;
+		activeTab === "development" ? <DevelopmentSettings /> : null;
 	// #endif
 
 	return (

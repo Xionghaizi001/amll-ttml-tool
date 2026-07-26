@@ -25,10 +25,9 @@ import {
 } from "$/modules/settings/states";
 import { generateTTMLLyric } from "$/modules/ttml-processor";
 import {
-	buildStructuredReviewDiffUrl,
-	mapStructuredReviewDiffHttpError,
 	type StructuredReviewDiffPlatform,
-} from "$/modules/user/services/update-service";
+	uploadStructuredReviewDiff,
+} from "$/services/structured-review-diff-api";
 import {
 	confirmDialogAtom,
 	type ReviewReportDialogState,
@@ -51,73 +50,10 @@ const REPO_OWNER = "Steve-xmh";
 const REPO_NAME = "amll-ttml-db";
 const PENDING_LABEL_NAME = "待更新";
 
-type StructuredReviewDiffUploadResult = {
-	success: boolean;
-	message: string;
-	filename: string;
-	createdAt: string;
-};
-
 const resolveReviewDiffPlatform = (
 	source?: "github" | "lyrics-site" | string | null,
 ): StructuredReviewDiffPlatform =>
 	source === "lyrics-site" ? "gcz" : "github";
-
-const readDiffErrorDetail = async (response: Response): Promise<string> => {
-	const raw = (await response.text().catch(() => "")).trim();
-	if (!raw) return "";
-	try {
-		const json = JSON.parse(raw) as {
-			message?: unknown;
-			error?: unknown;
-		};
-		if (typeof json.message === "string" && json.message.trim()) {
-			return json.message.trim();
-		}
-		if (typeof json.error === "string" && json.error.trim()) {
-			return json.error.trim();
-		}
-	} catch {
-		// plain text
-	}
-	return raw;
-};
-
-const uploadStructuredReviewDiff = async (options: {
-	token: string;
-	platform: StructuredReviewDiffPlatform | string;
-	id: string | number;
-	report: StructuredReviewReport;
-}): Promise<StructuredReviewDiffUploadResult> => {
-	const token = options.token.trim();
-	if (!token) throw new Error("请先登录歌词站以上传结构化报告");
-	const response = await fetch(buildStructuredReviewDiffUrl(options), {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${token}`,
-			"Content-Type": "application/json",
-			Accept: "application/json",
-		},
-		body: JSON.stringify(options.report),
-	});
-	if (!response.ok) {
-		const detail = await readDiffErrorDetail(response);
-		throw new Error(
-			mapStructuredReviewDiffHttpError(response.status, detail, "上传"),
-		);
-	}
-	const payload = (await response
-		.json()
-		.catch(() => null)) as StructuredReviewDiffUploadResult | null;
-	if (payload?.success !== true) {
-		throw new Error(
-			typeof payload?.message === "string" && payload.message
-				? `上传结构化报告失败：${payload.message}`
-				: "上传结构化报告失败：响应无效",
-		);
-	}
-	return payload;
-};
 
 const getFirstMetadataValue = (lyrics: TTMLLyric, key: string) =>
 	lyrics.metadata
@@ -147,7 +83,7 @@ export const buildStructuredReviewReport = (options: {
 		updates: buildStructuredReviewUpdates({
 			freeze: options.freeze.data,
 			staged: options.staged,
-			structure: options.freeze.structure,
+			contentHash: options.freeze.structure.contentHash,
 			report: options.report,
 		}),
 	};

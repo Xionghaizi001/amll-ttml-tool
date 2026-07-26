@@ -9,23 +9,18 @@ import { loadNeteaseAudio } from "$/modules/ncm/services/audio-provider";
 import { parseTTML } from "$/modules/ttml-processor";
 import {
 	type AnnotationSession,
-	createAnnotationSession,
+	enterAnnotationReview,
 } from "$/modules/user/states/annotation-session";
+import { fetchStructuredReviewDiff } from "$/services/structured-review-diff-api";
 import { type FileUpdateSession, ToolMode } from "$/states/main";
 import type { AppNotification } from "$/states/notifications";
 import type { RightSidebarPanelType } from "$/states/sidebar";
 import type { TTMLLyric } from "$/types/ttml";
 import { log } from "$/utils/logging";
-import {
-	readStructuredReviewReport,
-	unwrapStructuredReviewReport,
-} from "./structured-review-report-reader";
+import { readStructuredReviewReport } from "./structured-review-report-reader";
 
 export const REPO_OWNER = "Steve-xmh";
 export const REPO_NAME = "amll-ttml-db";
-export const AMLLDB_DIFF_BASE_URL = "https://amlldb.bikonoo.com/diff/";
-
-export type StructuredReviewDiffPlatform = "gcz" | "github";
 
 type OpenFile = (file: File, forceExt?: string) => void;
 type PushNotification = (
@@ -38,96 +33,6 @@ type ReviewUpdateAction = Extract<
 	NonNullable<AppNotification["action"]>,
 	{ type: "open-review-update" }
 >;
-
-export const buildStructuredReviewDiffUrl = (options: {
-	platform: StructuredReviewDiffPlatform | string;
-	id: string | number;
-}): string => {
-	const platform = String(options.platform).trim();
-	const id = String(options.id).trim();
-	if (!platform) throw new Error("缺少 platform");
-	if (!id) throw new Error("缺少稿件 id");
-	const url = new URL(AMLLDB_DIFF_BASE_URL);
-	url.searchParams.set("platform", platform);
-	url.searchParams.set("id", id);
-	return url.toString();
-};
-
-const readDiffErrorDetail = async (response: Response): Promise<string> => {
-	const raw = (await response.text().catch(() => "")).trim();
-	if (!raw) return "";
-	try {
-		const json = JSON.parse(raw) as {
-			message?: unknown;
-			error?: unknown;
-		};
-		if (typeof json.message === "string" && json.message.trim()) {
-			return json.message.trim();
-		}
-		if (typeof json.error === "string" && json.error.trim()) {
-			return json.error.trim();
-		}
-	} catch {
-		// plain text
-	}
-	return raw;
-};
-
-export const mapStructuredReviewDiffHttpError = (
-	status: number,
-	detail: string,
-	action: "读取" | "上传",
-) => {
-	const mapped =
-		status === 400
-			? "参数无效（请检查 platform / id）"
-			: status === 401
-				? "未登录或 Token 无效/过期"
-				: status === 403
-					? "无审核员权限"
-					: status === 404
-						? "未找到对应结构化报告"
-						: status === 500
-							? "服务器内部错误"
-							: `HTTP ${status}`;
-	return detail
-		? `${action}结构化报告失败：${mapped}（${detail}）`
-		: `${action}结构化报告失败：${mapped}`;
-};
-
-/**
- * 读取云端结构化审阅报告（GET，无需鉴权）。
- * 成功时直接返回报告 JSON 对象。
- */
-export const fetchStructuredReviewDiff = async (options: {
-	platform: StructuredReviewDiffPlatform | string;
-	id: string | number;
-}): Promise<unknown> => {
-	const response = await fetch(buildStructuredReviewDiffUrl(options), {
-		method: "GET",
-		headers: {
-			Accept: "application/json",
-		},
-	});
-	if (!response.ok) {
-		const detail = await readDiffErrorDetail(response);
-		throw new Error(
-			mapStructuredReviewDiffHttpError(response.status, detail, "读取"),
-		);
-	}
-	const contentType = response.headers.get("content-type") ?? "";
-	if (contentType.includes("application/json")) {
-		return unwrapStructuredReviewReport(await response.json());
-	}
-	const textBody = await response.text();
-	let payload: unknown;
-	try {
-		payload = JSON.parse(textBody);
-	} catch {
-		throw new Error("云端返回的结构化报告不是有效 JSON");
-	}
-	return unwrapStructuredReviewReport(payload);
-};
 
 const requirePullRequestDetail = async (token: string, prNumber: number) => {
 	const detail = await fetchPullRequestDetail({ token, prNumber });
@@ -262,16 +167,18 @@ export const openReviewUpdateFromNotification = async (options: {
 		if (!result.hashMatches) {
 			throw new Error("云端结构化报告原稿 hash 不匹配");
 		}
-		options.setNewLyrics(result.originalLyric);
-		options.setSourceFileContent?.(result.report.original);
-		options.setSaveFileName?.(fileResult.fileName);
-		options.setAnnotationSession(
-			createAnnotationSession({
-				report: result.report,
-				originalLyric: result.originalLyric,
-			}),
-		);
-		options.setRightSidebarPanel("annotations");
+		enterAnnotationReview({
+			report: result.report,
+			originalLyric: result.originalLyric,
+			sourceTtml: result.report.original,
+			fileName: fileResult.fileName,
+			setNewLyrics: options.setNewLyrics,
+			setSourceFileContent: options.setSourceFileContent,
+			setSaveFileName: options.setSaveFileName,
+			setAnnotationSession: options.setAnnotationSession,
+			setRightSidebarPanel: options.setRightSidebarPanel,
+			setToolMode: options.setToolMode,
+		});
 		options.pushNotification({
 			title: "已载入结构化审阅批注",
 			level: "success",

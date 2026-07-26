@@ -1,5 +1,7 @@
 import type { ReviewReport } from "$/modules/review/services/report-service/types";
-import type { ReviewElementPath } from "$/modules/review/services/structured-snapshot";
+
+/** 冻结原稿坐标系下的节点坐标，例如 ["lyricLines", 3, "words", 1, "word"]。 */
+export type ReviewElementPath = Array<string | number>;
 
 export type StructuredReviewValue =
 	| string

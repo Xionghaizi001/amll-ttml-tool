@@ -1,11 +1,16 @@
-import { type DBSchema, type IDBPDatabase, openDB } from "idb";
+import {
+	type DBSchema,
+	type IDBPDatabase,
+	type IDBPObjectStore,
+	openDB,
+} from "idb";
 import type { ReviewSession } from "$/states/main";
 import type { StructuredReviewReport } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
 import type { ReviewStructuredSnapshot } from "./structured-snapshot";
 
 const DB_NAME = "amll-review-history-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export type ReviewHistoryRecord = {
 	id: string;
@@ -36,6 +41,44 @@ interface ReviewHistoryDBSchema extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<ReviewHistoryDBSchema>> | null = null;
 
+type LegacySnapshot = {
+	contentHash?: string;
+	lines?: Array<{ lineIndex?: number; sourceLineId?: string }>;
+};
+
+/**
+ * 就地把 v2 及更早记录的 structure 收窄到 v3 形状，丢掉 elements/documentId/elementIds。
+ * 仅回收空间，不影响任何读取路径；出错即放弃。
+ */
+const pruneLegacySnapshots = async (
+	store: IDBPObjectStore<
+		ReviewHistoryDBSchema,
+		ArrayLike<"sessions">,
+		"sessions",
+		"versionchange"
+	>,
+) => {
+	try {
+		for await (const cursor of store.iterate()) {
+			const record = cursor.value;
+			const legacy = record.structure as LegacySnapshot | undefined;
+			await cursor.update({
+				...record,
+				structure: {
+					schemaVersion: 2,
+					contentHash: legacy?.contentHash ?? record.contentHash,
+					lines: (legacy?.lines ?? []).map((line, index) => ({
+						lineIndex: line.lineIndex ?? index,
+						sourceLineId: line.sourceLineId ?? "",
+					})),
+				},
+			});
+		}
+	} catch {
+		// 历史记录保持原样即可，元素图字段只是被忽略。
+	}
+};
+
 const getDB = () => {
 	if (!dbPromise) {
 		dbPromise = openDB<ReviewHistoryDBSchema>(DB_NAME, DB_VERSION, {
@@ -51,6 +94,12 @@ const getDB = () => {
 				}
 				if (oldVersion < 2) {
 					store.createIndex("by-content-hash", "contentHash");
+				}
+				if (oldVersion >= 1 && oldVersion < 3) {
+					// v3 起 structure 不再持久化元素图（ID 改为按 contentHash + path 按需派生）。
+					// 纯粹是回收空间：没有任何读取路径再碰 elements/documentId，
+					// 因此这一步失败也不影响功能，不让它拖垮整个 upgrade。
+					void pruneLegacySnapshots(store);
 				}
 			},
 		});

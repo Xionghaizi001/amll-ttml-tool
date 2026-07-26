@@ -1,6 +1,8 @@
 import { parseTTMLLyric } from "$/modules/ttml-processor";
+import { unwrapStructuredReviewReport } from "$/services/structured-review-diff-api";
 import type { StructuredReviewReport } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
+import { isStructuredValue } from "$/utils/structured-review-value";
 import { verifyTtmlContentHash } from "$/utils/ttml-content-hash";
 
 export type StructuredReviewReportReadResult = {
@@ -12,19 +14,6 @@ export type StructuredReviewReportReadResult = {
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null;
-
-const isStructuredValue = (value: unknown): boolean => {
-	if (
-		value === null ||
-		typeof value === "string" ||
-		typeof value === "number" ||
-		typeof value === "boolean"
-	) {
-		return true;
-	}
-	if (Array.isArray(value)) return value.every(isStructuredValue);
-	return isObject(value) && Object.values(value).every(isStructuredValue);
-};
 
 const isStructuredChange = (value: unknown) =>
 	isObject(value) &&
@@ -78,44 +67,6 @@ function assertReportShape(
 	}
 }
 
-export const unwrapStructuredReviewReport = (
-	input: string | unknown,
-): unknown => {
-	let value: unknown = input;
-	if (typeof value === "string") {
-		try {
-			value = JSON.parse(value);
-		} catch {
-			throw new Error("结构化报告不是有效 JSON");
-		}
-	}
-	if (isObject(value) && "diff" in value) {
-		const wrapper = value;
-		let diffValue = wrapper.diff;
-		if (typeof diffValue === "string") {
-			try {
-				diffValue = JSON.parse(diffValue);
-			} catch {
-				throw new Error("结构化报告 diff 字段不是有效 JSON");
-			}
-		}
-		if (isObject(diffValue)) {
-			value = {
-				...diffValue,
-				metadata: isObject(diffValue.metadata)
-					? diffValue.metadata
-					: wrapper.metadata,
-				updates: isObject(diffValue.updates)
-					? diffValue.updates
-					: wrapper.updates,
-			};
-		} else {
-			value = diffValue;
-		}
-	}
-	return value;
-};
-
 const parseLyric = (content: string, label: string): TTMLLyric => {
 	const result = parseTTMLLyric(content);
 	if (!result.success) {
@@ -127,6 +78,7 @@ const parseLyric = (content: string, label: string): TTMLLyric => {
 export const readStructuredReviewReport = async (
 	input: string | unknown,
 ): Promise<StructuredReviewReportReadResult> => {
+	// 既可能拿到裸报告（本地历史/导入文件），也可能拿到云端信封，统一先剥一层。
 	const value = unwrapStructuredReviewReport(input);
 	assertReportShape(value);
 	const originalLyric = parseLyric(value.original, "original");

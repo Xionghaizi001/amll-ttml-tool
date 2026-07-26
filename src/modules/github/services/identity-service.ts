@@ -29,6 +29,61 @@ const buildHeaders = (token: string) => ({
 	Authorization: `Bearer ${token}`,
 });
 
+/** 身份校验的失败分支（两个结果联合共有的部分）。 */
+export type GithubIdentityFailure =
+	| Exclude<
+			GithubIdentityResult,
+			{ status: "authorized" } | { status: "unauthorized" }
+	  >
+	| Exclude<GithubUserProfileResult, { status: "ok" }>;
+
+/**
+ * 失败状态 → i18n key + 兜底中文。
+ * 返回 key/fallback 而不是成品文案，调用方各自 t()，避免在服务层依赖 i18n。
+ */
+export const describeGithubIdentityError = (
+	failure: GithubIdentityFailure,
+): { key: string; fallback: string; values: Record<string, unknown> } => {
+	switch (failure.status) {
+		case "missing-token":
+			return {
+				key: "settings.connect.missingPat",
+				fallback: "请先在「连接」中填写 GitHub PAT",
+				values: {},
+			};
+		case "invalid-token":
+			return {
+				key: "settings.connect.invalidPat",
+				fallback: "PAT 无效或已过期，请检查后重试",
+				values: {},
+			};
+		case "user-error":
+			return {
+				key: "settings.connect.userError",
+				fallback: "GitHub 接口返回错误：{code}",
+				values: { code: failure.code },
+			};
+		case "user-missing":
+			return {
+				key: "settings.connect.userMissing",
+				fallback: "无法获取用户信息",
+				values: {},
+			};
+		case "permission-denied":
+			return {
+				key: "settings.connect.permissionDenied",
+				fallback: "PAT 权限不足，无法检查协作者关系",
+				values: {},
+			};
+		default:
+			return {
+				key: "settings.connect.networkError",
+				fallback: "网络请求失败",
+				values: {},
+			};
+	}
+};
+
 export const fetchGithubUserProfile = async (
 	token: string,
 ): Promise<GithubUserProfileResult> => {

@@ -54,6 +54,7 @@ import {
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
 import {
+	annotationDecisionMapAtom,
 	annotationSessionAtom,
 	annotationsByLineAtom,
 } from "$/modules/user/states/annotation-session";
@@ -62,6 +63,7 @@ import {
 	getWordTextFromValue,
 	isWholeWordPath,
 } from "$/modules/user/services/annotation-summary";
+import type { ReviewElementPath } from "$/types/structured-review-report";
 import {
 	dragSourceAtom,
 	isDraggingGlobalAtom,
@@ -347,7 +349,7 @@ export const LyricLineView: FC<{
 	const annotationsByLine = useAtomValue(annotationsByLineAtom);
 	const lineAnnotations = annotationsByLine.get(lineIndex) ?? [];
 	const focusedAnnotationKey = annotationSession?.focusedKey ?? null;
-	const annotationDecisions = annotationSession?.decisions ?? {};
+	const annotationDecisions = useAtomValue(annotationDecisionMapAtom);
 		const annotationWordMarks = useMemo(() => {
 			const added = new Set<string>();
 			const removed = new Set<string>();
@@ -359,7 +361,7 @@ export const LyricLineView: FC<{
 				focused: boolean;
 				itemKey: string;
 			}> = [];
-			const wordIndexFromPath = (path: Array<string | number>) =>
+			const wordIndexFromPath = (path: ReviewElementPath) =>
 				path[2] === "words" && typeof path[3] === "number" ? path[3] : null;
 			for (const item of lineAnnotations) {
 				const decision = annotationDecisions[item.key] ?? "pending";

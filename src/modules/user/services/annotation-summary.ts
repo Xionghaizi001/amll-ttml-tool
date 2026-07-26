@@ -1,4 +1,5 @@
 import type {
+	ReviewElementPath,
 	StructuredReviewChange,
 	StructuredReviewChangeBlock,
 	StructuredReviewReport,
@@ -10,9 +11,9 @@ export type AnnotationDecision = "pending" | "accepted" | "rejected";
 
 export type AnnotationItem = {
 	key: string;
-	path: Array<string | number>;
+	path: ReviewElementPath;
 	/** 同一条 UI 批注可能对应多条 path 变更（如链接的词界）。 */
-	paths: Array<Array<string | number>>;
+	paths: ReviewElementPath[];
 	changes: StructuredReviewChange[];
 	/** 冻结原稿坐标系下行索引；文档级变更无行归属。 */
 	lineIndex: number | null;
@@ -67,7 +68,7 @@ const formatTime = (value: unknown): string => {
 	return previewValue(value);
 };
 
-const leafName = (path: Array<string | number>): string => {
+const leafName = (path: ReviewElementPath): string => {
 	const last = path[path.length - 1];
 	if (typeof last === "string") return last;
 	if (path.includes("words")) return "词";
@@ -75,7 +76,7 @@ const leafName = (path: Array<string | number>): string => {
 	return "内容";
 };
 
-const fieldLabel = (path: Array<string | number>): string => {
+const fieldLabel = (path: ReviewElementPath): string => {
 	const leaf = leafName(path);
 	return FIELD_LABELS[leaf] ?? leaf;
 };
@@ -106,7 +107,7 @@ const isConcretePreview = (value: unknown): boolean => {
 };
 
 /** 词级整词 path：lyricLines[i].words[j] */
-export const isWholeWordPath = (path: Array<string | number>): boolean =>
+export const isWholeWordPath = (path: ReviewElementPath): boolean =>
 	path[0] === "lyricLines" &&
 	typeof path[1] === "number" &&
 	path[2] === "words" &&
@@ -189,13 +190,11 @@ export const parseAnnotationSummary = (
 export const plainAnnotationSummary = (summary: string): string =>
 	summary.replace(/`/g, "");
 
-export const getLineIndexFromPath = (
-	path: Array<string | number>,
-): number | null =>
+export const getLineIndexFromPath = (path: ReviewElementPath): number | null =>
 	path[0] === "lyricLines" && typeof path[1] === "number" ? path[1] : null;
 
 /** 词级：words[i].endTime 与 words[i+1].startTime */
-const isWordEndPath = (path: Array<string | number>) =>
+const isWordEndPath = (path: ReviewElementPath) =>
 	path[0] === "lyricLines" &&
 	typeof path[1] === "number" &&
 	path[2] === "words" &&
@@ -204,7 +203,7 @@ const isWordEndPath = (path: Array<string | number>) =>
 	path.length === 5;
 
 /** 行级：lyricLines[i].endTime 与 lyricLines[i+1].startTime */
-const isLineEndPath = (path: Array<string | number>) =>
+const isLineEndPath = (path: ReviewElementPath) =>
 	path[0] === "lyricLines" &&
 	typeof path[1] === "number" &&
 	path[2] === "endTime" &&
@@ -229,7 +228,7 @@ const coalesceLinkedTimingChanges = (
 
 	const tryPair = (
 		left: StructuredReviewChange,
-		rightPath: Array<string | number>,
+		rightPath: ReviewElementPath,
 		summary: string,
 	) => {
 		const right = byKey.get(pathKey(rightPath));
@@ -267,7 +266,7 @@ const coalesceLinkedTimingChanges = (
 				"words",
 				wordIndex + 1,
 				"startTime",
-			] as Array<string | number>;
+			] as ReviewElementPath;
 			// 链接的下一词 startTime 仅隐式一并应用；UI 只说明当前词结束时间
 			const paired = tryPair(
 				change,

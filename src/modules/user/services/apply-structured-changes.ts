@@ -1,9 +1,11 @@
 import type {
+	ReviewElementPath,
 	StructuredReviewChange,
 	StructuredReviewValue,
 } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
 import { pathKey } from "$/utils/content-addressed-id";
+import { valuesEqual } from "$/utils/structured-review-value";
 import { uid } from "uid";
 
 export type ApplyStructuredChangesOptions = {
@@ -12,7 +14,7 @@ export type ApplyStructuredChangesOptions = {
 };
 
 export type ApplyStructuredChangesFailure = {
-	path: Array<string | number>;
+	path: ReviewElementPath;
 	reason: string;
 };
 
@@ -22,9 +24,6 @@ export type ApplyStructuredChangesResult = {
 	failed: ApplyStructuredChangesFailure[];
 };
 
-const valuesEqual = (left: unknown, right: unknown) =>
-	JSON.stringify(left) === JSON.stringify(right);
-
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -32,8 +31,13 @@ const cloneLyrics = (lyrics: TTMLLyric): TTMLLyric => structuredClone(lyrics);
 
 const getAtPath = (
 	root: unknown,
-	path: Array<string | number>,
-): { exists: boolean; value: unknown; parent: unknown; key: string | number | null } => {
+	path: ReviewElementPath,
+): {
+	exists: boolean;
+	value: unknown;
+	parent: unknown;
+	key: string | number | null;
+} => {
 	if (path.length === 0) {
 		return { exists: true, value: root, parent: null, key: null };
 	}
@@ -41,7 +45,11 @@ const getAtPath = (
 	for (let i = 0; i < path.length - 1; i += 1) {
 		const segment = path[i];
 		if (Array.isArray(current)) {
-			if (typeof segment !== "number" || segment < 0 || segment >= current.length) {
+			if (
+				typeof segment !== "number" ||
+				segment < 0 ||
+				segment >= current.length
+			) {
 				return { exists: false, value: undefined, parent: null, key: null };
 			}
 			current = current[segment];
@@ -78,7 +86,7 @@ const getAtPath = (
 
 const setAtPath = (
 	root: TTMLLyric,
-	path: Array<string | number>,
+	path: ReviewElementPath,
 	value: StructuredReviewValue,
 ): boolean => {
 	if (path.length === 0) return false;
@@ -88,7 +96,8 @@ const setAtPath = (
 	if (!parentLookup.exists || parentLookup.value === undefined) return false;
 	const parent = parentLookup.value;
 	if (Array.isArray(parent)) {
-		if (typeof last !== "number" || last < 0 || last > parent.length) return false;
+		if (typeof last !== "number" || last < 0 || last > parent.length)
+			return false;
 		if (last === parent.length) {
 			parent.push(value);
 		} else {
@@ -101,15 +110,13 @@ const setAtPath = (
 	return true;
 };
 
-const deleteAtPath = (
-	root: TTMLLyric,
-	path: Array<string | number>,
-): boolean => {
+const deleteAtPath = (root: TTMLLyric, path: ReviewElementPath): boolean => {
 	if (path.length === 0) return false;
 	const { exists, parent, key } = getAtPath(root, path);
 	if (!exists || parent === null || key === null) return false;
 	if (Array.isArray(parent)) {
-		if (typeof key !== "number" || key < 0 || key >= parent.length) return false;
+		if (typeof key !== "number" || key < 0 || key >= parent.length)
+			return false;
 		parent.splice(key, 1);
 		return true;
 	}

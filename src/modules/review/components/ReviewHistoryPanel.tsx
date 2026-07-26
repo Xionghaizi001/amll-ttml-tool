@@ -19,12 +19,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import {
+	DetailPlaceholder,
+	MasterColumn,
+	MasterDetailLayout,
+	MasterListEmpty,
+	MasterListItem,
+} from "$/components/MasterDetail";
+import { useConfirmedAction } from "$/hooks/useConfirmedAction";
+import { useRelativeTime } from "$/hooks/useRelativeTime";
+import {
 	deleteReviewHistory,
 	getReviewHistory,
 	type ReviewHistoryRecord,
 } from "$/modules/review/services/review-history-db";
 import { readStructuredReviewReport } from "$/modules/user/services/structured-review-report-reader";
-import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
 import {
 	newLyricLinesAtom,
 	projectIdAtom,
@@ -33,6 +41,8 @@ import {
 } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
+
+const NOTIFICATION_SOURCE = "ReviewHistory";
 
 type ReviewPrGroup = {
 	prNumber: number;
@@ -107,13 +117,8 @@ const ReviewHistoryCard = ({
 				</Flex>
 				<Flex gap="2" wrap="wrap">
 					<Badge variant="soft" color="gray">
-						{t("historyRestoreDialog.review.lines", "{count} 行", {
-							count: record.structure.lines.length,
-						})}
-					</Badge>
-					<Badge variant="soft" color="gray">
-						{t("historyRestoreDialog.review.elements", "{count} 个元素", {
-							count: record.structure.elements.length,
+						{t("reviewHistory.lines", "{count} 行", {
+							count: record.data.lyricLines.length,
 						})}
 					</Badge>
 					<Badge variant="soft" color="gray">
@@ -127,25 +132,20 @@ const ReviewHistoryCard = ({
 							variant="soft"
 							onClick={() => onLoad(record, "original")}
 						>
-							原稿
+							{t("reviewHistory.loadOriginal", "原稿")}
 						</Button>
 						<Button
 							size="1"
 							variant="soft"
 							onClick={() => onLoad(record, "modified")}
 						>
-							修改稿
+							{t("reviewHistory.loadModified", "修改稿")}
 						</Button>
 						<Button size="1" variant="soft" onClick={() => onExport(record)}>
-							导出 JSON
+							{t("reviewHistory.exportJson", "导出 JSON")}
 						</Button>
 					</Flex>
 				)}
-				<Text size="1" color="gray" truncate>
-					{t("historyRestoreDialog.review.documentId", "文档 ID：{id}", {
-						id: record.structure.documentId,
-					})}
-				</Text>
 				<Text size="1" color="gray" truncate>
 					{record.contentHash}
 				</Text>
@@ -154,17 +154,22 @@ const ReviewHistoryCard = ({
 	);
 };
 
-export const ReviewHistoryPanel = () => {
+export const ReviewHistoryPanel = ({
+	onRestored,
+}: {
+	/** 恢复成功后通知宿主（例如关闭包裹它的对话框）。 */
+	onRestored?: () => void;
+}) => {
 	const { t } = useTranslation();
 	const [records, setRecords] = useState<ReviewHistoryRecord[]>([]);
 	const [selectedPr, setSelectedPr] = useState<number | null>(null);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const confirmAction = useConfirmedAction();
+	const formatRelativeTime = useRelativeTime();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const setSourceFileContent = useSetAtom(sourceFileContentAtom);
-	const setHistoryOpen = useSetAtom(historyRestoreDialogAtom);
 
 	const loadHistory = useCallback(async () => {
 		try {
@@ -179,9 +184,9 @@ export const ReviewHistoryPanel = () => {
 		} catch (cause) {
 			logError("Failed to load review history", cause);
 			setPushNotification({
-				title: t("historyRestoreDialog.review.loadError", "加载审阅历史失败"),
+				title: t("reviewHistory.loadError", "加载审阅历史失败"),
 				level: "error",
-				source: "ReviewHistory",
+				source: NOTIFICATION_SOURCE,
 			});
 		}
 	}, [setPushNotification, t]);
@@ -198,21 +203,17 @@ export const ReviewHistoryPanel = () => {
 	const selectedGroup = prGroups.find((group) => group.prNumber === selectedPr);
 
 	const handleDelete = (record: ReviewHistoryRecord) => {
-		setConfirmDialog({
-			open: true,
-			title: t("historyRestoreDialog.review.delete.title", "删除审阅记录"),
+		confirmAction({
+			title: t("reviewHistory.delete.title", "删除审阅记录"),
 			description: t(
-				"historyRestoreDialog.review.delete.description",
+				"reviewHistory.delete.description",
 				"确定要删除这条审阅会话记录吗？此操作无法撤销。",
 			),
-			onConfirm: async () => {
+			source: NOTIFICATION_SOURCE,
+			successTitle: t("common.deleteSuccess", "删除成功"),
+			run: async () => {
 				await deleteReviewHistory(record.id);
 				await loadHistory();
-				setPushNotification({
-					title: t("common.deleteSuccess", "删除成功"),
-					level: "success",
-					source: "ReviewHistory",
-				});
 			},
 		});
 	};
@@ -233,29 +234,33 @@ export const ReviewHistoryPanel = () => {
 				variant === "original"
 					? record.structuredReport.original
 					: record.structuredReport.modified;
-			setConfirmDialog({
-				open: true,
-				title: variant === "original" ? "载入审阅原稿" : "载入审阅修改稿",
-				description: "此操作将覆盖当前编辑器中的所有内容，确定要继续吗？",
-				onConfirm: () => {
+			confirmAction({
+				title:
+					variant === "original"
+						? t("reviewHistory.loadOriginal.title", "载入审阅原稿")
+						: t("reviewHistory.loadModified.title", "载入审阅修改稿"),
+				description: t(
+					"historyRestoreDialog.confirm.description",
+					"此操作将覆盖当前编辑器中的所有内容，确定要恢复此快照吗？",
+				),
+				source: NOTIFICATION_SOURCE,
+				successTitle:
+					variant === "original"
+						? t("reviewHistory.loadOriginal.done", "已载入审阅原稿")
+						: t("reviewHistory.loadModified.done", "已载入审阅修改稿"),
+				run: () => {
 					setProjectId(record.id);
 					setNewLyrics(lyric);
 					setSaveFileName(record.fileName);
 					setSourceFileContent(source);
-					setHistoryOpen(false);
-					setPushNotification({
-						title:
-							variant === "original" ? "已载入审阅原稿" : "已载入审阅修改稿",
-						level: "success",
-						source: "ReviewHistory",
-					});
+					onRestored?.();
 				},
 			});
 		} catch (cause) {
 			setPushNotification({
 				title: `载入结构化报告失败：${cause instanceof Error ? cause.message : "未知错误"}`,
 				level: "error",
-				source: "ReviewHistory",
+				source: NOTIFICATION_SOURCE,
 			});
 		}
 	};
@@ -274,52 +279,25 @@ export const ReviewHistoryPanel = () => {
 			setPushNotification({
 				title: `导出结构化报告失败：${cause instanceof Error ? cause.message : "未知错误"}`,
 				level: "error",
-				source: "ReviewHistory",
+				source: NOTIFICATION_SOURCE,
 			});
 		}
 	};
 
 	return (
-		<Flex style={{ height: "100%", minHeight: 0 }}>
-			<Flex
-				direction="column"
-				style={{
-					width: "30%",
-					flexShrink: 0,
-					backgroundColor: "var(--gray-2)",
-					borderRight: "1px solid var(--gray-5)",
-				}}
-			>
-				<Flex
-					p="4"
-					align="center"
-					style={{ borderBottom: "1px solid var(--gray-5)" }}
-				>
-					<Heading size="3">
-						{t("historyRestoreDialog.review.pullRequests", "Pull Requests")}
-					</Heading>
-				</Flex>
-				<ScrollArea type="auto" scrollbars="vertical">
+		<MasterDetailLayout
+			master={
+				<MasterColumn title={t("reviewHistory.pullRequests", "Pull Requests")}>
 					{prGroups.length === 0 ? (
-						<Box p="4">
-							<Text size="2" color="gray">
-								{t("historyRestoreDialog.review.empty", "暂无审阅会话记录")}
-							</Text>
-						</Box>
+						<MasterListEmpty>
+							{t("reviewHistory.empty", "暂无审阅会话记录")}
+						</MasterListEmpty>
 					) : (
 						prGroups.map((group) => (
-							<Box
+							<MasterListItem
 								key={group.prNumber}
-								onClick={() => setSelectedPr(group.prNumber)}
-								style={{
-									padding: 12,
-									cursor: "pointer",
-									backgroundColor:
-										selectedPr === group.prNumber
-											? "var(--accent-4)"
-											: "transparent",
-									borderBottom: "1px solid var(--gray-4)",
-								}}
+								selected={selectedPr === group.prNumber}
+								onSelect={() => setSelectedPr(group.prNumber)}
 							>
 								<Flex direction="column" gap="1">
 									<Text weight="bold" size="2">
@@ -331,21 +309,21 @@ export const ReviewHistoryPanel = () => {
 									<Flex gap="2" align="center">
 										<ClockRegular fontSize={12} />
 										<Text size="1" color="gray">
-											{new Date(group.lastReviewedAt).toLocaleDateString()}
+											{formatRelativeTime(group.lastReviewedAt)}
 										</Text>
 										<Badge size="1" variant="soft" color="gray">
 											{group.count}
 										</Badge>
 									</Flex>
 								</Flex>
-							</Box>
+							</MasterListItem>
 						))
 					)}
-				</ScrollArea>
-			</Flex>
-			<Box p="4" flexGrow="1" style={{ minWidth: 0 }}>
-				{selectedGroup ? (
-					<Flex direction="column" gap="4" style={{ height: "100%" }}>
+				</MasterColumn>
+			}
+			detail={
+				selectedGroup ? (
+					<Flex direction="column" gap="4" p="4" style={{ height: "100%" }}>
 						<Flex direction="column" gap="1">
 							<Heading size="4">PR #{selectedGroup.prNumber}</Heading>
 							<Text size="2" color="gray">
@@ -355,7 +333,7 @@ export const ReviewHistoryPanel = () => {
 						<Flex align="center" gap="2">
 							<HistoryRegular />
 							<Text weight="bold" size="2">
-								{t("historyRestoreDialog.review.sessions", "审阅会话")}
+								{t("reviewHistory.sessions", "审阅会话")}
 							</Text>
 						</Flex>
 						<ScrollArea type="auto" scrollbars="vertical">
@@ -375,19 +353,13 @@ export const ReviewHistoryPanel = () => {
 						</ScrollArea>
 					</Flex>
 				) : (
-					<Flex
-						align="center"
-						justify="center"
-						direction="column"
-						style={{ height: "100%", color: "var(--gray-8)" }}
-					>
-						<DocumentRegular fontSize={48} />
-						<Text mt="2">
-							{t("historyRestoreDialog.review.selectPr", "请从左侧选择一个 PR")}
-						</Text>
-					</Flex>
-				)}
-			</Box>
-		</Flex>
+					<Box p="4" style={{ height: "100%" }}>
+						<DetailPlaceholder>
+							{t("reviewHistory.selectPr", "请从左侧选择一个 PR")}
+						</DetailPlaceholder>
+					</Box>
+				)
+			}
+		/>
 	);
 };

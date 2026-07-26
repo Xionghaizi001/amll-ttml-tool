@@ -20,11 +20,6 @@ export const pathKey = (path: Array<string | number>): string =>
 	JSON.stringify(path);
 
 /**
- * 文档身份：直接使用 contentHash（与 ttml-content-hash 输出一致）。
- */
-export const deriveDocumentId = (contentHash: string): string => contentHash;
-
-/**
  * 元素身份：contentHash + path。
  * 新增内容（原稿无此节点）也对「目标 path」派生，便于跨端对齐「插到哪里」。
  */

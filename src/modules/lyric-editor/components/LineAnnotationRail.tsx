@@ -1,18 +1,15 @@
 import classNames from "classnames";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AnnotationItem } from "$/modules/user/services/annotation-summary";
-import { plainAnnotationSummary } from "$/modules/user/services/annotation-summary";
 import { AnnotationSummaryText } from "$/modules/user/components/AnnotationSummaryText";
+import { plainAnnotationSummary } from "$/modules/user/services/annotation-summary";
 import {
+	annotationDecisionMapAtom,
 	annotationSessionAtom,
 	annotationsByLineAtom,
+	focusAnnotationAtom,
 } from "$/modules/user/states/annotation-session";
-import {
-	rightSidebarPanelAtom,
-	outlineJumpActionAtom,
-} from "$/states/sidebar";
 import styles from "./LineAnnotationRail.module.css";
 
 const COLLAPSE_THRESHOLD_PX = 56;
@@ -20,11 +17,10 @@ const COLLAPSE_THRESHOLD_PX = 56;
 export const LineAnnotationRail = ({ lineIndex }: { lineIndex: number }) => {
 	const { t } = useTranslation();
 	const byLine = useAtomValue(annotationsByLineAtom);
-	const [session, setSession] = useAtom(annotationSessionAtom);
-	const setRightPanel = useSetAtom(rightSidebarPanelAtom);
-	const setJumpAction = useSetAtom(outlineJumpActionAtom);
+	const session = useAtomValue(annotationSessionAtom);
+	const decisions = useAtomValue(annotationDecisionMapAtom);
+	const focusAnnotation = useSetAtom(focusAnnotationAtom);
 	const items = byLine.get(lineIndex) ?? [];
-	const decisions = session?.decisions ?? {};
 	const focusedKey = session?.focusedKey ?? null;
 	const hostRef = useRef<HTMLDivElement>(null);
 	const [collapsed, setCollapsed] = useState(false);
@@ -39,42 +35,18 @@ export const LineAnnotationRail = ({ lineIndex }: { lineIndex: number }) => {
 		const lineEl = host.closest("[data-line-id]") as HTMLElement | null;
 		const lineHeight = lineEl?.offsetHeight ?? 0;
 		const natural = host.scrollHeight;
-		setCollapsed(lineHeight > 0 && natural > Math.max(lineHeight, COLLAPSE_THRESHOLD_PX));
+		setCollapsed(
+			lineHeight > 0 && natural > Math.max(lineHeight, COLLAPSE_THRESHOLD_PX),
+		);
 	}, [items.length, items.map((i) => i.key).join("|")]);
 
-	const openDetail = (focusKey?: string) => {
-		setRightPanel("annotations");
-		setSession((prev) =>
-			prev
-				? {
-						...prev,
-						detailLineIndex: lineIndex,
-						focusedKey: focusKey ?? items[0]?.key ?? null,
-					}
-				: prev,
-		);
-		setJumpAction({
-			id: `__annotation_line__:${lineIndex}`,
-			ts: Date.now(),
+	const openDetail = (focusKey?: string) =>
+		focusAnnotation({
+			lineIndex,
+			focusedKey: focusKey ?? items[0]?.key ?? null,
+			openLineDetail: true,
+			revealPanel: true,
 		});
-	};
-
-	const focusOne = (item: AnnotationItem) => {
-		setRightPanel("annotations");
-		setSession((prev) =>
-			prev
-				? {
-						...prev,
-						detailLineIndex: lineIndex,
-						focusedKey: item.key,
-					}
-				: prev,
-		);
-		setJumpAction({
-			id: `__annotation_line__:${lineIndex}`,
-			ts: Date.now(),
-		});
-	};
 
 	if (!session || items.length === 0) return null;
 
@@ -86,7 +58,7 @@ export const LineAnnotationRail = ({ lineIndex }: { lineIndex: number }) => {
 					className={styles.collapsedChip}
 					onClick={() => openDetail()}
 				>
-					{t("annotation.collapsedCount", "{count} 条批注", {
+					{t("annotation.count", "{count} 条批注", {
 						count: items.length,
 					})}
 				</button>
@@ -112,12 +84,12 @@ export const LineAnnotationRail = ({ lineIndex }: { lineIndex: number }) => {
 							focusedKey === item.key && styles.focused,
 							decision !== "pending" && styles.decided,
 						)}
-						onClick={() => focusOne(item)}
+						onClick={() => openDetail(item.key)}
 						title={plainAnnotationSummary(item.summary)}
 					>
 						<span className={styles.chipText}>
-								<AnnotationSummaryText summary={item.summary} />
-							</span>
+							<AnnotationSummaryText summary={item.summary} />
+						</span>
 					</button>
 				);
 			})}

@@ -14,7 +14,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { verifyGithubAccess } from "$/modules/github/services/identity-service";
+import {
+	describeGithubIdentityError,
+	verifyGithubAccess,
+} from "$/modules/github/services/identity-service";
 import {
 	githubAmlldbAccessAtom,
 	githubLoginAtom,
@@ -160,39 +163,9 @@ export const GithubLoginCard = ({
 		setUseNormalIdentity(false);
 		setLabels([]);
 		setRiskConfirmed(false);
-		if (result.status === "invalid-token") {
-			setStatus("error");
-			setMessage(
-				t("settings.connect.invalidPat", "PAT 无效或已过期，请检查后重试"),
-			);
-			return;
-		}
-		if (result.status === "user-error") {
-			setStatus("error");
-			setMessage(
-				t("settings.connect.userError", "GitHub 接口返回错误：{code}", {
-					code: result.code,
-				}),
-			);
-			return;
-		}
-		if (result.status === "user-missing") {
-			setStatus("error");
-			setMessage(t("settings.connect.userMissing", "无法获取用户信息"));
-			return;
-		}
-		if (result.status === "permission-denied") {
-			setStatus("error");
-			setMessage(
-				t(
-					"settings.connect.permissionDenied",
-					"PAT 权限不足，无法检查协作者关系",
-				),
-			);
-			return;
-		}
+		const failure = describeGithubIdentityError(result);
 		setStatus("error");
-		setMessage(t("settings.connect.networkError", "网络请求失败"));
+		setMessage(t(failure.key, failure.fallback, failure.values));
 	}, [
 		trimmedPat,
 		riskConfirmed,

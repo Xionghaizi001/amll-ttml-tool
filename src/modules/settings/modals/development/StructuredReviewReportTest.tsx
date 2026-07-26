@@ -10,14 +10,18 @@ import { useSetAtom } from "jotai";
 import { useRef, useState } from "react";
 import { readStructuredReviewReport } from "$/modules/user/services/structured-review-report-reader";
 import {
+	annotationSessionAtom,
+	enterAnnotationReview,
+} from "$/modules/user/states/annotation-session";
+import {
 	fetchStructuredReviewDiff,
 	type StructuredReviewDiffPlatform,
-} from "$/modules/user/services/update-service";
+} from "$/services/structured-review-diff-api";
 import {
-	annotationSessionAtom,
-	createAnnotationSession,
-} from "$/modules/user/states/annotation-session";
-import { newLyricLinesAtom, ToolMode, toolModeAtom } from "$/states/main";
+	newLyricLinesAtom,
+	sourceFileContentAtom,
+	toolModeAtom,
+} from "$/states/main";
 import { rightSidebarPanelAtom } from "$/states/sidebar";
 
 export const StructuredReviewReportTest = () => {
@@ -34,6 +38,7 @@ export const StructuredReviewReportTest = () => {
 	const setAnnotationSession = useSetAtom(annotationSessionAtom);
 	const setRightPanel = useSetAtom(rightSidebarPanelAtom);
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
+	const setSourceFileContent = useSetAtom(sourceFileContentAtom);
 	const setToolMode = useSetAtom(toolModeAtom);
 
 	const loadRemote = async () => {
@@ -80,15 +85,16 @@ export const StructuredReviewReportTest = () => {
 				`内容 Hash：${result.report.updates.contentHash}`,
 			]);
 			// 进入接受端预览：载入原稿并打开批注面板
-			setNewLyrics(result.originalLyric);
-			setAnnotationSession(
-				createAnnotationSession({
-					report: result.report,
-					originalLyric: result.originalLyric,
-				}),
-			);
-			setRightPanel("annotations");
-			setToolMode(ToolMode.Edit);
+			enterAnnotationReview({
+				report: result.report,
+				originalLyric: result.originalLyric,
+				sourceTtml: result.report.original,
+				setNewLyrics,
+				setSourceFileContent,
+				setAnnotationSession,
+				setRightSidebarPanel: setRightPanel,
+				setToolMode,
+			});
 		} catch (error) {
 			setStatus(error instanceof Error ? error.message : "读取失败");
 			setSummary([]);

@@ -22,6 +22,15 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+	DetailPlaceholder,
+	MasterColumn,
+	MasterDetailLayout,
+	MasterListEmpty,
+	MasterListItem,
+} from "$/components/MasterDetail";
+import { useConfirmedAction } from "$/hooks/useConfirmedAction";
+import { useRelativeTime } from "$/hooks/useRelativeTime";
+import {
 	deleteProject,
 	deleteVersion,
 	getProjectLatestState,
@@ -36,10 +45,12 @@ import {
 	githubLoginAtom,
 	githubPatAtom,
 } from "$/modules/settings/states";
-import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
+import { historyRestoreDialogAtom } from "$/states/dialogs";
 import { newLyricLinesAtom, projectIdAtom } from "$/states/main";
 import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
+
+const NOTIFICATION_SOURCE = "HistoryRestore";
 
 export const HistoryRestoreDialog = () => {
 	const [isOpen, setIsOpen] = useAtom(historyRestoreDialogAtom);
@@ -60,7 +71,8 @@ export const HistoryRestoreDialog = () => {
 
 	const setNewLyrics = useSetAtom(newLyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const confirmAction = useConfirmedAction();
+	const formatRelativeTime = useRelativeTime();
 	const { t } = useTranslation();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 
@@ -76,7 +88,7 @@ export const HistoryRestoreDialog = () => {
 			setPushNotification({
 				title: t("historyRestoreDialog.loadError", "加载历史记录失败"),
 				level: "error",
-				source: "HistoryRestore",
+				source: NOTIFICATION_SOURCE,
 			});
 		}
 	}, [t, setPushNotification]);
@@ -105,136 +117,100 @@ export const HistoryRestoreDialog = () => {
 		return project.name;
 	};
 
-	const handleRestoreLatest = (project: ProjectInfo) => {
-		setConfirmDialog({
-			open: true,
+	const confirmRestore = (run: () => void | Promise<void>) => {
+		confirmAction({
 			title: t("historyRestoreDialog.confirm.title", "确认恢复"),
 			description: t(
 				"historyRestoreDialog.confirm.description",
 				"此操作将覆盖当前编辑器中的所有内容，确定要恢复此快照吗？",
 			),
-			onConfirm: async () => {
-				const latestLyric = await getProjectLatestState(project.id);
-				if (latestLyric) {
-					setProjectId(project.id);
-					setNewLyrics(latestLyric);
-					setIsOpen(false);
-					setPushNotification({
-						title: t("common.success", "恢复成功"),
-						level: "success",
-						source: "HistoryRestore",
-					});
-				} else {
-					setPushNotification({
-						title: t("common.error", "数据已损坏或丢失"),
-						level: "error",
-						source: "HistoryRestore",
-					});
-				}
-			},
+			source: NOTIFICATION_SOURCE,
+			successTitle: t("common.success", "恢复成功"),
+			run,
+		});
+	};
+
+	const confirmDelete = (
+		titleKey: string,
+		titleFallback: string,
+		descriptionKey: string,
+		descriptionFallback: string,
+		run: () => void | Promise<void>,
+	) => {
+		confirmAction({
+			title: t(titleKey, titleFallback),
+			description: t(descriptionKey, descriptionFallback),
+			source: NOTIFICATION_SOURCE,
+			successTitle: t("common.deleteSuccess", "删除成功"),
+			run,
+		});
+	};
+
+	const handleRestoreLatest = (project: ProjectInfo) => {
+		confirmRestore(async () => {
+			const latestLyric = await getProjectLatestState(project.id);
+			if (!latestLyric) {
+				throw new Error(t("common.error", "数据已损坏或丢失"));
+			}
+			setProjectId(project.id);
+			setNewLyrics(latestLyric);
+			setIsOpen(false);
 		});
 	};
 
 	const handleRestoreVersion = (version: ProjectVersion) => {
-		setConfirmDialog({
-			open: true,
-			title: t("historyRestoreDialog.confirm.title", "确认恢复"),
-			description: t(
-				"historyRestoreDialog.confirm.description",
-				"此操作将覆盖当前编辑器中的所有内容，确定要恢复此快照吗？",
-			),
-			onConfirm: () => {
-				setProjectId(version.projectId);
-				setNewLyrics(version.data);
-				setIsOpen(false);
-				setPushNotification({
-					title: t("common.success", "恢复成功"),
-					level: "success",
-					source: "HistoryRestore",
-				});
-			},
+		confirmRestore(() => {
+			setProjectId(version.projectId);
+			setNewLyrics(version.data);
+			setIsOpen(false);
 		});
 	};
 
 	const handleDeleteProject = (e: React.MouseEvent, projectId: string) => {
 		e.stopPropagation();
-		setConfirmDialog({
-			open: true,
-			title: t("historyRestoreDialog.deleteProject.title", "删除项目记录"),
-			description: t(
-				"historyRestoreDialog.deleteProject.description",
-				"确定要删除该项目的所有自动保存记录吗？此操作无法撤销。",
-			),
-			onConfirm: async () => {
+		confirmDelete(
+			"historyRestoreDialog.deleteProject.title",
+			"删除项目记录",
+			"historyRestoreDialog.deleteProject.description",
+			"确定要删除该项目的所有自动保存记录吗？此操作无法撤销。",
+			async () => {
 				await deleteProject(projectId);
 				await loadProjects();
 				if (selectedProjectId === projectId) {
 					setSelectedProjectId(null);
 				}
-				setPushNotification({
-					title: t("common.deleteSuccess", "删除成功"),
-					level: "success",
-					source: "HistoryRestore",
-				});
 			},
-		});
+		);
 	};
 
 	const handleDeleteVersion = (version: ProjectVersion) => {
-		setConfirmDialog({
-			open: true,
-			title: t("historyRestoreDialog.deleteVersion.title", "删除版本"),
-			description: t(
-				"historyRestoreDialog.deleteVersion.description",
-				"确定要删除此历史版本吗？此操作无法撤销。",
-			),
-			onConfirm: async () => {
-				if (version.id) {
-					await deleteVersion(version.id);
-					await loadVersions(version.projectId);
-					setPushNotification({
-						title: t("common.deleteSuccess", "删除成功"),
-						level: "success",
-						source: "HistoryRestore",
-					});
-				}
+		confirmDelete(
+			"historyRestoreDialog.deleteVersion.title",
+			"删除版本",
+			"historyRestoreDialog.deleteVersion.description",
+			"确定要删除此历史版本吗？此操作无法撤销。",
+			async () => {
+				if (!version.id) return;
+				await deleteVersion(version.id);
+				await loadVersions(version.projectId);
 			},
-		});
+		);
 	};
 
 	const handleDeleteLatestVersion = () => {
 		if (!currentProject) return;
-		setConfirmDialog({
-			open: true,
-			title: t("historyRestoreDialog.deleteLatest.title", "删除最新版本"),
-			description: t(
-				"historyRestoreDialog.deleteLatest.description",
-				"确定要删除此最新版本吗？此操作无法撤销。",
-			),
-			onConfirm: async () => {
-				await deleteProject(currentProject.id);
+		const projectId = currentProject.id;
+		confirmDelete(
+			"historyRestoreDialog.deleteLatest.title",
+			"删除最新版本",
+			"historyRestoreDialog.deleteLatest.description",
+			"确定要删除此最新版本吗？此操作无法撤销。",
+			async () => {
+				await deleteProject(projectId);
 				await loadProjects();
 				setSelectedProjectId(null);
-				setPushNotification({
-					title: t("common.deleteSuccess", "删除成功"),
-					level: "success",
-					source: "HistoryRestore",
-				});
 			},
-		});
-	};
-
-	const formatRelativeTime = (timestamp: number) => {
-		const diff = Date.now() - timestamp;
-		const minutes = Math.floor(diff / 60000);
-		const hours = Math.floor(minutes / 60);
-		const days = Math.floor(hours / 24);
-
-		if (days > 0) return t("time.daysAgo", "{count}天前", { count: days });
-		if (hours > 0) return t("time.hoursAgo", "{count}小时前", { count: hours });
-		if (minutes > 0)
-			return t("time.minutesAgo", "{count}分钟前", { count: minutes });
-		return t("time.justNow", "刚刚");
+		);
 	};
 
 	useEffect(() => {
@@ -297,105 +273,59 @@ export const HistoryRestoreDialog = () => {
 					)}
 					{historyMode === "reviews" && canViewReviewHistory ? (
 						<Box flexGrow="1" style={{ minHeight: 0 }}>
-							<ReviewHistoryPanel />
+							<ReviewHistoryPanel onRestored={() => setIsOpen(false)} />
 						</Box>
 					) : (
-						<Flex flexGrow="1" style={{ minHeight: 0 }}>
-							<Flex
-								direction="column"
-								style={{
-									width: "30%",
-									flexShrink: 0,
-									backgroundColor: "var(--gray-2)",
-									borderRight: "1px solid var(--gray-5)",
-								}}
-							>
-								<Flex
-									p="4"
-									align="center"
-									justify="between"
-									style={{ borderBottom: "1px solid var(--gray-5)" }}
+						<MasterDetailLayout
+							master={
+								<MasterColumn
+									title={t("historyRestoreDialog.projects", "最近项目")}
 								>
-									<Heading size="3">
-										{t("historyRestoreDialog.projects", "最近项目")}
-									</Heading>
-								</Flex>
-
-								<Box flexGrow="1" style={{ minHeight: 0 }}>
-									<ScrollArea
-										type="auto"
-										scrollbars="vertical"
-										style={{ height: "100%" }}
-									>
-										<Flex direction="column">
-											{projects.length === 0 ? (
-												<Box p="4">
-													<Text size="2" color="gray" align="center">
-														{t(
-															"historyRestoreDialog.noProjects",
-															"暂无自动保存记录",
-														)}
-													</Text>
-												</Box>
-											) : (
-												projects.map((project) => (
-													<Box
-														key={project.id}
-														onClick={() => setSelectedProjectId(project.id)}
-														style={{
-															padding: "12px",
-															cursor: "pointer",
-															backgroundColor:
-																selectedProjectId === project.id
-																	? "var(--accent-4)"
-																	: "transparent",
-															borderBottom: "1px solid var(--gray-4)",
-															transition: "background-color 0.2s",
-														}}
+									{projects.length === 0 ? (
+										<MasterListEmpty>
+											{t("historyRestoreDialog.noProjects", "暂无自动保存记录")}
+										</MasterListEmpty>
+									) : (
+										projects.map((project) => (
+											<MasterListItem
+												key={project.id}
+												selected={selectedProjectId === project.id}
+												onSelect={() => setSelectedProjectId(project.id)}
+											>
+												<Flex justify="between" align="start">
+													<Flex
+														direction="column"
+														gap="1"
+														style={{ overflow: "hidden" }}
 													>
-														<Flex justify="between" align="start">
-															<Flex
-																direction="column"
-																gap="1"
-																style={{ overflow: "hidden" }}
+														<Text weight="bold" size="2" truncate>
+															{getProjectDisplayName(project)}
+														</Text>
+														<Flex gap="2" align="center">
+															<IconButton
+																size="1"
+																variant="ghost"
+																color="red"
+																onClick={(e) =>
+																	handleDeleteProject(e, project.id)
+																}
 															>
-																<Text weight="bold" size="2" truncate>
-																	{getProjectDisplayName(project)}
-																</Text>
-																<Flex gap="2" align="center">
-																	<IconButton
-																		size="1"
-																		variant="ghost"
-																		color="red"
-																		onClick={(e) =>
-																			handleDeleteProject(e, project.id)
-																		}
-																	>
-																		<DeleteRegular />
-																	</IconButton>
-																	<ClockRegular fontSize={12} />
-																	<Text size="1" color="gray">
-																		{formatRelativeTime(project.lastModified)}
-																	</Text>
-																</Flex>
-															</Flex>
+																<DeleteRegular />
+															</IconButton>
+															<ClockRegular fontSize={12} />
+															<Text size="1" color="gray">
+																{formatRelativeTime(project.lastModified)}
+															</Text>
 														</Flex>
-													</Box>
-												))
-											)}
-										</Flex>
-									</ScrollArea>
-								</Box>
-							</Flex>
-
-							<Box
-								style={{
-									flexGrow: 1,
-									display: "flex",
-									flexDirection: "column",
-								}}
-							>
-								{currentProject ? (
+													</Flex>
+												</Flex>
+											</MasterListItem>
+										))
+									)}
+								</MasterColumn>
+							}
+							detail={
+								currentProject ? (
 									<>
 										<Box
 											p="4"
@@ -560,23 +490,15 @@ export const HistoryRestoreDialog = () => {
 										</Box>
 									</>
 								) : (
-									<Flex
-										align="center"
-										justify="center"
-										direction="column"
-										style={{ height: "100%", color: "var(--gray-8)" }}
-									>
-										<DocumentRegular fontSize={48} />
-										<Text mt="2">
-											{t(
-												"historyRestoreDialog.selectProject",
-												"请从左侧选择一个项目",
-											)}
-										</Text>
-									</Flex>
-								)}
-							</Box>
-						</Flex>
+									<DetailPlaceholder>
+										{t(
+											"historyRestoreDialog.selectProject",
+											"请从左侧选择一个项目",
+										)}
+									</DetailPlaceholder>
+								)
+							}
+						/>
 					)}
 				</Flex>
 			</Dialog.Content>

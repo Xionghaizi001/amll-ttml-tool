@@ -1,11 +1,14 @@
 import type {
+	ReviewElementPath,
 	StructuredReviewChange,
 	StructuredReviewChangeBlock,
 	StructuredReviewUpdates,
-	StructuredReviewValue,
 } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
-import type { ReviewStructuredSnapshot } from "../structured-snapshot";
+import {
+	toStructuredValue,
+	valuesEqual,
+} from "$/utils/structured-review-value";
 import type { ReviewReport, ReviewReportBlock } from "./types";
 
 /** 导出结构化 JSON 时去掉未启用/无实质改动的报告 block，避免冗余。 */
@@ -14,7 +17,9 @@ const pruneReportForExport = (report: ReviewReport): ReviewReport => {
 	for (const block of report.blocks) {
 		if (!block.enabled) continue;
 		if (block.kind === "wordTextGroup") {
-			const changes = block.changes.filter((change) => change.enabled !== false);
+			const changes = block.changes.filter(
+				(change) => change.enabled !== false,
+			);
 			if (changes.length === 0) continue;
 			blocks.push({ ...block, changes });
 			continue;
@@ -27,18 +32,6 @@ const pruneReportForExport = (report: ReviewReport): ReviewReport => {
 	};
 };
 
-const isStructuredValue = (value: unknown): value is StructuredReviewValue => {
-	if (value === null || typeof value === "string" || typeof value === "number")
-		return true;
-	if (typeof value === "boolean") return true;
-	if (Array.isArray(value)) return value.every(isStructuredValue);
-	if (typeof value !== "object" || value === undefined) return false;
-	return Object.values(value).every(isStructuredValue);
-};
-
-const valuesEqual = (left: unknown, right: unknown) =>
-	JSON.stringify(left) === JSON.stringify(right);
-
 const isContainer = (value: unknown): value is object =>
 	typeof value === "object" && value !== null;
 
@@ -49,23 +42,14 @@ const buildElementChanges = (
 	const changes: StructuredReviewChange[] = [];
 
 	const addChange = (
-		path: Array<string | number>,
+		path: ReviewElementPath,
 		before: unknown,
 		after: unknown,
 		beforeExists: boolean,
 		afterExists: boolean,
 	) => {
-		const toValue = (value: unknown): StructuredReviewValue | null => {
-			if (isStructuredValue(value)) return value;
-			try {
-				const cloned = JSON.parse(JSON.stringify(value)) as unknown;
-				return isStructuredValue(cloned) ? cloned : null;
-			} catch {
-				return null;
-			}
-		};
-		const beforeValue = beforeExists ? toValue(before) : null;
-		const afterValue = afterExists ? toValue(after) : null;
+		const beforeValue = beforeExists ? toStructuredValue(before) : null;
+		const afterValue = afterExists ? toStructuredValue(after) : null;
 		const hasBefore = beforeExists && beforeValue !== null;
 		const hasAfter = afterExists && afterValue !== null;
 		if (!hasBefore && !hasAfter) return;
@@ -81,7 +65,7 @@ const buildElementChanges = (
 	const visit = (
 		before: unknown,
 		after: unknown,
-		path: Array<string | number>,
+		path: ReviewElementPath,
 		beforeExists = true,
 		afterExists = true,
 	) => {
@@ -191,13 +175,13 @@ const buildChangeBlocks = (
 export const buildStructuredReviewUpdates = (options: {
 	freeze: TTMLLyric;
 	staged: TTMLLyric;
-	structure: ReviewStructuredSnapshot;
+	contentHash: string;
 	report: ReviewReport;
 }): StructuredReviewUpdates => {
 	const elementChanges = buildElementChanges(options.freeze, options.staged);
 	return {
 		version: 1,
-		contentHash: options.structure.contentHash,
+		contentHash: options.contentHash,
 		changes: {
 			version: 1,
 			report: pruneReportForExport(options.report),
