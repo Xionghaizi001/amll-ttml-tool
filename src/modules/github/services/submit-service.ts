@@ -1,14 +1,24 @@
 import { githubFetch } from "$/modules/github/api";
 
-type SubmitReviewOptions = {
+type SubmitReviewBaseOptions = {
 	token: string;
 	prNumber: number;
-	event: "APPROVE" | "REQUEST_CHANGES";
-	reportBody: string;
 	repoOwner: string;
 	repoName: string;
 	pendingLabelName: string;
 };
+
+type SubmitReviewOptions = SubmitReviewBaseOptions &
+	(
+		| {
+				event: "APPROVE";
+				reportBody?: string;
+		  }
+		| {
+				event: "REQUEST_CHANGES";
+				reportBody: string;
+		  }
+	);
 
 type SubmitReviewResult = {
 	ok: boolean;

@@ -42,11 +42,12 @@ import {
 import { pushNotificationAtom } from "$/states/notifications";
 import type { StructuredReviewReport } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
+import { error as logError } from "$/utils/logging";
 import { buildStructuredReviewUpdates } from "./report-service/structured-report-builder";
 import type { ReviewReport } from "./report-service/types";
 import { updateReviewHistoryReport } from "./review-history-db";
 
-const REPO_OWNER = "Steve-xmh";
+const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
 const PENDING_LABEL_NAME = "待更新";
 
@@ -214,6 +215,28 @@ export const ReviewReportSubmissionBar = ({
 		return structuredReport;
 	};
 
+	/**
+	 * 结构化报告只是审阅的附带产物：报告为空、快照未就绪或写库失败都不应该
+	 * 阻塞接受 / 需要修改 / 合并这些真正的审阅动作。
+	 */
+	const persistStructuredReportBestEffort = async () => {
+		try {
+			await persistCurrentStructuredReport();
+		} catch (cause) {
+			logError("[review] failed to persist structured review report", cause);
+			// 快照尚未生成属于预期情况（例如未走审阅会话直接打开报告），静默跳过；
+			// 其余失败说明写入确实出错，提示一次但仍继续提交。
+			if (reviewFreeze) {
+				setPushNotification({
+					title: "结构化报告未能保存，已继续提交",
+					description: cause instanceof Error ? cause.message : undefined,
+					level: "warning",
+					source: "Review",
+				});
+			}
+		}
+	};
+
 	const submitReview = async (event: ReviewSubmissionEvent) => {
 		if (!dialog.prNumber && !dialog.submissionId) {
 			setPushNotification({
@@ -236,7 +259,7 @@ export const ReviewReportSubmissionBar = ({
 
 		setSubmitPending(event);
 		try {
-			await persistCurrentStructuredReport();
+			await persistStructuredReportBestEffort();
 			if (dialog.source === "lyrics-site") {
 				const token = lyricsSiteToken?.trim();
 				if (!token) {
@@ -477,7 +500,7 @@ export const ReviewReportSubmissionBar = ({
 		}
 		setSubmitPending("MERGE");
 		try {
-			await persistCurrentStructuredReport();
+			await persistStructuredReportBestEffort();
 			const userLogin = await ensureAssigned(token, dialog.prNumber);
 			if (!userLogin) {
 				return;
@@ -590,9 +613,10 @@ export const ReviewReportSubmissionBar = ({
 			});
 			markReviewedAndRefresh();
 			onSubmitAndClose();
-		} catch {
+		} catch (error) {
+			console.error("[ReviewSubmission] Failed to merge pull request:", error);
 			setPushNotification({
-				title: "合并失败：网络错误",
+				title: `合并失败：${error instanceof Error ? error.message : "未知错误"}`,
 				level: "error",
 				source: "Review",
 			});

@@ -90,7 +90,7 @@ const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
 const Dialogs = lazy(() => import("./components/Dialogs"));
 const ReviewPage = lazy(() => import("./modules/review"));
 
-const REPO_OWNER = "Steve-xmh";
+const REPO_OWNER = "amll-dev";
 const REPO_NAME = "amll-ttml-db";
 
 const appLogger = createLogger("App");

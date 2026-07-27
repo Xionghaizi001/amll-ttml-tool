@@ -872,7 +872,7 @@ const ReviewPage = () => {
 									isGitHubPullRequest(expandedCard.item) &&
 									reviewedByUserMap[expandedCard.item.number] === true
 								}
-								repoOwner="Steve-xmh"
+								repoOwner="amll-dev"
 								repoName="amll-ttml-db"
 								styles={styles}
 							/>

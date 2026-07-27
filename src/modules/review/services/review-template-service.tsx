@@ -32,7 +32,7 @@ const presetTemplates: ReviewTemplate[] = [
 		id: "preset-first-pass",
 		title: "✅完美通过（首次投稿）",
 		content:
-			"恭喜你，人工审核通过，你的贡献将会被更多人看到。感谢你对本项目的支持。欢迎下次投稿！\nCongratulations, you are passed manual review, your contribute will be seen by others. Thanks for your support to our project. You are welcome to post next time!\n\n_推荐使用 [AMLL Player](https://github.com/Steve-xmh/applemusic-like-lyrics/actions/workflows/build-player.yaml) 以获得更好的体验_\n_To get a better experience, we are recommend to use [AMLL Player](https://github.com/Steve-xmh/applemusic-like-lyrics/actions/workflows/build-player.yaml)._ \n\n_[Chinese Only] 欢迎加入我们的QQ群 719423243 和开发者一起玩哦！_\n_[Chinese Only] 如果你在群里可以在群名片附上你的 ID 以停止接收这条小广告~_",
+			"恭喜你，人工审核通过，你的贡献将会被更多人看到。感谢你对本项目的支持。欢迎下次投稿！\nCongratulations, you are passed manual review, your contribute will be seen by others. Thanks for your support to our project. You are welcome to post next time!\n\n_推荐使用 [AMLL Player](https://github.com/amll-dev/applemusic-like-lyrics/actions/workflows/build-player.yaml) 以获得更好的体验_\n_To get a better experience, we are recommend to use [AMLL Player](https://github.com/amll-dev/applemusic-like-lyrics/actions/workflows/build-player.yaml)._ \n\n_[Chinese Only] 欢迎加入我们的QQ群 719423243 和开发者一起玩哦！_\n_[Chinese Only] 如果你在群里可以在群名片附上你的 ID 以停止接收这条小广告~_",
 		createdAt: "preset",
 	},
 	{

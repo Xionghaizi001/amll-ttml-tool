@@ -19,7 +19,7 @@ import type { TTMLLyric } from "$/types/ttml";
 import { log } from "$/utils/logging";
 import { readStructuredReviewReport } from "./structured-review-report-reader";
 
-export const REPO_OWNER = "Steve-xmh";
+export const REPO_OWNER = "amll-dev";
 export const REPO_NAME = "amll-ttml-db";
 
 type OpenFile = (file: File, forceExt?: string) => void;
