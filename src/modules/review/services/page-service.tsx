@@ -8,6 +8,7 @@ import {
 	Spinner,
 	Text,
 } from "@radix-ui/themes";
+import { Collapsible } from "radix-ui";
 import {
 	type MouseEvent,
 	useCallback,
@@ -48,6 +49,13 @@ const GROUP_CARD_MIN_WIDTH = 256;
 const GROUP_CARD_HEIGHT = 180;
 const GROUP_PANEL_MAX_COLUMNS = 3;
 const GROUP_PANEL_MAX_ROWS = 3;
+const REVIEW_RECRUITMENT_LABEL_NAME = "参与审核招募";
+
+const hasReviewRecruitmentLabel = (item: ReviewItem) =>
+	isGitHubPullRequest(item) &&
+	item.labels.some(
+		(label) => label.name.trim() === REVIEW_RECRUITMENT_LABEL_NAME,
+	);
 
 const ReviewPage = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -102,26 +110,24 @@ const ReviewPage = () => {
 	} = useLyricsSiteAuth();
 	const { openSubmissionFile } = useLyricsSiteReviewService();
 
-	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
-		const itemsWithMeta = filteredItems.map((item) => ({
-			item,
-			createdAt: new Date(getReviewItemCreatedAt(item)).getTime(),
-			hasPriorityLabel:
-				isGitHubPullRequest(item) &&
-				item.labels.some((label) => label.name.trim() === priorityLabelName),
-		}));
-		itemsWithMeta.sort((a, b) => {
-			if (a.hasPriorityLabel !== b.hasPriorityLabel) {
-				return a.hasPriorityLabel ? -1 : 1;
-			}
-			return b.createdAt - a.createdAt;
-		});
-		return itemsWithMeta.map((meta) => meta.item);
+		return [...filteredItems].sort(
+			(a, b) =>
+				new Date(getReviewItemCreatedAt(b)).getTime() -
+				new Date(getReviewItemCreatedAt(a)).getTime(),
+		);
 	}, [filteredItems]);
-	const groupedCards = useMemo(
-		() => groupReviewItemsByUser(sortedItems),
+	const priorityItems = useMemo(
+		() => sortedItems.filter((item) => hasReviewRecruitmentLabel(item)),
 		[sortedItems],
+	);
+	const regularItems = useMemo(
+		() => sortedItems.filter((item) => !hasReviewRecruitmentLabel(item)),
+		[sortedItems],
+	);
+	const groupedCards = useMemo(
+		() => groupReviewItemsByUser(regularItems),
+		[regularItems],
 	);
 
 	const closeExpanded = useCallback(() => {
@@ -194,22 +200,22 @@ const ReviewPage = () => {
 	}, []);
 
 	const getOverlayBounds = useCallback(() => {
-			const overlayTopInset = getOverlayTopInset();
-			const overlayBottomInset = getOverlayBottomInset();
-			const containerEl = containerRef.current;
-			const containerRect = containerEl
-				? containerEl.getBoundingClientRect()
-				: new DOMRect(
+		const overlayTopInset = getOverlayTopInset();
+		const overlayBottomInset = getOverlayBottomInset();
+		const containerEl = containerRef.current;
+		const containerRect = containerEl
+			? containerEl.getBoundingClientRect()
+			: new DOMRect(
+					0,
+					overlayTopInset,
+					window.innerWidth,
+					Math.max(
 						0,
-						overlayTopInset,
-						window.innerWidth,
-						Math.max(
-							0,
-							window.innerHeight - overlayTopInset - overlayBottomInset,
-						),
-					);
-			return { overlayTopInset, overlayBottomInset, containerRect };
-		}, [getOverlayTopInset, getOverlayBottomInset]);
+						window.innerHeight - overlayTopInset - overlayBottomInset,
+					),
+				);
+		return { overlayTopInset, overlayBottomInset, containerRect };
+	}, [getOverlayTopInset, getOverlayBottomInset]);
 
 	const getTargetRect = useCallback(
 		(rect: DOMRect, targetWidth: number, targetHeight: number) => {
@@ -415,8 +421,100 @@ const ReviewPage = () => {
 		[openSubmissionFile, openReviewFile],
 	);
 
+	const renderPriorityCard = (item: ReviewItem) => {
+		const itemId = getReviewItemKey(item);
+		const reviewedByUser =
+			isGitHubPullRequest(item) && reviewedByUserMap[item.number] === true;
+		const isExpanded =
+			expandedCard &&
+			getReviewItemKey(expandedCard.item) === getReviewItemKey(item);
+		const isPlaceholder = Boolean(isExpanded);
+		const placeholderStyle =
+			isPlaceholder && expandedCard
+				? { height: expandedCard.from.height }
+				: undefined;
+
+		return (
+			<ReviewSmallCard
+				key={itemId}
+				item={item}
+				hiddenLabelSet={hiddenLabelSet}
+				reviewedByUser={reviewedByUser}
+				onSelectUser={(user) =>
+					setSelectedUser((prev) => (prev === user ? null : user))
+				}
+				className={`${
+					isGitHubPullRequest(item) && reviewSession?.prNumber === item.number
+						? styles.reviewCard
+						: ""
+				} ${isPlaceholder ? styles.cardPlaceholder : ""}`}
+				onClick={(event) => handleCardClick(item, event)}
+				cardRef={setCardRef(itemId)}
+				style={placeholderStyle}
+				contentHidden={isPlaceholder}
+			/>
+		);
+	};
+
+	const renderGroupedCard = (group: ReviewUserCardGroup) => {
+		const item = group.latestItem;
+		const itemId = group.key;
+		const latestReviewedByUser =
+			isGitHubPullRequest(item) && reviewedByUserMap[item.number] === true;
+		const isExpanded =
+			(expandedGroup && expandedGroup.group.key === group.key) ||
+			(expandedCard &&
+				group.items.some(
+					(groupItem) =>
+						getReviewItemKey(groupItem) === getReviewItemKey(expandedCard.item),
+				));
+		const isPlaceholder = Boolean(isExpanded);
+		const placeholderStyle =
+			isPlaceholder && expandedCard
+				? { height: expandedCard.from.height }
+				: isPlaceholder && expandedGroup
+					? { height: expandedGroup.from.height }
+					: undefined;
+
+		return (
+			<ReviewSmallCard
+				key={itemId}
+				item={item}
+				hiddenLabelSet={hiddenLabelSet}
+				reviewedByUser={latestReviewedByUser}
+				onSelectUser={(user) =>
+					setSelectedUser((prev) => (prev === user ? null : user))
+				}
+				className={`${
+					isGitHubPullRequest(item) && reviewSession?.prNumber === item.number
+						? styles.reviewCard
+						: ""
+				} ${group.items.length > 1 ? styles.groupedCard : ""} ${
+					isPlaceholder ? styles.cardPlaceholder : ""
+				}`}
+				onClick={(event) => handleGroupClick(group, event)}
+				cardRef={setCardRef(itemId)}
+				style={placeholderStyle}
+				contentHidden={isPlaceholder}
+				childrenBeforeContent={
+					group.items.length > 1 ? (
+						<>
+							<Box className={styles.cardStackLayerOne} />
+							<Box className={styles.cardStackLayerTwo} />
+							<Box className={styles.groupCountBadge}>
+								<Text size="1" weight="medium">
+									{group.items.length}
+								</Text>
+							</Box>
+						</>
+					) : null
+				}
+			/>
+		);
+	};
+
 	useLayoutEffect(() => {
-		const listSize = groupedCards.length;
+		const listSize = priorityItems.length + groupedCards.length;
 		const prefersReducedMotion =
 			typeof window !== "undefined" &&
 			typeof window.matchMedia === "function" &&
@@ -471,7 +569,7 @@ const ReviewPage = () => {
 				.catch(() => {});
 		});
 		cardRectsRef.current = nextRects;
-	}, [groupedCards]);
+	}, [priorityItems, groupedCards]);
 
 	useEffect(() => {
 		return () => {
@@ -661,66 +759,82 @@ const ReviewPage = () => {
 						</Button>
 					</Flex>
 				)}
-				<Box className={styles.grid}>
-					{groupedCards.map((group) => {
-						const item = group.latestItem;
-						const itemId = group.key;
-						const latestReviewedByUser =
-							isGitHubPullRequest(item) &&
-							reviewedByUserMap[item.number] === true;
-						const isExpanded =
-							(expandedGroup && expandedGroup.group.key === group.key) ||
-							(expandedCard &&
-								group.items.some(
-									(groupItem) =>
-										getReviewItemKey(groupItem) ===
-										getReviewItemKey(expandedCard.item),
-								));
-						const isPlaceholder = Boolean(isExpanded);
-						const placeholderStyle =
-							isPlaceholder && expandedCard
-								? { height: expandedCard.from.height }
-								: isPlaceholder && expandedGroup
-									? { height: expandedGroup.from.height }
-								: undefined;
-						return (
-							<ReviewSmallCard
-								key={itemId}
-								item={item}
-								hiddenLabelSet={hiddenLabelSet}
-								reviewedByUser={latestReviewedByUser}
-								onSelectUser={(user) =>
-									setSelectedUser((prev) => (prev === user ? null : user))
-								}
-								className={`${
-									isGitHubPullRequest(item) &&
-									reviewSession?.prNumber === item.number
-										? styles.reviewCard
-										: ""
-								} ${group.items.length > 1 ? styles.groupedCard : ""} ${
-									isPlaceholder ? styles.cardPlaceholder : ""
-								}`}
-								onClick={(event) => handleGroupClick(group, event)}
-								cardRef={setCardRef(itemId)}
-								style={placeholderStyle}
-								contentHidden={isPlaceholder}
-								childrenBeforeContent={
-									group.items.length > 1 ? (
-										<>
-											<Box className={styles.cardStackLayerOne} />
-											<Box className={styles.cardStackLayerTwo} />
-											<Box className={styles.groupCountBadge}>
-												<Text size="1" weight="medium">
-													{group.items.length}
-												</Text>
-											</Box>
-										</>
-									) : null
-								}
-							/>
-						);
-					})}
-				</Box>
+				<Flex direction="column" gap="3" className={styles.reviewSections}>
+					<Collapsible.Root defaultOpen className={styles.reviewSection}>
+						<Collapsible.Trigger asChild>
+							<button type="button" className={styles.reviewSectionTrigger}>
+								<Flex
+									align="center"
+									justify="between"
+									style={{ width: "100%" }}
+								>
+									<Flex align="center" gap="2">
+										<span className={styles.reviewSectionChevron}>▾</span>
+										<Flex direction="column" align="start" gap="1">
+											<Text size="3" weight="medium">
+												参与审核招募
+											</Text>
+											<Text size="1" color="gray">
+												不参与用户分组
+											</Text>
+										</Flex>
+									</Flex>
+									<Text size="2" color="gray">
+										{priorityItems.length} 份
+									</Text>
+								</Flex>
+							</button>
+						</Collapsible.Trigger>
+						<Collapsible.Content className={styles.reviewSectionContent}>
+							{priorityItems.length > 0 ? (
+								<Box className={styles.grid}>
+									{priorityItems.map((item) => renderPriorityCard(item))}
+								</Box>
+							) : (
+								<Text size="2" color="gray" className={styles.sectionEmpty}>
+									暂无参与审核招募投稿
+								</Text>
+							)}
+						</Collapsible.Content>
+					</Collapsible.Root>
+					<Collapsible.Root defaultOpen className={styles.reviewSection}>
+						<Collapsible.Trigger asChild>
+							<button type="button" className={styles.reviewSectionTrigger}>
+								<Flex
+									align="center"
+									justify="between"
+									style={{ width: "100%" }}
+								>
+									<Flex align="center" gap="2">
+										<span className={styles.reviewSectionChevron}>▾</span>
+										<Flex direction="column" align="start" gap="1">
+											<Text size="3" weight="medium">
+												普通投稿
+											</Text>
+											<Text size="1" color="gray">
+												按用户分组展示
+											</Text>
+										</Flex>
+									</Flex>
+									<Text size="2" color="gray">
+										{regularItems.length} 份
+									</Text>
+								</Flex>
+							</button>
+						</Collapsible.Trigger>
+						<Collapsible.Content className={styles.reviewSectionContent}>
+							{groupedCards.length > 0 ? (
+								<Box className={styles.grid}>
+									{groupedCards.map((group) => renderGroupedCard(group))}
+								</Box>
+							) : (
+								<Text size="2" color="gray" className={styles.sectionEmpty}>
+									暂无普通投稿
+								</Text>
+							)}
+						</Collapsible.Content>
+					</Collapsible.Root>
+				</Flex>
 				{expandedGroup && (
 					<Box
 						className={`${styles.overlay} ${
@@ -789,9 +903,7 @@ const ReviewPage = () => {
 											hiddenLabelSet={hiddenLabelSet}
 											reviewedByUser={itemReviewedByUser}
 											onSelectUser={(user) =>
-												setSelectedUser((prev) =>
-													prev === user ? null : user,
-												)
+												setSelectedUser((prev) => (prev === user ? null : user))
 											}
 											className={`${styles.groupPreviewCard} ${
 												isGitHubPullRequest(item) &&
