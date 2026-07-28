@@ -759,82 +759,82 @@ const ReviewPage = () => {
 						</Button>
 					</Flex>
 				)}
-				<Flex direction="column" gap="3" className={styles.reviewSections}>
-					<Collapsible.Root defaultOpen className={styles.reviewSection}>
-						<Collapsible.Trigger asChild>
-							<button type="button" className={styles.reviewSectionTrigger}>
-								<Flex
-									align="center"
-									justify="between"
-									style={{ width: "100%" }}
-								>
-									<Flex align="center" gap="2">
-										<span className={styles.reviewSectionChevron}>▾</span>
-										<Flex direction="column" align="start" gap="1">
-											<Text size="3" weight="medium">
-												参与审核招募
-											</Text>
-											<Text size="1" color="gray">
-												不参与用户分组
-											</Text>
+				{priorityItems.length > 0 ? (
+					<Flex direction="column" gap="3" className={styles.reviewSections}>
+						<Collapsible.Root defaultOpen className={styles.reviewSection}>
+							<Collapsible.Trigger asChild>
+								<button type="button" className={styles.reviewSectionTrigger}>
+									<Flex
+										align="center"
+										justify="between"
+										style={{ width: "100%" }}
+									>
+										<Flex align="center" gap="2">
+											<span className={styles.reviewSectionChevron}>▾</span>
+											<Flex direction="column" align="start" gap="1">
+												<Text size="3" weight="medium">
+													参与审核招募
+												</Text>
+												<Text size="1" color="gray">
+													不参与用户分组
+												</Text>
+											</Flex>
 										</Flex>
+										<Text size="2" color="gray">
+											{priorityItems.length} 份
+										</Text>
 									</Flex>
-									<Text size="2" color="gray">
-										{priorityItems.length} 份
-									</Text>
-								</Flex>
-							</button>
-						</Collapsible.Trigger>
-						<Collapsible.Content className={styles.reviewSectionContent}>
-							{priorityItems.length > 0 ? (
+								</button>
+							</Collapsible.Trigger>
+							<Collapsible.Content className={styles.reviewSectionContent}>
 								<Box className={styles.grid}>
 									{priorityItems.map((item) => renderPriorityCard(item))}
 								</Box>
-							) : (
-								<Text size="2" color="gray" className={styles.sectionEmpty}>
-									暂无参与审核招募投稿
-								</Text>
-							)}
-						</Collapsible.Content>
-					</Collapsible.Root>
-					<Collapsible.Root defaultOpen className={styles.reviewSection}>
-						<Collapsible.Trigger asChild>
-							<button type="button" className={styles.reviewSectionTrigger}>
-								<Flex
-									align="center"
-									justify="between"
-									style={{ width: "100%" }}
-								>
-									<Flex align="center" gap="2">
-										<span className={styles.reviewSectionChevron}>▾</span>
-										<Flex direction="column" align="start" gap="1">
-											<Text size="3" weight="medium">
-												普通投稿
-											</Text>
-											<Text size="1" color="gray">
-												按用户分组展示
-											</Text>
+							</Collapsible.Content>
+						</Collapsible.Root>
+						<Collapsible.Root defaultOpen className={styles.reviewSection}>
+							<Collapsible.Trigger asChild>
+								<button type="button" className={styles.reviewSectionTrigger}>
+									<Flex
+										align="center"
+										justify="between"
+										style={{ width: "100%" }}
+									>
+										<Flex align="center" gap="2">
+											<span className={styles.reviewSectionChevron}>▾</span>
+											<Flex direction="column" align="start" gap="1">
+												<Text size="3" weight="medium">
+													普通投稿
+												</Text>
+												<Text size="1" color="gray">
+													按用户分组展示
+												</Text>
+											</Flex>
 										</Flex>
+										<Text size="2" color="gray">
+											{regularItems.length} 份
+										</Text>
 									</Flex>
-									<Text size="2" color="gray">
-										{regularItems.length} 份
+								</button>
+							</Collapsible.Trigger>
+							<Collapsible.Content className={styles.reviewSectionContent}>
+								{groupedCards.length > 0 ? (
+									<Box className={styles.grid}>
+										{groupedCards.map((group) => renderGroupedCard(group))}
+									</Box>
+								) : (
+									<Text size="2" color="gray" className={styles.sectionEmpty}>
+										暂无普通投稿
 									</Text>
-								</Flex>
-							</button>
-						</Collapsible.Trigger>
-						<Collapsible.Content className={styles.reviewSectionContent}>
-							{groupedCards.length > 0 ? (
-								<Box className={styles.grid}>
-									{groupedCards.map((group) => renderGroupedCard(group))}
-								</Box>
-							) : (
-								<Text size="2" color="gray" className={styles.sectionEmpty}>
-									暂无普通投稿
-								</Text>
-							)}
-						</Collapsible.Content>
-					</Collapsible.Root>
-				</Flex>
+								)}
+							</Collapsible.Content>
+						</Collapsible.Root>
+					</Flex>
+				) : (
+					<Box className={styles.grid}>
+						{groupedCards.map((group) => renderGroupedCard(group))}
+					</Box>
+				)}
 				{expandedGroup && (
 					<Box
 						className={`${styles.overlay} ${

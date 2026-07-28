@@ -65,7 +65,7 @@ const TIMELINE_CACHE_KEY = "timeline-reviewed";
 const LYRICS_SITE_CACHE_KEY = "lyrics-site-submissions";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
-const CACHE_TTL = 30 * 60 * 1000;
+const PR_LIST_CACHE_TTL = 2 * 60 * 60 * 1000;
 const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
@@ -774,7 +774,7 @@ export const useReviewPageLogic = () => {
 		let cancelled = false;
 		const loadCached = async () => {
 			const cached = await readCache();
-			if (!cancelled && cached?.items?.length) {
+			if (!cancelled && cached?.items) {
 				setGithubItems(cached.items);
 			}
 		};
@@ -800,9 +800,9 @@ export const useReviewPageLogic = () => {
 		const load = async () => {
 			setError(null);
 			const cached = refreshChanged ? null : await readCache();
-			if (cached?.items?.length) {
+			if (cached?.items) {
 				const cacheAge = Date.now() - cached.cachedAt;
-				if (cacheAge < CACHE_TTL) {
+				if (cacheAge < PR_LIST_CACHE_TTL) {
 					if (!cancelled) {
 						setGithubItems(cached.items);
 						setGithubLoading(false);
@@ -825,16 +825,11 @@ export const useReviewPageLogic = () => {
 						etag: page === 1 ? (cached?.etag ?? null) : null,
 					});
 					log("review list response", listResponse.status);
-					if (
-						page === 1 &&
-						listResponse.status === 304 &&
-						cached?.items?.length
-					) {
-						const refreshed = await refreshPendingLabels(token, cached.items);
+					if (page === 1 && listResponse.status === 304 && cached?.items) {
 						if (!cancelled) {
-							setGithubItems(refreshed);
+							setGithubItems(cached.items);
 						}
-						await writeCache(refreshed, cached.etag ?? null);
+						await writeCache(cached.items, cached.etag ?? null);
 						log("review list not modified, use cache");
 						return;
 					}
