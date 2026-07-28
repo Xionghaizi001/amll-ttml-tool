@@ -1,6 +1,8 @@
 import type {
 	ReviewElementPath,
 	StructuredReviewChange,
+	StructuredReviewLineTarget,
+	StructuredReviewPathChange,
 	StructuredReviewValue,
 } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
@@ -130,8 +132,8 @@ const deleteAtPath = (root: TTMLLyric, path: ReviewElementPath): boolean => {
  * 非删除（写入/插入）保持 path 字典序，便于确定性。
  */
 const compareChangesForApply = (
-	left: StructuredReviewChange,
-	right: StructuredReviewChange,
+	left: StructuredReviewPathChange,
+	right: StructuredReviewPathChange,
 ): number => {
 	const leftDelete = left.beforeExists && !left.afterExists;
 	const rightDelete = right.beforeExists && !right.afterExists;
@@ -168,6 +170,55 @@ const ensureRuntimeIds = (lyrics: TTMLLyric): TTMLLyric => {
 	return lyrics;
 };
 
+const getTargetLineIndexes = (
+	target: StructuredReviewLineTarget,
+	totalLineCount: number,
+) => {
+	switch (target.kind) {
+		case "all":
+			return Array.from({ length: totalLineCount }, (_, index) => index);
+		case "range":
+			return Array.from(
+				{
+					length: Math.max(0, target.toLineIndex - target.fromLineIndex + 1),
+				},
+				(_, offset) => target.fromLineIndex + offset,
+			).filter((index) => index >= 0 && index < totalLineCount);
+		case "lines":
+			return Array.from(new Set(target.lineIndexes)).filter(
+				(index) =>
+					Number.isInteger(index) && index >= 0 && index < totalLineCount,
+			);
+	}
+};
+
+const shiftTime = (value: number, offsetMs: number) =>
+	Math.max(0, value + offsetMs);
+
+const applyTimeShiftChange = (
+	lyrics: TTMLLyric,
+	change: Extract<StructuredReviewChange, { kind: "timeShift" }>,
+) => {
+	const lineIndexes = getTargetLineIndexes(
+		change.target,
+		lyrics.lyricLines.length,
+	);
+	for (const lineIndex of lineIndexes) {
+		const line = lyrics.lyricLines[lineIndex];
+		if (!line) continue;
+		line.startTime = shiftTime(line.startTime, change.offsetMs);
+		line.endTime = shiftTime(line.endTime, change.offsetMs);
+		for (const word of line.words ?? []) {
+			word.startTime = shiftTime(word.startTime, change.offsetMs);
+			word.endTime = shiftTime(word.endTime, change.offsetMs);
+			word.ruby?.forEach((rubyWord) => {
+				rubyWord.startTime = shiftTime(rubyWord.startTime, change.offsetMs);
+				rubyWord.endTime = shiftTime(rubyWord.endTime, change.offsetMs);
+			});
+		}
+	}
+};
+
 /**
  * 在冻结原稿上应用勾选的结构化变更（path 坐标系）。
  * 不处理「基线已漂移」场景；调用方应先校验 contentHash。
@@ -181,7 +232,20 @@ export const applyStructuredChanges = (
 	const lyrics = cloneLyrics(original);
 	const applied: StructuredReviewChange[] = [];
 	const failed: ApplyStructuredChangesFailure[] = [];
-	const ordered = [...changes].sort(compareChangesForApply);
+	const operationChanges = changes.filter(
+		(change): change is Extract<StructuredReviewChange, { kind: "timeShift" }> =>
+			change.kind === "timeShift",
+	);
+	const ordered = changes
+		.filter(
+			(change): change is StructuredReviewPathChange => change.kind === "path",
+		)
+		.sort(compareChangesForApply);
+
+	for (const change of operationChanges) {
+		applyTimeShiftChange(lyrics, change);
+		applied.push(change);
+	}
 
 	for (const change of ordered) {
 		const { path, beforeExists, afterExists, before, after } = change;

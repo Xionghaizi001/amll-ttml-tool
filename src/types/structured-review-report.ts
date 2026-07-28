@@ -11,11 +11,9 @@ export type StructuredReviewValue =
 	| StructuredReviewValue[]
 	| { [key: string]: StructuredReviewValue };
 
-/**
- * 单条可独立接受的变更（云端 updates 协议最小单元）。
- * 定位只依赖 path（冻结原稿坐标系）；不携带会话随机 ID 或展示用相对字段。
- */
-export type StructuredReviewChange = {
+/** path 定位的原子字段/节点变更。 */
+export type StructuredReviewPathChange = {
+	kind: "path";
 	path: ReviewElementPath;
 	beforeExists: boolean;
 	afterExists: boolean;
@@ -23,18 +21,54 @@ export type StructuredReviewChange = {
 	after: StructuredReviewValue | null;
 };
 
+/** 冻结原稿坐标系下的大范围行目标。 */
+export type StructuredReviewLineTarget =
+	| {
+			kind: "all";
+			lineCount: number;
+	  }
+	| {
+			kind: "range";
+			fromLineIndex: number;
+			toLineIndex: number;
+			lineCount: number;
+	  }
+	| {
+			kind: "lines";
+			lineIndexes: number[];
+			lineCount: number;
+	  };
+
+/** 大范围时间轴平移：应用到目标行、逐词及 ruby 的 start/end 时间。 */
+export type StructuredReviewTimeShiftChange = {
+	kind: "timeShift";
+	offsetMs: number;
+	target: StructuredReviewLineTarget;
+};
+
 /**
- * 变更分组：仅用于打包展示；回放以 path 为准。
- * 行归属由 path 前缀 lyricLines/<index> 推导，不再冗余 lineIndex/lineNumber/isBG/lineId。
+ * 单条可独立接受的变更（云端 updates 协议最小单元）。
+ * 普通编辑使用 path 变更；大范围操作使用操作变更，避免展开成大量 path。
+ */
+export type StructuredReviewChange =
+	| StructuredReviewPathChange
+	| StructuredReviewTimeShiftChange;
+
+/**
+ * 变更分组：仅用于打包展示；path 变更的行归属由 path 前缀 lyricLines/<index> 推导。
  */
 export type StructuredReviewChangeBlock =
 	| {
 			kind: "line";
-			changes: StructuredReviewChange[];
+			changes: StructuredReviewPathChange[];
 	  }
 	| {
 			kind: "document";
-			changes: StructuredReviewChange[];
+			changes: StructuredReviewPathChange[];
+	  }
+	| {
+			kind: "operation";
+			changes: StructuredReviewTimeShiftChange[];
 	  };
 
 export type StructuredReviewChanges = {

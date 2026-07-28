@@ -15,8 +15,9 @@ export type StructuredReviewReportReadResult = {
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null;
 
-const isStructuredChange = (value: unknown) =>
+const isStructuredPathChange = (value: unknown) =>
 	isObject(value) &&
+	value.kind === "path" &&
 	Array.isArray(value.path) &&
 	value.path.every(
 		(segment) => typeof segment === "string" || typeof segment === "number",
@@ -26,11 +27,37 @@ const isStructuredChange = (value: unknown) =>
 	isStructuredValue(value.before) &&
 	isStructuredValue(value.after);
 
+const isStructuredLineTarget = (value: unknown) => {
+	if (!isObject(value) || typeof value.lineCount !== "number") return false;
+	if (value.kind === "all") return true;
+	if (value.kind === "range") {
+		return (
+			typeof value.fromLineIndex === "number" &&
+			typeof value.toLineIndex === "number"
+		);
+	}
+	if (value.kind === "lines") {
+		return (
+			Array.isArray(value.lineIndexes) &&
+			value.lineIndexes.every((item) => typeof item === "number")
+		);
+	}
+	return false;
+};
+
+const isStructuredOperationChange = (value: unknown) =>
+	isObject(value) &&
+	value.kind === "timeShift" &&
+	typeof value.offsetMs === "number" &&
+	isStructuredLineTarget(value.target);
+
 const isStructuredChangeBlock = (value: unknown) =>
 	isObject(value) &&
-	(value.kind === "line" || value.kind === "document") &&
 	Array.isArray(value.changes) &&
-	value.changes.every(isStructuredChange);
+	((value.kind === "line" || value.kind === "document")
+		? value.changes.every(isStructuredPathChange)
+		: value.kind === "operation" &&
+			value.changes.every(isStructuredOperationChange));
 
 function assertReportShape(
 	value: unknown,

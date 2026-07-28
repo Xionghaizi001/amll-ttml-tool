@@ -372,6 +372,7 @@ export const LyricLineView: FC<{
 					focused.add(String(primaryWordIdx));
 				}
 				for (const change of item.changes) {
+					if (change.kind !== "path") continue;
 					const path = change.path;
 					const wordIdx = wordIndexFromPath(path);
 					if (wordIdx === null) continue;

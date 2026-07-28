@@ -2,6 +2,7 @@ import type {
 	ReviewElementPath,
 	StructuredReviewChange,
 	StructuredReviewChangeBlock,
+	StructuredReviewPathChange,
 	StructuredReviewReport,
 } from "$/types/structured-review-report";
 import { pathKey } from "$/utils/content-addressed-id";
@@ -84,6 +85,7 @@ const fieldLabel = (path: ReviewElementPath): string => {
 export const getChangeKind = (
 	change: StructuredReviewChange,
 ): AnnotationItem["kind"] => {
+	if (change.kind === "timeShift") return "update";
 	if (!change.beforeExists && change.afterExists) return "add";
 	if (change.beforeExists && !change.afterExists) return "remove";
 	return "update";
@@ -117,9 +119,25 @@ export const isWholeWordPath = (path: ReviewElementPath): boolean =>
 export const getWordTextFromValue = (value: unknown): string =>
 	previewValue(value);
 
+const summarizeTimeShiftChange = (
+	change: Extract<StructuredReviewChange, { kind: "timeShift" }>,
+) => {
+	const direction = change.offsetMs < 0 ? "提前" : "延后";
+	const offset = Math.abs(change.offsetMs);
+	switch (change.target.kind) {
+		case "all":
+			return `全部歌词行整体${direction} \`${offset}ms\``;
+		case "range":
+			return `第 ${change.target.fromLineIndex + 1}-${change.target.toLineIndex + 1} 行整体${direction} \`${offset}ms\``;
+		case "lines":
+			return `${change.target.lineCount} 行歌词整体${direction} \`${offset}ms\``;
+	}
+};
+
 export const summarizeStructuredChange = (
 	change: StructuredReviewChange,
 ): string => {
+	if (change.kind === "timeShift") return summarizeTimeShiftChange(change);
 	const kind = getChangeKind(change);
 	const field = leafName(change.path);
 	const label = fieldLabel(change.path);
@@ -210,6 +228,8 @@ const isLineEndPath = (path: ReviewElementPath) =>
 	path.length === 3;
 
 const sameAfterTime = (a: StructuredReviewChange, b: StructuredReviewChange) =>
+	a.kind === "path" &&
+	b.kind === "path" &&
 	typeof a.after === "number" &&
 	typeof b.after === "number" &&
 	a.after === b.after;
@@ -220,14 +240,14 @@ const sameAfterTime = (a: StructuredReviewChange, b: StructuredReviewChange) =>
  * 链接的 start 调整隐式随接受一并应用。
  */
 const coalesceLinkedTimingChanges = (
-	changes: StructuredReviewChange[],
+	changes: StructuredReviewPathChange[],
 ): AnnotationItem[] => {
 	const used = new Set<string>();
 	const items: AnnotationItem[] = [];
 	const byKey = new Map(changes.map((c) => [pathKey(c.path), c]));
 
 	const tryPair = (
-		left: StructuredReviewChange,
+		left: StructuredReviewPathChange,
 		rightPath: ReviewElementPath,
 		summary: string,
 	) => {
@@ -309,8 +329,22 @@ const coalesceLinkedTimingChanges = (
 export const flattenAnnotationItems = (
 	blocks: StructuredReviewChangeBlock[],
 ): AnnotationItem[] => {
-	const changes = blocks.flatMap((block) => block.changes);
-	return coalesceLinkedTimingChanges(changes);
+	const pathChanges = blocks.flatMap((block) =>
+		block.kind === "operation" ? [] : block.changes,
+	);
+	const operationItems = blocks.flatMap((block) => {
+		if (block.kind !== "operation") return [];
+		return block.changes.map<AnnotationItem>((change) => ({
+			key: `operation:${change.kind}:${change.offsetMs}:${JSON.stringify(change.target)}`,
+			path: ["lyricLines"],
+			paths: [["lyricLines"]],
+			changes: [change],
+			lineIndex: null,
+			summary: summarizeStructuredChange(change),
+			kind: "update",
+		}));
+	});
+	return [...operationItems, ...coalesceLinkedTimingChanges(pathChanges)];
 };
 
 export const buildAnnotationItemsFromReport = (
