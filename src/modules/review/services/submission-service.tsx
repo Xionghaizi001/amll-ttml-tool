@@ -14,6 +14,8 @@ import saveFile from "save-file";
 import { githubFetch } from "$/modules/github/api";
 import {
 	ensurePullRequestAssigned,
+	fetchPullRequestApprovalCount,
+	fetchPullRequestDetail,
 	mergePullRequest,
 } from "$/modules/github/services/PR-service";
 import { submitReview as submitReviewService } from "$/modules/github/services/submit-service";
@@ -43,6 +45,10 @@ import { pushNotificationAtom } from "$/states/notifications";
 import type { StructuredReviewReport } from "$/types/structured-review-report";
 import type { TTMLLyric } from "$/types/ttml";
 import { error as logError } from "$/utils/logging";
+import {
+	REVIEW_APPROVAL_TARGET,
+	REVIEW_RECRUITMENT_LABEL_NAME,
+} from "./card-service";
 import { buildStructuredReviewUpdates } from "./report-service/structured-report-builder";
 import type { ReviewReport } from "./report-service/types";
 import { updateReviewHistoryReport } from "./review-history-db";
@@ -97,6 +103,37 @@ type ReviewSubmitPending =
 	| "MISSING_AUDIO"
 	| null;
 
+/**
+ * 参与审核招募的稿件需要集齐足够的批准才能合并，所以进入审阅会话时要
+ * 先确认稿件是否带这个标签、以及当前已有多少人批准过。
+ *
+ * - pending：还没拿到结论（正在拉取 / 缺少 token / 拉取失败），一律不放开合并；
+ *   宁可少显示一个按钮，也不要在招募稿件上误开一个绕过批准数的入口。
+ * - plain：不带招募标签，保持原有行为。
+ * - recruitment：带招募标签，按批准数判断。
+ */
+type MergeGateState =
+	| { kind: "pending" }
+	| { kind: "plain" }
+	| { kind: "recruitment"; approvalCount: number; viewerApproved: boolean };
+
+const PENDING_MERGE_GATE: MergeGateState = { kind: "pending" };
+
+/**
+ * 招募稿件只有两种情况可以合并：已经集齐目标批准数，或当前用户就是补上
+ * 最后一票的那个人。
+ */
+const isMergeAllowed = (gate: MergeGateState) => {
+	if (gate.kind === "pending") return false;
+	if (gate.kind === "plain") return true;
+	// 合并流程本身会补上当前用户的批准，所以还没投过票的人相当于预占一票：
+	// 这让“当前用户正好是最后一位批准者”的情况也能直接合并。
+	const effectiveCount = gate.viewerApproved
+		? gate.approvalCount
+		: gate.approvalCount + 1;
+	return effectiveCount >= REVIEW_APPROVAL_TARGET;
+};
+
 export type ReviewReportSubmissionBarProps = {
 	dialog: ReviewReportDialogState;
 	getCleanReport: () => string;
@@ -125,12 +162,69 @@ export const ReviewReportSubmissionBar = ({
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const githubLogin = useAtomValue(githubLoginAtom);
+	const [mergeGate, setMergeGate] = useState<MergeGateState>(PENDING_MERGE_GATE);
 
 	useEffect(() => {
 		if (dialog.open) {
 			setApprovedByUser(false);
 		}
 	}, [dialog.open]);
+
+	/**
+	 * 参与审核招募的稿件需要集齐足够的批准才能合并：这里在打开报告时拉一次
+	 * 标签与批准列表，只有已达标、或当前用户就是补上最后一票的人才放开合并按钮。
+	 */
+	useEffect(() => {
+		if (!dialog.open || !dialog.prNumber) {
+			setMergeGate(PENDING_MERGE_GATE);
+			return;
+		}
+		// 歌词站稿件本来就没有合并按钮，不需要判定。
+		if (dialog.source === "lyrics-site") {
+			setMergeGate(PENDING_MERGE_GATE);
+			return;
+		}
+		const token = pat.trim();
+		if (!token) {
+			setMergeGate(PENDING_MERGE_GATE);
+			return;
+		}
+		const prNumber = dialog.prNumber;
+		let cancelled = false;
+		setMergeGate(PENDING_MERGE_GATE);
+		const run = async () => {
+			try {
+				const detail = await fetchPullRequestDetail({ token, prNumber });
+				if (cancelled) return;
+				if (!detail) return;
+				const isRecruitment = detail.labels.some(
+					(label) => label.name.trim() === REVIEW_RECRUITMENT_LABEL_NAME,
+				);
+				if (!isRecruitment) {
+					setMergeGate({ kind: "plain" });
+					return;
+				}
+				const result = await fetchPullRequestApprovalCount({ token, prNumber });
+				if (cancelled || !result.ok) return;
+				const viewer = githubLogin.trim().toLowerCase();
+				setMergeGate({
+					kind: "recruitment",
+					approvalCount: result.count,
+					viewerApproved: viewer
+						? result.approvedLogins.includes(viewer)
+						: false,
+				});
+			} catch (cause) {
+				logError("[review] failed to resolve merge gate", cause);
+			}
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [dialog.open, dialog.prNumber, dialog.source, githubLogin, pat]);
+
+	const mergeAllowed = isMergeAllowed(mergeGate);
 
 	const markReviewedAndRefresh = () => {
 		setReviewReviewedPrs((prev: Record<number, boolean>) =>
@@ -722,7 +816,7 @@ export const ReviewReportSubmissionBar = ({
 						</Flex>
 					</Button>
 				)}
-				{dialog.source !== "lyrics-site" && (
+				{dialog.source !== "lyrics-site" && mergeAllowed && (
 					<Button
 						size="2"
 						variant="soft"

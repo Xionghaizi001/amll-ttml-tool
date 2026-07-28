@@ -339,7 +339,12 @@ export const fetchPullRequestApprovalCount = async (options: {
 			},
 		);
 		if (!response.ok) {
-			return { ok: false, status: response.status, count: 0 };
+			return {
+				ok: false,
+				status: response.status,
+				count: 0,
+				approvedLogins: [] as string[],
+			};
 		}
 		const reviews = (await response.json()) as Array<{
 			state?: string | null;
@@ -354,11 +359,11 @@ export const fetchPullRequestApprovalCount = async (options: {
 		}
 		if (reviews.length < perPage) break;
 	}
-	let count = 0;
-	for (const state of latestStateByUser.values()) {
-		if (state === "APPROVED") count += 1;
+	const approvedLogins: string[] = [];
+	for (const [login, state] of latestStateByUser) {
+		if (state === "APPROVED") approvedLogins.push(login);
 	}
-	return { ok: true, status: 200, count };
+	return { ok: true, status: 200, count: approvedLogins.length, approvedLogins };
 };
 
 export type PullRequestTimelineItem = {
