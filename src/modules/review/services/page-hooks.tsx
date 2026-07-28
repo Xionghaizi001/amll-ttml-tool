@@ -11,6 +11,7 @@ import {
 import { syncPendingUpdateNotices } from "$/modules/github/services/notice-service";
 import {
 	fetchOpenPullRequestPage,
+	fetchPullRequestApprovalCount,
 	fetchPullRequestDetail,
 	fetchPullRequestTimelinePage,
 } from "$/modules/github/services/PR-service";
@@ -52,7 +53,7 @@ import type {
 	ReviewLabel,
 	ReviewPullRequest,
 } from "./card-service";
-import { isGitHubPullRequest } from "./card-service";
+import { hasReviewRecruitmentLabel, isGitHubPullRequest } from "./card-service";
 import { applyReviewFilters } from "./filter-service";
 import { lyricsSiteUserAtom, useRemoteReviewService } from "./remote-service";
 
@@ -63,6 +64,7 @@ const LABEL_CACHE_KEY = "labels";
 const PENDING_COMMIT_CACHE_KEY = "pending-commits";
 const TIMELINE_CACHE_KEY = "timeline-reviewed";
 const LYRICS_SITE_CACHE_KEY = "lyrics-site-submissions";
+const APPROVAL_COUNT_CACHE_KEY = "approval-counts";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
 const PR_LIST_CACHE_TTL = 2 * 60 * 60 * 1000;
@@ -70,6 +72,7 @@ const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
 const LYRICS_SITE_CACHE_TTL = 30 * 60 * 1000;
+const APPROVAL_COUNT_CACHE_TTL = 10 * 60 * 1000;
 
 type CachedPayload = {
 	key: string;
@@ -100,6 +103,12 @@ type LyricsSiteCacheRecord = {
 	key: string;
 	cachedAt: number;
 	items: LyricsSiteSubmission[];
+};
+
+type ApprovalCountCacheRecord = {
+	key: string;
+	cachedAt: number;
+	items: Record<number, { count: number; cachedAt: number }>;
 };
 
 const dbPromise = openDB(DB_NAME, 1, {
@@ -255,6 +264,35 @@ const writeLyricsSiteCache = async (items: LyricsSiteSubmission[]) => {
 	}
 };
 
+const readApprovalCountCache = async () => {
+	try {
+		const db = await dbPromise;
+		const record = (await db.get(STORE_NAME, APPROVAL_COUNT_CACHE_KEY)) as
+			| ApprovalCountCacheRecord
+			| undefined;
+		if (!record?.items) return null;
+		return record;
+	} catch {
+		return null;
+	}
+};
+
+const writeApprovalCountCache = async (
+	items: ApprovalCountCacheRecord["items"],
+) => {
+	try {
+		const db = await dbPromise;
+		const payload: ApprovalCountCacheRecord = {
+			key: APPROVAL_COUNT_CACHE_KEY,
+			cachedAt: Date.now(),
+			items,
+		};
+		await db.put(STORE_NAME, payload);
+	} catch {
+		return;
+	}
+};
+
 export const useReviewPageLogic = () => {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
@@ -290,6 +328,7 @@ export const useReviewPageLogic = () => {
 	const pendingUpdateNoticeIdsRef = useRef<Set<string>>(new Set());
 	const pendingCommitCacheRef = useRef<PendingCommitCacheRecord["items"]>({});
 	const timelineCacheRef = useRef<TimelineCacheRecord["items"]>({});
+	const approvalCountCacheRef = useRef<ApprovalCountCacheRecord["items"]>({});
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
@@ -340,6 +379,9 @@ export const useReviewPageLogic = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [postPendingCommitMap, setPostPendingCommitMap] = useState<
 		Record<number, boolean>
+	>({});
+	const [approvalCountMap, setApprovalCountMap] = useState<
+		Record<number, number>
 	>({});
 	const lastRefreshTokenRef = useRef(refreshToken);
 	const lastLyricsSiteRefreshTokenRef = useRef(refreshToken);
@@ -467,6 +509,24 @@ export const useReviewPageLogic = () => {
 		[pat, refreshPendingLabels],
 	);
 
+	// 审阅提交后批准数会变化，这里让计数重新拉取
+	const refreshApprovalCount = useCallback(
+		async (prNumber: number) => {
+			const token = pat.trim();
+			if (!token || !hasAccess || !Number.isFinite(prNumber)) return;
+			const result = await fetchPullRequestApprovalCount({ token, prNumber });
+			if (!result.ok) return;
+			setApprovalCountMap((prev) => ({ ...prev, [prNumber]: result.count }));
+			const nextCache = {
+				...approvalCountCacheRef.current,
+				[prNumber]: { count: result.count, cachedAt: Date.now() },
+			};
+			approvalCountCacheRef.current = nextCache;
+			await writeApprovalCountCache(nextCache);
+		},
+		[hasAccess, pat],
+	);
+
 	useEffect(() => {
 		let cancelled = false;
 		const run = async () => {
@@ -539,6 +599,33 @@ export const useReviewPageLogic = () => {
 	}, [setReviewReviewedPrs]);
 
 	useEffect(() => {
+		let cancelled = false;
+		const run = async () => {
+			const record = await readApprovalCountCache();
+			if (cancelled || !record?.items) return;
+			const now = Date.now();
+			const freshItems: ApprovalCountCacheRecord["items"] = {};
+			const mapped: Record<number, number> = {};
+			for (const [key, value] of Object.entries(record.items)) {
+				const prNumber = Number(key);
+				if (!Number.isFinite(prNumber)) continue;
+				if (now - value.cachedAt >= APPROVAL_COUNT_CACHE_TTL) continue;
+				freshItems[prNumber] = value;
+				mapped[prNumber] = value.count;
+			}
+			if (cancelled) return;
+			if (Object.keys(mapped).length > 0) {
+				setApprovalCountMap((prev) => ({ ...mapped, ...prev }));
+			}
+			approvalCountCacheRef.current = freshItems;
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	useEffect(() => {
 		if (remoteInitRef.current) return;
 		remoteInitRef.current = true;
 		void initFromUrl();
@@ -550,6 +637,7 @@ export const useReviewPageLogic = () => {
 		const run = async () => {
 			await refreshSinglePullRequest(reviewSingleRefresh);
 			await refreshReviewTimeline(reviewSingleRefresh);
+			await refreshApprovalCount(reviewSingleRefresh);
 			if (!cancelled) {
 				setReviewSingleRefresh(null);
 			}
@@ -559,6 +647,7 @@ export const useReviewPageLogic = () => {
 			cancelled = true;
 		};
 	}, [
+		refreshApprovalCount,
 		refreshReviewTimeline,
 		refreshSinglePullRequest,
 		reviewSingleRefresh,
@@ -647,6 +736,53 @@ export const useReviewPageLogic = () => {
 		postPendingCommitMap,
 		updatedChecked,
 	]);
+
+	useEffect(() => {
+		const token = pat.trim();
+		if (!hasAccess || !token) return;
+		const recruitmentItems = githubItems.filter((item) =>
+			hasReviewRecruitmentLabel(item),
+		);
+		const unknownItems = recruitmentItems.filter(
+			(item) => approvalCountMap[item.number] === undefined,
+		);
+		if (unknownItems.length === 0) return;
+		let cancelled = false;
+		const run = async () => {
+			const now = Date.now();
+			const nextCache: ApprovalCountCacheRecord["items"] = {
+				...approvalCountCacheRef.current,
+			};
+			for (const item of unknownItems) {
+				const cached = nextCache[item.number];
+				if (cached && now - cached.cachedAt < APPROVAL_COUNT_CACHE_TTL) {
+					setApprovalCountMap((prev) => {
+						if (prev[item.number] === cached.count) return prev;
+						return { ...prev, [item.number]: cached.count };
+					});
+					continue;
+				}
+				const result = await fetchPullRequestApprovalCount({
+					token,
+					prNumber: item.number,
+				});
+				if (cancelled) return;
+				if (!result.ok) continue;
+				nextCache[item.number] = { count: result.count, cachedAt: Date.now() };
+				setApprovalCountMap((prev) => {
+					if (prev[item.number] === result.count) return prev;
+					return { ...prev, [item.number]: result.count };
+				});
+			}
+			if (cancelled) return;
+			approvalCountCacheRef.current = nextCache;
+			await writeApprovalCountCache(nextCache);
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [approvalCountMap, githubItems, hasAccess, pat]);
 
 	const runLoadNeteaseAudio = useCallback(
 		async (prNumber: number, id: string) => {
@@ -974,6 +1110,7 @@ export const useReviewPageLogic = () => {
 	);
 
 	return {
+		approvalCountMap,
 		audioLoadPendingId,
 		error,
 		filteredItems,
@@ -990,6 +1127,7 @@ export const useReviewPageLogic = () => {
 			onClose: closeNeteaseIdDialog,
 		},
 		openReviewFile,
+		refreshApprovalCount,
 		refreshReviewTimeline,
 		reviewedByUserMap,
 		reviewSession,

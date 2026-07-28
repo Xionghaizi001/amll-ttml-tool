@@ -26,6 +26,7 @@ import {
 	getReviewItemCreatedAt,
 	getReviewItemKey,
 	groupReviewItemsByUser,
+	hasReviewRecruitmentLabel,
 	isGitHubPullRequest,
 	isLyricsSiteSubmission,
 	type ReviewItem,
@@ -49,13 +50,6 @@ const GROUP_CARD_MIN_WIDTH = 256;
 const GROUP_CARD_HEIGHT = 180;
 const GROUP_PANEL_MAX_COLUMNS = 3;
 const GROUP_PANEL_MAX_ROWS = 3;
-const REVIEW_RECRUITMENT_LABEL_NAME = "参与审核招募";
-
-const hasReviewRecruitmentLabel = (item: ReviewItem) =>
-	isGitHubPullRequest(item) &&
-	item.labels.some(
-		(label) => label.name.trim() === REVIEW_RECRUITMENT_LABEL_NAME,
-	);
 
 const ReviewPage = () => {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -81,6 +75,7 @@ const ReviewPage = () => {
 		overlayBottomInset: number;
 	} | null>(null);
 	const {
+		approvalCountMap,
 		audioLoadPendingId,
 		error,
 		filteredItems,
@@ -452,6 +447,9 @@ const ReviewPage = () => {
 				cardRef={setCardRef(itemId)}
 				style={placeholderStyle}
 				contentHidden={isPlaceholder}
+				approvalCount={
+					isGitHubPullRequest(item) ? approvalCountMap[item.number] : undefined
+				}
 			/>
 		);
 	};
@@ -987,6 +985,11 @@ const ReviewPage = () => {
 								repoOwner="amll-dev"
 								repoName="amll-ttml-db"
 								styles={styles}
+								approvalCount={
+									isGitHubPullRequest(expandedCard.item)
+										? approvalCountMap[expandedCard.item.number]
+										: undefined
+								}
 							/>
 						</Card>
 						<Card

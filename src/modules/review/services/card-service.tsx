@@ -24,6 +24,15 @@ export type ReviewPullRequest = {
 
 export type ReviewItem = ReviewPullRequest | LyricsSiteSubmission;
 
+export const REVIEW_RECRUITMENT_LABEL_NAME = "参与审核招募";
+export const REVIEW_APPROVAL_TARGET = 5;
+
+export const hasReviewRecruitmentLabel = (item: ReviewItem) =>
+	isGitHubPullRequest(item) &&
+	item.labels.some(
+		(label) => label.name.trim() === REVIEW_RECRUITMENT_LABEL_NAME,
+	);
+
 export const isLyricsSiteSubmission = (
 	item: ReviewItem,
 ): item is LyricsSiteSubmission => {
@@ -391,9 +400,16 @@ export const renderCardContent = (options: {
 	styles: Record<string, string>;
 	reviewedByUser?: boolean;
 	onSelectUser?: (user: string) => void;
+	approvalCount?: number | null;
 }) => {
-	const { item, hiddenLabelSet, styles, reviewedByUser, onSelectUser } =
-		options;
+	const {
+		item,
+		hiddenLabelSet,
+		styles,
+		reviewedByUser,
+		onSelectUser,
+		approvalCount,
+	} = options;
 	const isLyricsSite = isLyricsSiteSubmission(item);
 	const id = getReviewItemId(item);
 	const createdAt = getReviewItemCreatedAt(item);
@@ -406,6 +422,10 @@ export const renderCardContent = (options: {
 
 	const mentions = isGitHubPullRequest(item) ? extractMentions(item.body) : [];
 	const submitter = isLyricsSite ? item.submitter : null;
+
+	const showApprovalCounter =
+		typeof approvalCount === "number" && hasReviewRecruitmentLabel(item);
+	const approvalReached = (approvalCount ?? 0) >= REVIEW_APPROVAL_TARGET;
 
 	return (
 		<Flex direction="column" gap="2">
@@ -422,6 +442,19 @@ export const renderCardContent = (options: {
 					>
 						<Text size="1">{isLyricsSite ? "歌词站" : "GitHub"}</Text>
 					</Box>
+					{showApprovalCounter && (
+						<Box
+							className={`${styles.approvalCounter} ${
+								approvalReached ? styles.approvalCounterReached : ""
+							}`}
+							title={`已获得 ${approvalCount} / ${REVIEW_APPROVAL_TARGET} 个批准`}
+						>
+							<Checkmark20Regular className={styles.approvalCounterIcon} />
+							<Text size="1" weight="medium">
+								{approvalCount}/{REVIEW_APPROVAL_TARGET}
+							</Text>
+						</Box>
+					)}
 					{reviewedByUser && <Checkmark20Regular className={styles.icon} />}
 				</Flex>
 				<Flex align="center" gap="1" className={styles.meta}>
@@ -568,6 +601,7 @@ export type ReviewSmallCardProps = {
 	style?: CSSProperties;
 	contentHidden?: boolean;
 	childrenBeforeContent?: ReactNode;
+	approvalCount?: number | null;
 };
 
 export const ReviewSmallCard = (props: ReviewSmallCardProps) => {
@@ -582,6 +616,7 @@ export const ReviewSmallCard = (props: ReviewSmallCardProps) => {
 		style,
 		contentHidden,
 		childrenBeforeContent,
+		approvalCount,
 	} = props;
 
 	return (
@@ -605,6 +640,7 @@ export const ReviewSmallCard = (props: ReviewSmallCardProps) => {
 					styles,
 					reviewedByUser,
 					onSelectUser,
+					approvalCount,
 				})}
 			</Box>
 		</Card>

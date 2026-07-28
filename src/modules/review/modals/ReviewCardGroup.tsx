@@ -23,9 +23,11 @@ import {
 	extractMentions,
 	formatTimeAgo,
 	getLabelTextColor,
+	hasReviewRecruitmentLabel,
 	isGitHubPullRequest,
 	isLyricsSiteSubmission,
 	parseReviewMetadata,
+	REVIEW_APPROVAL_TARGET,
 	type ReviewItem,
 	type ReviewPullRequest,
 	renderMetaValues,
@@ -97,6 +99,7 @@ type GitHubExpandedContentProps = {
 	lastNeteaseIdByPr: Record<number, string>;
 	onOpenFile: (item: ReviewPullRequest, ids: string[]) => void | Promise<void>;
 	reviewedByUser?: boolean;
+	approvalCount?: number | null;
 	repoOwner: string;
 	repoName: string;
 	styles: Record<string, string>;
@@ -131,6 +134,15 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 
 	const prUrl = `https://github.com/${options.repoOwner}/${options.repoName}/pull/${options.item.number}`;
 	const mentionUrl = mention ? `https://github.com/${mention}` : null;
+	const showApprovalProgress =
+		typeof options.approvalCount === "number" &&
+		hasReviewRecruitmentLabel(options.item);
+	const approvalCount = options.approvalCount ?? 0;
+	const approvalReached = approvalCount >= REVIEW_APPROVAL_TARGET;
+	const approvalPercent = Math.min(
+		100,
+		Math.round((approvalCount / REVIEW_APPROVAL_TARGET) * 100),
+	);
 	return (
 		<Flex direction="column" className={options.styles.overlayCardInner}>
 			<Flex
@@ -411,6 +423,23 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 					</Flex>
 				</Button>
 			</Flex>
+			{showApprovalProgress && (
+				<Box
+					className={options.styles.approvalProgressTrack}
+					role="progressbar"
+					aria-valuemin={0}
+					aria-valuemax={REVIEW_APPROVAL_TARGET}
+					aria-valuenow={approvalCount}
+					aria-label={`审核批准进度 ${approvalCount} / ${REVIEW_APPROVAL_TARGET}`}
+				>
+					<Box
+						className={`${options.styles.approvalProgressFill} ${
+							approvalReached ? options.styles.approvalProgressFillReached : ""
+						}`}
+						style={{ width: `${approvalPercent}%` }}
+					/>
+				</Box>
+			)}
 		</Flex>
 	);
 };
@@ -744,6 +773,7 @@ export const ReviewExpandedContent = memo(
 		lastNeteaseIdByPr: Record<number, string>;
 		onOpenFile: (item: ReviewItem, ids?: string[]) => void | Promise<void>;
 		reviewedByUser?: boolean;
+		approvalCount?: number | null;
 		repoOwner: string;
 		repoName: string;
 		styles: Record<string, string>;
@@ -767,6 +797,7 @@ export const ReviewExpandedContent = memo(
 					lastNeteaseIdByPr={options.lastNeteaseIdByPr}
 					onOpenFile={(item, ids) => options.onOpenFile(item, ids)}
 					reviewedByUser={options.reviewedByUser}
+					approvalCount={options.approvalCount}
 					repoOwner={options.repoOwner}
 					repoName={options.repoName}
 					styles={options.styles}

@@ -318,6 +318,49 @@ export const ensurePullRequestAssigned = async (options: {
 	return { ok: true, assigned: verifiedAssigned, changed: true };
 };
 
+export const fetchPullRequestApprovalCount = async (options: {
+	token: string;
+	prNumber: number;
+}) => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token}`,
+	};
+	const perPage = 100;
+	const maxPages = 5;
+	// 同一用户可能多次评审，只保留最后一次有效状态
+	const latestStateByUser = new Map<string, string>();
+	for (let page = 1; page <= maxPages; page += 1) {
+		const response = await githubFetch(
+			`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${options.prNumber}/reviews`,
+			{
+				params: { per_page: perPage, page },
+				init: { headers },
+			},
+		);
+		if (!response.ok) {
+			return { ok: false, status: response.status, count: 0 };
+		}
+		const reviews = (await response.json()) as Array<{
+			state?: string | null;
+			user?: { login?: string | null } | null;
+		}>;
+		for (const review of reviews) {
+			const login = review.user?.login?.trim().toLowerCase();
+			const state = review.state?.toUpperCase();
+			if (!login || !state) continue;
+			if (state === "COMMENTED" || state === "PENDING") continue;
+			latestStateByUser.set(login, state);
+		}
+		if (reviews.length < perPage) break;
+	}
+	let count = 0;
+	for (const state of latestStateByUser.values()) {
+		if (state === "APPROVED") count += 1;
+	}
+	return { ok: true, status: 200, count };
+};
+
 export type PullRequestTimelineItem = {
 	event?: string;
 	user?: { login?: string | null };
