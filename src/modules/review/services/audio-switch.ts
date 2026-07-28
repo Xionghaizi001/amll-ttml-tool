@@ -27,6 +27,25 @@ export type AudioSourceDialogState = {
 	audioSourceInfos?: AudioSourceInfo[];
 };
 
+export type NeteaseIdDialogState = {
+	open: boolean;
+	ids: string[];
+	/** 本次审阅会话中已经选择过的 ID */
+	selectedIds: string[];
+	/** 当前正在使用的 ID */
+	currentId?: string;
+};
+
+const getReviewSessionKey = (session: ReviewSession | null) =>
+	session
+		? `${session.source}:${session.prNumber}:${session.fileName}`
+		: null;
+
+const dedupeIds = (ids?: string[]) => {
+	const cleaned = (ids ?? []).map((id) => id.trim()).filter(Boolean);
+	return [...new Set(cleaned)];
+};
+
 type PushNotification = (
 	payload: Omit<AppNotification, "id" | "createdAt">,
 ) => void;
@@ -45,10 +64,14 @@ export const useAudioSwitch = (options: {
 	const [audioLoadPendingId, setAudioLoadPendingId] = useState<string | null>(
 		null,
 	);
-	const [neteaseIdDialog, setNeteaseIdDialog] = useState<{
+	const [neteaseIdDialogOpen, setNeteaseIdDialogOpen] = useState<{
 		open: boolean;
 		ids: string[];
 	}>({ open: false, ids: [] });
+	const [selectedNcmIds, setSelectedNcmIds] = useState<string[]>([]);
+	const [currentNcmId, setCurrentNcmId] = useState<string | undefined>(
+		undefined,
+	);
 	const [audioSourceDialog, setAudioSourceDialog] =
 		useState<AudioSourceDialogState>({
 			open: false,
@@ -66,7 +89,7 @@ export const useAudioSwitch = (options: {
 			neteaseIdResolveRef.current(null);
 			neteaseIdResolveRef.current = null;
 		}
-		setNeteaseIdDialog({ open: false, ids: [] });
+		setNeteaseIdDialogOpen({ open: false, ids: [] });
 	}, []);
 
 	const handleSelectNeteaseId = useCallback((id: string) => {
@@ -74,7 +97,12 @@ export const useAudioSwitch = (options: {
 			neteaseIdResolveRef.current(id);
 			neteaseIdResolveRef.current = null;
 		}
-		setNeteaseIdDialog({ open: false, ids: [] });
+		setNeteaseIdDialogOpen({ open: false, ids: [] });
+	}, []);
+
+	const markNcmIdSelected = useCallback((id: string) => {
+		setCurrentNcmId(id);
+		setSelectedNcmIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
 	}, []);
 
 	const closeAudioSourceDialog = useCallback(() => {
@@ -94,13 +122,13 @@ export const useAudioSwitch = (options: {
 	}, []);
 
 	const requestNeteaseId = useCallback((ids: string[]) => {
-		if (ids.length <= 1) {
-			return Promise.resolve(ids[0] ?? null);
+		if (ids.length === 0) {
+			return Promise.resolve(null);
 		}
 		if (neteaseIdResolveRef.current) {
 			neteaseIdResolveRef.current(null);
 		}
-		setNeteaseIdDialog({ open: true, ids });
+		setNeteaseIdDialogOpen({ open: true, ids });
 		return new Promise<string | null>((resolve) => {
 			neteaseIdResolveRef.current = resolve;
 		});
@@ -135,10 +163,21 @@ export const useAudioSwitch = (options: {
 		[],
 	);
 
+	const sessionKey = getReviewSessionKey(reviewSession);
+	const lastSessionKeyRef = useRef(sessionKey);
+
+	// 切换到另一个审阅会话时，已选择过的 ID 记录不再适用。
 	useEffect(() => {
-		if (reviewSession || !neteaseIdDialog.open) return;
+		if (lastSessionKeyRef.current === sessionKey) return;
+		lastSessionKeyRef.current = sessionKey;
+		setSelectedNcmIds([]);
+		setCurrentNcmId(undefined);
+	}, [sessionKey]);
+
+	useEffect(() => {
+		if (reviewSession || !neteaseIdDialogOpen.open) return;
 		closeNeteaseIdDialog();
-	}, [closeNeteaseIdDialog, neteaseIdDialog.open, reviewSession]);
+	}, [closeNeteaseIdDialog, neteaseIdDialogOpen.open, reviewSession]);
 
 	useEffect(() => {
 		if (reviewSession || !audioSourceDialog.open) return;
@@ -194,21 +233,29 @@ export const useAudioSwitch = (options: {
 			return;
 		}
 
+		const ncmIds = dedupeIds(reviewSession.ncmIds);
+
+		let selectedSource: AudioSourceOption | null;
 		if (availableAudioSourceInfos.length === 1) {
-			pushNotification({
-				title: `当前只有一个可用音频源：${availableAudioSourceInfos[0].name}，无需切换`,
-				level: "info",
-				source: "review",
-			});
-			return;
+			// 只有一个可用音源时不需要走平台切换流程，
+			// 但网易云音源下仍可在文件内的多个 ID 之间切换。
+			const onlySource = availableAudioSourceInfos[0];
+			if (onlySource.type !== "netease" || ncmIds.length < 2) {
+				pushNotification({
+					title: `当前只有一个可用音频源：${onlySource.name}，无需切换`,
+					level: "info",
+					source: "review",
+				});
+				return;
+			}
+			selectedSource = onlySource.type;
+		} else {
+			selectedSource = await requestAudioSource(
+				audioSourceInfos,
+				reviewSession.audioSource,
+			);
+			if (!selectedSource) return;
 		}
-
-		const selectedSource = await requestAudioSource(
-			audioSourceInfos,
-			reviewSession.audioSource,
-		);
-
-		if (!selectedSource) return;
 
 		setAudioLoadPendingId(selectedSource);
 		try {
@@ -226,7 +273,6 @@ export const useAudioSwitch = (options: {
 					});
 				}
 			} else if (selectedSource === "netease") {
-				const ncmIds = reviewSession.ncmIds || [];
 				let selectedId = ncmIds[0];
 				if (ncmIds.length > 1) {
 					const id = await requestNeteaseId(ncmIds);
@@ -245,6 +291,7 @@ export const useAudioSwitch = (options: {
 						pushNotification,
 						cookie: options.neteaseCookie,
 					});
+					markNcmIdSelected(selectedId);
 					setReviewSession({
 						...reviewSession,
 						audioSource: "netease",
@@ -269,6 +316,7 @@ export const useAudioSwitch = (options: {
 		pushNotification,
 		requestAudioSource,
 		requestNeteaseId,
+		markNcmIdSelected,
 		reviewSession,
 		setReviewSession,
 	]);
@@ -277,6 +325,13 @@ export const useAudioSwitch = (options: {
 		Boolean(
 			reviewSession?.prNumber || reviewSession?.source === "lyrics-site",
 		) && !audioLoadPendingId;
+
+	const neteaseIdDialog: NeteaseIdDialogState = {
+		open: neteaseIdDialogOpen.open,
+		ids: neteaseIdDialogOpen.ids,
+		selectedIds: selectedNcmIds,
+		currentId: currentNcmId,
+	};
 
 	return {
 		neteaseIdDialog,

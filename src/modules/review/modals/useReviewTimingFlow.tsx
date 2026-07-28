@@ -412,6 +412,8 @@ export const useReviewTimingFlow = () => {
 			<NeteaseIdSelectDialog
 				open={neteaseIdDialog.open}
 				ids={neteaseIdDialog.ids}
+				selectedIds={neteaseIdDialog.selectedIds}
+				currentId={neteaseIdDialog.currentId}
 				onSelect={handleSelectNeteaseId}
 				onClose={closeNeteaseIdDialog}
 			/>
