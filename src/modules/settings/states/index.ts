@@ -15,6 +15,13 @@ export enum LayoutMode {
 	Advance = "advance",
 }
 
+export enum TranslationOutputMode {
+	/** Apple Music 样式：逐行翻译/音译写入 `<head>` 的 `<iTunesMetadata>` 中 */
+	AppleMusic = "apple-music",
+	/** AMLL 样式：逐行翻译/音译写入为内嵌的 `x-translation` / `x-roman` */
+	Amll = "amll",
+}
+
 export const latencyTestBPMAtom = atomWithStorage("latencyTestBPM", 120);
 
 export const syncJudgeModeAtom = atomWithStorage(
@@ -23,6 +30,11 @@ export const syncJudgeModeAtom = atomWithStorage(
 );
 
 export const layoutModeAtom = atomWithStorage("layoutMode", LayoutMode.Simple);
+
+export const translationOutputModeAtom = atomWithStorage(
+	"translationOutputMode",
+	TranslationOutputMode.AppleMusic,
+);
 
 export const showWordRomanizationInputAtom = atomWithStorage(
 	"showWordRomanizationInput",
