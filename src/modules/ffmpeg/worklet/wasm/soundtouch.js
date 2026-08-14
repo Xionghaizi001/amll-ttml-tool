@@ -34,6 +34,13 @@ export class SoundTouchProcessor {
         }
     }
     /**
+     * @returns {StretchAlgorithm}
+     */
+    getAlgorithm() {
+        const ret = wasm.soundtouchprocessor_getAlgorithm(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * @returns {number}
      */
     getInputChunkSize() {
@@ -59,11 +66,12 @@ export class SoundTouchProcessor {
     /**
      * @param {number} channels
      * @param {number} sample_rate
+     * @param {StretchAlgorithm | null} [algorithm]
      */
-    constructor(channels, sample_rate) {
+    constructor(channels, sample_rate, algorithm) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.soundtouchprocessor_new(retptr, channels, sample_rate);
+            wasm.soundtouchprocessor_new(retptr, channels, sample_rate, isLikeNone(algorithm) ? 2 : algorithm);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -101,6 +109,29 @@ export class SoundTouchProcessor {
         }
     }
     /**
+     * @param {StretchAlgorithm} algorithm
+     */
+    setAlgorithm(algorithm) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.soundtouchprocessor_setAlgorithm(retptr, this.__wbg_ptr, algorithm);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} factor
+     * @param {boolean} compensate_pitch
+     */
+    setFormantFactor(factor, compensate_pitch) {
+        wasm.soundtouchprocessor_setFormantFactor(this.__wbg_ptr, factor, compensate_pitch);
+    }
+    /**
      * @param {number} pitch
      */
     setPitch(pitch) {
@@ -120,10 +151,18 @@ export class SoundTouchProcessor {
     }
 }
 if (Symbol.dispose) SoundTouchProcessor.prototype[Symbol.dispose] = SoundTouchProcessor.prototype.free;
+
+/**
+ * @enum {0 | 1}
+ */
+export const StretchAlgorithm = Object.freeze({
+    Wsola: 0, "0": "Wsola",
+    Spectral: 1, "1": "Spectral",
+});
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
+        __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
@@ -184,6 +223,10 @@ heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 function takeObject(idx) {
     const ret = getObject(idx);
     dropObject(idx);
@@ -216,11 +259,15 @@ function __wbg_finalize_init(instance, module) {
 
 async function __wbg_load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
+        if (!module.ok) {
+            throw new Error(`failed to fetch Wasm: ${module.status} ${module.statusText} fetching '${module.url}'`);
+        }
+
         if (typeof WebAssembly.instantiateStreaming === 'function') {
             try {
                 return await WebAssembly.instantiateStreaming(module, imports);
             } catch (e) {
-                const validResponse = module.ok && expectedResponseType(module.type);
+                const validResponse = expectedResponseType(module.type);
 
                 if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
                     console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);

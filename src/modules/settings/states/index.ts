@@ -177,3 +177,5 @@ export const audioProxyUrlAtom = atomWithStorage<string>(
 	"audioProxyUrl",
 	"https://tooldl.bikonoo.com",
 );
+export { stretchAlgorithmAtom } from "$/modules/audio/states";
+export type { StretchAlgorithm } from "$/modules/ffmpeg/types.ts";

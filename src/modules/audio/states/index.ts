@@ -1,6 +1,6 @@
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import type { EngineState } from "$/modules/ffmpeg/types.ts";
+import type { EngineState, StretchAlgorithm } from "$/modules/ffmpeg/types.ts";
 import type { BpmAnalysisResult } from "$/modules/ffmpeg/worker/wasm/bpm-analyzer/bpm_analyzer_wasm";
 
 export type BpmState =
@@ -26,6 +26,10 @@ export const bpmFollowPlaybackRateAtom = atomWithStorage(
 export const audioEngineStateAtom = atom<EngineState>("idle");
 export const volumeAtom = atomWithStorage("volume", 0.5);
 export const playbackRateAtom = atomWithStorage("playbackRate", 1);
+export const stretchAlgorithmAtom = atomWithStorage<StretchAlgorithm>(
+	"stretchAlgorithm",
+	"spectral",
+);
 export const audioPlayingAtom = atom(false);
 export const loadedAudioAtom = atom(new Blob([]));
 export const currentDurationAtom = atom(0);

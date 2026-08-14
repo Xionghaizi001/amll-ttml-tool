@@ -5,12 +5,14 @@ import {
 	currentDurationAtom,
 	isAuditioningAtom,
 	loadedAudioAtom,
+	stretchAlgorithmAtom,
 } from "$/modules/audio/states/index.ts";
 import {
 	type AudioTrackMetadata,
 	parseAudioTrackMetadata,
 } from "$/modules/audio/utils/index.ts";
 import { FFmpegAudioEngine } from "$/modules/ffmpeg/index.ts";
+import type { StretchAlgorithm } from "$/modules/ffmpeg/types.ts";
 import workerUrl from "$/modules/ffmpeg/worker/decoder.worker.ts?worker&url";
 import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
 import workletUrl from "$/modules/ffmpeg/worklet/audio.worklet.ts?worker&url";
@@ -108,12 +110,17 @@ class AudioEngineWrapper extends EventTarget {
 		this.engine = new FFmpegAudioEngine({
 			audioContext: this.ctx,
 			gainNode: this.gain,
+			defaultAlgorithm: globalStore.get(stretchAlgorithmAtom) ?? "spectral",
 			assets: {
 				workerUrl,
 				workletUrl,
 				ffmpegWasmUrl,
 				soundtouchWasmUrl,
 			},
+		});
+
+		globalStore.sub(stretchAlgorithmAtom, () => {
+			this.engine.algorithm = globalStore.get(stretchAlgorithmAtom);
 		});
 
 		this.setupEngineListeners();
@@ -201,6 +208,13 @@ class AudioEngineWrapper extends EventTarget {
 	set volume(v: number) {
 		this.engine.volume = v;
 		this.dispatchEvent(new Event("volume-change"));
+	}
+
+	get algorithm(): StretchAlgorithm {
+		return this.engine.algorithm;
+	}
+	set algorithm(v: StretchAlgorithm) {
+		this.engine.algorithm = v;
 	}
 
 	get ctxCurrentTime() {

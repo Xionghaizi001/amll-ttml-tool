@@ -226,6 +226,15 @@
 				"interval": "保存间隔 (分钟)",
 				"limit": "保留快照数量"
 			},
+			"stretchAlgorithm": "音频变速算法",
+			"stretchAlgorithmDesc": {
+				"spectral": "Spectral（频域相位声码器）：保真度更高，但可能略微增加资源占用",
+				"wsola": "WSOLA（时域波形相似叠加）：旧的变速算法。音质较差，但占用低"
+			},
+			"stretchAlgorithmOptions": {
+				"spectral": "Spectral",
+				"wsola": "WSOLA"
+			},
 			"metaSuggestion": {
 				"title": "管理自动建议项",
 				"desc": "导入或导出元数据自动建议项",

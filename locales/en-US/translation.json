@@ -221,6 +221,15 @@
 				"interval": "Save Interval (minutes)",
 				"limit": "Snapshots to keep"
 			},
+			"stretchAlgorithm": "Audio Time-Stretching Algorithm",
+			"stretchAlgorithmDesc": {
+				"spectral": "Spectral (Phase Vocoder): Higher fidelity, but may slightly increase resource usage",
+				"wsola": "WSOLA (Waveform Similarity Overlap-Add): Legacy time-stretching algorithm. Lower audio quality, but lower resource usage"
+			},
+			"stretchAlgorithmOptions": {
+				"spectral": "Spectral",
+				"wsola": "WSOLA"
+			},
 			"metaSuggestion": {
 				"title": "Manage auto suggestions",
 				"desc": "Import or export metadata auto-suggestions",

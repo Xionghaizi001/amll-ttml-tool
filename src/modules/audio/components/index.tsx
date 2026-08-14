@@ -42,6 +42,7 @@ import {
 	audioPlayingAtom,
 	currentDurationAtom,
 	playbackRateAtom,
+	stretchAlgorithmAtom,
 	volumeAtom,
 } from "$/modules/audio/states";
 import { AuditionKeyBinding } from "$/modules/keyboard/components/AuditionKeyBinding";
@@ -151,6 +152,7 @@ export const AudioControls: FC = memo(() => {
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
 	const { openFile, openCachedAudio } = useFileOpener();
+	const stretchAlgorithm = useAtomValue(stretchAlgorithmAtom);
 	const { lyricLines } = useAtomValue(lyricLinesAtom);
 	const { t } = useTranslation();
 	const openTab = useSetAtom(openTabAtom);
@@ -215,6 +217,10 @@ export const AudioControls: FC = memo(() => {
 	useEffect(() => {
 		audioEngine.musicPlayBackRate = playbackRate;
 	}, [playbackRate]);
+
+	useEffect(() => {
+		audioEngine.algorithm = stretchAlgorithm;
+	}, [stretchAlgorithm]);
 
 	return (
 		<Card m="2" mt="0">
