@@ -397,7 +397,8 @@
 				"toYRC": "导出到 YRC",
 				"toLrcfySylb": "导出到 Lyricify Syllable",
 				"toASS": "导出到 ASS 字幕"
-			}
+			},
+			"syllableSmoothing": "平滑时间轴..."
 		}
 	},
 	"header": {
@@ -638,17 +639,7 @@
 		"amount": "偏移量 (毫秒)",
 		"direction": "方向",
 		"advance": "提前 (-)",
-		"delay": "延后 (+)",
-		"scopeLabel": "应用于",
-		"scope": {
-			"all": "所有行",
-			"selected": "所选行",
-			"selectedFollowing": "所选行及其后续",
-			"custom": "自定义范围"
-		},
-		"fromLine": "从",
-		"toLine": "行 到",
-		"line": "行"
+		"delay": "延后 (+)"
 	},
 	"reduceStutterDialog": {
 		"title": "消减卡顿",
@@ -951,5 +942,18 @@
 			"spectrogramCalibration": "使用频谱图校准",
 			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"
 		}
+	},
+	"syllableSmoothingDialog": {
+		"title": "平滑时间轴",
+		"thresholdWarning": "过高的阈值可能会导致过度拉伸音节，影响时间戳的准确性",
+		"thresholdLabel": "平滑阈值",
+		"thresholdLow": "低 (5%)",
+		"thresholdMedium": "中 (15%)",
+		"thresholdHigh": "高 (30%)",
+		"thresholdCustom": "自定义",
+		"customThresholdInput": "阈值",
+		"mergeSyllables": "合并音节",
+		"mergeSyllablesHint": "可以获得类似 Apple Music 的、把 CJK 合并到一起的歌词，但不适合日常使用",
+		"description": "对 CJK 音节的时间轴进行平滑处理\n不会平滑其他语言的音节"
 	}
 }

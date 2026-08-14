@@ -1,6 +1,12 @@
 import { atom } from "jotai";
 import type { ReviewReport } from "$/modules/review/services/report-service/types";
+import { atomWithStorage } from "jotai/utils";
 import type { JsError } from "$/modules/ttml-processor/types";
+
+export const hasDismissedSyllableSmoothingTipAtom = atomWithStorage(
+	"hasDismissedSyllableSmoothingTip",
+	false,
+);
 
 export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
@@ -15,6 +21,7 @@ export const splitWordDialogAtom = atom(false);
 export const replaceWordDialogAtom = atom(false);
 export const advancedSegmentationDialogAtom = atom(false);
 export const timeShiftDialogAtom = atom(false);
+export const syllableSmoothingDialogAtom = atom(false);
 export const distributeRomanizationDialogAtom = atom(false);
 export const notificationCenterDialogAtom = atom(false);
 export type AddLanguageDialogTarget =

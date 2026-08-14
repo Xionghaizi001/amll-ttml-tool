@@ -4,85 +4,29 @@ import {
 	Card,
 	Dialog,
 	Flex,
-	RadioGroup,
 	Text,
-	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	DialogScopeSelector,
+	useDialogScope,
+} from "$/hooks/useDialogScope.tsx";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
-import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
+import { lyricLinesAtom } from "$/states/main";
 import { projectLogger } from "../logger";
-
-type Scope = "all" | "selected" | "selected-following" | "custom";
 
 export const DistributeRomanizationDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(distributeRomanizationDialogAtom);
-	const lyricLines = useAtomValue(lyricLinesAtom);
-	const selectedLines = useAtomValue(selectedLinesAtom);
 	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
-
-	const [scope, setScope] = useState<Scope>("all");
-	const [customStart, setCustomStart] = useState("1");
-	const [customEnd, setCustomEnd] = useState("1");
-
-	const hasSelection = selectedLines.size > 0;
-	const totalLines = lyricLines.lyricLines.length;
-
-	useEffect(() => {
-		if (open) {
-			if (hasSelection) {
-				setScope("selected");
-			} else {
-				setScope("all");
-			}
-			setCustomEnd(totalLines.toString());
-		}
-	}, [open, hasSelection, totalLines]);
+	const scopeState = useDialogScope(open);
 
 	const handleConfirm = () => {
-		const targetLineIndices = new Set<number>();
-
-		if (scope === "all") {
-			for (let i = 0; i < totalLines; i++) targetLineIndices.add(i);
-		} else if (scope === "selected") {
-			lyricLines.lyricLines.forEach((line, index) => {
-				if (selectedLines.has(line.id)) {
-					targetLineIndices.add(index);
-				}
-			});
-		} else if (scope === "selected-following") {
-			let firstSelectedIndex = -1;
-			lyricLines.lyricLines.forEach((line, index) => {
-				if (selectedLines.has(line.id)) {
-					if (firstSelectedIndex === -1 || index < firstSelectedIndex) {
-						firstSelectedIndex = index;
-					}
-				}
-			});
-			if (firstSelectedIndex !== -1) {
-				for (let i = firstSelectedIndex; i < totalLines; i++) {
-					targetLineIndices.add(i);
-				}
-			}
-		} else if (scope === "custom") {
-			const start = parseInt(customStart, 10);
-			const end = parseInt(customEnd, 10);
-			if (!Number.isNaN(start) && !Number.isNaN(end)) {
-				for (
-					let i = Math.max(0, start - 1);
-					i < Math.min(totalLines, end);
-					i++
-				) {
-					targetLineIndices.add(i);
-				}
-			}
-		}
+		const targetLineIndices = scopeState.getTargetLineIndices();
 
 		setLyricLines((draft) => {
 			draft.lyricLines.forEach((line, index) => {
@@ -132,57 +76,7 @@ export const DistributeRomanizationDialog = () => {
 						</Flex>
 					</Card>
 
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="bold">
-							{t("common.applyScope", "应用于")}
-						</Text>
-						<RadioGroup.Root
-							value={scope}
-							onValueChange={(v) => setScope(v as Scope)}
-						>
-							<RadioGroup.Item value="all">
-								{t("common.scope.all", "所有行")}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item value="selected" disabled={!hasSelection}>
-								{t("common.scope.selected", "所选行")}
-								{hasSelection && ` (${selectedLines.size})`}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item
-								value="selected-following"
-								disabled={!hasSelection}
-							>
-								{t("common.scope.selectedFollowing", "所选行及其后续")}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item value="custom">
-								{t("common.scope.custom", "自定义范围")}
-							</RadioGroup.Item>
-						</RadioGroup.Root>
-					</Flex>
-
-					{scope === "custom" && (
-						<Flex align="center" gap="2" ml="4">
-							<Text size="2">{t("common.fromLine", "从")}</Text>
-							<TextField.Root
-								style={{ width: "60px" }}
-								size="1"
-								type="number"
-								value={customStart}
-								onChange={(e) => setCustomStart(e.target.value)}
-							/>
-							<Text size="2">{t("common.toLine", "行 到")}</Text>
-							<TextField.Root
-								style={{ width: "60px" }}
-								size="1"
-								type="number"
-								value={customEnd}
-								onChange={(e) => setCustomEnd(e.target.value)}
-							/>
-							<Text size="2">{t("common.line", "行")}</Text>
-						</Flex>
-					)}
+					<DialogScopeSelector {...scopeState} />
 				</Flex>
 
 				<Flex gap="3" mt="5" justify="end">

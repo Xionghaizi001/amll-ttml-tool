@@ -12,55 +12,40 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	DialogScopeSelector,
+	useDialogScope,
+} from "$/hooks/useDialogScope.tsx";
 import { timeShiftDialogAtom } from "$/states/dialogs.ts";
 import {
 	lyricLinesAtom,
 	pushReviewOperationAtom,
-	selectedLinesAtom,
 	undoableLyricLinesAtom,
 } from "$/states/main.ts";
 import { createReviewTimeShiftOperation } from "$/modules/review/services/operation-log-service";
 import type { TTMLLyric } from "$/types/ttml";
 
 type ShiftDirection = "delay" | "advance";
-type ShiftScope = "all" | "selected" | "selected-following" | "custom";
 
 export const TimeShiftDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(timeShiftDialogAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	useAtomValue(undoableLyricLinesAtom);
-	const selectedLines = useAtomValue(selectedLinesAtom);
 	const setLyricLines = useSetAtom(undoableLyricLinesAtom);
 	const pushReviewOperation = useSetAtom(pushReviewOperationAtom);
+	const scopeState = useDialogScope(open);
 
 	const [offsetStr, setOffsetStr] = useState("100");
 	const [direction, setDirection] = useState<ShiftDirection>("delay");
-	const [scope, setScope] = useState<ShiftScope>("all");
-	const [customStart, setCustomStart] = useState("1");
-	const [customEnd, setCustomEnd] = useState("1");
-
-	const hasSelection = selectedLines.size > 0;
-	const totalLines = lyricLines.lyricLines.length;
 
 	const adjustOffset = (delta: number) => {
 		const current = parseInt(offsetStr, 10);
 		const val = Number.isNaN(current) ? 0 : current;
 		setOffsetStr(Math.max(0, val + delta).toString());
 	};
-
-	useEffect(() => {
-		if (open) {
-			if (hasSelection) {
-				setScope("selected");
-			} else {
-				setScope("all");
-			}
-			setCustomEnd(totalLines.toString());
-		}
-	}, [open, hasSelection, totalLines]);
 
 	const handleConfirm = () => {
 		const amount = parseInt(offsetStr, 10);
@@ -70,51 +55,11 @@ export const TimeShiftDialog = () => {
 		}
 
 		const finalOffset = direction === "delay" ? amount : -amount;
-
-		const targetLineIndices = new Set<number>();
-		const targetLineIds: string[] = [];
-
-		if (scope === "all") {
-			for (let i = 0; i < totalLines; i++) {
-				targetLineIndices.add(i);
-				targetLineIds.push(lyricLines.lyricLines[i].id);
-			}
-		} else if (scope === "selected") {
-			lyricLines.lyricLines.forEach((line, index) => {
-				if (selectedLines.has(line.id)) {
-					targetLineIndices.add(index);
-					targetLineIds.push(line.id);
-				}
-			});
-		} else if (scope === "selected-following") {
-			let firstSelectedIndex = -1;
-			lyricLines.lyricLines.forEach((line, index) => {
-				if (selectedLines.has(line.id)) {
-					if (firstSelectedIndex === -1 || index < firstSelectedIndex) {
-						firstSelectedIndex = index;
-					}
-				}
-			});
-			if (firstSelectedIndex !== -1) {
-				for (let i = firstSelectedIndex; i < totalLines; i++) {
-					targetLineIndices.add(i);
-					targetLineIds.push(lyricLines.lyricLines[i].id);
-				}
-			}
-		} else if (scope === "custom") {
-			const start = parseInt(customStart, 10);
-			const end = parseInt(customEnd, 10);
-			if (!Number.isNaN(start) && !Number.isNaN(end)) {
-				for (
-					let i = Math.max(0, start - 1);
-					i < Math.min(totalLines, end);
-					i++
-				) {
-					targetLineIndices.add(i);
-					targetLineIds.push(lyricLines.lyricLines[i].id);
-				}
-			}
-		}
+		const targetLineIndices = scopeState.getTargetLineIndices();
+		const targetLineIds = Array.from(
+			targetLineIndices,
+			(index) => lyricLines.lyricLines[index].id,
+		);
 
 		if (targetLineIds.length > 0) {
 			pushReviewOperation(
@@ -206,57 +151,7 @@ export const TimeShiftDialog = () => {
 						</RadioGroup.Root>
 					</Flex>
 
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="bold">
-							{t("timeShiftDialog.scopeLabel", "应用于")}
-						</Text>
-						<RadioGroup.Root
-							value={scope}
-							onValueChange={(v) => setScope(v as ShiftScope)}
-						>
-							<RadioGroup.Item value="all">
-								{t("timeShiftDialog.scope.all", "所有行")}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item value="selected" disabled={!hasSelection}>
-								{t("timeShiftDialog.scope.selected", "所选行")}
-								{hasSelection && ` (${selectedLines.size})`}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item
-								value="selected-following"
-								disabled={!hasSelection}
-							>
-								{t("timeShiftDialog.scope.selectedFollowing", "所选行及其后续")}
-							</RadioGroup.Item>
-
-							<RadioGroup.Item value="custom">
-								{t("timeShiftDialog.scope.custom", "自定义范围")}
-							</RadioGroup.Item>
-						</RadioGroup.Root>
-					</Flex>
-
-					{scope === "custom" && (
-						<Flex align="center" gap="2" ml="4">
-							<Text size="2">{t("timeShiftDialog.fromLine", "从")}</Text>
-							<TextField.Root
-								style={{ width: "60px" }}
-								size="1"
-								type="number"
-								value={customStart}
-								onChange={(e) => setCustomStart(e.target.value)}
-							/>
-							<Text size="2">{t("timeShiftDialog.toLine", "行 到")}</Text>
-							<TextField.Root
-								style={{ width: "60px" }}
-								size="1"
-								type="number"
-								value={customEnd}
-								onChange={(e) => setCustomEnd(e.target.value)}
-							/>
-							<Text size="2">{t("timeShiftDialog.line", "行")}</Text>
-						</Flex>
-					)}
+					<DialogScopeSelector {...scopeState} />
 				</Flex>
 
 				<Flex gap="3" mt="5" justify="end">

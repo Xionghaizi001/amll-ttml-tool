@@ -1,6 +1,7 @@
 import { LatencyTestDialog } from "$/modules/audio/modals/LatencyTest.tsx";
 import { ImportFromLRCLIB } from "$/modules/lrclib/modals/ImportDialog.tsx";
 import { ReplaceWordDialog } from "$/modules/lyric-editor/tools/ReplaceWordDialog.tsx";
+import { SyllableSmoothingDialog } from "$/modules/lyric-editor/tools/SyllableSmoothingDialog.tsx";
 import { TimeShiftDialog } from "$/modules/lyric-editor/tools/TimeShift.tsx";
 import { AgentManager } from "$/modules/project/modals/AgentManager.tsx";
 import { DistributeRomanizationDialog } from "$/modules/project/modals/DistributeRomanization.tsx";
@@ -39,6 +40,7 @@ export const Dialogs = () => {
 			<HistoryRestoreDialog />
 			<AdvancedSegmentationDialog />
 			<TimeShiftDialog />
+			<SyllableSmoothingDialog />
 			<DistributeRomanizationDialog />
 			<AddLanguageDialog />
 			<NotificationCenterDialog />
