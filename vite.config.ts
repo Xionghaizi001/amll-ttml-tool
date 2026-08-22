@@ -117,6 +117,9 @@ export default defineConfig({
 		},
 		strictPort: true,
 	},
+	optimizeDeps: {
+		include: ["@extism/extism"],
+	},
 	envPrefix: ["VITE_", "TAURI_", "AMLL_", "SENTRY_"],
 	build: {
 		// produce sourcemaps

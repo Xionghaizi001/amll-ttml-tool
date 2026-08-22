@@ -28,5 +28,6 @@
 			"@amll-ttml-tool/plugin-api/*": ["./packages/plugin-api/src/*"]
 		}
 	},
-	"include": ["src", "packages/plugin-api/src"]
+	"include": ["src", "packages/plugin-api/src"],
+	"exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

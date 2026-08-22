@@ -4,72 +4,91 @@
 
 ## 为什么这份清单必须由人在真机上跑一遍
 
-Extism 的浏览器 SDK 依赖 `WebAssembly` + `SharedArrayBuffer`（可选）+ Worker。
-不同目标的 WebView 内核不同：
+宿主把 Extism 放进独立 Worker，并使用 SDK 的 `runInWorker: false` 模式；因此浏览器主线程不执行 WASM，
+也不强制依赖 `SharedArrayBuffer`。Extism 自带的二级 Worker 模式仍需要 COOP/COEP，所以本 PoC 不使用它。
+当前项目优先验收浏览器和 Tauri Windows：
 
 | 目标                 | WebView 内核        | 风险                                        |
 | -------------------- | ------------------- | ------------------------------------------- |
 | 浏览器（Chromium）   | Blink               | 低                                          |
 | Tauri Windows        | WebView2 (Blink)    | 低，但 COOP/COEP 头由自定义协议提供         |
-| Tauri macOS / Linux  | WKWebView / WebKitGTK | **高**：WASM 特性支持与内存上限差异最大   |
 
-CI 与本仓库的自动化测试都跑在 Node 上，**测不出 WebKit 的问题**。因此本文件是一份需要人工执行
-并回填结果的清单。
+macOS 与 Linux 暂不作为当前项目的优先支持目标；对应平台用户可以自行执行诊断页，验证本地
+WebView 的可用性。CI 与本仓库的自动化测试都跑在 Node 上，因此本文件是一份需要人工执行并回填
+结果的清单。
 
 ## 如何跑
 
-1. `pnpm dev`，在应用中打开插件运行时诊断页（仅 `import.meta.env.DEV` 可见）。
-2. 拖入一个 Extism 插件 `.wasm`（示例插件见 `examples/plugins/`，用 `pnpm plugin:build:example` 构建，
-   需要 Rust 工具链 + `wasm32-unknown-unknown` target）。
-3. 依次执行下方每一项，把结果回填进表格。
-4. 在 Tauri 上重复：`pnpm tauri dev`（Windows / macOS / Linux 各一次）。
+1. 运行 `pnpm plugin:build:example`，构建 `examples/plugins/echo/` 并生成 `public/plugins/echo.wasm`。
+2. 运行 `pnpm dev`，打开 `/?plugin-runtime=1` 进入诊断页（仅 `import.meta.env.DEV` 可见）。
+3. 也可以在诊断页拖入其它 Extism `.wasm` 插件；示例插件需要 Rust 工具链和 `wasm32-unknown-unknown` target。
+4. 依次执行下方每一项，把结果回填进表格。
+5. 在 Tauri Windows 上重复：`pnpm tauri dev`。
+
+诊断页额外提供四个性能/恢复按钮：
+
+- `显式终止`：终止当前 Worker；随后点击 `JSON roundtrip`，应自动重建 Worker 并成功调用。
+- `空调用 ×1000`：先预热 10 次，再执行 1000 次空输入 `echo_json`，输出 p50、p95、平均和最大延迟。
+- `1 MiB JSON 往返`：生成恰好 1 MiB 的 JSON，测量 JSON 序列化、Worker 往返和解析的总耗时。
+- `10 Runtime 内存`：创建 10 个独立 Runtime 并加载插件；若 WebView 提供 `performance.memory`，输出
+  JS heap 增量和每插件平均值。该数值不包含 Worker 原生内存，无法替代任务管理器观察。
 
 ## 验收项
 
 | #   | 检查项                                        | 通过标准                                       |
 | --- | --------------------------------------------- | ---------------------------------------------- |
-| 1   | 最小插件：接收 JSON，返回 JSON                | 往返数据一致                                   |
-| 2   | 浏览器 Worker 中加载                          | 主线程无阻塞（长任务 < 50 ms）                 |
+| 1   | 最小插件：接收 JSON，返回 JSON                | `echo_json` 往返数据一致                       |
+| 2   | 浏览器 Worker 中加载                          | `extism.worker` 加载且主线程无阻塞              |
 | 3   | Tauri Windows 加载                            | 同上                                           |
-| 4   | Tauri WebKit（macOS 与 Linux）加载            | 同上；**这一项失败即触发运行时方案重选**       |
-| 5   | 插件终止（`terminate()`）                     | Worker 真的退出，内存回落                      |
-| 6   | 调用超时                                      | 到达 `timeoutMs` 返回 `timeout` 且 Worker 被杀 |
-| 7   | 重复加载同一插件 20 次                        | 无句柄泄漏，内存回到基线 ±10%                  |
-| 8   | 大 payload（1 MiB / 8 MiB 文档）              | 要么成功，要么干净地返回 `payload-too-large`   |
-| 9   | 插件主动崩溃（unreachable / panic）           | 宿主收到 `plugin-crashed`，编辑器不受影响      |
-| 10  | 语言 PDK：Rust                                | 能构建并通过第 1 项                            |
-| 11  | 语言 PDK：低门槛语言（JS via Extism JS PDK）  | 能构建并通过第 1 项                            |
-| 12  | Extism 未泄漏到业务模块                       | 见下方 grep 断言                               |
+| 4   | 插件终止（`terminate()`）                     | Worker 真的退出，内存回落                      |
+| 5   | 调用超时                                      | 到达 `timeoutMs` 返回 `timeout` 且 Worker 被杀 |
+| 6   | 重复加载同一插件 20 次                        | 无句柄泄漏，内存回到基线 ±10%                  |
+| 7   | 大 payload（1 MiB / 8 MiB 文档）              | 超过 1 MiB 干净返回 `payload-too-large`        |
+| 8   | 插件主动崩溃（unreachable / panic）           | 宿主收到 `plugin-crashed`，编辑器不受影响      |
+| 9   | 语言 PDK：Rust                                | 能构建并通过第 1 项                            |
+| 10  | 语言 PDK：低门槛语言（JS via Extism JS PDK）  | 能构建并通过第 1 项                            |
+| 11  | Extism 未泄漏到业务模块                       | `boundary.test.ts` 与 grep 断言均为空           |
 
-### 第 12 项的自动化断言
+### 第 11 项的自动化断言
 
 ```bash
 # 只允许 src/plugins/runtime/** 出现 extism
 grep -rl "extism" src --include=*.ts --include=*.tsx | grep -v "^src/plugins/runtime/"
 # 期望输出为空
 ```
-这条断言已写进单元测试（`src/plugins/runtime/*.test.ts`），CI 会守住。
+这条断言已写进 `src/plugins/runtime/boundary.test.ts`，CI 会守住。
+
+## 当前自动验证结果
+
+- 已验证：Rust 示例插件编译、Node Extism JSON roundtrip、WASM trap 映射、Worker 协议单测、超时后的
+  Worker 终止与重启、payload 上限、重复加载指标、生产构建和 Extism import boundary。
+- 需要真机回填：Chromium 页面、Tauri Windows 的启动与内存数据。
+- macOS/Linux 不在当前优先验收范围内，平台用户可自行回填可用性数据。
+- JS PDK 尚未加入依赖锁定；当前不能把第 10 项标记为通过。若需要 JS PDK，先确认目标 PDK 的构建工具
+  与版本，再把生成的 WASM 放入同一诊断页验证。
+
+自动化验证：
+
+```powershell
+pnpm test
+```
+
+其中包括 Worker 超时/崩溃后的自动恢复、payload 上限、真实 Rust WASM 往返，以及基准辅助函数的
+分位数和精确 1 MiB JSON 测试。
 
 ## 性能记录模板
 
 在每个平台上记录，作为后续回归基线：
 
-| 指标                          | 浏览器 | Tauri Win | Tauri macOS | Tauri Linux |
-| ----------------------------- | ------ | --------- | ----------- | ----------- |
-| 冷启动（首次 load 到 ready）  |        |           |             |             |
-| 热启动（第 2 次 load）        |        |           |             |             |
-| 空调用往返延迟（p50 / p95）   |        |           |             |             |
-| 1 MiB 文档序列化 + 往返       |        |           |             |             |
-| 插件包体（wasm 大小）         |        |           |             |             |
-| 常驻内存增量（每插件）        |        |           |             |             |
+| 指标                          | 浏览器 | Tauri Win |
+| ----------------------------- | ------ | --------- |
+| 冷启动（首次 load 到 ready）  |load 42.4 ms, input=974 B, output=0 B | load 44.7 ms, input=974 B, output=0 B|
+| 热启动（第 2 次 load）        |  load 4.3 ms, input=974 B, output=0 B      |load 10.5 ms, input=974 B, output=0 B|
+| 空调用往返延迟（p50 / p95）   |p50=0.11 ms，p95=0.16 ms，avg=0.12 ms，max=3.75 ms|p50=0.14 ms，p95=0.21 ms，avg=0.15 ms，max=3.00 ms|
+| 1 MiB 文档序列化 + 往返       |1048576 B，95.86 ms|1048576 B，97.70 ms|
+| 插件包体（wasm 大小）（测试包）         |974 bytes|974 bytes|
+| 常驻内存增量（每插件）        |JS heap 增量 -3.55 MiB，平均 -0.36 MiB / 插件；不含 Worker 原生内存|JS heap 增量 -2.89 MiB，平均 -0.29 MiB / 插件；不含 Worker 原生内存|
 
-## 若第 4 项失败的备选方案
-
-按优先级：
-
-1. **仅 Worker + JS 沙箱**：放弃 WASM，改用 Worker 内的受限 JS（丢失多语言支持，且需要更严格的
-   能力裁剪）。
-2. **wasmtime/wasmer 侧车进程**：Tauri 端用 Rust 侧车跑 WASM，Web 端降级为不支持功能插件。
-3. **仅 Tauri 支持功能插件**：Web 版只支持主题插件。
-
-无论选哪个，改动都应当被 `PluginRuntime` 接口挡住，只影响 `src/plugins/runtime/`。
+macOS/Linux 的 WASM 与 WebView 兼容性由对应平台用户自行测试；如需在这些平台正式支持，应在目标
+平台完成独立验收后再决定是否调整运行时方案。相关改动仍应被 `PluginRuntime` 接口挡住，只影响
+`src/plugins/runtime/`。

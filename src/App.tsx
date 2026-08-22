@@ -61,6 +61,7 @@ import {
 	ttmlLyricToAmllResult,
 } from "./modules/ttml-processor/index.ts";
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
+import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	isDarkThemeAtom,
@@ -143,7 +144,7 @@ const AppErrorPage = ({
 	);
 };
 
-function App() {
+function EditorApp() {
 	const isDarkTheme = useAtomValue(isDarkThemeAtom);
 	const toolMode = useAtomValue(toolModeAtom);
 	const showTouchSyncPanel = useAtomValue(showTouchSyncPanelAtom);
@@ -173,6 +174,17 @@ function App() {
 			checkUpdate(true);
 		}
 	}, [checkUpdate]);
+
+	useEffect(() => {
+		if (
+			import.meta.env.TAURI_ENV_PLATFORM &&
+			platform() === "windows" &&
+			semverGt("10.0.22000", version())
+		) {
+			setHasBackground(true);
+			void getCurrentWindow().clearEffects();
+		}
+	}, []);
 
 	useEffect(() => {
 		if (status === "available" && update && !hasNotifiedRef.current) {
@@ -227,26 +239,6 @@ function App() {
 			}
 		})();
 	}, [openFile]);
-
-	useEffect(() => {
-		if (!import.meta.env.TAURI_ENV_PLATFORM) {
-			return;
-		}
-
-		(async () => {
-			const win = getCurrentWindow();
-			if (platform() === "windows") {
-				if (semverGt("10.0.22000", version())) {
-					setHasBackground(true);
-					await win.clearEffects();
-				}
-			}
-
-			await new Promise((r) => requestAnimationFrame(r));
-
-			await win.show();
-		})();
-	}, []);
 
 	useEffect(() => {
 		const onBeforeClose = (evt: BeforeUnloadEvent) => {
@@ -400,6 +392,34 @@ function App() {
 			</ErrorBoundary>
 		</Theme>
 	);
+}
+
+function App() {
+	useEffect(() => {
+		if (!import.meta.env.TAURI_ENV_PLATFORM) {
+			return;
+		}
+
+		(async () => {
+			const win = getCurrentWindow();
+			if (platform() === "windows" && semverGt("10.0.22000", version())) {
+				await win.clearEffects();
+			}
+
+			await new Promise((r) => requestAnimationFrame(r));
+			await win.show();
+		})();
+	}, []);
+
+	const showPluginRuntimeDiagnostics =
+		import.meta.env.DEV &&
+		new URLSearchParams(window.location.search).get("plugin-runtime") === "1";
+
+	if (showPluginRuntimeDiagnostics) {
+		return <PluginRuntimeDiagnostics />;
+	}
+
+	return <EditorApp />;
 }
 
 export default App;
