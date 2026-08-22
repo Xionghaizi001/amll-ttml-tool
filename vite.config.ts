@@ -162,6 +162,10 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
+			"@amll-ttml-tool/plugin-api": resolve(
+				__dirname,
+				"packages/plugin-api/src/index.ts",
+			),
 			$: resolve(__dirname, "src"),
 		},
 	},
