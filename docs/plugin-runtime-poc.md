@@ -25,6 +25,22 @@ WebView 的可用性。CI 与本仓库的自动化测试都跑在 Node 上，因
 4. 依次执行下方每一项，把结果回填进表格。
 5. 在 Tauri Windows 上重复：`pnpm tauri dev`。
 
+### PDK 示例构建
+
+Rust PDK 和 C# PDK 示例可通过以下命令构建：
+
+```powershell
+# Rust: extism-pdk 1.4.1；要求 wasm32-unknown-unknown
+# C#: .NET 8 SDK、wasi-experimental workload，以及 x86_64 WASI SDK
+$env:WASI_SDK_PATH = "C:\path\to\wasi-sdk-24.0-x86_64-windows"
+pnpm plugin:build:pdk
+```
+
+`WASI_SDK_PATH` 必须指向 x86_64 Windows WASI SDK，不能使用 ARM 版本。构建产物为
+`public/plugins/rust-pdk-echo.wasm` 和 `public/plugins/csharp-pdk-echo.wasm`。
+诊断页中的“加载 Rust PDK”和“加载 C# PDK（WASI）”按钮会自动加载对应产物；C# 插件需要显式
+启用 WASI，普通插件默认不启用 WASI。
+
 诊断页额外提供四个性能/恢复按钮：
 
 - `显式终止`：终止当前 Worker；随后点击 `JSON roundtrip`，应自动重建 Worker 并成功调用。
@@ -45,8 +61,8 @@ WebView 的可用性。CI 与本仓库的自动化测试都跑在 Node 上，因
 | 6   | 重复加载同一插件 20 次                        | 无句柄泄漏，内存回到基线 ±10%                  |
 | 7   | 大 payload（1 MiB / 8 MiB 文档）              | 超过 1 MiB 干净返回 `payload-too-large`        |
 | 8   | 插件主动崩溃（unreachable / panic）           | 宿主收到 `plugin-crashed`，编辑器不受影响      |
-| 9   | 语言 PDK：Rust                                | 能构建并通过第 1 项                            |
-| 10  | 语言 PDK：低门槛语言（JS via Extism JS PDK）  | 能构建并通过第 1 项                            |
+| 9   | 语言 PDK：Rust                                | `extism-pdk` 构建并通过 `echo_json`            |
+| 10  | 语言 PDK：C#                                   | `Extism.Pdk` + WASI 构建并通过 `echo_json`      |
 | 11  | Extism 未泄漏到业务模块                       | `boundary.test.ts` 与 grep 断言均为空           |
 
 ### 第 11 项的自动化断言
@@ -64,8 +80,10 @@ grep -rl "extism" src --include=*.ts --include=*.tsx | grep -v "^src/plugins/run
   Worker 终止与重启、payload 上限、重复加载指标、生产构建和 Extism import boundary。
 - 需要真机回填：Chromium 页面、Tauri Windows 的启动与内存数据。
 - macOS/Linux 不在当前优先验收范围内，平台用户可自行回填可用性数据。
-- JS PDK 尚未加入依赖锁定；当前不能把第 10 项标记为通过。若需要 JS PDK，先确认目标 PDK 的构建工具
-  与版本，再把生成的 WASM 放入同一诊断页验证。
+- 已验证：Rust `extism-pdk` 1.4.1 构建和 Node Extism roundtrip；C# `Extism.Pdk` 1.1.1 在
+  .NET 8 + `wasi-experimental` + x86_64 WASI SDK 下构建，并通过启用 WASI 的 Node Extism roundtrip。
+- C# PDK 产物约 22.6 MiB，明显大于 Rust PDK；其 WASI host imports 中 HTTP 能力在当前宿主中保持关闭。
+- JS PDK 尚未加入依赖锁定；如需 JS PDK，先确认目标 PDK 的构建工具与版本，再把生成的 WASM 放入同一诊断页验证。
 
 自动化验证：
 

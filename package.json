@@ -12,6 +12,7 @@
 		"preview": "vite preview",
 		"locale:gen": "i18next-cli extract",
 		"plugin:build:example": "node scripts/build-plugin-example.mjs",
+		"plugin:build:pdk": "node scripts/build-plugin-pdk.mjs",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},

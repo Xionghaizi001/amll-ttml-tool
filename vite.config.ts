@@ -55,6 +55,7 @@ const plugins: PluginOption = [
 		disable: !!process.env.TAURI_PLATFORM,
 		workbox: {
 			globPatterns: ["**/*.{js,css,html,wasm}"],
+			globIgnores: ["plugins/csharp-pdk-echo.wasm"],
 			maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
 		},
 		manifest: {

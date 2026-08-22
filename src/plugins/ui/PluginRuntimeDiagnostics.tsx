@@ -3,6 +3,7 @@ import {
 	Dialog,
 	Flex,
 	ScrollArea,
+	Select,
 	Text,
 	TextArea,
 	Theme,
@@ -12,6 +13,8 @@ import {
 	ExtismWorkerRuntime,
 	PluginRuntimeError,
 	type PluginRuntimeMetric,
+	resolveWasiMode,
+	type WasmLoadMode,
 } from "../runtime";
 import {
 	createJsonPayload,
@@ -58,6 +61,8 @@ export default function PluginRuntimeDiagnostics() {
 	const [open, setOpen] = useState(true);
 	const [wasm, setWasm] = useState<Uint8Array | null>(null);
 	const [wasmLabel, setWasmLabel] = useState("未加载插件");
+	const [wasmUseWasi, setWasmUseWasi] = useState(false);
+	const [wasmLoadMode, setWasmLoadMode] = useState<WasmLoadMode>("auto");
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState("等待加载 WASM 插件");
 	const [output, setOutput] = useState("");
@@ -76,15 +81,21 @@ export default function PluginRuntimeDiagnostics() {
 		setMetrics(runtimeRef.current?.getMetrics() ?? []);
 	};
 
-	const loadBytes = async (bytes: Uint8Array, label: string) => {
+	const loadBytes = async (
+		bytes: Uint8Array,
+		label: string,
+		loadMode: WasmLoadMode = "auto",
+	) => {
 		const runtime = runtimeRef.current;
 		if (!runtime) return;
 		setBusy(true);
 		try {
-			await runtime.load(bytes);
+			const useWasi = resolveWasiMode(bytes, loadMode);
+			await runtime.load(bytes, { useWasi });
 			setWasm(bytes);
 			setWasmLabel(label);
-			setStatus(`已加载 ${label}`);
+			setWasmUseWasi(useWasi);
+			setStatus(`已加载 ${label}（WASI=${String(useWasi)}）`);
 			setOutput("");
 		} catch (error) {
 			setStatus(formatError(error));
@@ -104,6 +115,25 @@ export default function PluginRuntimeDiagnostics() {
 			await loadBytes(
 				new Uint8Array(await response.arrayBuffer()),
 				"echo.wasm",
+				"disabled",
+			);
+		} catch (error) {
+			setStatus(formatError(error));
+		}
+	};
+
+	const loadPdkSample = async (label: "rust" | "csharp") => {
+		try {
+			const fileName =
+				label === "rust" ? "rust-pdk-echo.wasm" : "csharp-pdk-echo.wasm";
+			const url = new URL(`plugins/${fileName}`, document.baseURI);
+			const response = await fetch(url);
+			if (!response.ok)
+				throw new Error(`无法加载 ${fileName}：HTTP ${response.status}`);
+			await loadBytes(
+				new Uint8Array(await response.arrayBuffer()),
+				fileName,
+				label === "csharp" ? "enabled" : "disabled",
 			);
 		} catch (error) {
 			setStatus(formatError(error));
@@ -230,7 +260,7 @@ export default function PluginRuntimeDiagnostics() {
 		try {
 			for (let index = 0; index < 10; index += 1) {
 				const runtime = new ExtismWorkerRuntime({ timeoutMs: 5000 });
-				await runtime.load(wasm);
+				await runtime.load(wasm, { useWasi: wasmUseWasi });
 				runtimes.push(runtime);
 			}
 			await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -262,7 +292,7 @@ export default function PluginRuntimeDiagnostics() {
 		setBusy(true);
 		try {
 			for (let index = 0; index < 20; index += 1) {
-				await runtime.load(wasm);
+				await runtime.load(wasm, { useWasi: wasmUseWasi });
 			}
 			setStatus("已完成重复加载 20 次");
 		} catch (error) {
@@ -285,13 +315,16 @@ export default function PluginRuntimeDiagnostics() {
 			<Dialog.Root open={open} onOpenChange={setOpen}>
 				<Dialog.Content maxWidth="720px">
 					<Dialog.Title>插件运行时诊断</Dialog.Title>
-					<Dialog.Description size="2" mb="4">
-						阶段 1 Extism Worker PoC
-					</Dialog.Description>
 					<Flex direction="column" gap="3">
 						<Flex gap="2" wrap="wrap">
 							<Button onClick={loadSample} disabled={busy}>
 								加载示例插件
+							</Button>
+							<Button onClick={() => loadPdkSample("rust")} disabled={busy}>
+								加载 Rust PDK
+							</Button>
+							<Button onClick={() => loadPdkSample("csharp")} disabled={busy}>
+								加载 C# PDK（WASI）
 							</Button>
 							<label>
 								<Button asChild disabled={busy}>
@@ -307,13 +340,32 @@ export default function PluginRuntimeDiagnostics() {
 										void file
 											.arrayBuffer()
 											.then((bytes) =>
-												loadBytes(new Uint8Array(bytes), file.name),
+												loadBytes(
+													new Uint8Array(bytes),
+													file.name,
+													wasmLoadMode,
+												),
 											);
 									}}
 								/>
 							</label>
+							<Select.Root
+								value={wasmLoadMode}
+								onValueChange={(value) =>
+									setWasmLoadMode(value as WasmLoadMode)
+								}
+							>
+								<Select.Trigger aria-label="WASI 加载模式" />
+								<Select.Content>
+									<Select.Item value="auto">自动检测 WASI</Select.Item>
+									<Select.Item value="disabled">关闭 WASI</Select.Item>
+									<Select.Item value="enabled">启用 WASI</Select.Item>
+								</Select.Content>
+							</Select.Root>
 						</Flex>
-						<Text size="2">插件：{wasmLabel}</Text>
+						<Text size="2">
+							插件：{wasmLabel}，WASI={String(wasmUseWasi)}
+						</Text>
 						<Text size="2" color={status.includes("成功") ? "green" : "gray"}>
 							状态：{status}
 						</Text>

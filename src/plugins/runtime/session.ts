@@ -1,6 +1,7 @@
 import createPlugin, { type Plugin } from "@extism/extism";
 import {
 	MAX_PLUGIN_PAYLOAD_BYTES,
+	MAX_PLUGIN_WASM_BYTES,
 	PluginRuntimeError,
 	type PluginRuntimeErrorCode,
 } from "./types.ts";
@@ -16,14 +17,14 @@ function classifyError(error: unknown): PluginRuntimeErrorCode {
 export class ExtismPluginSession {
 	private plugin: Plugin | null = null;
 
-	async load(wasm: Uint8Array): Promise<void> {
+	async load(wasm: Uint8Array, useWasi = false): Promise<void> {
 		if (wasm.byteLength === 0) {
 			throw new PluginRuntimeError("invalid-params", "WASM payload is empty");
 		}
-		if (wasm.byteLength > MAX_PLUGIN_PAYLOAD_BYTES) {
+		if (wasm.byteLength > MAX_PLUGIN_WASM_BYTES) {
 			throw new PluginRuntimeError(
 				"payload-too-large",
-				`WASM payload exceeds ${MAX_PLUGIN_PAYLOAD_BYTES} bytes`,
+				`WASM payload exceeds ${MAX_PLUGIN_WASM_BYTES} bytes`,
 			);
 		}
 
@@ -31,7 +32,19 @@ export class ExtismPluginSession {
 		try {
 			this.plugin = await createPlugin(
 				{ wasm: [{ data: new Uint8Array(wasm) }] },
-				{ useWasi: false, runInWorker: false },
+				{
+					useWasi,
+					runInWorker: false,
+					functions: useWasi
+						? {
+								"extism:host/env": {
+									get_log_level: () => 0,
+									http_headers: () => 0n,
+									log_trace: () => undefined,
+								},
+							}
+						: undefined,
+				},
 			);
 		} catch (error) {
 			throw new PluginRuntimeError(classifyError(error), String(error));

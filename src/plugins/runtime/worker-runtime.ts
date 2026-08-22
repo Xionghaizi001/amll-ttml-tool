@@ -1,5 +1,6 @@
 import {
 	MAX_PLUGIN_PAYLOAD_BYTES,
+	MAX_PLUGIN_WASM_BYTES,
 	type PluginRuntime,
 	PluginRuntimeError,
 	type PluginRuntimeMetric,
@@ -30,7 +31,9 @@ export class ExtismWorkerRuntime implements PluginRuntime {
 	private readonly workerFactory: RuntimeWorkerFactory;
 	private readonly defaultTimeoutMs: number;
 	private readonly maxPayloadBytes: number;
+	private readonly maxWasmBytes: number;
 	private loadedWasm: Uint8Array | null = null;
+	private loadedUseWasi = false;
 	private workerReady = false;
 	private recoveryPromise: Promise<void> | null = null;
 
@@ -42,20 +45,27 @@ export class ExtismWorkerRuntime implements PluginRuntime {
 		this.workerFactory = options.workerFactory ?? defaultWorkerFactory;
 		this.defaultTimeoutMs = options.timeoutMs ?? 5000;
 		this.maxPayloadBytes = options.maxPayloadBytes ?? MAX_PLUGIN_PAYLOAD_BYTES;
+		this.maxWasmBytes = options.maxWasmBytes ?? MAX_PLUGIN_WASM_BYTES;
 	}
 
 	async load(
 		wasm: Uint8Array,
 		options: PluginRuntimeOptions = {},
 	): Promise<void> {
-		this.assertPayloadSize(wasm);
+		if (wasm.byteLength > this.maxWasmBytes) {
+			throw new PluginRuntimeError(
+				"payload-too-large",
+				`WASM payload exceeds ${this.maxWasmBytes} bytes`,
+			);
+		}
 		this.workerReady = false;
 		const startedAt = performance.now();
 		await this.request(
-			{ type: "load", wasm: wasm.slice().buffer },
+			{ type: "load", wasm: wasm.slice().buffer, useWasi: options.useWasi },
 			options.timeoutMs,
 		);
 		this.loadedWasm = wasm.slice();
+		this.loadedUseWasi = options.useWasi ?? false;
 		this.workerReady = true;
 		this.recordMetric({
 			operation: "load",
@@ -102,6 +112,7 @@ export class ExtismWorkerRuntime implements PluginRuntime {
 	async close(): Promise<void> {
 		if (!this.worker) {
 			this.loadedWasm = null;
+			this.loadedUseWasi = false;
 			this.workerReady = false;
 			return;
 		}
@@ -109,6 +120,7 @@ export class ExtismWorkerRuntime implements PluginRuntime {
 			await this.request({ type: "close" }, this.defaultTimeoutMs);
 		} finally {
 			this.loadedWasm = null;
+			this.loadedUseWasi = false;
 			this.workerReady = false;
 			this.fail(new PluginRuntimeError("cancelled", "Plugin runtime closed"));
 		}
@@ -157,7 +169,11 @@ export class ExtismWorkerRuntime implements PluginRuntime {
 		if (!this.recoveryPromise) {
 			const wasm = this.loadedWasm;
 			this.recoveryPromise = this.request(
-				{ type: "load", wasm: wasm.slice().buffer },
+				{
+					type: "load",
+					wasm: wasm.slice().buffer,
+					useWasi: this.loadedUseWasi,
+				},
 				timeoutMs,
 			)
 				.then(() => {

@@ -27,7 +27,7 @@ workerScope.onmessage = async (event: MessageEvent<RuntimeRequest>) => {
 	const request = event.data;
 	try {
 		if (request.type === "load") {
-			await session.load(new Uint8Array(request.wasm));
+			await session.load(new Uint8Array(request.wasm), request.useWasi);
 			workerScope.postMessage({
 				id: request.id,
 				ok: true,

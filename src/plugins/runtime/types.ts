@@ -1,4 +1,5 @@
 export const MAX_PLUGIN_PAYLOAD_BYTES = 1024 * 1024;
+export const MAX_PLUGIN_WASM_BYTES = 32 * 1024 * 1024;
 
 export type PluginRuntimeErrorCode =
 	| "invalid-params"
@@ -32,6 +33,8 @@ export interface PluginRuntimeMetric {
 export interface PluginRuntimeOptions {
 	timeoutMs?: number;
 	maxPayloadBytes?: number;
+	maxWasmBytes?: number;
+	useWasi?: boolean;
 }
 
 export interface PluginRuntime {
@@ -51,7 +54,11 @@ export interface RuntimeRequestBase {
 }
 
 export type RuntimeRequest =
-	| (RuntimeRequestBase & { type: "load"; wasm: ArrayBuffer })
+	| (RuntimeRequestBase & {
+			type: "load";
+			wasm: ArrayBuffer;
+			useWasi?: boolean;
+	  })
 	| (RuntimeRequestBase & {
 			type: "call";
 			exportName: string;
@@ -60,7 +67,7 @@ export type RuntimeRequest =
 	| (RuntimeRequestBase & { type: "close" });
 
 export type RuntimeRequestPayload =
-	| { type: "load"; wasm: ArrayBuffer }
+	| { type: "load"; wasm: ArrayBuffer; useWasi?: boolean }
 	| { type: "call"; exportName: string; input: ArrayBuffer }
 	| { type: "close" };
 
