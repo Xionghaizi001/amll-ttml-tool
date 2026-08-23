@@ -159,6 +159,7 @@ export const ReviewReportSubmissionBar = ({
 	const [submitPending, setSubmitPending] = useState<ReviewSubmitPending>(null);
 	const [exportPending, setExportPending] = useState(false);
 	const [uploadPending, setUploadPending] = useState(false);
+	const [uploadJsonClicked, setUploadJsonClicked] = useState(false);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const reviewFreeze = useAtomValue(reviewFreezeAtom);
 	const githubLogin = useAtomValue(githubLoginAtom);
@@ -167,6 +168,7 @@ export const ReviewReportSubmissionBar = ({
 	useEffect(() => {
 		if (dialog.open) {
 			setApprovedByUser(false);
+			setUploadJsonClicked(false);
 		}
 	}, [dialog.open]);
 
@@ -488,7 +490,8 @@ export const ReviewReportSubmissionBar = ({
 		return { platform, id };
 	};
 
-	const uploadStructuredReport = async () => {
+	const uploadStructuredReport = async (): Promise<boolean> => {
+		setUploadJsonClicked(true);
 		const token = lyricsSiteToken?.trim();
 		if (!token) {
 			setPushNotification({
@@ -496,7 +499,7 @@ export const ReviewReportSubmissionBar = ({
 				level: "error",
 				source: "Review",
 			});
-			return;
+			return false;
 		}
 		setUploadPending(true);
 		try {
@@ -516,15 +519,46 @@ export const ReviewReportSubmissionBar = ({
 					? `${result.filename}${result.createdAt ? ` · ${result.createdAt}` : ""}`
 					: undefined,
 			});
+			return true;
 		} catch (error) {
 			setPushNotification({
 				title: error instanceof Error ? error.message : "上传结构化报告失败",
 				level: "error",
 				source: "Review",
 			});
+			return false;
 		} finally {
 			setUploadPending(false);
 		}
+	};
+
+	const openRequestChangesConfirmation = () => {
+		setConfirmDialog({
+			open: true,
+			title: "确认需要修改",
+			description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
+			onConfirm: () => submitReview("REQUEST_CHANGES"),
+		});
+	};
+
+	const requestChanges = () => {
+		if (getCleanReport() && !uploadJsonClicked) {
+			setConfirmDialog({
+				open: true,
+				title: "上传审阅批注？",
+				description:
+					"当前审阅包含有效报告内容，且本次会话尚未点击“上传 JSON”。是否现在上传批注？",
+				onConfirm: async () => {
+					await uploadStructuredReport();
+					openRequestChangesConfirmation();
+				},
+				onCancel: () => {
+					setTimeout(openRequestChangesConfirmation, 0);
+				},
+			});
+			return;
+		}
+		openRequestChangesConfirmation();
 	};
 
 	const submitMissingAudio = async () => {
@@ -780,14 +814,7 @@ export const ReviewReportSubmissionBar = ({
 					size="2"
 					variant="soft"
 					color="red"
-					onClick={() =>
-						setConfirmDialog({
-							open: true,
-							title: "确认需要修改",
-							description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
-							onConfirm: () => submitReview("REQUEST_CHANGES"),
-						})
-					}
+					onClick={requestChanges}
 					disabled={submitPending !== null || getCleanReport().length === 0}
 				>
 					<Flex align="center" gap="2">
