@@ -7,17 +7,16 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { replaceWordDialogAtom } from "$/states/dialogs";
-import { editingWordStateAtom, lyricLinesAtom } from "$/states/main";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
+import { editingWordStateAtom } from "$/states/main";
 
 export const ReplaceWordDialog = memo(() => {
 	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useAtom(replaceWordDialogAtom);
 	const editingState = useAtomValue(editingWordStateAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 
 	const [replacementText, setReplacementText] = useState("");
 	const [applyToAll, setApplyToAll] = useState(false);
@@ -40,30 +39,37 @@ export const ReplaceWordDialog = memo(() => {
 			return;
 		}
 
-		editLyricLines((state) => {
-			if (applyToAll) {
-				const targetLower = targetWord.toLowerCase();
-				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						const isMatch = ignoreCase
-							? word.word.toLowerCase() === targetLower
-							: word.word === targetWord;
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Replace lyric word",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(state) => {
+				if (applyToAll) {
+					const targetLower = targetWord.toLowerCase();
+					for (const line of state.lyricLines) {
+						for (const word of line.words) {
+							const isMatch = ignoreCase
+								? word.word.toLowerCase() === targetLower
+								: word.word === targetWord;
 
-						if (isMatch) {
+							if (isMatch) {
+								word.word = newWord;
+							}
+						}
+					}
+				} else {
+					const line = state.lyricLines[editingState.lineIndex];
+					if (line) {
+						const word = line.words[editingState.wordIndex];
+						if (word && word.word === targetWord) {
 							word.word = newWord;
 						}
 					}
 				}
-			} else {
-				const line = state.lyricLines[editingState.lineIndex];
-				if (line) {
-					const word = line.words[editingState.wordIndex];
-					if (word && word.word === targetWord) {
-						word.word = newWord;
-					}
-				}
-			}
-		});
+			},
+		);
 		setIsOpen(false);
 	};
 

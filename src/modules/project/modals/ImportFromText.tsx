@@ -17,13 +17,14 @@ import {
 	confirmDialogAtom,
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
-import { isDirtyAtom, lyricLinesAtom } from "$/states/main.ts";
+import { isDirtyAtom } from "$/states/main.ts";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 
 // import styles from "./ImportFromText.module.css";
 import error = toast.error;
 
 import { useTranslation } from "react-i18next";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import { projectLogger } from "../logger";
 
 // type IModelDeltaDecoration = monaco.editor.IModelDeltaDecoration;
@@ -267,10 +268,17 @@ export const ImportFromText = () => {
 				}
 			}
 
-			store.set(lyricLinesAtom, {
-				lyricLines: result,
-				metadata: [],
-			});
+			editorDocumentAdapter.replace(
+				{
+					lyricLines: result,
+					metadata: [],
+				},
+				{
+					source: "user",
+					label: "Import plain text lyrics",
+					expectedRevision: editorDocumentAdapter.getRevision(),
+				},
+			);
 		},
 		[store],
 	);

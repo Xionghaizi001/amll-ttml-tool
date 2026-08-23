@@ -11,7 +11,6 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,7 +22,7 @@ import {
 	hasDismissedSyllableSmoothingTipAtom,
 	syllableSmoothingDialogAtom,
 } from "$/states/dialogs.ts";
-import { lyricLinesAtom } from "$/states/main.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 
 type ThresholdPreset = "5" | "15" | "30" | "custom";
 
@@ -33,7 +32,6 @@ export const SyllableSmoothingDialog = () => {
 	const [hasDismissedTip, setHasDismissedTip] = useAtom(
 		hasDismissedSyllableSmoothingTipAtom,
 	);
-	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const scopeState = useDialogScope(open);
 
 	const [thresholdPreset, setThresholdPreset] = useState<ThresholdPreset>("15");
@@ -53,16 +51,23 @@ export const SyllableSmoothingDialog = () => {
 
 		const targetLineIndices = scopeState.getTargetLineIndices();
 
-		setLyricLines((draft) => {
-			draft.lyricLines.forEach((line, index) => {
-				if (targetLineIndices.has(index)) {
-					draft.lyricLines[index] = smoothSyllables(line, {
-						threshold: finalThreshold,
-						mergeSyllables,
-					});
-				}
-			});
-		});
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Smooth syllable timing",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(draft) => {
+				draft.lyricLines.forEach((line, index) => {
+					if (targetLineIndices.has(index)) {
+						draft.lyricLines[index] = smoothSyllables(line, {
+							threshold: finalThreshold,
+							mergeSyllables,
+						});
+					}
+				});
+			},
+		);
 
 		setOpen(false);
 	};

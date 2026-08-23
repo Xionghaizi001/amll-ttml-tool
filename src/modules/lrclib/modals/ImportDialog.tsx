@@ -34,16 +34,12 @@ import { toast } from "react-toastify";
 import { uid } from "uid";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	confirmDialogAtom,
 	importFromLRCLIBDialogAtom,
 } from "$/states/dialogs.ts";
-import {
-	isDirtyAtom,
-	lyricLinesAtom,
-	projectIdAtom,
-	saveFileNameAtom,
-} from "$/states/main.ts";
+import { isDirtyAtom, projectIdAtom, saveFileNameAtom } from "$/states/main.ts";
 import { LrcLibApi } from "../api/client";
 import { lrcLibLogger } from "../logger";
 import type { LrcLibTrack } from "../types";
@@ -61,7 +57,6 @@ export const ImportFromLRCLIB = () => {
 	const { t } = useTranslation();
 
 	const [isOpen, setIsOpen] = useAtom(importFromLRCLIBDialogAtom);
-	const setLyricLines = useSetAtom(lyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
@@ -126,7 +121,11 @@ export const ImportFromLRCLIB = () => {
 					};
 				}
 
-				setLyricLines(ttmlData);
+				editorDocumentAdapter.replace(ttmlData, {
+					source: "user",
+					label: "Import lyrics from LRCLIB",
+					expectedRevision: editorDocumentAdapter.getRevision(),
+				});
 				setProjectId(uid());
 				const safeFilename = `${track.artistName} - ${track.name}.ttml`.replace(
 					/[\\/:*?"<>|]/g,
@@ -145,7 +144,6 @@ export const ImportFromLRCLIB = () => {
 			}
 		},
 		[
-			setLyricLines,
 			setProjectId,
 			setSaveFileName,
 			setIsOpen,

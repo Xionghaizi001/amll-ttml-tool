@@ -18,8 +18,7 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAtom } from "jotai";
-import { useImmerAtom } from "jotai-immer";
+import { useAtom, useAtomValue } from "jotai";
 import {
 	memo,
 	type ReactNode,
@@ -30,9 +29,10 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import { metadataEditorDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
-import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
+import type { TTMLMetadata } from "$/types/ttml";
 import styles from "./MetadataEditor.module.css";
 import {
 	AppleMusicIcon,
@@ -59,7 +59,6 @@ interface SelectOption {
 interface MetadataItemEditorProps {
 	entry: TTMLMetadata | null;
 	option: SelectOption;
-	setLyricLines: (args: (prev: TTMLLyric) => void) => void;
 }
 
 const contentTransition = {
@@ -79,7 +78,7 @@ const splitDroppedValues = (text: string) =>
 		.filter((s) => s !== "");
 
 const MetadataItemEditor = memo(
-	({ entry, option, setLyricLines }: MetadataItemEditorProps) => {
+	({ entry, option }: MetadataItemEditorProps) => {
 		const { t } = useTranslation();
 		const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 		const [focusIndex, setFocusIndex] = useState<number | null>(null);
@@ -101,24 +100,31 @@ const MetadataItemEditor = memo(
 		}, [focusIndex]);
 
 		const editEntry = useCallback(
-			(editor: (metadata: TTMLMetadata) => void) => {
-				setLyricLines((prev) => {
-					let metadata = prev.metadata.find(
-						(item) => item.key === option.value,
-					);
-					if (!metadata) {
-						metadata = { key: option.value, value: [] };
-						prev.metadata.push(metadata);
-					}
-					editor(metadata);
-				});
+			(label: string, editor: (metadata: TTMLMetadata) => void) => {
+				editorDocumentAdapter.transact(
+					{
+						source: "user",
+						label: `Metadata ${label}`,
+						expectedRevision: editorDocumentAdapter.getRevision(),
+					},
+					(prev) => {
+						let metadata = prev.metadata.find(
+							(item) => item.key === option.value,
+						);
+						if (!metadata) {
+							metadata = { key: option.value, value: [] };
+							prev.metadata.push(metadata);
+						}
+						editor(metadata);
+					},
+				);
 			},
-			[option.value, setLyricLines],
+			[option.value],
 		);
 
 		const updateValue = useCallback(
 			(index: number, value: string) => {
-				editEntry((metadata) => {
+				editEntry("update value", (metadata) => {
 					metadata.value[index] = value;
 				});
 			},
@@ -127,7 +133,7 @@ const MetadataItemEditor = memo(
 
 		const addValue = useCallback(
 			(value = "") => {
-				editEntry((metadata) => {
+				editEntry("add value", (metadata) => {
 					metadata.value.push(value);
 				});
 				setFocusIndex(values.length);
@@ -137,19 +143,26 @@ const MetadataItemEditor = memo(
 
 		const removeValue = useCallback(
 			(index: number) => {
-				setLyricLines((prev) => {
-					const metadataIndex = prev.metadata.findIndex(
-						(item) => item.key === option.value,
-					);
-					if (metadataIndex === -1) return;
+				editorDocumentAdapter.transact(
+					{
+						source: "user",
+						label: "Metadata remove value",
+						expectedRevision: editorDocumentAdapter.getRevision(),
+					},
+					(prev) => {
+						const metadataIndex = prev.metadata.findIndex(
+							(item) => item.key === option.value,
+						);
+						if (metadataIndex === -1) return;
 
-					prev.metadata[metadataIndex].value.splice(index, 1);
-					if (prev.metadata[metadataIndex].value.length === 0) {
-						prev.metadata.splice(metadataIndex, 1);
-					}
-				});
+						prev.metadata[metadataIndex].value.splice(index, 1);
+						if (prev.metadata[metadataIndex].value.length === 0) {
+							prev.metadata.splice(metadataIndex, 1);
+						}
+					},
+				);
 			},
-			[option.value, setLyricLines],
+			[option.value],
 		);
 
 		const appendDroppedValues = useCallback(
@@ -157,7 +170,7 @@ const MetadataItemEditor = memo(
 				const parts = splitDroppedValues(text);
 				if (parts.length === 0) return;
 
-				editEntry((metadata) => {
+				editEntry("append dropped values", (metadata) => {
 					const existingSet = new Set<string>();
 					const emptyIndices: number[] = [];
 
@@ -235,6 +248,9 @@ const MetadataItemEditor = memo(
 
 						return (
 							<Flex
+								// Metadata values are intentionally positional: editing and removing
+								// an entry must preserve the input's current focus identity.
+								// biome-ignore lint/suspicious/noArrayIndexKey: values have no stable IDs
 								key={`${option.value}-${index}`}
 								gap="2"
 								align="center"
@@ -346,7 +362,7 @@ export const MetadataEditor = () => {
 		metadataEditorDialogAtom,
 	);
 	const [customKey, setCustomKey] = useState("");
-	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
 
 	const { t } = useTranslation();
 
@@ -355,7 +371,7 @@ export const MetadataEditor = () => {
 		const alphanumeric = (value: string) => /^[a-zA-Z0-9]+$/.test(value);
 
 		const getPlatformUrl = (key: string, value: string) => {
-			if (!value || !value.trim()) return null;
+			if (!value?.trim()) return null;
 
 			switch (key) {
 				case "ncmMusicId":
@@ -565,21 +581,35 @@ export const MetadataEditor = () => {
 		const nextKey = customKey.trim();
 		if (!nextKey) return;
 
-		setLyricLines((prev) => {
-			if (!prev.metadata.some((metadata) => metadata.key === nextKey)) {
-				prev.metadata.push({ key: nextKey, value: [] });
-			}
-		});
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Metadata add custom key",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(prev) => {
+				if (!prev.metadata.some((metadata) => metadata.key === nextKey)) {
+					prev.metadata.push({ key: nextKey, value: [] });
+				}
+			},
+		);
 		setActiveKey(nextKey);
 		setCustomKey("");
-	}, [customKey, setLyricLines]);
+	}, [customKey]);
 
 	const clearAllMetadata = useCallback(() => {
-		setLyricLines((prev) => {
-			prev.metadata = [];
-		});
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Metadata clear all",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(prev) => {
+				prev.metadata = [];
+			},
+		);
 		setActiveKey(builtinOptions[0]?.value ?? "");
-	}, [builtinOptions, setLyricLines]);
+	}, [builtinOptions]);
 
 	return (
 		<Dialog.Root
@@ -667,7 +697,6 @@ export const MetadataEditor = () => {
 									<MetadataItemEditor
 										entry={activeEntry}
 										option={activeOption}
-										setLyricLines={setLyricLines}
 									/>
 								</motion.div>
 							)}

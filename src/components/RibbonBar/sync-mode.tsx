@@ -9,6 +9,17 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
+import {
+	Checkbox,
+	Flex,
+	Grid,
+	Slider,
+	Text,
+	TextField,
+} from "@radix-ui/themes";
+import { useAtom, useAtomValue } from "jotai";
+import { type FC, forwardRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useCurrentLocation } from "$/modules/lyric-editor/utils/lyric-states.ts";
 import {
 	displayRomanizationInSyncAtom,
@@ -23,24 +34,13 @@ import {
 	syncTimeOffsetAtom,
 	visualizeTimestampUpdateAtom,
 } from "$/modules/settings/states/sync.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	keySyncEndAtom,
 	keySyncNextAtom,
 	keySyncStartAtom,
 } from "$/states/keybindings.ts";
-import { bgLyricIgnoreSyncAtom, lyricLinesAtom } from "$/states/main.ts";
-import {
-	Checkbox,
-	Flex,
-	Grid,
-	Slider,
-	Text,
-	TextField,
-} from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
-import { type FC, forwardRef } from "react";
-import { useTranslation } from "react-i18next";
+import { bgLyricIgnoreSyncAtom } from "$/states/main.ts";
 import { KeyBinding } from "../KeyBinding/index.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
 
@@ -89,7 +89,6 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 		const [bgLyricIgnoreSync, setBgLyricIgnoreSync] = useAtom(
 			bgLyricIgnoreSyncAtom,
 		);
-		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 		const showWordRomanizationInput = useAtomValue(
 			showWordRomanizationInputAtom,
 		);
@@ -154,14 +153,21 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							onCheckedChange={(v) => {
 								const next = !!v;
 								setBgLyricIgnoreSync(next);
-								editLyricLines((state) => {
-									for (const line of state.lyricLines) {
-										if (line.isBG) {
-											line.ignoreSync = next;
+								editorDocumentAdapter.transact(
+									{
+										source: "user",
+										label: "Ribbon update background sync",
+										expectedRevision: editorDocumentAdapter.getRevision(),
+									},
+									(state) => {
+										for (const line of state.lyricLines) {
+											if (line.isBG) {
+												line.ignoreSync = next;
+											}
 										}
-									}
-									return state;
-								});
+										return state;
+									},
+								);
 							}}
 						/>
 					</Grid>

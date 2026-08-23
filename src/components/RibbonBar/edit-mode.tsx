@@ -19,7 +19,6 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import {
 	type FC,
 	forwardRef,
@@ -39,6 +38,7 @@ import {
 	showLineTranslationAtom,
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	editingTimeFieldAtom,
 	lyricLinesAtom,
@@ -83,7 +83,6 @@ function EditField<
 		[isWordField],
 	);
 
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const { t } = useTranslation();
 	const setEditingTimeField = useSetAtom(editingTimeFieldAtom);
 
@@ -224,117 +223,130 @@ function EditField<
 					const parsedValue = Number(trimmedValue);
 					if (!Number.isFinite(parsedValue)) return;
 					if (!isDelta && parsedValue <= 0) return;
-					editLyricLines((state) => {
-						for (const line of state.lyricLines) {
-							if (isWordField) {
-								const updates = new Map<
-									string,
-									{ startTime?: number; endTime?: number }
-								>();
+					editorDocumentAdapter.transact(
+						{
+							source: "user",
+							label: `Ribbon edit ${String(fieldName)}`,
+							expectedRevision: editorDocumentAdapter.getRevision(),
+						},
+						(state) => {
+							for (const line of state.lyricLines) {
+								if (isWordField) {
+									const updates = new Map<
+										string,
+										{ startTime?: number; endTime?: number }
+									>();
 
-								// First pass: Calculate all new end times for selected words
-								for (
-									let wordIndex = 0;
-									wordIndex < line.words.length;
-									wordIndex++
-								) {
-									const word = line.words[wordIndex];
-									if (!selectedItems.has(word.id)) continue;
-
-									const nextWord = line.words[wordIndex + 1];
-									const nextStartTime = nextWord?.startTime;
-									const originalEndTime = word.endTime;
-
-									// Calculate new end time
-									const newEndTimeRaw = isDelta
-										? word.endTime + parsedValue
-										: word.startTime + parsedValue;
-									const newEndTime = Math.max(word.startTime, newEndTimeRaw);
-
-									// Store the update for the current word
-									const wordUpdate = updates.get(word.id) || {};
-									wordUpdate.endTime = newEndTime;
-									updates.set(word.id, wordUpdate);
-
-									// If it was synchronized, store the start time update for the next word
-									if (
-										isDelta &&
-										nextWord &&
-										originalEndTime === nextStartTime
+									// First pass: Calculate all new end times for selected words
+									for (
+										let wordIndex = 0;
+										wordIndex < line.words.length;
+										wordIndex++
 									) {
-										// We only move nextWord's startTime if the new end time doesn't exceed its original end time
-										// to avoid inverting its duration (unless it's also selected, handled below)
-										const nextWordOriginalEndTime = nextWord.endTime;
+										const word = line.words[wordIndex];
+										if (!selectedItems.has(word.id)) continue;
+
+										const nextWord = line.words[wordIndex + 1];
+										const nextStartTime = nextWord?.startTime;
+										const originalEndTime = word.endTime;
+
+										// Calculate new end time
+										const newEndTimeRaw = isDelta
+											? word.endTime + parsedValue
+											: word.startTime + parsedValue;
+										const newEndTime = Math.max(word.startTime, newEndTimeRaw);
+
+										// Store the update for the current word
+										const wordUpdate = updates.get(word.id) || {};
+										wordUpdate.endTime = newEndTime;
+										updates.set(word.id, wordUpdate);
+
+										// If it was synchronized, store the start time update for the next word
 										if (
-											newEndTime <= nextWordOriginalEndTime ||
-											selectedItems.has(nextWord.id)
+											isDelta &&
+											nextWord &&
+											originalEndTime === nextStartTime
 										) {
-											const nextUpdate = updates.get(nextWord.id) || {};
-											nextUpdate.startTime = newEndTime;
-											// Don't auto-fix nextWord.endTime here, let the second pass or its own delta fix it
-											updates.set(nextWord.id, nextUpdate);
+											// We only move nextWord's startTime if the new end time doesn't exceed its original end time
+											// to avoid inverting its duration (unless it's also selected, handled below)
+											const nextWordOriginalEndTime = nextWord.endTime;
+											if (
+												newEndTime <= nextWordOriginalEndTime ||
+												selectedItems.has(nextWord.id)
+											) {
+												const nextUpdate = updates.get(nextWord.id) || {};
+												nextUpdate.startTime = newEndTime;
+												// Don't auto-fix nextWord.endTime here, let the second pass or its own delta fix it
+												updates.set(nextWord.id, nextUpdate);
+											}
 										}
 									}
-								}
 
-								// Second pass: Apply updates and ensure durations are valid
-								for (
-									let wordIndex = 0;
-									wordIndex < line.words.length;
-									wordIndex++
-								) {
-									const word = line.words[wordIndex];
-									const update = updates.get(word.id);
+									// Second pass: Apply updates and ensure durations are valid
+									for (
+										let wordIndex = 0;
+										wordIndex < line.words.length;
+										wordIndex++
+									) {
+										const word = line.words[wordIndex];
+										const update = updates.get(word.id);
 
-									if (update) {
-										if (update.startTime !== undefined) {
-											word.startTime = update.startTime;
-										}
-										if (update.endTime !== undefined) {
-											word.endTime = update.endTime;
-										}
-										// Ensure valid duration after applying updates
-										if (word.endTime < word.startTime) {
-											word.endTime = word.startTime;
+										if (update) {
+											if (update.startTime !== undefined) {
+												word.startTime = update.startTime;
+											}
+											if (update.endTime !== undefined) {
+												word.endTime = update.endTime;
+											}
+											// Ensure valid duration after applying updates
+											if (word.endTime < word.startTime) {
+												word.endTime = word.startTime;
+											}
 										}
 									}
+								} else if (selectedItems.has(line.id)) {
+									const newEndTimeRaw = isDelta
+										? line.endTime + parsedValue
+										: line.startTime + parsedValue;
+									line.endTime = Math.max(line.startTime, newEndTimeRaw);
 								}
-							} else if (selectedItems.has(line.id)) {
-								const newEndTimeRaw = isDelta
-									? line.endTime + parsedValue
-									: line.startTime + parsedValue;
-								line.endTime = Math.max(line.startTime, newEndTimeRaw);
 							}
-						}
-						return state;
-					});
+							return state;
+						},
+					);
 					return;
 				}
 				const value = parser(rawValue);
-				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
-						if (isWordField) {
-							for (const word of line.words) {
-								if (selectedItems.has(word.id)) {
-									(word as L)[fieldName] = value;
+				editorDocumentAdapter.transact(
+					{
+						source: "user",
+						label: `Ribbon edit ${String(fieldName)}`,
+						expectedRevision: editorDocumentAdapter.getRevision(),
+					},
+					(state) => {
+						for (const line of state.lyricLines) {
+							if (isWordField) {
+								for (const word of line.words) {
+									if (selectedItems.has(word.id)) {
+										(word as L)[fieldName] = value;
+									}
+								}
+							} else {
+								if (selectedItems.has(line.id)) {
+									(line as L)[fieldName] = value;
 								}
 							}
-						} else {
-							if (selectedItems.has(line.id)) {
-								(line as L)[fieldName] = value;
-							}
 						}
-					}
-					return state;
-				});
-			} catch (err) {
+						return state;
+					},
+				);
+			} catch {
 				if (compareValue) setFieldInput(compareValue);
 			}
 		},
 		[
 			itemAtom,
 			store,
-			editLyricLines,
 			compareValue,
 			fieldName,
 			isWordField,
@@ -444,7 +456,6 @@ function CheckboxField<
 		[isWordField],
 	);
 
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const store = useStore();
 
 	const currentValueAtom = useMemo(
@@ -505,23 +516,30 @@ function CheckboxField<
 				}
 				onCheckedChange={(value) => {
 					if (value === "indeterminate") return;
-					editLyricLines((state) => {
-						const selectedItems = store.get(itemAtom);
-						for (const line of state.lyricLines) {
-							if (isWordField) {
-								for (const word of line.words) {
-									if (selectedItems.has(word.id)) {
-										(word as L)[fieldName] = value as L[F];
+					editorDocumentAdapter.transact(
+						{
+							source: "user",
+							label: `Ribbon toggle ${String(fieldName)}`,
+							expectedRevision: editorDocumentAdapter.getRevision(),
+						},
+						(state) => {
+							const selectedItems = store.get(itemAtom);
+							for (const line of state.lyricLines) {
+								if (isWordField) {
+									for (const word of line.words) {
+										if (selectedItems.has(word.id)) {
+											(word as L)[fieldName] = value as L[F];
+										}
+									}
+								} else {
+									if (selectedItems.has(line.id)) {
+										(line as L)[fieldName] = value as L[F];
 									}
 								}
-							} else {
-								if (selectedItems.has(line.id)) {
-									(line as L)[fieldName] = value as L[F];
-								}
 							}
-						}
-						return state;
-					});
+							return state;
+						},
+					);
 				}}
 			/>
 		</>
@@ -720,7 +738,6 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 		const idOutline = useId();
 		const idBpm = useId();
 
-		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 		const { t } = useTranslation();
 
 		return (
@@ -731,9 +748,16 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							size="1"
 							variant="soft"
 							onClick={() =>
-								editLyricLines((draft) => {
-									draft.lyricLines.push(newLyricLine());
-								})
+								editorDocumentAdapter.transact(
+									{
+										source: "user",
+										label: "Ribbon add lyric line",
+										expectedRevision: editorDocumentAdapter.getRevision(),
+									},
+									(draft) => {
+										draft.lyricLines.push(newLyricLine());
+									},
+								)
 							}
 						>
 							{t("ribbonBar.editMode.lyricLine", "歌词行")}

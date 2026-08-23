@@ -1,5 +1,4 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	adjustLineEndTime,
@@ -7,6 +6,7 @@ import {
 	tryFixPartialInitialization,
 	tryInitializeZeroTimestampLine,
 } from "$/modules/spectrogram/utils/timeline-mutations";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	editingTimeFieldAtom,
 	lyricLinesAtom,
@@ -17,7 +17,6 @@ import { spectrogramHoverTimeMsAtom } from "../states";
 
 export function useTimelineEditing(scrollLeft: number, zoom: number) {
 	const editingTimeField = useAtomValue(editingTimeFieldAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 	const rawLyricLines = useAtomValue(lyricLinesAtom);
 	const setRequestFocus = useSetAtom(requestFocusAtom);
@@ -80,28 +79,39 @@ export function useTimelineEditing(scrollLeft: number, zoom: number) {
 						return;
 					}
 
-					editLyricLines((draft) => {
-						for (const line of draft.lyricLines) {
-							if (selectedLines.has(line.id)) {
-								const newStartTime = pendingStartTime ?? line.startTime;
-								const newEndTime = timeMs;
+					editorDocumentAdapter.transact(
+						{
+							source: "user",
+							label: "Spectrogram edit line timing",
+							expectedRevision: editorDocumentAdapter.getRevision(),
+						},
+						(draft) => {
+							for (const line of draft.lyricLines) {
+								if (selectedLines.has(line.id)) {
+									const newStartTime = pendingStartTime ?? line.startTime;
+									const newEndTime = timeMs;
 
-								if (newEndTime <= newStartTime) continue;
+									if (newEndTime <= newStartTime) continue;
 
-								if (
-									tryInitializeZeroTimestampLine(line, newStartTime, newEndTime)
-								) {
-									continue;
+									if (
+										tryInitializeZeroTimestampLine(
+											line,
+											newStartTime,
+											newEndTime,
+										)
+									) {
+										continue;
+									}
+
+									tryFixPartialInitialization(line);
+
+									shiftLineStartTime(line, newStartTime);
+
+									adjustLineEndTime(line, newEndTime);
 								}
-
-								tryFixPartialInitialization(line);
-
-								shiftLineStartTime(line, newStartTime);
-
-								adjustLineEndTime(line, newEndTime);
 							}
-						}
-					});
+						},
+					);
 
 					setPendingStartTime(null);
 					setTimeout(() => {
@@ -116,7 +126,6 @@ export function useTimelineEditing(scrollLeft: number, zoom: number) {
 			editingTimeField,
 			scrollLeft,
 			zoom,
-			editLyricLines,
 			selectedLines,
 			setRequestFocus,
 			pendingStartTime,

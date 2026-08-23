@@ -12,7 +12,6 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -20,14 +19,13 @@ import {
 	useDialogScope,
 } from "$/hooks/useDialogScope.tsx";
 import { timeShiftDialogAtom } from "$/states/dialogs.ts";
-import { lyricLinesAtom } from "$/states/main.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 
 type ShiftDirection = "delay" | "advance";
 
 export const TimeShiftDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(timeShiftDialogAtom);
-	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const scopeState = useDialogScope(open);
 
 	const [offsetStr, setOffsetStr] = useState("100");
@@ -49,28 +47,38 @@ export const TimeShiftDialog = () => {
 		const finalOffset = direction === "delay" ? amount : -amount;
 		const targetLineIndices = scopeState.getTargetLineIndices();
 
-		setLyricLines((draft) => {
-			draft.lyricLines.forEach((line, index) => {
-				if (targetLineIndices.has(index)) {
-					line.startTime = Math.max(0, line.startTime + finalOffset);
-					line.endTime = Math.max(0, line.endTime + finalOffset);
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Time shift lyrics",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(draft) => {
+				draft.lyricLines.forEach((line, index) => {
+					if (targetLineIndices.has(index)) {
+						line.startTime = Math.max(0, line.startTime + finalOffset);
+						line.endTime = Math.max(0, line.endTime + finalOffset);
 
-					line.words.forEach((word) => {
-						word.startTime = Math.max(0, word.startTime + finalOffset);
-						word.endTime = Math.max(0, word.endTime + finalOffset);
-						if (word.ruby && word.ruby.length > 0) {
-							word.ruby.forEach((rubyWord) => {
-								rubyWord.startTime = Math.max(
-									0,
-									rubyWord.startTime + finalOffset,
-								);
-								rubyWord.endTime = Math.max(0, rubyWord.endTime + finalOffset);
-							});
-						}
-					});
-				}
-			});
-		});
+						line.words.forEach((word) => {
+							word.startTime = Math.max(0, word.startTime + finalOffset);
+							word.endTime = Math.max(0, word.endTime + finalOffset);
+							if (word.ruby && word.ruby.length > 0) {
+								word.ruby.forEach((rubyWord) => {
+									rubyWord.startTime = Math.max(
+										0,
+										rubyWord.startTime + finalOffset,
+									);
+									rubyWord.endTime = Math.max(
+										0,
+										rubyWord.endTime + finalOffset,
+									);
+								});
+							}
+						});
+					}
+				});
+			},
+		);
 
 		setOpen(false);
 	};

@@ -25,7 +25,12 @@ export interface PublicLyricWord {
 	endTime: number;
 	word: string;
 	romanWord?: string;
-	ruby?: { startTime: number; endTime: number; word: string; emptyBeat?: number }[];
+	ruby?: {
+		startTime: number;
+		endTime: number;
+		word: string;
+		emptyBeat?: number;
+	}[];
 }
 
 export interface PublicLyricLine {
@@ -133,6 +138,19 @@ export class EditorDocumentService {
 		this.redoStack.length = 0;
 	}
 
+	/** Observe a legacy host write during migration without creating a second undo entry. */
+	observeExternal(document: TTMLLyric): DocumentChangeEvent | undefined {
+		const previous = this.document;
+		const next = normalizeDocument(document);
+		if (JSON.stringify(previous) === JSON.stringify(next)) return;
+		return this.commit(
+			previous,
+			next,
+			{ source: "legacy-ui", label: "Legacy document write" },
+			{ recordUndo: false },
+		);
+	}
+
 	readPublicSnapshot(): PublicDocument {
 		return toPublicDocument(this.document);
 	}
@@ -154,7 +172,10 @@ export class EditorDocumentService {
 		return () => this.listeners.delete(listener);
 	}
 
-	transact(meta: DocumentTransactionMeta, updater: DocumentUpdater): DocumentChangeEvent | undefined {
+	transact(
+		meta: DocumentTransactionMeta,
+		updater: DocumentUpdater,
+	): DocumentChangeEvent | undefined {
 		this.assertRevision(meta.expectedRevision);
 		const previous = this.document;
 		const next = normalizeDocument(produce(previous, updater));
@@ -162,24 +183,43 @@ export class EditorDocumentService {
 		return this.commit(previous, next, meta);
 	}
 
-	replace(document: TTMLLyric, meta: DocumentTransactionMeta): DocumentChangeEvent | undefined {
+	replace(
+		document: TTMLLyric,
+		meta: DocumentTransactionMeta,
+	): DocumentChangeEvent | undefined {
 		return this.transact(meta, () => document);
 	}
 
-	undo(meta: Omit<DocumentTransactionMeta, "expectedRevision"> = { source: "user", label: "Undo" }): DocumentChangeEvent | undefined {
+	undo(
+		meta: Omit<DocumentTransactionMeta, "expectedRevision"> = {
+			source: "user",
+			label: "Undo",
+		},
+	): DocumentChangeEvent | undefined {
 		const previous = this.document;
 		const next = this.undoStack.pop();
 		if (!next) return;
 		this.redoStack.push(clone(previous));
-		return this.commit(previous, next, meta, { recordUndo: false, clearRedo: false });
+		return this.commit(previous, next, meta, {
+			recordUndo: false,
+			clearRedo: false,
+		});
 	}
 
-	redo(meta: Omit<DocumentTransactionMeta, "expectedRevision"> = { source: "user", label: "Redo" }): DocumentChangeEvent | undefined {
+	redo(
+		meta: Omit<DocumentTransactionMeta, "expectedRevision"> = {
+			source: "user",
+			label: "Redo",
+		},
+	): DocumentChangeEvent | undefined {
 		const previous = this.document;
 		const next = this.redoStack.pop();
 		if (!next) return;
 		this.undoStack.push(clone(previous));
-		return this.commit(previous, next, meta, { recordUndo: false, clearRedo: false });
+		return this.commit(previous, next, meta, {
+			recordUndo: false,
+			clearRedo: false,
+		});
 	}
 
 	private assertRevision(expectedRevision: number | undefined): void {
@@ -199,18 +239,32 @@ export class EditorDocumentService {
 		this.revision += 1;
 		if (options.recordUndo ?? true) this.undoStack.push(clone(previous));
 		if (options.clearRedo ?? true) this.redoStack.length = 0;
-		const previousLines = new Map(previous.lyricLines.map((line) => [line.id, line]));
+		const previousLines = new Map(
+			previous.lyricLines.map((line) => [line.id, line]),
+		);
 		const nextLines = new Map(next.lyricLines.map((line) => [line.id, line]));
 		const changedLineIds = new Set<string>();
 		const changedWordIds = new Set<string>();
 		for (const [id, line] of nextLines) {
-			if (JSON.stringify(previousLines.get(id)) !== JSON.stringify(line)) changedLineIds.add(id);
-			const oldWords = new Map((previousLines.get(id)?.words ?? []).map((word) => [word.id, word]));
+			if (JSON.stringify(previousLines.get(id)) !== JSON.stringify(line))
+				changedLineIds.add(id);
+			const oldWords = new Map(
+				(previousLines.get(id)?.words ?? []).map((word) => [word.id, word]),
+			);
 			for (const word of line.words) {
-				if (JSON.stringify(oldWords.get(word.id)) !== JSON.stringify(word)) changedWordIds.add(word.id);
+				if (JSON.stringify(oldWords.get(word.id)) !== JSON.stringify(word))
+					changedWordIds.add(word.id);
 			}
 		}
-		for (const id of previousLines.keys()) if (!nextLines.has(id)) changedLineIds.add(id);
+		for (const [id, line] of previousLines) {
+			const nextWords = new Map(
+				(nextLines.get(id)?.words ?? []).map((word) => [word.id, word]),
+			);
+			for (const word of line.words)
+				if (!nextWords.has(word.id)) changedWordIds.add(word.id);
+		}
+		for (const id of previousLines.keys())
+			if (!nextLines.has(id)) changedLineIds.add(id);
 		const event: DocumentChangeEvent = {
 			revision: this.revision,
 			previousRevision,

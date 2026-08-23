@@ -1,21 +1,30 @@
 import type { WritableAtom, createStore } from "jotai/vanilla";
+import { lyricLinesAtom } from "$/states/main";
+import { globalStore } from "$/states/store";
 import type { TTMLLyric } from "$/types/ttml";
 import {
 	EditorDocumentService,
 	type DocumentTransactionMeta,
 	type DocumentUpdater,
-} from "./EditorDocumentService";
+} from "$/kernel/editor/EditorDocumentService";
 
 type Store = ReturnType<typeof createStore>;
 
 export class EditorDocumentAtomAdapter {
 	private syncing = false;
+	private readonly unsubscribe: () => void;
 
 	constructor(
 		private readonly store: Store,
-		private readonly documentAtom: WritableAtom<TTMLLyric, [TTMLLyric], unknown>,
+		private readonly documentAtom: WritableAtom<
+			TTMLLyric,
+			[TTMLLyric],
+			unknown
+		>,
 		readonly service = new EditorDocumentService(store.get(documentAtom)),
-	) {}
+	) {
+		this.unsubscribe = store.sub(documentAtom, () => this.syncFromAtom());
+	}
 
 	readSnapshot(): TTMLLyric {
 		return this.service.readSnapshot();
@@ -60,6 +69,20 @@ export class EditorDocumentAtomAdapter {
 
 	/** Host migration hook for legacy writers while direct atom writes are being removed. */
 	syncFromAtom(): void {
-		if (!this.syncing) this.service.load(this.store.get(this.documentAtom), this.service.getRevision());
+		if (this.syncing) return;
+		const current = this.store.get(this.documentAtom);
+		if (JSON.stringify(current) === JSON.stringify(this.service.readSnapshot()))
+			return;
+		this.service.observeExternal(current);
+	}
+
+	dispose(): void {
+		this.unsubscribe();
 	}
 }
+
+/** Transitional host adapter shared by migrated tools until all legacy writers are removed. */
+export const editorDocumentAdapter = new EditorDocumentAtomAdapter(
+	globalStore,
+	lyricLinesAtom,
+);

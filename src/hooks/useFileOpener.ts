@@ -26,13 +26,14 @@ import {
 import { ttmlToAmll } from "$/modules/ttml-processor";
 import type { AmllLyricResult } from "$/modules/ttml-processor/types";
 import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import { confirmDialogAtom } from "$/states/dialogs.ts";
 import {
 	isDirtyAtom,
-	lyricLinesAtom,
-	newLyricLinesAtom,
 	projectIdAtom,
 	saveFileNameAtom,
+	selectedLinesAtom,
+	selectedWordsAtom,
 } from "$/states/main.ts";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
@@ -117,10 +118,10 @@ const mergeExtractedMetadata = (
 };
 
 export const useFileOpener = () => {
-	const setNewLyricLines = useSetAtom(newLyricLinesAtom);
-	const setLyricLines = useSetAtom(lyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const setSelectedLines = useSetAtom(selectedLinesAtom);
+	const setSelectedWords = useSetAtom(selectedWordsAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const defaultTtmlAuthorGithub = useAtomValue(defaultTtmlAuthorGithubAtom);
@@ -172,6 +173,7 @@ export const useFileOpener = () => {
 
 	const performOpenFile = useCallback(
 		async (file: File, forceExt?: string) => {
+			const expectedRevision = editorDocumentAdapter.getRevision();
 			const rawExt = file.name.split(".").pop()?.toLowerCase() || "";
 			const ext = forceExt ? forceExt.toLowerCase() : rawExt;
 
@@ -180,26 +182,33 @@ export const useFileOpener = () => {
 					void audioEngine
 						.loadMusic(file)
 						.then((metadata) => {
-							setLyricLines((prev) => {
-								const nextMetadata = prev.metadata.map((item) => ({
-									...item,
-									value: [...item.value],
-								}));
-								const metadataChanged = mergeExtractedMetadata(
-									nextMetadata,
-									metadata,
-								);
-								const defaultChanged = applyDefaultTtmlAuthorMetadata(
-									nextMetadata,
-									{
-										githubId: defaultTtmlAuthorGithub,
-										githubLogin: defaultTtmlAuthorGithubLogin,
-									},
-								);
+							editorDocumentAdapter.transact(
+								{
+									source: "system",
+									label: "Import audio metadata",
+									expectedRevision,
+								},
+								(prev) => {
+									const nextMetadata = prev.metadata.map((item) => ({
+										...item,
+										value: [...item.value],
+									}));
+									const metadataChanged = mergeExtractedMetadata(
+										nextMetadata,
+										metadata,
+									);
+									const defaultChanged = applyDefaultTtmlAuthorMetadata(
+										nextMetadata,
+										{
+											githubId: defaultTtmlAuthorGithub,
+											githubLogin: defaultTtmlAuthorGithubLogin,
+										},
+									);
 
-								if (!metadataChanged && !defaultChanged) return prev;
-								return { ...prev, metadata: nextMetadata };
-							});
+									if (!metadataChanged && !defaultChanged) return;
+									prev.metadata = nextMetadata;
+								},
+							);
 						})
 						.catch((e) => {
 							fileOpenerLogger.error(
@@ -269,8 +278,14 @@ export const useFileOpener = () => {
 					githubLogin: defaultTtmlAuthorGithubLogin,
 				});
 
+				editorDocumentAdapter.replace(lyricData, {
+					source: "user",
+					label: "Import lyric file",
+					expectedRevision,
+				});
 				setProjectId(resolvedProjectId);
-				setNewLyricLines(lyricData);
+				setSelectedLines(new Set());
+				setSelectedWords(new Set());
 				const suggestedFile = getSuggestedTtmlFileName(lyricData.metadata);
 				const nextFileName =
 					ext === "ttml" ? file.name : (suggestedFile?.fileName ?? file.name);
@@ -281,10 +296,10 @@ export const useFileOpener = () => {
 			}
 		},
 		[
-			setNewLyricLines,
-			setLyricLines,
 			setProjectId,
 			setSaveFileName,
+			setSelectedLines,
+			setSelectedWords,
 			normalizeLyricLines,
 			normalizeAmllLyricResult,
 			defaultTtmlAuthorGithub,

@@ -13,7 +13,6 @@ import {
 } from "@radix-ui/themes";
 import classNames from "classnames";
 import { type Atom, useAtomValue, useStore } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import {
 	type ComponentPropsWithoutRef,
 	useCallback,
@@ -22,6 +21,7 @@ import {
 } from "react";
 import { recalculateWordTime } from "$/modules/segmentation/utils/segmentation.ts";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	lyricLinesAtom,
 	projectIdAtom,
@@ -74,7 +74,6 @@ export const RubyEditor = ({
 	className?: string;
 }) => {
 	const word = useAtomValue(wordAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const store = useStore();
 	const rubyWords = word.ruby ?? [];
 	const { config: segmentationConfig } = useSegmentationConfig();
@@ -98,57 +97,78 @@ export const RubyEditor = ({
 		}
 		const currentWord = store.get(wordAtom);
 		const nextIndex = currentWord.ruby?.length ?? 0;
-		editLyricLines((state) => {
-			for (const line of state.lyricLines) {
-				for (const word of line.words) {
-					if (word.id !== currentWord.id) continue;
-					if (!word.ruby) word.ruby = [];
-					word.ruby.push({
-						word: "",
-						startTime: word.startTime,
-						endTime: word.endTime,
-					});
-					break;
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Add ruby word",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(state) => {
+				for (const line of state.lyricLines) {
+					for (const word of line.words) {
+						if (word.id !== currentWord.id) continue;
+						if (!word.ruby) word.ruby = [];
+						word.ruby.push({
+							word: "",
+							startTime: word.startTime,
+							endTime: word.endTime,
+						});
+						break;
+					}
 				}
-			}
-		});
+			},
+		);
 		requestAnimationFrame(() => {
 			inputRefs.current[nextIndex]?.focus();
 		});
-	}, [editLyricLines, projectId, store, wordAtom]);
+	}, [projectId, store, wordAtom]);
 
 	const updateRubyWord = useCallback(
 		(index: number, value: string) => {
 			const currentWord = store.get(wordAtom);
-			editLyricLines((state) => {
-				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						if (word.id !== currentWord.id) continue;
-						if (!word.ruby || !word.ruby[index]) return;
-						word.ruby[index].word = value;
-						break;
+			editorDocumentAdapter.transact(
+				{
+					source: "user",
+					label: "Edit ruby word",
+					expectedRevision: editorDocumentAdapter.getRevision(),
+				},
+				(state) => {
+					for (const line of state.lyricLines) {
+						for (const word of line.words) {
+							if (word.id !== currentWord.id) continue;
+							if (!word.ruby?.[index]) return;
+							word.ruby[index].word = value;
+							break;
+						}
 					}
-				}
-			});
+				},
+			);
 		},
-		[editLyricLines, store, wordAtom],
+		[store, wordAtom],
 	);
 
 	const removeRubyWord = useCallback(
 		(index: number) => {
 			const currentWord = store.get(wordAtom);
-			editLyricLines((state) => {
-				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						if (word.id !== currentWord.id) continue;
-						if (!word.ruby || !word.ruby[index]) return;
-						word.ruby.splice(index, 1);
-						break;
+			editorDocumentAdapter.transact(
+				{
+					source: "user",
+					label: "Remove ruby word",
+					expectedRevision: editorDocumentAdapter.getRevision(),
+				},
+				(state) => {
+					for (const line of state.lyricLines) {
+						for (const word of line.words) {
+							if (word.id !== currentWord.id) continue;
+							if (!word.ruby?.[index]) return;
+							word.ruby.splice(index, 1);
+							break;
+						}
 					}
-				}
-			});
+				},
+			);
 		},
-		[editLyricLines, store, wordAtom],
+		[store, wordAtom],
 	);
 
 	const mergeRubyWithPrevious = useCallback(
@@ -158,25 +178,34 @@ export const RubyEditor = ({
 			const currentText = currentWord.ruby?.[index]?.word ?? "";
 			const mergedText = `${prevText}${currentText}`;
 
-			editLyricLines((state) => {
-				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						if (word.id !== currentWord.id) continue;
-						if (!word.ruby || !word.ruby[index] || !word.ruby[index - 1])
-							return;
-						const prevRuby = word.ruby[index - 1];
-						const currentRuby = word.ruby[index];
-						prevRuby.word = mergedText;
-						prevRuby.startTime = Math.min(
-							prevRuby.startTime,
-							currentRuby.startTime,
-						);
-						prevRuby.endTime = Math.max(prevRuby.endTime, currentRuby.endTime);
-						word.ruby.splice(index, 1);
-						break;
+			editorDocumentAdapter.transact(
+				{
+					source: "user",
+					label: "Merge ruby words",
+					expectedRevision: editorDocumentAdapter.getRevision(),
+				},
+				(state) => {
+					for (const line of state.lyricLines) {
+						for (const word of line.words) {
+							if (word.id !== currentWord.id) continue;
+							if (!word.ruby?.[index] || !word.ruby[index - 1]) return;
+							const prevRuby = word.ruby[index - 1];
+							const currentRuby = word.ruby[index];
+							prevRuby.word = mergedText;
+							prevRuby.startTime = Math.min(
+								prevRuby.startTime,
+								currentRuby.startTime,
+							);
+							prevRuby.endTime = Math.max(
+								prevRuby.endTime,
+								currentRuby.endTime,
+							);
+							word.ruby.splice(index, 1);
+							break;
+						}
 					}
-				}
-			});
+				},
+			);
 
 			requestAnimationFrame(() => {
 				const target = inputRefs.current[index - 1];
@@ -186,7 +215,7 @@ export const RubyEditor = ({
 				}
 			});
 		},
-		[editLyricLines, store, wordAtom],
+		[store, wordAtom],
 	);
 
 	const applyRubyToAllSameWords = useCallback(() => {
@@ -194,24 +223,31 @@ export const RubyEditor = ({
 		const rubySegments = currentWord.ruby?.map((ruby) => ruby.word) ?? [];
 		if (rubySegments.length === 0) return;
 
-		editLyricLines((state) => {
-			for (const line of state.lyricLines) {
-				for (const word of line.words) {
-					if (word.word !== currentWord.word) continue;
-					const recalculated = recalculateWordTime(
-						word,
-						rubySegments,
-						segmentationConfig,
-					);
-					word.ruby = recalculated.map((segment) => ({
-						word: segment.word,
-						startTime: segment.startTime,
-						endTime: segment.endTime,
-					}));
+		editorDocumentAdapter.transact(
+			{
+				source: "user",
+				label: "Apply ruby to matching words",
+				expectedRevision: editorDocumentAdapter.getRevision(),
+			},
+			(state) => {
+				for (const line of state.lyricLines) {
+					for (const word of line.words) {
+						if (word.word !== currentWord.word) continue;
+						const recalculated = recalculateWordTime(
+							word,
+							rubySegments,
+							segmentationConfig,
+						);
+						word.ruby = recalculated.map((segment) => ({
+							word: segment.word,
+							startTime: segment.startTime,
+							endTime: segment.endTime,
+						}));
+					}
 				}
-			}
-		});
-	}, [editLyricLines, segmentationConfig, store, wordAtom]);
+			},
+		);
+	}, [segmentationConfig, store, wordAtom]);
 
 	if (!forceShow && rubyWords.length === 0) return null;
 
