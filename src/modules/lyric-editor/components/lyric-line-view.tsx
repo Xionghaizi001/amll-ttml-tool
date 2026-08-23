@@ -24,9 +24,8 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import classNames from "classnames";
-import { type Atom, atom, useAtomValue, useStore } from "jotai";
+import { type Atom, atom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { splitAtom } from "jotai/utils";
-import { useSetImmerAtom } from "jotai-immer";
 import {
 	type FC,
 	Fragment,
@@ -42,6 +41,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	enableAutoRomanizationPredictionAtom,
 	showLineRomanizationAtom,
@@ -173,7 +173,7 @@ const SubLineEdit = memo(
 		lineIndex: number;
 		type: "translatedLyric" | "romanLyric";
 	}) => {
-		const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+		const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 		const line = useAtomValue(lineAtom);
 		const [editing, setEditing] = useState(false);
 		const [inputValue, setInputValue] = useState("");
@@ -287,7 +287,7 @@ export const LyricLineView: FC<{
 	);
 	const words = useAtomValue(wordsAtom);
 	const lineSelected = useAtomValue(lineSelectedAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);

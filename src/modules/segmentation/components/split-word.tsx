@@ -8,8 +8,7 @@ import {
 	Flex,
 	Text,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,6 +33,7 @@ import {
 	segmentWord,
 } from "$/modules/segmentation/utils/segmentation.ts";
 import { splitWordDialogAtom } from "$/states/dialogs.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { editingWordStateAtom, lyricLinesAtom } from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
 import { ManualWordSplitter } from "./ManualWordSplitter";
@@ -42,7 +42,7 @@ export const SplitWordDialog = memo(() => {
 	const [splitWordDialog, splitWordDialogOpen] = useAtom(splitWordDialogAtom);
 	const editingState = useAtomValue(editingWordStateAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const { t } = useTranslation();
 
 	const [splitIndices, setSplitIndices] = useState(new Set<number>());

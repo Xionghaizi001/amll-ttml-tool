@@ -1,11 +1,10 @@
 import { ContextMenu } from "@radix-ui/themes";
 import { type Atom, atom, useAtomValue, useSetAtom, useStore } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
 import { useTranslation } from "react-i18next";
 import { replaceWordDialogAtom, splitWordDialogAtom } from "$/states/dialogs";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	editingWordStateAtom,
-	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
 } from "$/states/main";
@@ -34,7 +33,7 @@ export const LyricWordMenu = ({
 	const store = useStore();
 	const selectedWordsSize = useAtomValue(selectedWordsSizeAtom);
 	const selectedLinesSize = useAtomValue(selectedLinesSizeAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setOpenSplitWordDialog = useSetAtom(splitWordDialogAtom);
 	const setOpenReplaceWordDialog = useSetAtom(replaceWordDialogAtom);
 	const setEditingWordState = useSetAtom(editingWordStateAtom);

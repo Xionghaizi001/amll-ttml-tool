@@ -12,6 +12,7 @@ import {
 	getSynchronizableUnits,
 	isSynchronizableLine,
 } from "$/modules/lyric-editor/utils/lyric-states";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	SyncJudgeMode,
 	smartFirstWordAtom,
@@ -37,7 +38,6 @@ import {
 	keySyncStartAtom,
 } from "$/states/keybindings.ts";
 import {
-	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
 } from "$/states/main.ts";
@@ -275,7 +275,7 @@ export const SyncKeyBinding: FC = () => {
 				store.set(smartFirstWordActiveIdAtom, location.word.id);
 			}
 
-			store.set(lyricLinesAtom, (state) =>
+			store.set(editorDocumentWriteAtom, (state) =>
 				produce(state, (state) => {
 					const line = state.lyricLines[location.lineIndex];
 					if (location.isFirstWord) {
@@ -304,7 +304,7 @@ export const SyncKeyBinding: FC = () => {
 			if (smartFirstWord && location.isFirstWord) {
 				const activeId = store.get(smartFirstWordActiveIdAtom);
 				if (activeId !== location.word.id) {
-					store.set(lyricLinesAtom, (state) =>
+					store.set(editorDocumentWriteAtom, (state) =>
 						produce(state, (state) => {
 							const line = state.lyricLines[location.lineIndex];
 							line.startTime = currentTime;
@@ -334,7 +334,7 @@ export const SyncKeyBinding: FC = () => {
 			// 智能尾字
 			const smartLastWord = store.get(smartLastWordAtom);
 			if (smartLastWord && location.isLastWord) {
-				store.set(lyricLinesAtom, (state) =>
+				store.set(editorDocumentWriteAtom, (state) =>
 					produce(state, (state) => {
 						const line = state.lyricLines[location.lineIndex];
 						setUnitEndTime(
@@ -350,7 +350,7 @@ export const SyncKeyBinding: FC = () => {
 				return;
 			}
 
-			store.set(lyricLinesAtom, (state) =>
+			store.set(editorDocumentWriteAtom, (state) =>
 				produce(state, (state) => {
 					const curLine = state.lyricLines[location.lineIndex];
 					setUnitEndTime(
@@ -396,7 +396,7 @@ export const SyncKeyBinding: FC = () => {
 			const location = getCurrentLocation(store);
 			if (!location) return;
 			const currentTime = calcJudgeTime(evt);
-			store.set(lyricLinesAtom, (state) =>
+			store.set(editorDocumentWriteAtom, (state) =>
 				produce(state, (state) => {
 					const line = state.lyricLines[location.lineIndex];
 					setUnitEndTime(

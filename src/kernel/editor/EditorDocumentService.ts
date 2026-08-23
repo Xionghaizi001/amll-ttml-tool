@@ -122,7 +122,10 @@ export class EditorDocumentService {
 	private readonly redoStack: TTMLLyric[] = [];
 	private readonly listeners = new Set<(event: DocumentChangeEvent) => void>();
 
-	constructor(initialDocument: TTMLLyric = { lyricLines: [], metadata: [] }) {
+	constructor(
+		initialDocument: TTMLLyric = { lyricLines: [], metadata: [] },
+		private readonly historyLimit = 256,
+	) {
 		this.document = normalizeDocument(initialDocument);
 	}
 
@@ -237,7 +240,10 @@ export class EditorDocumentService {
 		const previousRevision = this.revision;
 		this.document = clone(next);
 		this.revision += 1;
-		if (options.recordUndo ?? true) this.undoStack.push(clone(previous));
+		if (options.recordUndo ?? true) {
+			this.undoStack.push(clone(previous));
+			if (this.undoStack.length > this.historyLimit) this.undoStack.shift();
+		}
 		if (options.clearRedo ?? true) this.redoStack.length = 0;
 		const previousLines = new Map(
 			previous.lyricLines.map((line) => [line.id, line]),

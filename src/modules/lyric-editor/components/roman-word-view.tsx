@@ -1,7 +1,12 @@
 import { Button, TextField } from "@radix-ui/themes";
 import classNames from "classnames";
-import { type Atom, useAtom, useAtomValue, type WritableAtom } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import {
+	type Atom,
+	useAtom,
+	useAtomValue,
+	useSetAtom,
+	type WritableAtom,
+} from "jotai";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -9,7 +14,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { lyricLinesAtom } from "$/states/main";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import type { LyricWord } from "$/types/ttml";
 import styles from "./roman-word-view.module.css";
 
@@ -28,7 +33,7 @@ export const RomanWordView = ({
 }: RomanWordViewProps) => {
 	const word = useAtomValue(wordAtom);
 	const [editingIndex, setEditingIndex] = useAtom(editingIndexAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const [inputValue, setInputValue] = useState(word.romanWord);
 	const inputRef = useRef<HTMLInputElement>(null);
 

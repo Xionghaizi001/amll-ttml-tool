@@ -1,3 +1,4 @@
+import { atom } from "jotai/vanilla";
 import type { WritableAtom, createStore } from "jotai/vanilla";
 import { lyricLinesAtom } from "$/states/main";
 import { globalStore } from "$/states/store";
@@ -32,6 +33,14 @@ export class EditorDocumentAtomAdapter {
 
 	getRevision(): number {
 		return this.service.getRevision();
+	}
+
+	canUndo(): boolean {
+		return this.service.canUndo();
+	}
+
+	canRedo(): boolean {
+		return this.service.canRedo();
 	}
 
 	transact(meta: DocumentTransactionMeta, updater: DocumentUpdater) {
@@ -86,3 +95,40 @@ export const editorDocumentAdapter = new EditorDocumentAtomAdapter(
 	globalStore,
 	lyricLinesAtom,
 );
+
+/**
+ * Jotai bridge for UI code during the migration. The bridge deliberately
+ * exposes only transaction updates; callers cannot replace the host atom
+ * directly and every write receives one history entry and one revision.
+ */
+export const editorDocumentWriteAtom = atom(
+	null,
+	(
+		_get,
+		_set,
+		updater: DocumentUpdater,
+	) =>
+		editorDocumentAdapter.transact(
+			{
+				source: "legacy-ui",
+				label: "Editor document edit",
+			},
+			updater,
+		),
+);
+
+export const editorDocumentUndoAtom = atom(null, () =>
+	editorDocumentAdapter.undo({ source: "user", label: "Undo" }),
+);
+
+export const editorDocumentRedoAtom = atom(null, () =>
+	editorDocumentAdapter.redo({ source: "user", label: "Redo" }),
+);
+
+export const editorDocumentHistoryAtom = atom((get) => {
+	get(lyricLinesAtom);
+	return {
+		canUndo: editorDocumentAdapter.canUndo(),
+		canRedo: editorDocumentAdapter.canRedo(),
+	};
+});

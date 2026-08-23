@@ -12,7 +12,6 @@
 import { Box, ContextMenu, Flex, Text } from "@radix-ui/themes";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
-import { useSetImmerAtom } from "jotai-immer";
 import { focusAtom } from "jotai-optics";
 import {
 	type FC,
@@ -27,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import { useLyricListDrag } from "$/modules/lyric-drag/useLyricListDrag";
 import {
@@ -71,7 +71,7 @@ const findCurrentLineIndex = (lines: LyricLine[], currentTime: number) => {
 export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const editLyric = useAtomValue(lyricLinesOnlyAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom).lyricLines;
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const viewRef = useRef<ViewportListRef>(null);
 	const viewElRef = useRef<HTMLDivElement>(null);
 	const toolMode = useAtomValue(toolModeAtom);

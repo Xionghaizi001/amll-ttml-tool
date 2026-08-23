@@ -48,13 +48,14 @@
   - [x] 加入 revision 冲突检测，禁止异步插件静默覆盖用户新修改。
   - [x] 插件只能看到公开文档投影，宿主内部字段由 adapter 保留。
   - [x] 为行和单词使用稳定 ID，事件中不依赖数组索引。
-  - [ ] 禁止新增代码直接写 lyricLinesAtom，通过 lint/import boundary 约束。
-  - [ ] 分模块迁移现有直接写入点：编辑器、Ribbon、频谱、工具、导入器、元数据。
+  - [x] 禁止新增代码直接写 lyricLinesAtom，通过 lint/import boundary 约束。
+  - [x] 分模块迁移现有直接写入点：编辑器、Ribbon、频谱、工具、导入器、元数据。
     - [x] 工具：TimeShift、SyllableSmoothing、ReplaceWord、RubyEditor。
     - [x] Ribbon：字段编辑、属性切换、新建歌词行、背景歌词同步设置。
     - [x] 元数据：MetadataEditor 的值、键和批量清空操作。
     - [x] 频谱：时间轴边界、单词平移和行时间编辑。
     - [x] 导入器：本地歌词、纯文本、LRCLIB 和音频元数据导入。
+    - [x] 编辑器：行/词编辑视图、同步打轴、右键菜单、拖拽排序、分词对话框、设置页与历史恢复。
   - [x] 为事务、撤销、重做、冲突和字段保留添加测试。
 
   验收条件：所有用户和插件文档修改都能被统一观察、撤销并标记来源。

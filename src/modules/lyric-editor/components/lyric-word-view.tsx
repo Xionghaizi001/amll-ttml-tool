@@ -37,6 +37,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	displayRomanizationInSyncAtom,
 	highlightActiveWordAtom,
@@ -49,7 +50,6 @@ import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts"
 import { splitWordDialogAtom } from "$/states/dialogs.ts";
 import {
 	editingWordStateAtom,
-	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
@@ -130,7 +130,7 @@ const LyricWordViewEditSpan = ({
 >) => {
 	const word = useAtomValue(wordAtom);
 	const store = useStore();
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const isWordSelectedAtom = useMemo(
 		() => atom((get) => get(selectedWordsAtom).has(get(wordAtom).id)),
@@ -349,7 +349,7 @@ function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 	const [fieldInput, setFieldInput] = useState<string | undefined>(undefined);
 	const [fieldPlaceholder, setFieldPlaceholder] = useState<string>("");
 
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 
 	const currentValueAtom = useMemo(
 		() =>
@@ -429,7 +429,7 @@ const LyricWordViewEditAdvance = ({
 	lineIndex,
 }: LyricWordViewEditProps) => {
 	const store = useStore();
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setOpenSplitWordDialog = useSetAtom(splitWordDialogAtom);
 	const setSplitState = useSetAtom(editingWordStateAtom);
 	const currentWord = useAtomValue(wordAtom);
@@ -622,7 +622,7 @@ const LyricWorldViewEdit = ({
 }: LyricWordViewEditProps) => {
 	const { t } = useTranslation();
 	const word = useAtomValue(wordAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const isWordSelectedAtom = useMemo(
 		() => atom((get) => get(selectedWordsAtom).has(get(wordAtom).id)),

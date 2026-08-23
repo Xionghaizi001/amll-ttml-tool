@@ -1,6 +1,7 @@
 import { useSetAtom, useStore } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import { reorderOrCopyLyricLines } from "$/modules/lyric-drag/drag-reorder";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	draggedCountAtom,
 	dragSourceAtom,
@@ -44,7 +45,7 @@ export const useLyricListDrag = ({
 
 	const handleDrop = useCallback(
 		(draggedIds: Set<string>, targetIndex: number, isCopy: boolean) => {
-			const { metadata, lyricLines: originalLines } = store.get(lyricLinesAtom);
+			const { lyricLines: originalLines } = store.get(lyricLinesAtom);
 
 			const { nextLines, newlyCreatedIds } = reorderOrCopyLyricLines(
 				originalLines,
@@ -53,7 +54,9 @@ export const useLyricListDrag = ({
 				isCopy,
 			);
 
-			store.set(lyricLinesAtom, { metadata, lyricLines: nextLines });
+			store.set(editorDocumentWriteAtom, (draft) => {
+				draft.lyricLines = nextLines;
+			});
 
 			if (isCopy && newlyCreatedIds.size > 0) {
 				store.set(selectedLinesAtom, newlyCreatedIds);

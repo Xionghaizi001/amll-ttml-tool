@@ -22,7 +22,7 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
 	playbackRateAtom,
@@ -32,6 +32,7 @@ import {
 import type { StretchAlgorithm } from "$/modules/ffmpeg/types";
 import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { GithubIcon } from "$/modules/project/modals/PlatformIcons";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	autosaveEnabledAtom,
 	autosaveIntervalAtom,
@@ -47,7 +48,6 @@ import {
 	TranslationOutputMode,
 	translationOutputModeAtom,
 } from "$/modules/settings/states";
-import { lyricLinesAtom } from "$/states/main";
 import {
 	KeyBindingTriggerMode,
 	keyBindingTriggerModeAtom,
@@ -79,7 +79,7 @@ export const SettingsCommonTab = () => {
 	);
 	const [defaultTtmlAuthorGithubLogin, setDefaultTtmlAuthorGithubLogin] =
 		useAtom(defaultTtmlAuthorGithubLoginAtom);
-	const [, setLyricLines] = useAtom(lyricLinesAtom);
+	const setLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const { t, i18n } = useTranslation();
 	const currentLanguage = i18n.resolvedLanguage || i18n.language;
 

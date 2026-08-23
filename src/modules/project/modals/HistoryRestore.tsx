@@ -21,6 +21,7 @@ import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import {
 	deleteProject,
 	getProjectLatestState,
@@ -30,7 +31,11 @@ import {
 	type ProjectVersion,
 } from "$/modules/project/autosave/autosave";
 import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
-import { newLyricLinesAtom, projectIdAtom } from "$/states/main";
+import {
+	projectIdAtom,
+	selectedLinesAtom,
+	selectedWordsAtom,
+} from "$/states/main";
 import { projectLogger } from "../logger";
 
 export const HistoryRestoreDialog = () => {
@@ -41,8 +46,9 @@ export const HistoryRestoreDialog = () => {
 	);
 	const [versions, setVersions] = useState<ProjectVersion[]>([]);
 
-	const setNewLyrics = useSetAtom(newLyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
+	const setSelectedLines = useSetAtom(selectedLinesAtom);
+	const setSelectedWords = useSetAtom(selectedWordsAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const { t } = useTranslation();
 
@@ -95,7 +101,12 @@ export const HistoryRestoreDialog = () => {
 				const latestLyric = await getProjectLatestState(project.id);
 				if (latestLyric) {
 					setProjectId(project.id);
-					setNewLyrics(latestLyric);
+					editorDocumentAdapter.replace(latestLyric, {
+						source: "user",
+						label: "Restore latest project snapshot",
+					});
+					setSelectedLines(new Set());
+					setSelectedWords(new Set());
 					setIsOpen(false);
 					toast.success(t("common.success", "恢复成功"));
 				} else {
@@ -115,7 +126,12 @@ export const HistoryRestoreDialog = () => {
 			),
 			onConfirm: () => {
 				setProjectId(version.projectId);
-				setNewLyrics(version.data);
+				editorDocumentAdapter.replace(version.data, {
+					source: "user",
+					label: "Restore project snapshot",
+				});
+				setSelectedLines(new Set());
+				setSelectedWords(new Set());
 				setIsOpen(false);
 				toast.success(t("common.success", "恢复成功"));
 			},

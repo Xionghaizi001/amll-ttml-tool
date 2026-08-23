@@ -1,11 +1,18 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
-import { useSetImmerAtom, withImmer } from "jotai-immer";
+import { withImmer } from "jotai-immer";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
+import {
+	editorDocumentAdapter,
+	editorDocumentHistoryAtom,
+	editorDocumentRedoAtom,
+	editorDocumentUndoAtom,
+	editorDocumentWriteAtom,
+} from "$/plugins/adapters/editor-document";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
 	segmentLyricLines,
@@ -41,14 +48,10 @@ import {
 import {
 	isDirtyAtom,
 	lyricLinesAtom,
-	newLyricLinesAtom,
 	projectIdAtom,
-	redoLyricLinesAtom,
 	saveFileNameAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
-	undoableLyricLinesAtom,
-	undoLyricLinesAtom,
 } from "$/states/main.ts";
 import { type LyricWord, type LyricWordBase, newLyricWord } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
@@ -58,11 +61,10 @@ const topMenuLogger = createLogger("TopMenu");
 export const useTopMenuActions = () => {
 	const { t } = useTranslation();
 	const [saveFileName, setSaveFileName] = useAtom(saveFileNameAtom);
-	const newLyricLine = useSetAtom(newLyricLinesAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
-	const undoLyricLines = useAtomValue(undoableLyricLinesAtom);
+	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
 	const isDirty = useAtomValue(isDirtyAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
@@ -118,7 +120,12 @@ export const useTopMenuActions = () => {
 
 	const onNewFile = useCallback(() => {
 		const action = () => {
-			newLyricLine();
+			editorDocumentAdapter.replace(
+				{ lyricLines: [], metadata: [] },
+				{ source: "user", label: "New lyric document" },
+			);
+			store.set(selectedLinesAtom, new Set());
+			store.set(selectedWordsAtom, new Set());
 			setProjectId(uid());
 			setSaveFileName("lyric.ttml");
 		};
@@ -138,11 +145,11 @@ export const useTopMenuActions = () => {
 		}
 	}, [
 		isDirty,
-		newLyricLine,
 		setConfirmDialog,
 		t,
 		setProjectId,
 		setSaveFileName,
+		store,
 	]);
 
 	const onOpenFile = useCallback(() => {
@@ -242,11 +249,11 @@ export const useTopMenuActions = () => {
 	}, []);
 
 	const onUndo = useCallback(() => {
-		store.set(undoLyricLinesAtom);
+		store.set(editorDocumentUndoAtom);
 	}, [store]);
 
 	const onRedo = useCallback(() => {
-		store.set(redoLyricLinesAtom);
+		store.set(editorDocumentRedoAtom);
 	}, [store]);
 
 	const onUnselectAll = useCallback(() => {
@@ -466,8 +473,8 @@ export const useTopMenuActions = () => {
 		selectInvertedLinesKey,
 		selectWordsOfMatchedSelectionKey,
 		deleteSelectionKey,
-		undoDisabled: !undoLyricLines.canUndo,
-		redoDisabled: !undoLyricLines.canRedo,
+		undoDisabled: !documentHistory.canUndo,
+		redoDisabled: !documentHistory.canRedo,
 		onNewFile,
 		onOpenFile,
 		onOpenFileFromClipboard,

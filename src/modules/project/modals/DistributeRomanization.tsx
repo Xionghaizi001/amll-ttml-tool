@@ -1,7 +1,6 @@
 import { InfoRegular } from "@fluentui/react-icons";
 import { Button, Callout, Dialog, Flex } from "@radix-ui/themes";
-import { useAtom } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
 	DialogScopeSelector,
@@ -9,14 +8,14 @@ import {
 } from "$/hooks/useDialogScope.tsx";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
-import { lyricLinesAtom } from "$/states/main";
 import { projectLogger } from "../logger";
 
 export const DistributeRomanizationDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(distributeRomanizationDialogAtom);
-	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const setLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const scopeState = useDialogScope(open);
 
 	const handleConfirm = () => {

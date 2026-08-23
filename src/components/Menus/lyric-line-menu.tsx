@@ -1,8 +1,8 @@
 import { ContextMenu } from "@radix-ui/themes";
-import { atom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 
@@ -13,7 +13,7 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 
 	const selectedLinesSize = useAtomValue(selectedLinesSizeAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 
 	const lineObjs = useAtomValue(lyricLinesAtom);
 	const selectedLineObjs = lineObjs.lyricLines.filter((line) =>

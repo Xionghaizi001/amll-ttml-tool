@@ -11,7 +11,7 @@
 
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { REDO, UNDO, withHistory } from "jotai-history";
+import { withHistory } from "jotai-history";
 import { uid } from "uid";
 import { identifyProject } from "$/modules/project/logic/project-info";
 import type { TTMLLyric } from "../types/ttml";
@@ -37,6 +37,15 @@ export const isDarkThemeAtom = atom((get) => {
 export const autoDarkModeAtom = atom(true);
 
 // 歌词行编辑上下文
+/**
+ * @description 宿主内部的歌词文档状态。
+ *
+ * 禁止在新增代码中直接写入本 atom（`scripts/check-editor-boundary.mjs` 会在
+ * `pnpm lint` 中拦截）。所有文档修改必须通过
+ * `$/plugins/adapters/editor-document` 暴露的 `editorDocumentWriteAtom` 或
+ * `editorDocumentAdapter.transact/replace` 提交，以保证撤销记录、revision
+ * 冲突检测和修改来源标记的统一。读取不受限制。
+ */
 export const lyricLinesAtom = atom({
 	lyricLines: [],
 	metadata: [],
@@ -91,32 +100,11 @@ export const lastSavedTimeAtom = atom<number | null>(null);
 
 export const undoableLyricLinesAtom = withHistory(lyricLinesAtom, 256);
 export const isDirtyAtom = atom((get) => get(undoableLyricLinesAtom).canUndo);
-export const undoLyricLinesAtom = atom(null, (_get, set) => {
-	set(undoableLyricLinesAtom, UNDO);
-});
-export const redoLyricLinesAtom = atom(null, (_get, set) => {
-	set(undoableLyricLinesAtom, REDO);
-});
 export const editingWordStateAtom = atom({
 	wordIndex: -1,
 	lineIndex: -1,
 	word: "",
 });
-export const newLyricLinesAtom = atom(
-	null,
-	(
-		_get,
-		set,
-		newState: TTMLLyric = {
-			lyricLines: [],
-			metadata: [],
-		},
-	) => {
-		set(lyricLinesAtom, newState);
-		set(selectedLinesAtom, new Set());
-		set(selectedWordsAtom, new Set());
-	},
-);
 export const selectedLinesAtom = atom(new Set<string>());
 export const selectedWordsAtom = atom(new Set<string>());
 

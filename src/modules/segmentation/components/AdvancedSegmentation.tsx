@@ -21,8 +21,7 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
-import { useSetImmerAtom } from "jotai-immer";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -41,6 +40,7 @@ import {
 import { SUPPORTED_LANGUAGES } from "$/modules/segmentation/utils/hyphen-loader";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation.ts";
 import { advancedSegmentationDialogAtom } from "$/states/dialogs.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { lyricLinesAtom } from "$/states/main.ts";
 import { type LyricWord, newLyricLine, newLyricWord } from "$/types/ttml";
 import { segmentationLogger } from "../logger";
@@ -77,7 +77,7 @@ export const AdvancedSegmentationDialog = memo(() => {
 		new Set<number>(),
 	);
 
-	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const currentLyric = useAtomValue(lyricLinesAtom);
 
 	const [lang, setLang] = useAtom(segmentationLangAtom);
