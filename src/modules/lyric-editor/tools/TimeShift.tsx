@@ -14,12 +14,13 @@ import {
 import { useAtom } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { shiftLyricTimes } from "$/application/time-shift";
 import {
 	DialogScopeSelector,
 	useDialogScope,
 } from "$/hooks/useDialogScope.tsx";
-import { timeShiftDialogAtom } from "$/states/dialogs.ts";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
+import { timeShiftDialogAtom } from "$/states/dialogs.ts";
 
 type ShiftDirection = "delay" | "advance";
 
@@ -45,40 +46,16 @@ export const TimeShiftDialog = () => {
 		}
 
 		const finalOffset = direction === "delay" ? amount : -amount;
-		const targetLineIndices = scopeState.getTargetLineIndices();
+		const snapshot = editorDocumentAdapter.readSnapshot();
+		const targetLineIds = [...scopeState.getTargetLineIndices()]
+			.map((index) => snapshot.lyricLines[index]?.id)
+			.filter((id): id is string => id !== undefined);
 
-		editorDocumentAdapter.transact(
-			{
-				source: "user",
-				label: "Time shift lyrics",
-				expectedRevision: editorDocumentAdapter.getRevision(),
-			},
-			(draft) => {
-				draft.lyricLines.forEach((line, index) => {
-					if (targetLineIndices.has(index)) {
-						line.startTime = Math.max(0, line.startTime + finalOffset);
-						line.endTime = Math.max(0, line.endTime + finalOffset);
-
-						line.words.forEach((word) => {
-							word.startTime = Math.max(0, word.startTime + finalOffset);
-							word.endTime = Math.max(0, word.endTime + finalOffset);
-							if (word.ruby && word.ruby.length > 0) {
-								word.ruby.forEach((rubyWord) => {
-									rubyWord.startTime = Math.max(
-										0,
-										rubyWord.startTime + finalOffset,
-									);
-									rubyWord.endTime = Math.max(
-										0,
-										rubyWord.endTime + finalOffset,
-									);
-								});
-							}
-						});
-					}
-				});
-			},
-		);
+		shiftLyricTimes(editorDocumentAdapter, {
+			offsetMs: finalOffset,
+			lineIds: targetLineIds,
+			expectedRevision: editorDocumentAdapter.getRevision(),
+		});
 
 		setOpen(false);
 	};

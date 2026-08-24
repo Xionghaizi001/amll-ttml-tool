@@ -18,6 +18,7 @@ dist-ssr
 **/obj
 **/bin
 *.test.ts
+*.spec.ts
 
 # Editor directories and files
 .vscode/*

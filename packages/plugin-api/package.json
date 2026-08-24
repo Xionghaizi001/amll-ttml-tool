@@ -5,12 +5,25 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./schema": "./src/schema/index.ts"
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./src/index.ts"
+		},
+		"./schema": {
+			"types": "./dist/schema/index.d.ts",
+			"import": "./src/schema/index.ts"
+		},
+		"./testing": {
+			"types": "./dist/testing/index.d.ts",
+			"import": "./src/testing/index.ts"
+		}
 	},
 	"main": "./src/index.ts",
-	"types": "./src/index.ts",
-	"files": ["src"],
+	"types": "./dist/index.d.ts",
+	"files": [
+		"src",
+		"dist"
+	],
 	"scripts": {
 		"test": "vitest run"
 	},

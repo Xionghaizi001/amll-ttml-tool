@@ -1,5 +1,18 @@
 • 下面这份清单按依赖顺序排列。核心原则是：先建立内核边界和稳定协议，再接 Extism；先迁移一个完整功能闭环，再批量插件化。
 
+  已实现成果盘点（2026-08-24）
+
+  - 阶段 0：已在 `feat-plugin` 分支固定插件架构、信任边界、MVP/非目标和 experimental v0
+    版本策略；ADR 0001–0003 与 `PLUGIN.md` 已成为架构和协议的权威入口。
+  - 阶段 1：已完成 Extism JSON PoC、Worker runtime/session 抽象、终止/超时/重复加载/大 payload
+    诊断和基准记录，并验证浏览器 Worker、Tauri Windows、Tauri WebKit、Rust PDK 与 C# WASI。
+    Extism 依赖被隔离在 `src/plugins/runtime`，业务模块只看到 `PluginRuntime` 接口。
+  - 阶段 2：已落地 `EditorDocumentService` 的 snapshot、事务、replace、revision、undo/redo 和事件；
+    Jotai 通过单一 adapter 接入。工具、Ribbon、元数据、频谱、导入器和编辑器直写点已迁移，稳定
+    行/词 ID、字段保留、冲突拒绝和 import boundary 均有测试覆盖。
+  - 对应提交链：`c9280cb`（ADR/依赖）→ `29aa81a`、`9ccef5a`（runtime PoC）→
+    `6601c31`、`42ed686`、`c1356f3`（事务层与全量迁移）。
+
   目标结构
 
   packages/plugin-api/          # 稳定、与宿主实现无关的公开协议
@@ -62,19 +75,26 @@
 
   阶段 3：建立公开 Plugin API
 
-  - [ ] 创建独立的 packages/plugin-api，不得依赖 React、Jotai、Tauri 或内部 TTMLLyric。
-  - [ ] 固定 UI 与业务的分层边界：业务逻辑只能依赖 kernel、platform 接口和 plugin-api；UI 只能通过 adapter、application service 或 command 调用业务，禁止直接修改 lyricLinesAtom。
+  - [x] 创建独立的 packages/plugin-api，不得依赖 React、Jotai、Tauri 或内部 TTMLLyric。
+  - [x] 固定 UI 与业务的分层边界：业务逻辑只能依赖 kernel、platform 接口和 plugin-api；UI 只能通过 adapter、application service 或 command 调用业务，禁止直接修改 lyricLinesAtom。
   - [ ] 将 Jotai、React、Tauri、DOM 和 Worker 依赖收敛到 adapters/ui/runtime；业务层不得反向导入这些实现。
+    - [x] 正式的 `kernel`、`application` 和 `plugin-api` 层已禁止反向导入并由 lint 检查。
+    - [ ] 继续拆分 `src/modules` 中混合 UI/业务的遗留模块。
   - [ ] 为文档、导入导出、分词、时间处理等可复用业务建立 host-agnostic application service；React hook 只负责状态绑定、交互和错误展示。
-  - [ ] 选择一个完整功能闭环（建议时间平移）完成 UI → command/application service → EditorDocumentService 的迁移，并删除该功能的旧直写入口。
-  - [ ] 为分层增加 import boundary/lint 约束，并在 CI 中检查新增跨层依赖。
-  - [ ] 定义 FunctionPluginManifest 和 ThemePluginManifest 判别联合。
-  - [ ] 定义 PluginDocumentV0、事件、命令、错误、权限和生命周期协议。
-  - [ ] 使用 JSON Schema 校验所有 manifest、宿主调用和插件返回值。
-  - [ ] 加入 apiVersion、themeApiVersion 和 capability negotiation。
-  - [ ] 首批 capability：lyrics.core、lyrics.ruby、ui.notify、ui.form、storage.kv。
-  - [ ] 为定制字段预留 capability 和 extensions，但不允许无约束覆盖内部对象。
-  - [ ] 自动生成 SDK 类型和协议文档。
+    - [x] 时间处理：新增无 React/Jotai/DOM 依赖的 `TimeShiftService`。
+    - [ ] 文档、导入导出和分词等业务继续按功能闭环迁移。
+  - [x] 选择一个完整功能闭环（建议时间平移）完成 UI → command/application service → EditorDocumentService 的迁移，并删除该功能的旧直写入口。
+  - [x] 为分层增加 import boundary/lint 约束，并在 CI 中检查新增跨层依赖。
+  - [x] 定义 FunctionPluginManifest 和 ThemePluginManifest 判别联合。
+  - [x] 定义 PluginDocumentV0、事件、命令、错误、权限和生命周期协议。
+  - [x] 使用 JSON Schema 校验所有 manifest、宿主调用和插件返回值。
+  - [x] 加入 apiVersion、themeApiVersion 和 capability negotiation。
+  - [x] 首批 capability：lyrics.core、lyrics.ruby、ui.notify、ui.form、storage.kv。
+  - [x] 为定制字段预留 capability 和 extensions，但不允许无约束覆盖内部对象。
+  - [x] 自动生成 SDK 类型和协议文档。
+
+  当前验证：Mock Host 合同套件无需启动 React；时间平移可在 Node 测试中产生单一事务并完整撤销；
+  `scripts/check-editor-boundary.mjs` 与 CI 会阻止新增跨层依赖和 `lyricLinesAtom` 直写。
 
   验收条件：Mock Host 中可以运行插件合同测试，不需要启动 React 应用；至少一个完整功能可在不渲染 React 的情况下通过 application service 执行、产生统一文档事务并撤销；业务层无 React/Jotai/Tauri/DOM 直接依赖。
 

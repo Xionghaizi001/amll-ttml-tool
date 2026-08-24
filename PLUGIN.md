@@ -54,6 +54,9 @@ src/plugins/ui/       插件管理、菜单、表单等宿主 UI
 
 协议定义在 `packages/plugin-api`，权威决策记录见：
 
+- [插件开发手册](docs/plugin-development-guide.md)：SDK 字段、最小示例、API 范围和发布检查。
+- [Agent 实现指南](docs/plugin-agent-guide.md)：分层边界、协议工作流和自动化交付约束。
+
 - [ADR 0001：插件架构、信任边界与 MVP 范围](docs/adr/0001-plugin-architecture.md)
 - [ADR 0002：Plugin 协议 v0 契约草案](docs/adr/0002-protocol-v0-contract.md)
 - [ADR 0003：内核命令、Contribution 与宿主能力层](docs/adr/0003-kernel-command-contribution.md)

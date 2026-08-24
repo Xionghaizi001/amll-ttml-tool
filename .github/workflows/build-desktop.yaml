@@ -20,9 +20,33 @@ jobs:
           tag: ${{ github.ref_name }}-release
           fail-if-no-assets: false
           fail-if-no-release: false
+  quality:
+    name: 检查分层边界与协议合同
+    needs: clean-pre-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: 克隆仓库
+        uses: actions/checkout@v6
+      - name: 安装 PNPM
+        uses: pnpm/action-setup@v4
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+      - name: 检查分层边界
+        run: pnpm lint:boundaries
+      - name: 检查 Plugin API 与生成文档
+        run: pnpm plugin:api:check
+      - name: 运行协议与应用服务测试
+        run: pnpm test
   build-tauri-desktop:
     name: 构建 Tauri 桌面版本
-    needs: clean-pre-release
+    needs:
+      - clean-pre-release
+      - quality
     strategy:
       fail-fast: false
       matrix:
