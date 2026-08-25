@@ -4,6 +4,9 @@ import {
 	FORM_FLUENT_ICON_NAMES_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
+	THEME_COLOR_TOKEN_NAMES_V0,
+	THEME_LYRICS_TOKEN_NAMES_V0,
+	THEME_SPECTROGRAM_TOKEN_NAMES_V0,
 	THEME_TOKEN_VERSION,
 } from "../types";
 import type { JsonSchema } from "./validator";
@@ -16,7 +19,9 @@ const localizedText = {
 		{
 			type: "object",
 			required: ["default"],
-			properties: { default: { type: "string", minLength: 1, maxLength: 2048 } },
+			properties: {
+				default: { type: "string", minLength: 1, maxLength: 2048 },
+			},
 			additionalProperties: { type: "string", maxLength: 2048 },
 			maxProperties: 16,
 		},
@@ -717,17 +722,43 @@ export const PLUGIN_EVENT_SCHEMA = {
 	],
 } satisfies JsonSchema;
 
+const themeTokenValue = { type: "string", minLength: 1, maxLength: 256 };
+const namedTokenGroup = (names: readonly string[]) => ({
+	type: "object",
+	properties: Object.fromEntries(names.map((name) => [name, themeTokenValue])),
+	additionalProperties: false,
+});
+const themeBackgroundToken = {
+	type: "object",
+	required: ["kind"],
+	properties: {
+		kind: { enum: ["solid", "gradient", "none"] },
+		value: { type: "string", minLength: 1, maxLength: 1024 },
+	},
+	additionalProperties: false,
+};
+const themeModeOverrides = {
+	type: "object",
+	properties: {
+		color: namedTokenGroup(THEME_COLOR_TOKEN_NAMES_V0),
+		lyrics: namedTokenGroup(THEME_LYRICS_TOKEN_NAMES_V0),
+		spectrogram: namedTokenGroup(THEME_SPECTROGRAM_TOKEN_NAMES_V0),
+		background: themeBackgroundToken,
+	},
+	additionalProperties: false,
+};
+
 export const THEME_TOKENS_SCHEMA = {
 	type: "object",
 	required: ["tokenVersion"],
 	properties: {
 		tokenVersion: { const: THEME_TOKEN_VERSION },
-		color: { type: "object", additionalProperties: { type: "string" } },
+		color: namedTokenGroup(THEME_COLOR_TOKEN_NAMES_V0),
 		font: {
 			type: "object",
 			properties: {
-				family: { type: "string" },
-				monoFamily: { type: "string" },
+				family: { type: "string", minLength: 1, maxLength: 256 },
+				monoFamily: { type: "string", minLength: 1, maxLength: 256 },
 				scale: { type: "number", minimum: 0.5, maximum: 2 },
 			},
 			additionalProperties: false,
@@ -736,20 +767,76 @@ export const THEME_TOKENS_SCHEMA = {
 			type: "object",
 			properties: {
 				scale: { type: "number", minimum: 0.5, maximum: 2 },
-				radius: { type: "string" },
+				radius: { type: "string", minLength: 1, maxLength: 64 },
 			},
 			additionalProperties: false,
 		},
-		lyrics: { type: "object", additionalProperties: { type: "string" } },
-		spectrogram: { type: "object", additionalProperties: { type: "string" } },
-		background: {
+		lyrics: namedTokenGroup(THEME_LYRICS_TOKEN_NAMES_V0),
+		spectrogram: namedTokenGroup(THEME_SPECTROGRAM_TOKEN_NAMES_V0),
+		background: themeBackgroundToken,
+		light: themeModeOverrides,
+		dark: themeModeOverrides,
+	},
+	additionalProperties: false,
+} satisfies JsonSchema;
+
+const assetName = {
+	type: "string",
+	minLength: 1,
+	maxLength: 64,
+	pattern: "^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
+};
+export const THEME_ASSET_NAME_PATTERN = new RegExp(assetName.pattern);
+
+export const THEME_PACKAGE_ASSET_MIME_TYPES_V0 = [
+	"image/png",
+	"image/jpeg",
+	"image/webp",
+	"image/gif",
+	"image/svg+xml",
+	"font/woff2",
+	"font/woff",
+	"font/ttf",
+	"font/otf",
+] as const;
+
+export const THEME_PACKAGE_SCHEMA = {
+	type: "object",
+	required: ["packageVersion", "manifest", "tokens"],
+	properties: {
+		packageVersion: { const: 0 },
+		// The manifest itself re-runs full manifest validation in the parser;
+		// this keeps the discriminant errors readable.
+		manifest: { type: "object" },
+		tokens: { type: "object" },
+		styles: {
 			type: "object",
-			required: ["kind"],
-			properties: {
-				kind: { enum: ["solid", "gradient", "none"] },
-				value: { type: "string" },
+			maxProperties: 8,
+			additionalProperties: {
+				type: "string",
+				minLength: 1,
+				// Per-file cap; validateThemeCss enforces the same bound.
+				maxLength: 131072,
 			},
-			additionalProperties: false,
+		},
+		assets: {
+			type: "object",
+			maxProperties: 16,
+			additionalProperties: {
+				type: "object",
+				required: ["mime", "data"],
+				properties: {
+					mime: { enum: [...THEME_PACKAGE_ASSET_MIME_TYPES_V0] },
+					data: {
+						type: "string",
+						minLength: 1,
+						// ~1.5MB decoded per asset.
+						maxLength: 2097152,
+						pattern: "^[A-Za-z0-9+/]+={0,2}$",
+					},
+				},
+				additionalProperties: false,
+			},
 		},
 	},
 	additionalProperties: false,
@@ -766,6 +853,7 @@ export const SCHEMA_CATALOG = {
 	pluginReturn: PLUGIN_RETURN_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
 	themeTokens: THEME_TOKENS_SCHEMA,
+	themePackage: THEME_PACKAGE_SCHEMA,
 } as const;
 
 export const functionManifestSchema = PLUGIN_MANIFEST_SCHEMA

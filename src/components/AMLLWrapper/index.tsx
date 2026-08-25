@@ -53,7 +53,10 @@ export const AMLLWrapper = memo(() => {
 	}, []);
 
 	return (
-		<Card className={classNames(styles.amllWrapper, darkMode && styles.isDark)}>
+		<Card
+			className={classNames(styles.amllWrapper, darkMode && styles.isDark)}
+			data-slot="preview"
+		>
 			<LyricPlayer
 				style={{
 					height: "100%",

@@ -238,6 +238,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	return (
 		<ContextMenu.Root>
 			<ContextMenu.Trigger
+				data-slot="lyric-editor"
 				style={{
 					display: "flex",
 					flexDirection: "column",

@@ -1,11 +1,12 @@
 .radixTheme {
-	--color-panel: var(--gray-a2);
+	--color-panel: var(--attt-color-panel-background, var(--gray-a2));
 }
 
 .appContent {
 	position: relative;
 	z-index: 1;
 	height: 100%;
+	background: var(--attt-app-background, transparent);
 }
 
 .customBackgroundLayer {

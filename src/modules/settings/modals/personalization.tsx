@@ -13,6 +13,7 @@ import {
 	SettingsSpectrogramCustomPalettePage,
 	SettingsSpectrogramPalettePage,
 } from "./spectrogram";
+import { SettingsThemeSection } from "./theme";
 
 const contentTransition = {
 	duration: 0.25,
@@ -96,6 +97,8 @@ export const SettingsPersonalizationTab = ({
 								onOpen={() => onSubpageChange("customBackground")}
 							/>
 						</SettingsGroup>
+
+						<SettingsThemeSection />
 
 						<SettingsGroup title={spectrogramTitle}>
 							<SettingsSpectrogramPalettePage

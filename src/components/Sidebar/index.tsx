@@ -122,7 +122,10 @@ export const Sidebar = () => {
 	}, [savedWidth, isDragging]);
 
 	return (
-		<div style={{ position: "relative", height: "100%", flexShrink: 0 }}>
+		<div
+			style={{ position: "relative", height: "100%", flexShrink: 0 }}
+			data-slot="sidebar"
+		>
 			<motion.div
 				ref={sidebarRef}
 				className={styles.sidebarContainer}

@@ -3136,18 +3136,52 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
     },
     "color": {
       "type": "object",
-      "additionalProperties": {
-        "type": "string"
-      }
+      "properties": {
+        "panelBackground": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "textPrimary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "textSecondary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "accent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "border": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "danger": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
     },
     "font": {
       "type": "object",
       "properties": {
         "family": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
         },
         "monoFamily": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
         },
         "scale": {
           "type": "number",
@@ -3166,22 +3200,84 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
           "maximum": 2
         },
         "radius": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
         }
       },
       "additionalProperties": false
     },
     "lyrics": {
       "type": "object",
-      "additionalProperties": {
-        "type": "string"
-      }
+      "properties": {
+        "lineBackground": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "lineSelectedBackground": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "lineHoverBackground": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "wordText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "wordSecondaryText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "wordHighlight": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
     },
     "spectrogram": {
       "type": "object",
-      "additionalProperties": {
-        "type": "string"
-      }
+      "properties": {
+        "background": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "playhead": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "lineSegment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "wordSegment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "gapSegment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "waveform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
     },
     "background": {
       "type": "object",
@@ -3197,10 +3293,353 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
           ]
         },
         "value": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
       },
       "additionalProperties": false
+    },
+    "light": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "object",
+          "properties": {
+            "panelBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "textPrimary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "textSecondary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "accent": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "border": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "danger": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "lyrics": {
+          "type": "object",
+          "properties": {
+            "lineBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineSelectedBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineHoverBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordSecondaryText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordHighlight": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "spectrogram": {
+          "type": "object",
+          "properties": {
+            "background": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "playhead": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "gapSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "waveform": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "background": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "solid",
+                "gradient",
+                "none"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dark": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "object",
+          "properties": {
+            "panelBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "textPrimary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "textSecondary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "accent": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "border": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "danger": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "lyrics": {
+          "type": "object",
+          "properties": {
+            "lineBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineSelectedBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineHoverBackground": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordSecondaryText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordHighlight": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "spectrogram": {
+          "type": "object",
+          "properties": {
+            "background": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "playhead": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "lineSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "wordSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "gapSegment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "waveform": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "background": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "solid",
+                "gradient",
+                "none"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+</details>
+
+## themePackage
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "type": "object",
+  "required": [
+    "packageVersion",
+    "manifest",
+    "tokens"
+  ],
+  "properties": {
+    "packageVersion": {
+      "const": 0
+    },
+    "manifest": {
+      "type": "object"
+    },
+    "tokens": {
+      "type": "object"
+    },
+    "styles": {
+      "type": "object",
+      "maxProperties": 8,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 131072
+      }
+    },
+    "assets": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "mime",
+          "data"
+        ],
+        "properties": {
+          "mime": {
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif",
+              "image/svg+xml",
+              "font/woff2",
+              "font/woff",
+              "font/ttf",
+              "font/otf"
+            ]
+          },
+          "data": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2097152,
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

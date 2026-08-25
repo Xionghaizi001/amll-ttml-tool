@@ -281,16 +281,22 @@
 .lyricWord:not(.error):hover,
 .lyricLine:not(.error):hover {
 	box-shadow: 0 0 0 2px var(--accent-a5);
-	background-color: var(--accent-a3);
+	background-color: var(--attt-lyrics-line-hover-background, var(--accent-a3));
 }
 
 .lyricWord.selected:not(.error),
 .lyricLine.selected:not(.error) {
 	box-shadow: 0 0 0 2px var(--accent-a11);
-	background-color: var(--accent-a5);
+	background-color: var(
+		--attt-lyrics-line-selected-background,
+		var(--accent-a5)
+	);
 	&:hover {
 		box-shadow: 0 0 0 2px var(--accent-a11);
-		background-color: var(--accent-a6);
+		background-color: var(
+			--attt-lyrics-line-selected-background,
+			var(--accent-a6)
+		);
 	}
 }
 

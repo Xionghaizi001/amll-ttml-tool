@@ -113,6 +113,7 @@ export const LyricWordViewEditSpan = ({
 		>
 			<ContextMenu.Trigger>
 				<span
+					data-part="lyric-word"
 					draggable={toolMode === ToolMode.Edit}
 					onPointerDown={(event) => {
 						blockDragRef.current =

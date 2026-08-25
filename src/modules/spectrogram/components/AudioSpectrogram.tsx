@@ -304,6 +304,7 @@ export const AudioSpectrogram: FC = () => {
 	return (
 		<div
 			className={styles.spectrogramContainer}
+			data-slot="spectrogram"
 			style={{ height: `${uiHeight}px` }}
 		>
 			<div className={styles.resizeHandle} {...resizeHandleProps} />

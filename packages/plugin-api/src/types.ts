@@ -405,17 +405,114 @@ export type FormResultV0 =
 	| { submitted: true; action?: string; values: Record<string, FormValueV0> }
 	| { submitted: false; action?: string };
 
+/**
+ * Named token contract (v0). Unknown token names are rejected so a future
+ * tokenVersion bump can add names without silently ignoring typos today.
+ */
+export const THEME_COLOR_TOKEN_NAMES_V0 = [
+	"panelBackground",
+	"textPrimary",
+	"textSecondary",
+	"accent",
+	"border",
+	"danger",
+] as const;
+export type ThemeColorTokenNameV0 = (typeof THEME_COLOR_TOKEN_NAMES_V0)[number];
+
+export const THEME_LYRICS_TOKEN_NAMES_V0 = [
+	"lineBackground",
+	"lineSelectedBackground",
+	"lineHoverBackground",
+	"wordText",
+	"wordSecondaryText",
+	"wordHighlight",
+] as const;
+export type ThemeLyricsTokenNameV0 =
+	(typeof THEME_LYRICS_TOKEN_NAMES_V0)[number];
+
+export const THEME_SPECTROGRAM_TOKEN_NAMES_V0 = [
+	"background",
+	"playhead",
+	"lineSegment",
+	"wordSegment",
+	"gapSegment",
+	"waveform",
+] as const;
+export type ThemeSpectrogramTokenNameV0 =
+	(typeof THEME_SPECTROGRAM_TOKEN_NAMES_V0)[number];
+
+/**
+ * Stable styling hooks exposed by the host. Theme package CSS may only select
+ * inside these `data-slot`/`data-part` scopes; everything else (dialogs,
+ * permission prompts, the plugin manager, toasts) lives outside them.
+ */
+export const THEME_SLOT_NAMES_V0 = [
+	"app-root",
+	"background-layer",
+	"title-bar",
+	"ribbon-bar",
+	"sidebar",
+	"lyric-editor",
+	"preview",
+	"audio-controls",
+	"spectrogram",
+] as const;
+export type ThemeSlotNameV0 = (typeof THEME_SLOT_NAMES_V0)[number];
+
+export const THEME_PART_NAMES_V0 = ["lyric-line", "lyric-word"] as const;
+export type ThemePartNameV0 = (typeof THEME_PART_NAMES_V0)[number];
+
+export interface ThemeTokenColorsV0
+	extends Partial<Record<ThemeColorTokenNameV0, string>> {}
+export interface ThemeTokenLyricsV0
+	extends Partial<Record<ThemeLyricsTokenNameV0, string>> {}
+export interface ThemeTokenSpectrogramV0
+	extends Partial<Record<ThemeSpectrogramTokenNameV0, string>> {}
+export interface ThemeTokenBackgroundV0 {
+	kind: "solid" | "gradient" | "none";
+	value?: string;
+}
+
+/** Appearance-specific overrides layered on top of the base token groups. */
+export interface ThemeTokenModeOverridesV0 {
+	color?: ThemeTokenColorsV0;
+	lyrics?: ThemeTokenLyricsV0;
+	spectrogram?: ThemeTokenSpectrogramV0;
+	background?: ThemeTokenBackgroundV0;
+}
+
 export interface ThemeTokensV0 {
 	tokenVersion: number;
-	color?: Record<string, string>;
+	color?: ThemeTokenColorsV0;
 	font?: { family?: string; monoFamily?: string; scale?: number };
 	spacing?: { scale?: number; radius?: string };
-	lyrics?: Record<string, string>;
-	spectrogram?: Record<string, string>;
-	background?: {
-		kind: "solid" | "gradient" | "none";
-		value?: string;
-	};
+	lyrics?: ThemeTokenLyricsV0;
+	spectrogram?: ThemeTokenSpectrogramV0;
+	background?: ThemeTokenBackgroundV0;
+	light?: ThemeTokenModeOverridesV0;
+	dark?: ThemeTokenModeOverridesV0;
+}
+
+/** Binary asset carried by a theme package, referenced from CSS as `asset:<name>`. */
+export interface ThemePackageAssetV0 {
+	mime: string;
+	/** base64 without data: prefix */
+	data: string;
+}
+
+/**
+ * Self-contained, declarative theme package: manifest + tokens + validated
+ * CSS text + inline assets. The host never fetches remote resources for a
+ * theme; assets become local object URLs at apply time.
+ */
+export interface ThemePackageV0 {
+	packageVersion: 0;
+	manifest: ThemePluginManifest;
+	tokens: ThemeTokensV0;
+	/** package-relative path -> CSS text; keys must cover manifest.styles */
+	styles?: Record<string, string>;
+	/** asset name -> asset; names are referenced from CSS via url(asset:<name>) */
+	assets?: Record<string, ThemePackageAssetV0>;
 }
 
 export type HostMethod =

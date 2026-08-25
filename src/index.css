@@ -1,3 +1,21 @@
+/*
+ * Theme cascade contract (phase 5):
+ * - amll.base holds the default token values.
+ * - amll.theme receives validated theme-package CSS (DomThemeStyleAdapter).
+ * - amll.user receives declarative user token overrides and always wins
+ *   against theme packages.
+ * Unlayered app CSS — including every [data-amll-protected] region — beats
+ * all three layers, so themes can never restyle safety UI.
+ */
+@layer amll.base, amll.theme, amll.user;
+
+@layer amll.base {
+	:root {
+		--attt-font-scale: 1;
+		--attt-spacing-scale: 1;
+	}
+}
+
 @font-face {
 	font-family: "Google Sans Code";
 	src:
@@ -37,12 +55,22 @@
 
 .radix-themes {
 	--default-font-family:
-		"MiSans", Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+		var(--attt-font-family, "MiSans"), "MiSans", Inter, system-ui, Avenir,
+		Helvetica, Arial, sans-serif;
 
 	--default-font-family-mono:
-		"Google Sans Code", ui-monospace, SFMono-Regular, "SF Pro Mono",
-		"JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-		"MiSans", monospace;
+		var(--attt-font-mono-family, "Google Sans Code"), "Google Sans Code",
+		ui-monospace, SFMono-Regular, "SF Pro Mono", "JetBrains Mono", Menlo,
+		Monaco, Consolas, "Liberation Mono", "Courier New", "MiSans", monospace;
+}
+
+/*
+ * Token bridge: themes set --attt-spacing-scale (validated number), which
+ * feeds the Radix scaling factor. Extra specificity keeps this ahead of the
+ * :where() rules Radix ships.
+ */
+html .radix-themes {
+	--scaling: var(--attt-spacing-scale, 1);
 }
 
 ::-webkit-scrollbar-track {

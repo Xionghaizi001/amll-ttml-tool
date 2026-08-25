@@ -3,4 +3,7 @@ export * from "./enablement";
 export * from "./manifest";
 export * from "./parsers";
 export * from "./permissions";
+export * from "./theme-css";
+export * from "./theme-package";
+export * from "./theme-tokens";
 export * from "./types";

@@ -289,17 +289,85 @@
 
   阶段 5：主题系统
 
-  - [ ] 建立版本化 design token schema。
-  - [ ] 为核心组件暴露稳定的 data-slot、data-part 或 CSS Parts。
-  - [ ] 使用 @layer amll.base, amll.theme, amll.user 管理覆盖顺序。
-  - [ ] 支持亮色、暗色、字体、间距、歌词、频谱和背景等 token。
-  - [ ] 使用 CSS parser 校验扩展 CSS，禁止 @import、远程 URL 和越界选择器。
-  - [ ] 将主题资源转换为本地 Blob URL。
-  - [ ] 权限弹窗、插件管理和恢复入口放在不可被主题覆盖的区域。
-  - [ ] 实现安全模式、主题预览、恢复默认和用户 token override。
-  - [ ] 主题编辑器只编辑声明式 token，不执行主题代码。
+  - [x] 建立版本化 design token schema。
+  - [x] 为核心组件暴露稳定的 data-slot、data-part 或 CSS Parts。
+  - [x] 使用 @layer amll.base, amll.theme, amll.user 管理覆盖顺序。
+  - [x] 支持亮色、暗色、字体、间距、歌词、频谱和背景等 token。
+  - [x] 使用 CSS parser 校验扩展 CSS，禁止 @import、远程 URL 和越界选择器。
+  - [x] 将主题资源转换为本地 Blob URL。
+  - [x] 权限弹窗、插件管理和恢复入口放在不可被主题覆盖的区域。
+  - [x] 实现安全模式、主题预览、恢复默认和用户 token override。
+  - [x] 主题编辑器只编辑声明式 token，不执行主题代码。
 
   验收条件：损坏或恶意主题不能隐藏安全 UI，应用重启后可以恢复默认主题。
+
+  阶段 5 完成记录（2026-08-25）
+
+  - 协议层（packages/plugin-api）：`ThemeTokensV0` 升级为命名 token 合同——color/lyrics/spectrogram
+    组仅接受 `THEME_*_TOKEN_NAMES_V0` 白名单键（schema `additionalProperties: false`），新增
+    `light`/`dark` 模式覆盖组；token 值经 unsafe-CSS 正则（禁 url/var/expression/@import/协议/转义/
+    结构字符）与 per-kind 白名单（颜色、长度、字体族）双重校验。新增 `ThemePackageV0` 判别协议
+    （manifest + 内联 tokens + CSS 文本 + base64 资源）与 `parseThemePackage` 单一信任边界入口：
+    校验 manifest kind、tokens、逐文件 CSS、manifest.styles 与包内文件双向一致、资源命名/mime
+    白名单/体积上限（单资源 ≤2MB base64、≤16 个、CSS 单文件 ≤128KB）。`themePackage` schema 已并入
+    SCHEMA_CATALOG，协议文档已重新生成。
+  - CSS 校验器（`theme-css.ts`，纯 TS、零依赖、Node 可测）：状态机剥离注释并拒绝反斜杠转义、
+    未终结注释/字符串、字符串内结构字符（`{};@\:`，从根上阻断协议 URL 与关键字走私）；文本级
+    禁令覆盖 `!important`（保证 amll.user 层永远胜出）、`@media/@supports/@font-face` 之外的全部
+    at-rule、`https:/data:/javascript:/file:/blob:`、`expression()/element()/-moz-binding` 与
+    `data-amll-protected` 字符串；`url()` 仅允许 `url(asset:<name>)` 且必须命中包内资源；结构层
+    解析花括号配平、禁嵌套规则、@media/@supports 递归（深度 ≤4），每个选择器必须以
+    `[data-slot="…"]`/`[data-part="…"]`（可带 `[data-amll-appearance="dark|light"]` 前缀）锚定且
+    slot/part 名在 `THEME_SLOT_NAMES_V0`/`THEME_PART_NAMES_V0` 白名单内。
+  - 内核（`src/kernel/theme`，无 React/DOM，端口注入）：`compileThemeTokensCss` 将 token 编译为
+    `--attt-*` CSS 变量（`:root` + `:root[data-amll-appearance=…]` 模式覆盖）；`ThemeService`
+    管理注册/导入/移除、应用/预览/取消预览/恢复默认、用户 token override、安全模式与资源 URL
+    生命周期（切换/清空/dispose 全部 revoke）。崩溃标记协议：初始化注入前写 applyPending，宿主
+    mount 稳定后 confirmStartupStable 清除；下次启动发现残留标记即自动进入安全模式并持久化。
+    initialize 幂等（StrictMode 双挂载不会误判崩溃）。安装的主题包整包（含 base64 资源）持久化在
+    localStorage JSON，损坏条目跳过并告警。
+  - 平台适配（`src/platform/theme`）：`DomThemeStyleAdapter` 将主题 CSS 包进 `@layer amll.theme`、
+    用户 override 包进 `@layer amll.user` 注入 `<style>`；`BrowserThemeAssetUrlAdapter` 把 base64
+    资源解码为 Blob Object URL；`setDocumentAppearance` 维护 `<html data-amll-appearance>`（由
+    ThemeHost 与 isDarkThemeAtom 同步）。`index.css` 顶部声明
+    `@layer amll.base, amll.theme, amll.user;` 并在 base 层提供默认 token。
+  - 覆盖顺序与安全 UI 保护：未分层的应用 CSS 永远压过全部三层（层叠规则），主题即便通过校验也
+    只能影响 slot 作用域内的样式；设置对话框 Content 标记 `data-amll-protected`（校验器整包拒绝
+    引用该属性的 CSS）；对话框/Toast 均 portal 到 body、位于 slot 树之外，且 appContent 的
+    stacking context（z-index:1）使 slot 内元素在物理上无法绘制到 body 级 portal 之上——恶意主题
+    无法遮挡或隐藏设置/恢复入口。键盘救援快捷键 Ctrl+Alt+Shift+F12（capture 阶段监听，CSS 无法
+    隐藏）一键恢复默认主题；`?theme-safe-mode=1` URL 参数强制单次安全模式启动。
+  - 宿主与 UI：`theme-host.ts` 完成 kernel + 浏览器适配器装配并注册两个内置示例主题
+    （Midnight Violet 暗色带渐变背景与 slot CSS、Paper & Ink 亮色带 dark 覆盖组），内置主题走与
+    第三方完全相同的 parseThemePackage 校验（有测试锁定）。设置 → 个性化新增“主题”组：主题列表
+    （应用/预览/取消预览/移除）、JSON 主题包导入（校验失败展示 issue 路径）、安全模式开关、恢复
+    默认按钮，以及仅编辑声明式 token 的用户覆盖编辑器（面板背景/应用背景/选中行背景/字体，
+    经 validateThemeTokens 校验后写入 amll.user 层，不执行任何主题代码）。
+  - Token 桥接（v0 实际接线）：`--attt-color-panel-background` → Radix `--color-panel`、
+    `--attt-app-background` → appContent 背景、`--attt-lyrics-line-selected/hover-background` →
+    歌词行/词选中与悬停、`--attt-spectrogram-background/playhead` → 频谱容器与播放头、
+    `--attt-font-family/--attt-font-mono-family` → Radix 默认字体族、`--attt-spacing-scale` →
+    Radix `--scaling`。slot 合同：app-root、background-layer、title-bar、ribbon-bar、sidebar、
+    lyric-editor、preview、audio-controls、spectrogram；part：lyric-line、lyric-word。
+  - 完成时全量验证：176/176 测试通过（新增 44 项：CSS 校验器 14、token 校验 5、主题包解析 6、
+    ThemeService/token 编译 16、内置主题合同 1 等）、`tsc -b` 通过、`pnpm lint`（boundaries +
+    Biome）通过（仅既有 13 warning + 1 info）、`plugin:api:check` 通过（协议文档已重新生成）、
+    Vite production build 通过。
+
+  阶段 5 遗留与后续阶段注意事项
+
+  - 安装主题包目前整包存于 localStorage（含 base64 资源），受 ~5MB 配额限制；阶段 6 插件管理
+    落地时应迁移到 IndexedDB（可复用 `ManagedResource` 与 idb adapter 模式）。
+  - v0 已定义但尚未桥接到组件的 token：color.accent/textPrimary/textSecondary/border/danger、
+    font.scale、spacing.radius、lyrics.wordText/wordSecondaryText/wordHighlight、
+    spectrogram.lineSegment/wordSegment/gapSegment/waveform（频谱段颜色需接入 canvas 调色板
+    体系）。CSS 变量均已按约定名编译，后续按需在 base 层加 var() 桥接即可，不动协议。
+  - 阶段 6 的插件管理器与权限弹窗 UI 必须 portal 到 body（slot 树之外）并标记
+    `data-amll-protected`，即可自动获得与设置对话框相同的防覆盖保证。
+  - 主题编辑器 MVP 仅覆盖 4 个高频 token 的声明式输入；完整 token 编辑器与“导出为主题包”
+    留待插件管理页一起做。
+  - 定制版（阶段 9）新增 slot/part/token 名需扩展 `THEME_*_NAMES_V0` 并 bump
+    THEME_TOKEN_VERSION，双方跑同一份合同测试后再冻结 v1。
 
   阶段 6：WASM 插件宿主
 

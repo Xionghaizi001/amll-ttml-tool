@@ -64,6 +64,7 @@ import {
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
 import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
+import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	isDarkThemeAtom,
@@ -319,7 +320,11 @@ function EditorApp() {
 				}}
 			>
 				{customBackgroundImage && (
-					<div className={styles.customBackgroundLayer} aria-hidden="true">
+					<div
+						className={styles.customBackgroundLayer}
+						data-slot="background-layer"
+						aria-hidden="true"
+					>
 						<div
 							className={styles.customBackgroundImage}
 							style={{
@@ -330,7 +335,8 @@ function EditorApp() {
 						/>
 					</div>
 				)}
-				<div className={styles.appContent}>
+				<div className={styles.appContent} data-slot="app-root">
+					<ThemeHost />
 					<BuiltinPluginHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />

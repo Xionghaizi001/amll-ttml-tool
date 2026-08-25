@@ -214,7 +214,7 @@ export const AudioControls: FC = memo(() => {
 	}, [stretchAlgorithm]);
 
 	return (
-		<Card m="2" mt="0">
+		<Card m="2" mt="0" data-slot="audio-controls">
 			<Inset>
 				<AudioPlaybackKeyBinding />
 				<AuditionKeyBinding />

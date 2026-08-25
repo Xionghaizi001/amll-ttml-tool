@@ -80,7 +80,7 @@ export const SettingsDialog = memo(() => {
 
 	return (
 		<Dialog.Root open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-			<Dialog.Content className={styles.dialogContent}>
+			<Dialog.Content className={styles.dialogContent} data-amll-protected>
 				<Dialog.Title className={styles.srOnly}>
 					{t("settingsDialog.title", "首选项")}
 				</Dialog.Title>

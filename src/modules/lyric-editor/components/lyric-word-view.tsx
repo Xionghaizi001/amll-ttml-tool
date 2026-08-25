@@ -428,7 +428,7 @@ const LyricWorldViewEdit = ({
 	);
 
 	return editing ? (
-		<div className={className}>
+		<div className={className} data-part="lyric-word">
 			<span className={styles.wordEditRow}>
 				<TextField.Root
 					autoFocus
@@ -622,6 +622,7 @@ const LyricSyncWordView: FC<{
 		<div
 			ref={wordContainerRef}
 			className={className}
+			data-part="lyric-word"
 			onClick={(evt) => {
 				evt.stopPropagation();
 				evt.preventDefault();

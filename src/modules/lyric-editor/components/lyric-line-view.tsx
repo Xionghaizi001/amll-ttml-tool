@@ -339,6 +339,7 @@ export const LyricLineView: FC<{
 						mx="2"
 						my="1"
 						direction="row"
+						data-part="lyric-line"
 						className={classNames(
 							styles.lyricLine,
 							lineSelected && styles.selected,

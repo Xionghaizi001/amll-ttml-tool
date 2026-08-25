@@ -28,6 +28,7 @@ export const RibbonBar = memo(
 			<Card
 				m="2"
 				mb="0"
+				data-slot="ribbon-bar"
 				style={{
 					minHeight: "fit-content",
 					flexShrink: "0",
