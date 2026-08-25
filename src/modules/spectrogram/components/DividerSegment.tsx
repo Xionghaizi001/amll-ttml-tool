@@ -1,11 +1,8 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { type FC, useCallback, useContext } from "react";
+import type { BoundaryKind, BoundaryVisualState } from "$/application/lyrics";
 import { processedLyricLinesAtom } from "$/modules/segmentation/utils/segment-processing.ts";
 import { timelineDragAtom } from "$/modules/spectrogram/states/dnd.ts";
-import type {
-	BoundaryKind,
-	BoundaryVisualState,
-} from "$/modules/spectrogram/utils/timeline-boundary.ts";
 import {
 	commitUpdatedLine,
 	getUpdatedLineForDivider,

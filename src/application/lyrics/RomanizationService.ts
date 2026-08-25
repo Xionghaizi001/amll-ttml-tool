@@ -2,11 +2,20 @@ import type {
 	DocumentChangeEvent,
 	EditorDocumentService,
 } from "../../kernel/editor";
-import type { LyricLine, LyricWord, TTMLLyric } from "../../types/ttml";
+import type {
+	LyricLine,
+	LyricWord,
+	LyricWordBase,
+	TTMLLyric,
+} from "../../types/ttml";
 
 export interface RomanizationEnginePort {
 	predict(words: LyricWord[], romanLyric: string): string[];
 	applyWarnings(words: LyricWord[]): void;
+}
+
+export interface RubyGenerationEnginePort {
+	generate(word: LyricWord): LyricWordBase[] | undefined;
 }
 
 export type RomanizationDocumentPort = Pick<
@@ -89,6 +98,41 @@ export function refreshRomanizationWarnings(
 		},
 		(draft) => {
 			for (const line of draft.lyricLines) engine.applyWarnings(line.words);
+		},
+	);
+}
+
+export function applyGeneratedRuby(
+	word: LyricWord,
+	engine: RubyGenerationEnginePort,
+	options?: { overwrite?: boolean },
+): boolean {
+	const generated = engine.generate(word);
+	if (!generated?.length) return false;
+	if (!options?.overwrite && word.ruby?.length) return false;
+	word.ruby = generated;
+	return true;
+}
+
+export function generateDocumentRuby(
+	document: RomanizationDocumentPort,
+	engine: RubyGenerationEnginePort,
+	lineIds?: ReadonlySet<string>,
+): DocumentChangeEvent | undefined {
+	return document.transact(
+		{
+			source: "user",
+			label: "Generate lyric ruby",
+			expectedRevision: document.getRevision(),
+		},
+		(draft) => {
+			for (const line of draft.lyricLines) {
+				if (lineIds && !lineIds.has(line.id)) continue;
+				for (const word of line.words) {
+					if (!word.romanWord?.trim()) continue;
+					applyGeneratedRuby(word, engine);
+				}
+			}
 		},
 	);
 }

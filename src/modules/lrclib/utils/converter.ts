@@ -5,10 +5,17 @@ import {
 	type TTMLLyric,
 	type TTMLMetadata,
 } from "$/types/ttml";
-import { parseLrc } from "$/utils/parse-lrc";
 import type { LrcLibTrack } from "../types";
 
-export function convertLrcLibTrackToTTML(track: LrcLibTrack): TTMLLyric {
+type ConvertibleLrcTrack = Pick<
+	LrcLibTrack,
+	"name" | "artistName" | "albumName" | "plainLyrics" | "syncedLyrics"
+>;
+
+export function convertLrcLibTrackToTTML(
+	track: ConvertibleLrcTrack,
+	parseLrc: (content: string) => LyricLine[],
+): TTMLLyric {
 	let lyricLines: LyricLine[] = [];
 
 	if (track.syncedLyrics) {

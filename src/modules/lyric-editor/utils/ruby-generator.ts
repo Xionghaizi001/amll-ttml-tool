@@ -1,6 +1,6 @@
-import type { LyricWord, LyricWordBase } from "$/types/ttml";
 import * as wanakana from "wanakana";
 import { isKanaOnly } from "$/modules/segmentation/utils/Transliteration/TransliterationUtils";
+import type { LyricWord, LyricWordBase } from "$/types/ttml";
 
 const EXCLUDED_KANA_COMBOS = new Set([
 	"きゃ",
@@ -83,15 +83,4 @@ export const generateRubyFromRomanWord = (
 		.filter((char) => char.trim() !== "");
 	if (kanaChars.length === 0) return;
 	return buildRubyEntries(word, kanaChars);
-};
-
-export const applyGeneratedRuby = (
-	word: LyricWord,
-	options?: { overwrite?: boolean },
-) => {
-	const generated = generateRubyFromRomanWord(word);
-	if (!generated || generated.length === 0) return;
-	const hasRuby = word.ruby && word.ruby.length > 0;
-	if (!options?.overwrite && hasRuby) return;
-	word.ruby = generated;
 };

@@ -33,7 +33,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { uid } from "uid";
 import { prepareLrcLibImport } from "$/application/lyrics";
-import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
+import { lrcLibImportEngine } from "$/modules/lrclib/adapters/lrc-import-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
@@ -44,8 +44,6 @@ import { isDirtyAtom, projectIdAtom, saveFileNameAtom } from "$/states/main.ts";
 import { LrcLibApi } from "../api/client";
 import { lrcLibLogger } from "../logger";
 import type { LrcLibTrack } from "../types";
-import { convertLrcLibTrackToTTML } from "../utils/converter";
-import { extractParenthesesToBg } from "../utils/extractParenthesesToBg";
 import styles from "./ImportDialog.module.css";
 
 const formatDuration = (seconds: number) => {
@@ -105,11 +103,7 @@ export const ImportFromLRCLIB = () => {
 					track,
 					{ extractBackground: extractBg, autoSegment },
 					segmentationConfig,
-					{
-						convert: convertLrcLibTrackToTTML,
-						extractBackground: extractParenthesesToBg,
-						segment: segmentationEngine.segmentLines,
-					},
+					lrcLibImportEngine,
 				);
 
 				editorDocumentAdapter.replace(prepared.document, {

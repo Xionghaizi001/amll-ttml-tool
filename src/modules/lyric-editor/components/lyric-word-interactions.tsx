@@ -7,6 +7,7 @@ import {
 	useMemo,
 	useRef,
 } from "react";
+import { normalizeLineTime } from "$/application/lyrics";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
@@ -16,7 +17,6 @@ import {
 	toolModeAtom,
 } from "$/states/main";
 import { type LyricLine, type LyricWord, newLyricWord } from "$/types/ttml";
-import { normalizeLineTime } from "../utils/normalize-line-time";
 import styles from "./index.module.css";
 import { LyricWordMenu } from "./lyric-word-menu";
 

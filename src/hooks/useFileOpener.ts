@@ -14,12 +14,14 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { uid } from "uid";
+import { parseLrcLyrics } from "$/application/lyrics";
 import {
 	applyDefaultTtmlAuthorMetadata,
 	getSuggestedTtmlFileName,
 	isProjectMatch,
 } from "$/application/project";
 import { audioEngine } from "$/modules/audio/audio-engine";
+import { lrcParserEngine } from "$/modules/lrclib/adapters/lrc-import-engine";
 import { getProjectList } from "$/modules/project/autosave/autosave";
 import {
 	defaultTtmlAuthorGithubAtom,
@@ -39,12 +41,11 @@ import {
 } from "$/states/main.ts";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
-import { parseLrc } from "$/utils/parse-lrc";
 
 const fileOpenerLogger = createLogger("FileOpener");
 
 const LYRIC_PARSERS: Record<string, (text: string) => LyricLine[]> = {
-	lrc: parseLrc,
+	lrc: (text) => parseLrcLyrics(text, lrcParserEngine),
 	eslrc: parseEslrc,
 	qrc: parseQrc,
 	yrc: parseYrc,

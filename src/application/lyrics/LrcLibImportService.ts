@@ -19,6 +19,13 @@ export interface LrcLibImportPorts<TConfig> {
 	segment(lines: LyricLine[], config: TConfig): LyricLine[];
 }
 
+export interface LrcParserPort {
+	parse(content: string): LyricLine[];
+}
+
+export const parseLrcLyrics = (content: string, parser: LrcParserPort) =>
+	parser.parse(content);
+
 export function sanitizeTtmlFileName(name: string) {
 	return `${name}.ttml`.replace(/[\\/:*?"<>|]/g, "_");
 }

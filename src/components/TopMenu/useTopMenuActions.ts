@@ -7,12 +7,13 @@ import saveFile from "save-file";
 import { uid } from "uid";
 import {
 	distributeDocumentRomanization,
+	generateDocumentRuby,
 	previewSegmentWord,
 	refreshRomanizationWarnings,
 	segmentEntireDocument,
 } from "$/application/lyrics";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { rubyGenerationEngine } from "$/modules/lyric-editor/adapters/ruby-generation-engine";
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
@@ -423,18 +424,12 @@ export const useTopMenuActions = () => {
 
 	const onAutoRuby = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
-		const hasSelection = selectedLines.size > 0;
-		editLyricLines((draft) => {
-			draft.lyricLines.forEach((line) => {
-				if (hasSelection && !selectedLines.has(line.id)) return;
-				if (line.words.length === 0) return;
-				line.words.forEach((word) => {
-					if (!word.romanWord || word.romanWord.trim() === "") return;
-					applyGeneratedRuby(word);
-				});
-			});
-		});
-	}, [editLyricLines, store]);
+		generateDocumentRuby(
+			editorDocumentAdapter,
+			rubyGenerationEngine,
+			selectedLines.size ? selectedLines : undefined,
+		);
+	}, [store]);
 
 	const onCheckRomanizationWarnings = useCallback(() => {
 		refreshRomanizationWarnings(editorDocumentAdapter, romanizationEngine);

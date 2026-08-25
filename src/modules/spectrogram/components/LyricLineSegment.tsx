@@ -6,17 +6,17 @@ import React, {
 	useMemo,
 	useState,
 } from "react";
+import {
+	generateBoundaries,
+	resolveBoundaryVisualState,
+	resolveWordVisualState,
+} from "$/application/lyrics";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
 import {
 	previewLineAtom,
 	selectedWordIdAtom,
 	timelineDragAtom,
 } from "$/modules/spectrogram/states/dnd.ts";
-import {
-	generateBoundaries,
-	resolveBoundaryVisualState,
-	resolveWordVisualState,
-} from "$/modules/spectrogram/utils/timeline-boundary.ts";
 import { editingTimeFieldAtom, selectedLinesAtom } from "$/states/main.ts";
 import { DividerSegment } from "./DividerSegment.tsx";
 import { GapSegment } from "./GapSegment.tsx";

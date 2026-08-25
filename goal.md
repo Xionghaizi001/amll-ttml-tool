@@ -87,7 +87,7 @@
     - [x] `segment-processing.ts` 已收敛为 Jotai 派生状态 adapter，时间线分段算法已迁移到
       `LyricTimelineService`。
     - [ ] 继续拆分 `src/modules` 中混合 UI/业务的遗留模块。
-  - [ ] 为文档、导入导出、分词、时间处理等可复用业务建立 host-agnostic application service；React hook 只负责状态绑定、交互和错误展示。
+  - [x] 为文档、导入导出、分词、时间处理等可复用业务建立 host-agnostic application service；React hook 只负责状态绑定、交互和错误展示。
     - [x] 时间处理：新增无 React/Jotai/DOM 依赖的 `TimeShiftService`。
     - [x] 纯文本导入：新增 `PlainTextImportService`，负责多行/同行翻译与音译、特殊前缀、分词符和空拍解析。
     - [x] 歌词导出：新增 `LyricExportService`，负责导出时间取整与文件名生成；文件保存仍由 UI/platform 负责。
@@ -107,6 +107,42 @@
   并完整撤销；历史版本策略、提交校验/网络端口、纯文本导入、歌词导出规范化和时间线分段均可在
   Node/Vitest 中独立测试。全量 102 项测试、TypeScript、仓库级 Biome lint 和
   `scripts/check-editor-boundary.mjs` 均通过；Biome 仅报告 13 个既有样式警告和 1 条既有抑制提示。
+
+  阶段 3 验收记录（2026-08-25，全面审计）
+
+  验收结论：**三项验收条件全部通过**。
+
+  1. Mock Host 插件合同测试无需启动 React —— 通过。`vitest.config.ts` 全局 `environment: "node"`，
+     仓库不存在 jsdom/Testing Library 依赖；`packages/plugin-api/tests/contract/mock-host.spec.ts`
+     以 `runHostContractTests` 复用协议套件（稳定投影、单事务原子应用与单次撤销、revision 冲突拒绝、
+     调用前 schema 校验），`MockPluginHost` 零外部依赖。
+  2. 完整功能闭环可脱离 React 执行并统一事务/撤销 —— 通过。`TimeShiftService.spec.ts` 断言
+     一次平移后 `undo()` 一次即回到原始快照且 `canUndo()` 变为 false（单事务证明）；
+     LyricLineReorder、Romanization、Segmentation、EditorDocumentService 测试均覆盖同一模式。
+  3. 业务层无 React/Jotai/Tauri/DOM 直接依赖 —— 通过。逐文件核查 `src/application`（35 文件）、
+     `src/kernel` 与 `packages/plugin-api`（23 文件）：零违规。plugin-api 由 tsconfig
+     `lib: ["ESNext"]` + `types: []` 编译期强制隔离；Tauri 仅存在于 App/WindowControls/TopMenu/update；
+     `?worker` 全部收敛在 `src/platform/audio/BrowserAudioRuntime.ts` 与 `src/plugins/runtime`。
+     CI（`build-desktop.yaml`）执行 `lint:boundaries`、`plugin:api:check` 与 `pnpm test`。
+
+  验收时全量复跑：102/102 测试通过、`tsc -b` 通过、`pnpm lint`（boundaries + Biome）通过、
+  `plugin:api:check`（类型 + 生成文档一致性）通过。
+
+  审计发现的非阻塞遗留（转入阶段 4 前处理）：
+
+  - 边界脚本缺口（已完成，见下方“进入阶段 4 前收尾”）：application/kernel 允许任意 `.` 相对路径导入（可绕过分层）；DOM 全局名单较窄
+    （未查 `document`/`window`/`localStorage`/`fetch` 等小写全局）；`packages/plugin-api/tests/`
+    未被遍历；`src/platform`、`src/plugins` 无正向规则。
+  - 未纳入 rule E 隔离的纯算法模块（已完成，见下方“进入阶段 4 前收尾”）：`spectrogram/utils/timeline-boundary.ts`、
+    `lyric-editor/utils/ruby-generator.ts`、`normalize-line-time.ts`、`lrclib/utils/*`、
+    `src/utils/parse-lrc.ts`（游离于分层目录之外）。
+  - 仍含业务逻辑的 UI 文件（下一轮拆分优先级）：`sync-keybinding.tsx`（419 行，整套打轴
+    判定时间/智能首末词/空拍状态机，建议抽出 `SyncTimingService`）、`lyric-line-view.tsx`
+    （endTimeLink 联动规则）、`lyric-word-menu.tsx`（词拆分/合并/增删事务构造）、
+    `useLyricListDrag.ts`（454 行指针几何/自动滚动）、`useTopMenuActions.ts` 的
+    `onSyncLineTimestamps` 与 `buildRubySegments`、`lyric-line-menu.tsx` 的行合并时间重排。
+  - `ttml-processor/index.ts` 仍直接读取 `globalStore`（`getDefaultGeneratorConfig`），属设置
+    adapter 定位但建议改为注入。
 
   阶段 3 剩余遗留模块审计（2026-08-25）
 
@@ -151,6 +187,19 @@
   - [x] `drag-reorder.ts`、`segmentation.ts`、`syllable-smoothing.ts` 和项目 `logic/` 的实现未重写；
     UI 调用方已改为经过 `LyricLineReorderService`、`SegmentationService`、`ProjectFileService` 与对应 adapter。
     分层检查新增规则，禁止 UI 再直接导入这些纯模块，并限制 `?worker` 资源只能由 platform/runtime adapter 引入。
+
+  阶段 3 进入阶段 4 前收尾（2026-08-25）
+
+  - [x] 收紧 `scripts/check-editor-boundary.mjs`：相对导入按解析后的真实目标校验，不能再以
+    `../../modules/...` 绕过 application/kernel 边界；补查小写 `document`、`window`、
+    `localStorage`、`fetch` 等宿主全局；遍历 `packages/plugin-api/tests/`；为 `src/platform`
+    与 `src/plugins`（含 runtime、adapters、ui 和根目录）加入正向依赖白名单。脚本内置回归断言覆盖上述缺口。
+  - [x] 收口遗漏的纯算法模块：时间线边界与行时间归一化迁入 `LyricTimelineService`；Ruby 生成通过
+    `RomanizationService` + adapter 形成单事务入口；LRCLIB converter、括号背景提取和 LRC parser
+    仅由 `lrc-import-engine` adapter 暴露，`src/utils/parse-lrc.ts` 已迁入 LRCLIB 模块；rule E 按解析后
+    的目标路径阻止 UI 以别名或相对路径直接导入这些算法。
+  - [x] 收尾验证：107/107 测试通过、`tsc -b` 通过、`pnpm lint` 通过（仅 13 条既有警告和
+    1 条既有提示）、`plugin:api:check` 通过。
 
   验收条件：Mock Host 中可以运行插件合同测试，不需要启动 React 应用；至少一个完整功能可在不渲染 React 的情况下通过 application service 执行、产生统一文档事务并撤销；业务层无 React/Jotai/Tauri/DOM 直接依赖。
 
