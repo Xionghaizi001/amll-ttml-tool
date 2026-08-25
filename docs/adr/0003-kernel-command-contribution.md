@@ -21,89 +21,65 @@
 `atomWithKeybindingStorage(id, ...)` 用 `id` 作为 localStorage 键。现有命令 id 是裸名
 （`newFile`、`syncStart`…）。**绝不重命名这些 id**，否则用户自定义的快捷键会全部丢失。
 
-因此 `CommandDefinition` 用 `keybindingId?: string` 指向既有 keyboard registry 条目：
+因此阶段 4 直接保留既有命令 ID，并让 keyboard registry 把同一 ID 的代理 handler 注册进内核：
 
 ```ts
-{ id: "core.file.new", keybindingId: "newFile", ... }
+registerCommand("newFile", ["Control", "KeyN"], ...);
+bindCommandHandler("newFile", onNewFile);
 ```
 
-插件贡献的命令没有历史包袱，`keybindingId` 直接等于命令 id。
+新菜单命令与插件命令使用命名空间 ID；插件 ID 仍必须以 manifest plugin id 为前缀。
 
-## 2. src/kernel/commands
+## 2. src/kernel/commands（阶段 4 实现）
 
 ```ts
-export interface ContributionSource {
-	kind: "core" | "builtin" | "plugin";
-	/** kind !== "core" 时必填 */
-	pluginId?: string;
-}
+export type CommandSource =
+	| { kind: "builtin"; id: string }
+	| { kind: "plugin"; pluginId: string };
 
-export interface CommandExecutionContext {
-	/** 命令要改文档就必须走它，禁止直接写 atom */
-	document: EditorDocumentService;
-	enablement: EnablementContext;
-	source: ContributionSource;
-	signal: AbortSignal;
-}
-
-export interface CommandDefinition<A = void> {
+export interface CommandRegistration {
 	id: string;
-	title: LocalizedText;
+	title?: LocalizedText;
 	category?: LocalizedText;
-	source: ContributionSource;
-	enablement?: EnablementExpr;
-	keybindingId?: string;
-	defaultKeys?: string[];
-	handler: (args: A, ctx: CommandExecutionContext) => void | Promise<void>;
+	handler: (args?: unknown) => unknown | Promise<unknown>;
+	enablement?: () => boolean;
+	source: CommandSource;
 }
 
-export interface CommandRegistry {
-	register<A>(def: CommandDefinition<A>): Disposable;
-	/** 覆盖注册直接拒绝，返回带 code:"duplicate-command" 的错误 */
-	execute<A>(id: string, args?: A): Promise<CommandExecutionResult>;
-	isEnabled(id: string, ctx: EnablementContext): boolean;
-	list(filter?: { source?: ContributionSource["kind"] }): CommandDefinition[];
-	/** 卸载插件时一次清掉它的全部命令 */
-	disposeSource(pluginId: string): void;
+export class CommandRegistry {
+	register(def: CommandRegistration): Disposable;
+	get(id: string): RegisteredCommand | undefined;
+	getAll(): RegisteredCommand[];
+	isEnabled(id: string): boolean;
+	execute(id: string, args?: unknown): Promise<unknown>;
+	subscribe(listener: () => void): Disposable;
+	notifyEnablementChanged(): void;
 }
-
-export type CommandExecutionResult =
-	| { ok: true }
-	| { ok: false; error: { code: CommandErrorCode; message: string } };
-
-export type CommandErrorCode =
-	| "not-found" | "disabled" | "duplicate-command"
-	| "handler-threw" | "cancelled" | "timeout";
 ```
 
-`Disposable = { dispose(): void }`。`execute` 永不抛异常：handler 抛出时记录日志、上报通知、
-返回 `handler-threw`。
+`Disposable = { dispose(): void }`。重复 ID 直接拒绝；未注册、disabled 或 handler 错误会让
+`execute` 的 Promise reject，由菜单/快捷键 adapter 统一记录。对 WASM 暴露时再由 HostFacade 转成
+`HostResult`，内核不复制一套协议错误类型。
 
-`EnablementContext` 由 `src/kernel/extensions/enablement-context.ts` 从 atom 求值得出，键见
-ADR 0002 §7。
+现有 keyboard registry 不改 storage key。每个静态快捷键命令注册一个稳定代理 handler；React
+adapter 只负责在组件生命周期内 bind/unbind 实际 handler。无快捷键的菜单命令也走同一 registry，
+但不出现在快捷键设置页。
 
-## 3. src/kernel/extensions
+## 3. src/kernel/extensions（阶段 4 实现）
 
 ```ts
-export interface ContributionRegistry {
-	registerMenuItems(source: ContributionSource, items: MenuItemContribution[]): Disposable;
-	registerSettingsPages(source: ContributionSource, pages: SettingsPageContribution[]): Disposable;
-	/** 只接受 kind === "builtin"，第三方插件调用一律拒绝（ADR 0001 D3） */
-	registerView(source: ContributionSource, view: TrustedViewContribution): Disposable;
-	getMenuItems(location: MenuLocation): ResolvedMenuItem[];
-	getSettingsPages(): SettingsPageContribution[];
-	getViews(slot: TrustedViewSlot): TrustedViewContribution[];
-	disposeSource(pluginId: string): void;
-}
-
-export interface ResolvedMenuItem {
-	command: CommandDefinition;
-	contribution: MenuItemContribution;
+export interface ExtensionScope extends Disposable {
+	registerCommand(...): Disposable;
+	registerMenu(item: MenuItemContribution): Disposable;
+	registerToolbar(...): Disposable;
+	registerDeclarativeForm(...): Disposable;
+	registerTrustedView(...): Disposable;
+	addEventListener(event: string, listener: (payload: unknown) => void): Disposable;
 }
 ```
 
-排序规则：先按 `group`（字典序，未指定视为 `"zzz"`），再按 `order`（升序，未指定视为 `1000`），
-最后按解析后的标题字典序，保证渲染稳定。
+`ExtensionRegistry.createScope(owner)` 创建 owner-scoped facade。排序规则：先按 `group`（字典序，
+未指定视为 `"zzz"`），再按 `order`（升序，未指定视为 `1000`），最后按 contribution id，保证稳定。
 
 `getMenuItems` 只做结构排序；`when` / `enablement` 的求值在 React 渲染层用当前
 `EnablementContext` 完成（因为它随选区实时变化）。
@@ -125,27 +101,22 @@ export type PluginState =
 	| "deactivating" | "disabled" | "crashed" | "incompatible";
 ```
 
-`unload` 必须依次：停止 runtime → `disposeSource` 清命令/菜单/设置页/视图 → 移除事件监听 →
-关闭该插件的 KV 句柄。所有 disposable 由一个 `DisposableStore` 按插件收集，**不允许**插件自己
-记账。要有测试断言"卸载后 `commandRegistry.list()` 与 `getMenuItems()` 里不再有该插件的条目"。
+阶段 4 的 unload 边界是 scope dispose：它按逆序清理命令、菜单、工具栏、侧栏、设置页、对话框和
+事件监听。runtime 停止、KV 句柄关闭与完整 PluginLifecycleHost 状态机在阶段 6 接入，但不能绕过 scope。
+合同测试已断言卸载后 command/contribution/listener 均不可再观察或执行。
 
 ### 3.2 事件派发
 
-`src/kernel/extensions/event-bus.ts` 订阅 `editorDocument.subscribe`，把
-`DocumentChangeEvent` 转成 ADR 0002 §6 的 `PluginEventV0` 派发给已激活插件。
-过滤规则：`meta.source === "plugin" && meta.pluginId === 目标插件` 时跳过（避免自激励循环）。
-派发是"每插件独立 try/catch + 超时"，单个插件失败不影响其他插件与宿主。
+阶段 4 先提供 owner-scoped 事件订阅与同步派发，并验证卸载清理。把 `DocumentChangeEvent` 投影为
+`PluginEventV0`、同源过滤、每插件超时与 Worker 隔离属于阶段 6 runtime host 工作。
 
 ## 4. src/kernel/platform
 
-宿主能力实现，被 `HostMethod` 表一对一映射：
-
-- `notifications.ts` → `ui.notify`。基于 `react-toastify`（仓库已依赖）。**纯文本渲染**。
-- `plugin-storage.ts` → `storage.kv`。基于 `idb`（仓库已依赖），每插件独立 store 前缀
-  `plugin:<pluginId>:`，单键值 ≤ 64 KiB、单插件 ≤ 1 MiB、键数 ≤ 512，超限返回
-  `payload-too-large`。
-- `clipboard.ts`、`files.ts`、`urls.ts`：把现有分散在组件里的 Web/Tauri 分支收敛进来，
-  为阶段 7 的 `FileProvider` 留接口，但阶段 7 本身不在当前批次内。
+阶段 4 新增通用 `ManagedResource<T>`，通过 `ResourceStoragePort<T>` 与 `ResourceUrlPort<T>` 管理
+持久资源读取、替换、清空和本地 URL revoke。自定义背景的 IndexedDB、legacy localStorage/data URL
+迁移、fetch、Blob URL 已全部落到 `src/platform/storage` 与 `src/platform/resources`；阶段 5 的主题
+包资源复用同一生命周期。通知 adapter 当前基于纯文本 `react-toastify`，隔离 KV、clipboard/files/urls
+的完整 HostMethod 实现仍按阶段 6/7 推进。
 
 ## 5. src/plugins
 
@@ -154,7 +125,7 @@ src/plugins/
   runtime/     PluginRuntime 抽象、Extism/Worker 实现、权限校验、Mock 运行时
   builtin/     官方 TS 插件（首个：time-shift）
   adapters/    EditorHostAdapter：内部 TTMLLyric ⇄ PluginDocumentV0 投影与写回
-  ui/          PluginFormDialog、ContributedMenuItems、PluginManagerDialog
+  ui/          DeclarativeFormHost、ContributionMenuItems、runtime diagnostics
 ```
 
 ### 5.1 EditorHostAdapter
@@ -175,21 +146,16 @@ export interface EditorHostAdapter {
 ### 5.2 内置插件形态
 
 ```ts
-export interface BuiltinPlugin {
-	manifest: FunctionPluginManifest;   // runtime: "builtin"
-	activate(ctx: BuiltinPluginContext): void | Promise<void>;
-	deactivate?(): void | Promise<void>;
-}
-
-export interface BuiltinPluginContext {
-	pluginId: string;
-	subscriptions: DisposableStore;
-	commands: Pick<CommandRegistry, "register">;
-	contributions: Pick<ContributionRegistry, "registerMenuItems" | "registerSettingsPages" | "registerView">;
-	document: EditorDocumentService;
-	host: HostFacade;   // notify / showForm / storage，同样按 capability 校验
-}
+const scope = extensionRegistry.createScope({
+	kind: "builtin",
+	id: "builtin.time-shift",
+	trusted: true,
+});
+activateTimeShiftBuiltin(scope, { document, showForm, notify, getSelectedLineIds });
+// deactivate / unload
+scope.dispose();
 ```
 
-内置插件与 WASM 插件走**同一个** `HostFacade` 与同一套 capability 检查，只是省掉序列化与
-Worker 边界。这样"禁用插件后功能消失、重新启用后恢复"对两类插件都成立。
+`builtin.time-shift` 是首个完整实现：菜单 contribution 只引用 command ID，command 请求声明式表单，
+再调用 `TimeShiftService` 产生单一文档事务并发送纯文本通知。scope dispose 后命令、菜单和监听器一起
+消失。WASM 插件在阶段 6 通过同一 scope/manifest adapter 接入，只增加序列化、权限与 Worker 边界。

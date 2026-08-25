@@ -1,9 +1,20 @@
 import { Button, DropdownMenu } from "@radix-ui/themes";
-import type { CSSProperties } from "react";
 import { Toolbar } from "radix-ui";
-import { Trans, useTranslation } from "react-i18next";
-import { formatKeyBindings } from "$/utils/keybindings";
-import { useTopMenuActions } from "../useTopMenuActions";
+import type { CSSProperties } from "react";
+import { Trans } from "react-i18next";
+import {
+	cmdDeleteSelection,
+	cmdOpenMetadataEditor,
+	cmdOpenSettings,
+	cmdRedo,
+	cmdSelectAll,
+	cmdSelectInverted,
+	cmdSelectWordsOfMatchedSelection,
+	cmdUndo,
+	cmdUnselectAll,
+} from "$/modules/keyboard/commands";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
+import { CommandMenuItem } from "../CommandMenuItem";
 
 type EditMenuProps = {
 	variant: "toolbar" | "submenu";
@@ -12,71 +23,43 @@ type EditMenuProps = {
 };
 
 const EditMenuItems = () => {
-	const { t } = useTranslation();
-	const menu = useTopMenuActions();
-
 	return (
 		<>
-			<DropdownMenu.Item
-				onSelect={menu.onUndo}
-				shortcut={formatKeyBindings(menu.undoKey)}
-				disabled={menu.undoDisabled}
-			>
+			<CommandMenuItem commandId={cmdUndo.id}>
 				<Trans i18nKey="topBar.menu.undo">撤销</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onRedo}
-				shortcut={formatKeyBindings(menu.redoKey)}
-				disabled={menu.redoDisabled}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdRedo.id}>
 				<Trans i18nKey="topBar.menu.redo">重做</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item
-				onSelect={menu.onSelectAll}
-				shortcut={formatKeyBindings(menu.selectAllLinesKey)}
-			>
+			<CommandMenuItem commandId={cmdSelectAll.id}>
 				<Trans i18nKey="topBar.menu.selectAllLines">选中所有歌词行</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onUnselectAll}
-				shortcut={formatKeyBindings(menu.unselectAllLinesKey)}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdUnselectAll.id}>
 				<Trans i18nKey="topBar.menu.unselectAllLines">取消选中所有歌词行</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onSelectInverted}
-				shortcut={formatKeyBindings(menu.selectInvertedLinesKey)}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdSelectInverted.id}>
 				<Trans i18nKey="topBar.menu.invertSelectAllLines">反选所有歌词行</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onSelectWordsOfMatchedSelection}
-				shortcut={formatKeyBindings(menu.selectWordsOfMatchedSelectionKey)}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdSelectWordsOfMatchedSelection.id}>
 				<Trans i18nKey="topBar.menu.selectWordsOfMatchedSelection">
 					选择单词匹配项
 				</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item
-				onSelect={menu.onDeleteSelection}
-				shortcut={formatKeyBindings(menu.deleteSelectionKey)}
-			>
+			<CommandMenuItem commandId={cmdDeleteSelection.id}>
 				<Trans i18nKey="contextMenu.deleteWords">删除选定单词</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenTimeShift}>
-				{t("topBar.menu.timeShift", "平移时间...")}
-			</DropdownMenu.Item>
+			<ContributionMenuItems location="menu.edit" />
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenMetadataEditor}>
+			<CommandMenuItem commandId={cmdOpenMetadataEditor.id}>
 				<Trans i18nKey="topBar.menu.editMetadata">编辑歌词元数据</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenSettings}>
+			<CommandMenuItem commandId={cmdOpenSettings.id}>
 				<Trans i18nKey="settingsDialog.title">首选项</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 		</>
 	);
 };

@@ -2,6 +2,8 @@ import { ContextMenu } from "@radix-ui/themes";
 import { type Atom, atom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useTranslation } from "react-i18next";
 import { normalizeLineTime } from "$/application/lyrics";
+import { ContextCommandMenuItem } from "$/components/TopMenu/ContextCommandMenuItem";
+import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { replaceWordDialogAtom, splitWordDialogAtom } from "$/states/dialogs";
 import {
@@ -38,119 +40,111 @@ export const LyricWordMenu = ({
 	const setOpenReplaceWordDialog = useSetAtom(replaceWordDialogAtom);
 	const setEditingWordState = useSetAtom(editingWordStateAtom);
 	const word = useAtomValue(wordAtom);
+	const commandPrefix = `core.context.word.${word.id}`;
+	const commandIds = {
+		split: `${commandPrefix}.split`,
+		replace: `${commandPrefix}.replace`,
+		combine: `${commandPrefix}.combine`,
+		delete: `${commandPrefix}.delete`,
+		followingToLine: `${commandPrefix}.followingToLine`,
+		selectedToLine: `${commandPrefix}.selectedToLine`,
+	};
+	useLocalCommand(
+		commandIds.split,
+		() => {
+			setEditingWordState({ wordIndex, lineIndex, word: word.word });
+			setOpenSplitWordDialog(true);
+		},
+		() => selectedWordsSize === 1,
+	);
+	useLocalCommand(
+		commandIds.replace,
+		() => {
+			setEditingWordState({ wordIndex, lineIndex, word: word.word });
+			setOpenReplaceWordDialog(true);
+		},
+		() => selectedWordsSize === 1,
+	);
+	useLocalCommand(
+		commandIds.combine,
+		() => {
+			editLyricLines((state) => {
+				const selectedWords = store.get(selectedWordsAtom);
+				const line = state.lyricLines[lineIndex];
+				if (!line) return;
+				const selectedWordsInLine = line.words.filter((item) =>
+					selectedWords.has(item.id),
+				);
+				if (selectedWordsInLine.length <= 1) return;
+				const firstWord = selectedWordsInLine[0];
+				const lastWord = selectedWordsInLine[selectedWordsInLine.length - 1];
+				const firstIndex = line.words.indexOf(firstWord);
+				const mergedWord = newLyricWord();
+				mergedWord.word = selectedWordsInLine.map((item) => item.word).join("");
+				mergedWord.startTime = firstWord.startTime;
+				mergedWord.endTime = lastWord.endTime;
+				line.words = line.words.filter((item) => !selectedWords.has(item.id));
+				if (firstIndex !== -1) line.words.splice(firstIndex, 0, mergedWord);
+			});
+		},
+		() => selectedWordsSize > 1 && selectedLinesSize === 1,
+	);
+	useLocalCommand(
+		commandIds.delete,
+		() => {
+			editLyricLines((state) => {
+				const selectedWords = store.get(selectedWordsAtom);
+				for (const line of state.lyricLines) {
+					const originalLength = line.words.length;
+					line.words = line.words.filter((item) => !selectedWords.has(item.id));
+					if (originalLength !== line.words.length) normalizeLineTime(line);
+				}
+			});
+		},
+		() => selectedWordsSize > 0,
+	);
+	useLocalCommand(
+		commandIds.followingToLine,
+		afterToNewLine,
+		() => selectedWordsSize === 1,
+	);
+	useLocalCommand(
+		commandIds.selectedToLine,
+		selectedToNewLine,
+		() => selectedWordsSize > 0,
+	);
 
 	return (
 		<>
-			<ContextMenu.Item
-				disabled={selectedWordsSize !== 1}
-				onSelect={() => {
-					setEditingWordState({
-						wordIndex,
-						lineIndex,
-						word: word.word,
-					});
-					setOpenSplitWordDialog(true);
-				}}
-			>
+			<ContextCommandMenuItem commandId={commandIds.split}>
 				{t("contextMenu.splitWord", "拆分单词…")}
-			</ContextMenu.Item>
-			<ContextMenu.Item
-				disabled={selectedWordsSize !== 1}
-				onSelect={() => {
-					setEditingWordState({
-						wordIndex,
-						lineIndex,
-						word: word.word,
-					});
-					setOpenReplaceWordDialog(true);
-				}}
-			>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.replace}>
 				{t("contextMenu.replaceWord", "替换单词…")}
-			</ContextMenu.Item>
-			<ContextMenu.Item
-				disabled={!(selectedWordsSize > 1 && selectedLinesSize === 1)}
-				onSelect={() => {
-					editLyricLines((state) => {
-						const selectedWords = store.get(selectedWordsAtom);
-						const line = state.lyricLines[lineIndex];
-						if (line) {
-							const selectedWordsInLine = line.words.filter((w) =>
-								selectedWords.has(w.id),
-							);
-
-							if (selectedWordsInLine.length > 1) {
-								const mergedWord = selectedWordsInLine
-									.map((w) => w.word)
-									.join("");
-								const firstWord = selectedWordsInLine[0];
-								const lastWord =
-									selectedWordsInLine[selectedWordsInLine.length - 1];
-								const firstIndex = line.words.indexOf(firstWord);
-
-								const newWord = newLyricWord();
-								newWord.word = mergedWord;
-								newWord.startTime = firstWord.startTime;
-								newWord.endTime = lastWord.endTime;
-
-								state.lyricLines[lineIndex].words = line.words.filter(
-									(w) => !selectedWords.has(w.id),
-								);
-								if (firstIndex !== -1) {
-									state.lyricLines[lineIndex].words.splice(
-										firstIndex,
-										0,
-										newWord,
-									);
-								}
-							}
-						}
-					});
-				}}
-			>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.combine}>
 				{t("contextMenu.combineWords", "合并单词")}
-			</ContextMenu.Item>
+			</ContextCommandMenuItem>
 
-			<ContextMenu.Item
-				disabled={selectedWordsSize === 0}
-				onSelect={() => {
-					editLyricLines((state) => {
-						const selectedWords = store.get(selectedWordsAtom);
-						for (const line of state.lyricLines) {
-							const originalLength = line.words.length;
-							const filteredWords = line.words.filter(
-								(w) => !selectedWords.has(w.id),
-							);
-							line.words = filteredWords;
-							if (originalLength !== filteredWords.length)
-								normalizeLineTime(line);
-						}
-					});
-				}}
-			>
+			<ContextCommandMenuItem commandId={commandIds.delete}>
 				{t("contextMenu.deleteWords", {
 					count: selectedWordsSize,
 					defaultValue: "删除选定单词",
 				})}
-			</ContextMenu.Item>
+			</ContextCommandMenuItem>
 
 			<ContextMenu.Separator />
 
-			<ContextMenu.Item
-				disabled={selectedWordsSize !== 1}
-				onSelect={() => afterToNewLine()}
-			>
+			<ContextCommandMenuItem commandId={commandIds.followingToLine}>
 				{t("contextMenu.moveFollowingWordToNewLine", "此后单词拆至新行")}
-			</ContextMenu.Item>
+			</ContextCommandMenuItem>
 
-			<ContextMenu.Item
-				disabled={selectedWordsSize === 0}
-				onSelect={() => selectedToNewLine()}
-			>
+			<ContextCommandMenuItem commandId={commandIds.selectedToLine}>
 				{t("contextMenu.moveWordToNewLine", {
 					count: selectedWordsSize,
 					defaultValue: "所选单词拆至新行",
 				})}
-			</ContextMenu.Item>
+			</ContextCommandMenuItem>
 
 			<ContextMenu.Separator />
 		</>

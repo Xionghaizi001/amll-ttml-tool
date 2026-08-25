@@ -22,7 +22,9 @@
 - Mock Host 合同测试。
 - `TimeShiftService` 这样的无 UI application service（宿主内置插件示例）。
 
-命令 registry、菜单渲染、插件生命周期宿主、Worker/Extism 权限执行和插件管理 UI 仍在后续阶段接入。不要把“协议中有类型”误解为“宿主已经开放了所有运行入口”。
+命令 registry、contribution 菜单渲染、声明式表单宿主和 owner-scoped 卸载清理已经接入；
+`builtin.time-shift` 是首个完整示例。Worker/Extism 权限执行、隔离 KV 和插件管理 UI 仍在后续阶段接入。
+不要把“协议中有类型”误解为“宿主已经开放了所有运行入口”。
 
 ## 2. 安装和导入
 
@@ -282,7 +284,22 @@ guest 生命周期导出名由 `PLUGIN_EXPORTS` 固定：`plugin_activate`、`pl
 
 ## 7. 表单、通知、存储和主题
 
-- 表单字段只有 `text`、`number`、`boolean`、`select`、`radio`、`note`；字段 `key` 在同一 schema 内唯一。
+- 表单控件支持 `text`、`number`、`boolean`、`select`、`radio`、`note` 和递归 `group`。
+  `number.control: "stepper"` 可渲染宿主步进按钮，`radio.orientation` 控制横/纵排列，option 可声明
+  `disabled`；`visibleWhen` 只能按另一个表单字段的等值条件显示，不能执行表达式。`group` 可声明
+  row/column、对齐、间距和缩进，字段可使用隐藏标签、紧凑宽度和小号控件。字段 `key` 与 group `id`
+  在整个 schema 中分别唯一，group 最大嵌套 4 层。
+- `FormSchemaV0.size` 只允许 `small`、`medium`、`large` 三档宿主尺寸。所有布局属性都映射到宿主组件；
+  表单标题、字段/分组标签、提示、select/radio option 和提交/取消按钮可通过 `FormIconV0` 引用
+  `@fluentui/react-icons` 白名单；stepper 还可覆盖 `decrementIcon`/`incrementIcon`。引用格式固定为
+  `{ source: "@fluentui/react-icons", name: "InfoRegular" }`，可用名称由
+  `FORM_FLUENT_ICON_NAMES_V0` 导出。宿主只渲染预编译映射，插件仍不能提供任意 SVG、URL、CSS、HTML、
+  React 组件或事件回调。
+- 页脚按钮不限于取消/应用：`FormSchemaV0.actions` 可声明 1~4 个自定义动作（如"删除"、"添加"、
+  "确认"），每个动作有唯一 `id`、`label`、可选白名单 `icon`，`role`（`submit` 受校验门控并返回
+  values，`cancel` 直接关闭）和 `tone`（`primary`/`danger`/`neutral` 映射宿主按钮样式）。点击后
+  `FormResultV0.action` 携带被点击的动作 id；ESC/关闭仍返回 `{ submitted: false }`。声明 `actions`
+  后默认页脚与 `submitLabel`/`cancelLabel` 等旧字段被整体替换。
 - 通知是纯文本，不能传 HTML；`timeoutMs` 最大 60000。
 - KV 值必须是 JSON，按插件隔离；不要把 token、文件路径或宿主对象写入存储。
 - 主题 token 的 `tokenVersion` 必须为 0。颜色和长度按白名单校验，禁止远程资源和代码。

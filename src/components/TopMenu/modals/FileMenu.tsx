@@ -1,10 +1,18 @@
 import { Button, DropdownMenu } from "@radix-ui/themes";
-import type { CSSProperties } from "react";
 import { Toolbar } from "radix-ui";
+import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import {
+	cmdNewFile,
+	cmdOpenFile,
+	cmdOpenFileFromClipboard,
+	cmdOpenHistoryRestore,
+	cmdSaveFile,
+	cmdSaveFileToClipboard,
+	cmdSubmitToAMLLDB,
+} from "$/modules/keyboard/commands";
 import { ImportExportLyric } from "$/modules/project/modals/ImportExportLyric";
-import { formatKeyBindings } from "$/utils/keybindings";
-import { useTopMenuActions } from "../useTopMenuActions";
+import { CommandMenuItem } from "../CommandMenuItem";
 
 type FileMenuProps = {
 	variant: "toolbar" | "submenu";
@@ -13,51 +21,41 @@ type FileMenuProps = {
 
 const FileMenuItems = () => {
 	const { t } = useTranslation();
-	const menu = useTopMenuActions();
 
 	return (
 		<>
-			<DropdownMenu.Item
-				onSelect={menu.onNewFile}
-				shortcut={formatKeyBindings(menu.newFileKey)}
-			>
+			<CommandMenuItem commandId={cmdNewFile.id}>
 				<Trans i18nKey="topBar.menu.newLyric">新建 TTML 文件</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onOpenFile}
-				shortcut={formatKeyBindings(menu.openFileKey)}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdOpenFile.id}>
 				<Trans i18nKey="topBar.menu.openLyric">打开 TTML 文件</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item onSelect={menu.onOpenFileFromClipboard}>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdOpenFileFromClipboard.id}>
 				<Trans i18nKey="topBar.menu.openFromClipboard">
 					从剪切板打开 TTML 文件
 				</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Item
-				onSelect={menu.onSaveFile}
-				shortcut={formatKeyBindings(menu.saveFileKey)}
-			>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdSaveFile.id}>
 				<Trans i18nKey="topBar.menu.saveLyric">保存 TTML 文件</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onOpenHistoryRestore}>
+			<CommandMenuItem commandId={cmdOpenHistoryRestore.id}>
 				{t("topBar.menu.restoreFromHistory", "从历史记录恢复...")}
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onSaveFileToClipboard}>
+			<CommandMenuItem commandId={cmdSaveFileToClipboard.id}>
 				<Trans i18nKey="topBar.menu.saveLyricToClipboard">
 					保存 TTML 文件到剪切板
 				</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Separator />
 			<ImportExportLyric />
 			<DropdownMenu.Separator />
-			<DropdownMenu.Item onSelect={menu.onSubmitToAMLLDB}>
+			<CommandMenuItem commandId={cmdSubmitToAMLLDB.id}>
 				<Trans i18nKey="topBar.menu.uploadToAMLLDB">
 					上传到 AMLL 歌词数据库
 				</Trans>
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 		</>
 	);
 };

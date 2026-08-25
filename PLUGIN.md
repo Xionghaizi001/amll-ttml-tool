@@ -48,6 +48,10 @@ src/plugins/ui/       插件管理、菜单、表单等宿主 UI
 `trusted-js` 只作为未来 manifest 能力保留。MVP 拒绝普通第三方插件使用它；受信任 React view 只能由
 `builtin` 插件注册。
 
+阶段 4 已落地 owner-scoped command/contribution registry：第三方 manifest 目前只映射命令、菜单、
+纯文本通知和声明式表单；toolbar/sidebar 与 React view 对普通第三方保持关闭。内置
+`builtin.time-shift` 已作为菜单、表单、事务、撤销和通知的完整参考实现。
+
 主题包与功能包互斥。需要同时提供功能和主题时，发布两个插件包，避免主题权限扩大到文档或平台能力。
 
 ## v0 公开协议
@@ -74,7 +78,9 @@ ID 合并，并保留投影中不存在的内部字段。插件修改必须携�
 `expectedRevision`，一次插件操作只产生一个撤销记录；revision 冲突必须拒绝写入。
 
 菜单只引用 command ID，第三方插件只能使用命令、菜单、通知和声明式表单，不能注入任意 HTML、React
-组件或 CSS 选择器。插件卸载时，宿主统一清理命令、贡献点、事件监听、运行时和隔离存储句柄。
+组件或 CSS 选择器。表单图标只能按 `@fluentui/react-icons` 的公开白名单名称引用，由宿主预编译映射
+渲染，不能传入 SVG、URL 或动态组件。插件卸载时，宿主统一清理命令、贡献点、事件监听、运行时和
+隔离存储句柄。
 
 ## MVP 范围与非目标
 

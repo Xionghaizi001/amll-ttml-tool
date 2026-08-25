@@ -2,7 +2,18 @@ import { Button, DropdownMenu } from "@radix-ui/themes";
 import { Toolbar } from "radix-ui";
 import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { useTopMenuActions } from "../useTopMenuActions";
+import {
+	cmdAutoRuby,
+	cmdAutoSegment,
+	cmdCheckRomanizationWarnings,
+	cmdDistributeRomanization,
+	cmdOpenAdvancedSegmentation,
+	cmdOpenLatencyTest,
+	cmdOpenSyllableSmoothing,
+	cmdRubySegment,
+	cmdSyncLineTimestamps,
+} from "$/modules/keyboard/commands";
+import { CommandMenuItem } from "../CommandMenuItem";
 
 type ToolMenuProps = {
 	variant: "toolbar" | "submenu";
@@ -12,7 +23,6 @@ type ToolMenuProps = {
 
 const ToolMenuItems = () => {
 	const { t } = useTranslation();
-	const menu = useTopMenuActions();
 
 	return (
 		<>
@@ -21,45 +31,45 @@ const ToolMenuItems = () => {
 					{t("topBar.menu.segmentationTools", "分词")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<DropdownMenu.Item onSelect={menu.onAutoSegment}>
+					<CommandMenuItem commandId={cmdAutoSegment.id}>
 						{t("topBar.menu.autoSegment", "自动分词")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={menu.onRubySegment}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={cmdRubySegment.id}>
 						{t("topBar.menu.rubySegment", "注音分词")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={menu.onOpenAdvancedSegmentation}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={cmdOpenAdvancedSegmentation.id}>
 						{t("topBar.menu.advancedSegment", "高级分词...")}
-					</DropdownMenu.Item>
+					</CommandMenuItem>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
-			<DropdownMenu.Item onSelect={menu.onOpenSyllableSmoothing}>
+			<CommandMenuItem commandId={cmdOpenSyllableSmoothing.id}>
 				{t("topBar.menu.syllableSmoothing", "平滑时间轴...")}
-			</DropdownMenu.Item>
-			<DropdownMenu.Item onSelect={menu.onSyncLineTimestamps}>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdSyncLineTimestamps.id}>
 				{t("topBar.menu.syncLineTimestamps", "同步行时间戳")}
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger>
 					{t("topBar.menu.perWordRomanization.index", "逐字音译")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<DropdownMenu.Item onSelect={menu.onOpenDistributeRomanization}>
+					<CommandMenuItem commandId={cmdDistributeRomanization.id}>
 						{t(
 							"topBar.menu.perWordRomanization.distribute",
 							"自动分配罗马音...",
 						)}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={menu.onCheckRomanizationWarnings}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={cmdCheckRomanizationWarnings.id}>
 						{t("topBar.menu.perWordRomanization.check", "检查")}
-					</DropdownMenu.Item>
+					</CommandMenuItem>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
-			<DropdownMenu.Item onSelect={menu.onAutoRuby}>
+			<CommandMenuItem commandId={cmdAutoRuby.id}>
 				{t("topBar.menu.perWordRomanization.autoRuby", "自动注音")}
-			</DropdownMenu.Item>
-			<DropdownMenu.Item onSelect={menu.onOpenLatencyTest}>
+			</CommandMenuItem>
+			<CommandMenuItem commandId={cmdOpenLatencyTest.id}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 		</>
 	);
 };

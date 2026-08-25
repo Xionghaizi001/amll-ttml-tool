@@ -205,17 +205,87 @@
 
   阶段 4：命令和 UI Contribution
 
-  - [ ] 扩展现有 keyboard registry，使 command 同时包含 handler、enablement、来源和清理逻辑。
-  - [ ] 菜单项只引用 command ID，不直接保存回调。
-  - [ ] 建立菜单、工具栏、侧栏、设置页和对话框 contribution registry。
-  - [ ] MVP 只开放命令、菜单、通知和声明式表单。
-  - [ ] 第三方插件不得注入 React 组件或任意 HTML。
-  - [ ] 内置插件可以注册受信任 React view contribution。
-  - [ ] 插件卸载时必须自动清理全部 contribution 和事件监听器。
-  - [ ] 将 `src/modules/settings/states/custom-background.ts` 的 Jotai、IndexedDB、localStorage
+  - [x] 扩展现有 keyboard registry，使 command 同时包含 handler、enablement、来源和清理逻辑。
+  - [x] 菜单项只引用 command ID，不直接保存回调。
+  - [x] 建立菜单、工具栏、侧栏、设置页和对话框 contribution registry。
+  - [x] MVP 只开放命令、菜单、通知和声明式表单。
+  - [x] 第三方插件不得注入 React 组件或任意 HTML。
+  - [x] 内置插件可以注册受信任 React view contribution。
+  - [x] 插件卸载时必须自动清理全部 contribution 和事件监听器。
+  - [x] 将 `src/modules/settings/states/custom-background.ts` 的 Jotai、IndexedDB、localStorage
     迁移、fetch 与 Blob URL 生命周期拆到 platform storage/resource adapter；与主题系统的资源生命周期一并设计。
 
   首个迁移对象建议选择“时间平移”一类工具，能同时验证菜单、表单、文档事务、撤销和通知。
+
+  阶段 4 完成记录（2026-08-25）
+
+  - `src/kernel/commands` 已成为 command 真相源；keyboard registry 保留原有快捷键 storage key，
+    同时桥接 handler、enablement、source、execute 和 disposable。重复注册、禁用执行和清理均有测试。
+  - 顶部菜单、导入导出菜单、歌词行/单词右键菜单和编辑区菜单均通过 command menu adapter 只引用
+    command ID；边界脚本新增回归规则，禁止普通菜单项重新内联 `onSelect`/`onClick`/`onCheckedChange`。
+  - `ExtensionRegistry` 已覆盖 menu、toolbar、sidebar、settings 和 dialog contribution，并以 owner scope
+    统一收集 command、contribution 与事件监听器。scope dispose 后三类资源全部自动消失。
+  - 第三方 manifest adapter 仅映射 command、menu 和声明式 settings form；MVP 拒绝第三方 toolbar/sidebar
+    和 trusted view。公开 form/notification 均只渲染协议允许的纯文本和字段类型，不接受 React/HTML。
+    builtin scope 可以注册受信任 view contribution，并有正反合同测试。
+  - 首个内置插件 `builtin.time-shift` 已完成 contribution 菜单 → command → 声明式表单 →
+    `TimeShiftService` → 单一文档事务 → 通知闭环；旧 `TimeShiftDialog` 和 dialog atom 已删除。
+    测试证明一次执行只产生一个 revision/撤销记录，单次 undo 可完整恢复，卸载后命令和菜单消失。
+  - 自定义背景已拆为通用 `ManagedResource`、IndexedDB storage、legacy data URL loader、浏览器 Object URL
+    adapter、localStorage adapter 和 Jotai binding；资源替换、清空与 App 卸载都会 revoke URL。
+    `ManagedResource` 可在阶段 5 复用于主题包资源生命周期，边界脚本禁止 state 层重新访问 idb、fetch、
+    localStorage 或 Object URL API。
+  - 声明式表单在阶段 4 基础上继续扩展了宿主尺寸、递归 group、row/column 布局、条件显示、数字步进器、
+    横向 radio、禁用 option、紧凑字段和缩进等固定组件能力；协议仍拒绝 HTML/CSS/React/回调注入。
+    `builtin.time-shift` 已用扩展 schema 重新复现原模态框的 450px 尺寸、±50ms 箭头步进器、横向方向
+    单选、动态选区范围、禁用态以及仅在 custom scope 下显示的紧凑行范围输入。
+  - 表单标题、标签、提示、选项、按钮和 stepper 支持按 `@fluentui/react-icons` 导出名引用宿主图标；
+    `FORM_FLUENT_ICON_NAMES_V0` 与宿主映射保持合同测试一致，未知名称、任意 SVG/URL 和动态组件均被拒绝。
+  - 完成时全量验证：120/120 测试通过、`tsc -b` 与 Vite production build 通过、`pnpm lint`
+    通过（仅 13 条既有 warning 和 1 条既有提示）、`plugin:api:check` 通过。
+
+  阶段 4 安全审计与加固（2026-08-25，Claude + 本机 codex 交叉审计）
+
+  审计结论：阶段 4 的勾选项全部属实（command 真相源、菜单只引用 command ID、contribution registry、
+  MVP 限制、卸载清理、自定义背景拆分均有实现和测试）。交叉审计发现并修复了以下隐患：
+
+  - 协议与表单注入面：
+    - `parseHostCall` 此前对 `ui.showForm` 只做结构校验，不跑表单语义检查（重复 key、悬空
+      `visibleWhen`、禁用默认 option、`min>max` 可进入宿主渲染）；现与 manifest settings 共用
+      `validateFormSemantics`。`declarativeFormService.showForm` 同时在宿主侧再验一次（纵深防御）。
+    - 表单协议缺少体积上限：localizedText 增加 2048 字符与 16 语言上限（validator 新增
+      `maxProperties`）、字段数每层 ≤64、options ≤200、text default/placeholder/maxLength 设上限，
+      防止超大 payload 冻结 UI。
+    - 表单提交此前完全信任 React 状态：现提交前按 schema 重新 sanitize（类型强转、数字 clamp/有限性、
+      选项成员与禁用检查、截断超长文本、丢弃 schema 外的键），可见字段违反约束时提交按钮禁用。
+    - 表单请求/完成缺少关联 ID：滞后对话框可能用旧表单的值完成新请求；现 `complete/cancel`
+      必须携带 request id，不匹配即忽略。
+  - 注册表与命名空间：
+    - 插件 scope 此前可注册任意 command/menu/form id 并把菜单指向任意命令（可抢占内置命令 ID 或
+      把他人命令暴露到新菜单入口）；现 plugin scope 强制 `pluginId.` 前缀，menu 只能引用自己的命令；
+      协议层 `parseManifest` 同步增加 menus[].command 前缀检查。
+    - `registerManifestContributions` 此前只信任编译期类型；现入口强制 `parseManifest` 运行时校验，
+      theme 包与非法 manifest 直接拒绝。
+    - `CommandRegistry.execute` 在 enablement 回调后重新验证注册未被重入替换；`ExtensionRegistry.emit`
+      按监听器隔离异常，单个插件抛错不再阻断其后监听器。
+    - 菜单 contribution 的 `when` 此前只存储从不求值；现 `ContributionMenuItems` 以
+      `parseEnablement/evaluateEnablement` fail-closed 求值，宿主上下文由新增
+      `src/plugins/adapters/enablement-context.ts` 提供（mode/hasSelection/documentEmpty/audioLoaded/
+      canUndo/canRedo 等）。
+  - 资源与存储生命周期：
+    - `ManagedResource` 存在竞态：慢速 initialize/迁移完成后可 revoke 用户刚设置的新 URL 并复活旧背景；
+      dispose 后在途操作仍会创建无人回收的 Object URL。现引入 generation 计数，过期操作不再改变状态
+      （latest-wins），dispose 使在途操作失效。
+    - IndexedDB 打开失败此前被永久缓存（整个会话静默退化为不持久化）；现失败不缓存、连接 terminated
+      后可重开，读取校验 `blob instanceof Blob`，读写失败改为 console.warn 而非完全静默。
+    - `browserKeyValueStorage` 包裹 SecurityError/QuotaExceededError 等同步异常，隐私模式或配额耗尽
+      不再使设置 atom 写入抛未处理异常。
+  - 未修复但已知的低风险项（留待阶段 6 WASM 宿主）：命令 handler 为异步时 scope dispose 不取消
+    在途执行（需要 AbortSignal/调用 ID 机制，属阶段 6 RPC 取消范畴）；IndexedDB 写失败仅告警不重试。
+  - 加固后全量验证：132/132 测试通过（新增 12 项覆盖命名空间强制、重入守卫、事件隔离、表单
+    sanitize/校验、请求 ID 匹配、ManagedResource 竞态、协议尺寸上限与 ui.showForm 语义校验）、
+    `tsc -b` 通过、`pnpm lint` 通过（仅既有 13 warning + 1 提示）、`plugin:api:check` 通过
+    （协议文档已重新生成）、Vite production build 通过。
 
   阶段 5：主题系统
 

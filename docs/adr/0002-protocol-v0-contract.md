@@ -269,31 +269,70 @@ literal := "'" [^']* "'" | true | false | number
 ```ts
 export type FormFieldV0 =
 	| { kind: "text"; key: string; label: LocalizedText; default?: string;
-	    placeholder?: string; required?: boolean; maxLength?: number; multiline?: boolean }
+	    placeholder?: string; required?: boolean; maxLength?: number; multiline?: boolean;
+	    visibleWhen?: FormConditionV0; labelPlacement?: "top" | "hidden";
+	    width?: "full" | "compact"; controlSize?: "small" | "medium"; icon?: FormIconV0 }
 	| { kind: "number"; key: string; label: LocalizedText; default?: number;
-	    min?: number; max?: number; step?: number; required?: boolean }
+	    min?: number; max?: number; step?: number; required?: boolean;
+	    control?: "input" | "stepper"; visibleWhen?: FormConditionV0;
+	    decrementIcon?: FormIconV0; incrementIcon?: FormIconV0 }
 	| { kind: "boolean"; key: string; label: LocalizedText; default?: boolean }
-	| { kind: "select"; key: string; label: LocalizedText;
-	    options: { value: string; label: LocalizedText }[]; default?: string }
-	| { kind: "radio"; key: string; label: LocalizedText;
-	    options: { value: string; label: LocalizedText }[]; default?: string }
-	| { kind: "note"; text: LocalizedText };
+	| { kind: "select" | "radio"; key: string; label: LocalizedText;
+	    options: { value: string; label: LocalizedText; disabled?: boolean; icon?: FormIconV0 }[];
+	    default?: string; orientation?: "vertical" | "horizontal" }
+	| { kind: "note"; text: LocalizedText; tone?: "default" | "muted";
+	    visibleWhen?: FormConditionV0; icon?: FormIconV0 }
+	| { kind: "group"; id: string; label?: LocalizedText;
+	    direction?: "row" | "column"; align?: "start" | "center" | "end";
+	    gap?: "small" | "medium" | "large"; indent?: boolean;
+	    visibleWhen?: FormConditionV0; icon?: FormIconV0; fields: FormFieldV0[] };
+
+export interface FormIconV0 {
+	source: "@fluentui/react-icons";
+	name: FormFluentIconNameV0; // FORM_FLUENT_ICON_NAMES_V0 白名单
+}
+
+export interface FormConditionV0 {
+	field: string;
+	equals: string | number | boolean;
+}
+
+export interface FormActionV0 {
+	id: string;
+	label: LocalizedText;
+	role?: "submit" | "cancel";           // 默认 "submit"
+	tone?: "primary" | "danger" | "neutral"; // 默认: submit → primary, cancel → neutral
+	icon?: FormIconV0;
+}
 
 export interface FormSchemaV0 {
 	title: LocalizedText;
 	description?: LocalizedText;
 	fields: FormFieldV0[];
+	size?: "small" | "medium" | "large";
+	icon?: FormIconV0;
 	submitLabel?: LocalizedText;
 	cancelLabel?: LocalizedText;
+	submitIcon?: FormIconV0;
+	cancelIcon?: FormIconV0;
+	actions?: FormActionV0[];             // 1..4 个，声明后整体替换默认取消/应用页脚
 }
 
 export type FormValueV0 = string | number | boolean;
 export type FormResultV0 =
-	| { submitted: true; values: Record<string, FormValueV0> }
-	| { submitted: false };
+	| { submitted: true; action?: string; values: Record<string, FormValueV0> }
+	| { submitted: false; action?: string };
 ```
 
-`key` 在同一 schema 内唯一且匹配 `^[a-zA-Z][a-zA-Z0-9_]*$`。宿主渲染时不解释任何 HTML。
+`key` 与 group `id` 在整个 schema 中分别唯一且匹配 `^[a-zA-Z][a-zA-Z0-9_]*$`；group 最大嵌套
+4 层。`visibleWhen` 只能引用同一表单内的字段并进行同类型等值比较。宿主渲染时不解释 HTML，
+所有布局、步进器、禁用态、条件显示和 Fluent 图标都由固定宿主组件实现。图标引用只能使用
+`FORM_FLUENT_ICON_NAMES_V0` 中的预编译名称，不能提供 SVG、URL、React 组件或动态 import。
+
+`actions` 中的 `id` 在表单内唯一且匹配 `^[a-zA-Z][a-zA-Z0-9_]*$`。`role: "submit"` 的动作受表单
+校验门控，点击后返回 `{ submitted: true, action, values }`；`role: "cancel"` 返回
+`{ submitted: false, action }`。用户按 ESC 或关闭对话框仍返回 `{ submitted: false }`（不带
+`action`）。未声明 `actions` 时保持旧行为：默认取消/应用两个按钮，结果不带 `action` 字段。
 
 ## 9. 主题 token
 

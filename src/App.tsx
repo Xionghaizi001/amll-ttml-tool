@@ -51,6 +51,7 @@ import {
 	customBackgroundBlurAtom,
 	customBackgroundBrightnessAtom,
 	customBackgroundImageAtom,
+	customBackgroundImageDisposeAtom,
 	customBackgroundImageInitAtom,
 	customBackgroundMaskAtom,
 	customBackgroundOpacityAtom,
@@ -61,6 +62,7 @@ import {
 	ttmlLyricToAmllResult,
 } from "./modules/ttml-processor/index.ts";
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
+import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
@@ -162,12 +164,16 @@ function EditorApp() {
 	const setSettingsOpen = useSetAtom(settingsDialogAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const initCustomBackgroundImage = useSetAtom(customBackgroundImageInitAtom);
+	const disposeCustomBackgroundImage = useSetAtom(
+		customBackgroundImageDisposeAtom,
+	);
 	const { t } = useTranslation();
 	const store = useStore();
 
 	useEffect(() => {
-		initCustomBackgroundImage();
-	}, [initCustomBackgroundImage]);
+		void initCustomBackgroundImage();
+		return () => disposeCustomBackgroundImage();
+	}, [disposeCustomBackgroundImage, initCustomBackgroundImage]);
 
 	useEffect(() => {
 		if (import.meta.env.TAURI_ENV_PLATFORM) {
@@ -325,6 +331,7 @@ function EditorApp() {
 					</div>
 				)}
 				<div className={styles.appContent}>
+					<BuiltinPluginHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />
 					{toolMode === ToolMode.Sync && <SyncKeyBinding />}

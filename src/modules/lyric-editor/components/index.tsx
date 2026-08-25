@@ -25,10 +25,12 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
+import { ContextCommandMenuItem } from "$/components/TopMenu/ContextCommandMenuItem";
+import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import { useLyricListDrag } from "$/modules/lyric-drag/useLyricListDrag";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	locateActionAtom,
 	lyricLinesAtom,
@@ -96,6 +98,8 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 			state.lyricLines.push(newLyricLine());
 		});
 	}, [editLyricLines]);
+	useLocalCommand("core.editor.pasteTTML", handlePasteTTML);
+	useLocalCommand("core.editor.newLine", handleNewLine);
 
 	const scrollToIndexAtom = useMemo(
 		() =>
@@ -246,12 +250,12 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 				{innerView}
 			</ContextMenu.Trigger>
 			<ContextMenu.Content>
-				<ContextMenu.Item onSelect={handlePasteTTML}>
+				<ContextCommandMenuItem commandId="core.editor.pasteTTML">
 					{t("contextMenu.pasteTTML", "粘贴 TTML")}
-				</ContextMenu.Item>
-				<ContextMenu.Item onSelect={handleNewLine}>
+				</ContextCommandMenuItem>
+				<ContextCommandMenuItem commandId="core.editor.newLine">
 					{t("contextMenu.newLine", "新建行")}
-				</ContextMenu.Item>
+				</ContextCommandMenuItem>
 			</ContextMenu.Content>
 		</ContextMenu.Root>
 	);

@@ -1,8 +1,9 @@
 import { Button, DropdownMenu } from "@radix-ui/themes";
-import type { CSSProperties } from "react";
 import { Toolbar } from "radix-ui";
+import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { useTopMenuActions } from "../useTopMenuActions";
+import { cmdOpenGitHub, cmdOpenWiki } from "$/modules/keyboard/commands";
+import { CommandMenuItem } from "../CommandMenuItem";
 
 type HelpMenuProps = {
 	variant: "toolbar" | "submenu";
@@ -11,14 +12,13 @@ type HelpMenuProps = {
 
 const HelpMenuItems = () => {
 	const { t } = useTranslation();
-	const menu = useTopMenuActions();
 
 	return (
 		<>
-			<DropdownMenu.Item onSelect={menu.onOpenGitHub}>GitHub</DropdownMenu.Item>
-			<DropdownMenu.Item onSelect={menu.onOpenWiki}>
+			<CommandMenuItem commandId={cmdOpenGitHub.id}>GitHub</CommandMenuItem>
+			<CommandMenuItem commandId={cmdOpenWiki.id}>
 				{t("topBar.menu.helpDoc", "使用说明")}
-			</DropdownMenu.Item>
+			</CommandMenuItem>
 		</>
 	);
 };

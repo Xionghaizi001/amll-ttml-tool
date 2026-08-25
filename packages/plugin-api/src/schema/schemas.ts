@@ -1,6 +1,7 @@
 import { ALL_CAPABILITIES } from "../capabilities";
 import type { HostMethod } from "../types";
 import {
+	FORM_FLUENT_ICON_NAMES_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
 	THEME_TOKEN_VERSION,
@@ -11,29 +12,77 @@ const id = { type: "string", minLength: 1, maxLength: 256 };
 const time = { type: "number", minimum: 0 };
 const localizedText = {
 	oneOf: [
-		{ type: "string", minLength: 1 },
+		{ type: "string", minLength: 1, maxLength: 2048 },
 		{
 			type: "object",
 			required: ["default"],
-			properties: { default: { type: "string", minLength: 1 } },
-			additionalProperties: { type: "string" },
+			properties: { default: { type: "string", minLength: 1, maxLength: 2048 } },
+			additionalProperties: { type: "string", maxLength: 2048 },
+			maxProperties: 16,
 		},
 	],
 };
 const option = {
 	type: "object",
 	required: ["value", "label"],
-	properties: { value: id, label: localizedText },
+	properties: {
+		value: id,
+		label: localizedText,
+		disabled: { type: "boolean" },
+		icon: { $ref: "#/$defs/icon" },
+	},
+	additionalProperties: false,
+};
+const formValue = {
+	anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+};
+const condition = {
+	type: "object",
+	required: ["field", "equals"],
+	properties: {
+		field: { type: "string", pattern: "^[a-zA-Z][a-zA-Z0-9_]*$" },
+		equals: formValue,
+	},
+	additionalProperties: false,
+};
+const icon = {
+	type: "object",
+	required: ["source", "name"],
+	properties: {
+		source: { const: "@fluentui/react-icons" },
+		name: { enum: [...FORM_FLUENT_ICON_NAMES_V0] },
+	},
+	additionalProperties: false,
+};
+const formAction = {
+	type: "object",
+	required: ["id", "label"],
+	properties: {
+		id: { type: "string", pattern: "^[a-zA-Z][a-zA-Z0-9_]*$" },
+		label: localizedText,
+		role: { enum: ["submit", "cancel"] },
+		tone: { enum: ["primary", "danger", "neutral"] },
+		icon: { $ref: "#/$defs/icon" },
+	},
 	additionalProperties: false,
 };
 const keyedFieldProperties = {
 	key: { type: "string", pattern: "^[a-zA-Z][a-zA-Z0-9_]*$" },
 	label: localizedText,
 };
+const presentationProperties = {
+	visibleWhen: { $ref: "#/$defs/condition" },
+	labelPlacement: { enum: ["top", "hidden"] },
+	width: { enum: ["full", "compact"] },
+	controlSize: { enum: ["small", "medium"] },
+	icon: { $ref: "#/$defs/icon" },
+};
 
 export const FORM_SCHEMA_V0 = {
 	$defs: {
 		localizedText,
+		condition,
+		icon,
 		field: {
 			oneOf: [
 				{
@@ -42,11 +91,12 @@ export const FORM_SCHEMA_V0 = {
 					properties: {
 						kind: { const: "text" },
 						...keyedFieldProperties,
-						default: { type: "string" },
-						placeholder: { type: "string" },
+						default: { type: "string", maxLength: 4096 },
+						placeholder: { type: "string", maxLength: 256 },
 						required: { type: "boolean" },
-						maxLength: { type: "integer", minimum: 1 },
+						maxLength: { type: "integer", minimum: 1, maximum: 65536 },
 						multiline: { type: "boolean" },
+						...presentationProperties,
 					},
 					additionalProperties: false,
 				},
@@ -61,6 +111,10 @@ export const FORM_SCHEMA_V0 = {
 						max: { type: "number" },
 						step: { type: "number", minimum: 0 },
 						required: { type: "boolean" },
+						control: { enum: ["input", "stepper"] },
+						decrementIcon: { $ref: "#/$defs/icon" },
+						incrementIcon: { $ref: "#/$defs/icon" },
+						...presentationProperties,
 					},
 					additionalProperties: false,
 				},
@@ -71,6 +125,7 @@ export const FORM_SCHEMA_V0 = {
 						kind: { const: "boolean" },
 						...keyedFieldProperties,
 						default: { type: "boolean" },
+						...presentationProperties,
 					},
 					additionalProperties: false,
 				},
@@ -80,15 +135,50 @@ export const FORM_SCHEMA_V0 = {
 					properties: {
 						kind: { enum: ["select", "radio"] },
 						...keyedFieldProperties,
-						options: { type: "array", minItems: 1, items: option },
+						options: {
+							type: "array",
+							minItems: 1,
+							maxItems: 200,
+							items: option,
+						},
 						default: { type: "string" },
+						orientation: { enum: ["vertical", "horizontal"] },
+						...presentationProperties,
 					},
 					additionalProperties: false,
 				},
 				{
 					type: "object",
 					required: ["kind", "text"],
-					properties: { kind: { const: "note" }, text: localizedText },
+					properties: {
+						kind: { const: "note" },
+						text: localizedText,
+						tone: { enum: ["default", "muted"] },
+						visibleWhen: { $ref: "#/$defs/condition" },
+						icon: { $ref: "#/$defs/icon" },
+					},
+					additionalProperties: false,
+				},
+				{
+					type: "object",
+					required: ["kind", "id", "fields"],
+					properties: {
+						kind: { const: "group" },
+						id: { type: "string", pattern: "^[a-zA-Z][a-zA-Z0-9_]*$" },
+						label: localizedText,
+						direction: { enum: ["row", "column"] },
+						align: { enum: ["start", "center", "end"] },
+						gap: { enum: ["small", "medium", "large"] },
+						indent: { type: "boolean" },
+						visibleWhen: { $ref: "#/$defs/condition" },
+						icon: { $ref: "#/$defs/icon" },
+						fields: {
+							type: "array",
+							minItems: 1,
+							maxItems: 64,
+							items: { $ref: "#/$defs/field" },
+						},
+					},
 					additionalProperties: false,
 				},
 			],
@@ -99,9 +189,14 @@ export const FORM_SCHEMA_V0 = {
 	properties: {
 		title: { $ref: "#/$defs/localizedText" },
 		description: { $ref: "#/$defs/localizedText" },
-		fields: { type: "array", items: { $ref: "#/$defs/field" } },
+		fields: { type: "array", maxItems: 64, items: { $ref: "#/$defs/field" } },
+		size: { enum: ["small", "medium", "large"] },
+		icon: { $ref: "#/$defs/icon" },
 		submitLabel: { $ref: "#/$defs/localizedText" },
 		cancelLabel: { $ref: "#/$defs/localizedText" },
+		submitIcon: { $ref: "#/$defs/icon" },
+		cancelIcon: { $ref: "#/$defs/icon" },
+		actions: { type: "array", minItems: 1, maxItems: 4, items: formAction },
 	},
 	additionalProperties: false,
 } satisfies JsonSchema;

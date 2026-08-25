@@ -143,6 +143,14 @@ function validateAt(
 	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
 		const record = value as Record<string, unknown>;
 		const properties = (schema.properties ?? {}) as Record<string, JsonSchema>;
+		if (
+			typeof schema.maxProperties === "number" &&
+			Object.keys(record).length > schema.maxProperties
+		)
+			issues.push({
+				path,
+				message: `must contain at most ${schema.maxProperties} properties`,
+			});
 		for (const required of (schema.required ?? []) as string[]) {
 			if (!(required in record))
 				issues.push({

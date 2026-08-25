@@ -13,6 +13,36 @@ import {
 	segmentEntireDocument,
 } from "$/application/lyrics";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
+import {
+	cmdAutoRuby,
+	cmdAutoSegment,
+	cmdCheckRomanizationWarnings,
+	cmdDeleteSelection,
+	cmdDistributeRomanization,
+	cmdNewFile,
+	cmdOpenAdvancedSegmentation,
+	cmdOpenFile,
+	cmdOpenFileFromClipboard,
+	cmdOpenGitHub,
+	cmdOpenHistoryRestore,
+	cmdOpenLatencyTest,
+	cmdOpenMetadataEditor,
+	cmdOpenSettings,
+	cmdOpenSyllableSmoothing,
+	cmdOpenWiki,
+	cmdRedo,
+	cmdRubySegment,
+	cmdSaveFile,
+	cmdSaveFileToClipboard,
+	cmdSelectAll,
+	cmdSelectInverted,
+	cmdSelectWordsOfMatchedSelection,
+	cmdSubmitToAMLLDB,
+	cmdSyncLineTimestamps,
+	cmdUndo,
+	cmdUnselectAll,
+} from "$/modules/keyboard/commands";
+import { useCommandHandler } from "$/modules/keyboard/hooks";
 import { rubyGenerationEngine } from "$/modules/lyric-editor/adapters/ruby-generation-engine";
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
@@ -35,19 +65,7 @@ import {
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
 	syllableSmoothingDialogAtom,
-	timeShiftDialogAtom,
 } from "$/states/dialogs.ts";
-import {
-	keyDeleteSelectionAtom,
-	keyNewFileAtom,
-	keyOpenFileAtom,
-	keyRedoAtom,
-	keySaveFileAtom,
-	keySelectAllAtom,
-	keySelectInvertedAtom,
-	keySelectWordsOfMatchedSelectionAtom,
-	keyUndoAtom,
-} from "$/states/keybindings.ts";
 import {
 	isDirtyAtom,
 	lyricLinesAtom,
@@ -75,22 +93,10 @@ export const useTopMenuActions = () => {
 	const setAdvancedSegmentationDialog = useSetAtom(
 		advancedSegmentationDialogAtom,
 	);
-	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
 	const setSyllableSmoothingDialog = useSetAtom(syllableSmoothingDialogAtom);
 	const { openFile } = useFileOpener();
 	const setProjectId = useSetAtom(projectIdAtom);
 	const { config: segmentationConfig } = useSegmentationConfig();
-	const newFileKey = useAtomValue(keyNewFileAtom);
-	const openFileKey = useAtomValue(keyOpenFileAtom);
-	const saveFileKey = useAtomValue(keySaveFileAtom);
-	const undoKey = useAtomValue(keyUndoAtom);
-	const redoKey = useAtomValue(keyRedoAtom);
-	const selectAllLinesKey = useAtomValue(keySelectAllAtom);
-	const selectInvertedLinesKey = useAtomValue(keySelectInvertedAtom);
-	const selectWordsOfMatchedSelectionKey = useAtomValue(
-		keySelectWordsOfMatchedSelectionAtom,
-	);
-	const deleteSelectionKey = useAtomValue(keyDeleteSelectionAtom);
 	const handleTtmlError = useTtmlErrorHandler();
 
 	const buildRubySegments = useCallback(
@@ -366,10 +372,6 @@ export const useTopMenuActions = () => {
 		});
 	}, [buildRubySegments, editLyricLines, store]);
 
-	const onOpenTimeShift = useCallback(() => {
-		setTimeShiftDialog(true);
-	}, [setTimeShiftDialog]);
-
 	const onSyncLineTimestamps = useCallback(() => {
 		const action = () => {
 			editLyricLines((draft) => {
@@ -443,19 +445,40 @@ export const useTopMenuActions = () => {
 		setSyllableSmoothingDialog(true);
 	}, [setSyllableSmoothingDialog]);
 
+	const canUndo = useCallback(() => documentHistory.canUndo, [documentHistory]);
+	const canRedo = useCallback(() => documentHistory.canRedo, [documentHistory]);
+	useCommandHandler(cmdNewFile, onNewFile);
+	useCommandHandler(cmdOpenFile, onOpenFile);
+	useCommandHandler(cmdOpenFileFromClipboard, onOpenFileFromClipboard);
+	useCommandHandler(cmdSaveFile, onSaveFile);
+	useCommandHandler(cmdOpenHistoryRestore, onOpenHistoryRestore);
+	useCommandHandler(cmdSaveFileToClipboard, onSaveFileToClipboard);
+	useCommandHandler(cmdSubmitToAMLLDB, onSubmitToAMLLDB);
+	useCommandHandler(cmdUndo, onUndo, canUndo);
+	useCommandHandler(cmdRedo, onRedo, canRedo);
+	useCommandHandler(cmdSelectAll, onSelectAll);
+	useCommandHandler(cmdUnselectAll, onUnselectAll);
+	useCommandHandler(cmdSelectInverted, onSelectInverted);
+	useCommandHandler(
+		cmdSelectWordsOfMatchedSelection,
+		onSelectWordsOfMatchedSelection,
+	);
+	useCommandHandler(cmdDeleteSelection, onDeleteSelection);
+	useCommandHandler(cmdOpenMetadataEditor, onOpenMetadataEditor);
+	useCommandHandler(cmdOpenSettings, onOpenSettings);
+	useCommandHandler(cmdAutoSegment, onAutoSegment);
+	useCommandHandler(cmdRubySegment, onRubySegment);
+	useCommandHandler(cmdOpenAdvancedSegmentation, onOpenAdvancedSegmentation);
+	useCommandHandler(cmdOpenSyllableSmoothing, onOpenSyllableSmoothing);
+	useCommandHandler(cmdSyncLineTimestamps, onSyncLineTimestamps);
+	useCommandHandler(cmdDistributeRomanization, onOpenDistributeRomanization);
+	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
+	useCommandHandler(cmdAutoRuby, onAutoRuby);
+	useCommandHandler(cmdOpenLatencyTest, onOpenLatencyTest);
+	useCommandHandler(cmdOpenGitHub, onOpenGitHub);
+	useCommandHandler(cmdOpenWiki, onOpenWiki);
+
 	return {
-		newFileKey,
-		openFileKey,
-		saveFileKey,
-		undoKey,
-		redoKey,
-		selectAllLinesKey,
-		unselectAllLinesKey: selectAllLinesKey,
-		selectInvertedLinesKey,
-		selectWordsOfMatchedSelectionKey,
-		deleteSelectionKey,
-		undoDisabled: !documentHistory.canUndo,
-		redoDisabled: !documentHistory.canRedo,
 		onNewFile,
 		onOpenFile,
 		onOpenFileFromClipboard,
@@ -470,7 +493,6 @@ export const useTopMenuActions = () => {
 		onSelectInverted,
 		onSelectWordsOfMatchedSelection,
 		onDeleteSelection,
-		onOpenTimeShift,
 		onOpenSyllableSmoothing,
 		onOpenMetadataEditor,
 		onOpenSettings,

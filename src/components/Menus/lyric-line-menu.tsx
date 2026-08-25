@@ -2,6 +2,11 @@ import { ContextMenu } from "@radix-ui/themes";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import {
+	ContextCommandCheckboxItem,
+	ContextCommandMenuItem,
+} from "$/components/TopMenu/ContextCommandMenuItem";
+import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
@@ -61,63 +66,80 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 		});
 	}
 
+	const commandPrefix = `core.context.line.${lineObjs.lyricLines[lineIndex]?.id ?? lineIndex}`;
+	const commandIds = {
+		background: `${commandPrefix}.background`,
+		duet: `${commandPrefix}.duet`,
+		insertBefore: `${commandPrefix}.insertBefore`,
+		insertAfter: `${commandPrefix}.insertAfter`,
+		copy: `${commandPrefix}.copy`,
+		combine: `${commandPrefix}.combine`,
+		delete: `${commandPrefix}.delete`,
+	};
+	useLocalCommand(commandIds.background, (checked) =>
+		bgOnCheck(checked === true),
+	);
+	useLocalCommand(commandIds.duet, (checked) => duetOnCheck(checked === true));
+	useLocalCommand(commandIds.insertBefore, () => {
+		editLyricLines((state) => {
+			state.lyricLines.splice(lineIndex, 0, newLyricLine());
+		});
+	});
+	useLocalCommand(commandIds.insertAfter, () => {
+		editLyricLines((state) => {
+			state.lyricLines.splice(lineIndex + 1, 0, newLyricLine());
+		});
+	});
+	useLocalCommand(commandIds.copy, copyLines, () => selectedLinesSize > 0);
+	useLocalCommand(commandIds.combine, combineLines, () =>
+		Boolean(combineEnabled),
+	);
+	useLocalCommand(commandIds.delete, () => {
+		editLyricLines((state) => {
+			if (selectedLinesSize === 0) state.lyricLines.splice(lineIndex, 1);
+			else
+				state.lyricLines = state.lyricLines.filter(
+					(line) => !selectedLines.has(line.id),
+				);
+		});
+	});
+
 	return (
 		<>
-			<ContextMenu.CheckboxItem checked={Bgchecked} onCheckedChange={bgOnCheck}>
+			<ContextCommandCheckboxItem
+				commandId={commandIds.background}
+				checked={Bgchecked}
+			>
 				{t("contextMenu.bgLyric", "背景歌词")}
-			</ContextMenu.CheckboxItem>
-			<ContextMenu.CheckboxItem
+			</ContextCommandCheckboxItem>
+			<ContextCommandCheckboxItem
+				commandId={commandIds.duet}
 				checked={DuetChecked}
-				onCheckedChange={duetOnCheck}
 			>
 				{t("contextMenu.duetLyric", "对唱歌词")}
-			</ContextMenu.CheckboxItem>
+			</ContextCommandCheckboxItem>
 			<ContextMenu.Separator />
-			<ContextMenu.Item
-				onSelect={() => {
-					editLyricLines((state) => {
-						state.lyricLines.splice(lineIndex, 0, newLyricLine());
-					});
-				}}
-			>
+			<ContextCommandMenuItem commandId={commandIds.insertBefore}>
 				{t("contextMenu.insertLineBefore", "在前插入空行")}
-			</ContextMenu.Item>
-			<ContextMenu.Item
-				onSelect={() => {
-					editLyricLines((state) => {
-						state.lyricLines.splice(lineIndex + 1, 0, newLyricLine());
-					});
-				}}
-			>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.insertAfter}>
 				{t("contextMenu.insertLineAfter", "在后插入空行")}
-			</ContextMenu.Item>
-			<ContextMenu.Item onSelect={copyLines} disabled={selectedLinesSize === 0}>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.copy}>
 				{t("contextMenu.copyLine", {
 					count: selectedLinesSize,
 					defaultValue: "复制行",
 				})}
-			</ContextMenu.Item>
-			<ContextMenu.Item onSelect={combineLines} disabled={!combineEnabled}>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.combine}>
 				{t("contextMenu.combineLine", "合并行")}
-			</ContextMenu.Item>
-			<ContextMenu.Item
-				onSelect={() => {
-					editLyricLines((state) => {
-						if (selectedLinesSize === 0) {
-							state.lyricLines.splice(lineIndex, 1);
-						} else {
-							state.lyricLines = state.lyricLines.filter(
-								(line) => !selectedLines.has(line.id),
-							);
-						}
-					});
-				}}
-			>
+			</ContextCommandMenuItem>
+			<ContextCommandMenuItem commandId={commandIds.delete}>
 				{t("contextMenu.deleteLine", {
 					count: selectedLinesSize,
 					defaultValue: "删除行",
 				})}
-			</ContextMenu.Item>
+			</ContextCommandMenuItem>
 		</>
 	);
 

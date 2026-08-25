@@ -134,7 +134,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                     "oneOf": [
                       {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 2048
                       },
                       {
                         "type": "object",
@@ -144,12 +145,15 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         "properties": {
                           "default": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 2048
                           }
                         },
                         "additionalProperties": {
-                          "type": "string"
-                        }
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
                       }
                     ]
                   },
@@ -157,7 +161,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                     "oneOf": [
                       {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 2048
                       },
                       {
                         "type": "object",
@@ -167,12 +172,15 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         "properties": {
                           "default": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 2048
                           }
                         },
                         "additionalProperties": {
-                          "type": "string"
-                        }
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
                       }
                     ]
                   },
@@ -252,7 +260,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                     "oneOf": [
                       {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 2048
                       },
                       {
                         "type": "object",
@@ -262,12 +271,15 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         "properties": {
                           "default": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 2048
                           }
                         },
                         "additionalProperties": {
-                          "type": "string"
-                        }
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
                       }
                     ]
                   },
@@ -277,7 +289,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         "oneOf": [
                           {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 2048
                           },
                           {
                             "type": "object",
@@ -287,14 +300,104 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                             "properties": {
                               "default": {
                                 "type": "string",
-                                "minLength": 1
+                                "minLength": 1,
+                                "maxLength": 2048
                               }
                             },
                             "additionalProperties": {
-                              "type": "string"
-                            }
+                              "type": "string",
+                              "maxLength": 2048
+                            },
+                            "maxProperties": 16
                           }
                         ]
+                      },
+                      "condition": {
+                        "type": "object",
+                        "required": [
+                          "field",
+                          "equals"
+                        ],
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                          },
+                          "equals": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "icon": {
+                        "type": "object",
+                        "required": [
+                          "source",
+                          "name"
+                        ],
+                        "properties": {
+                          "source": {
+                            "const": "@fluentui/react-icons"
+                          },
+                          "name": {
+                            "enum": [
+                              "AddRegular",
+                              "ArrowDownRegular",
+                              "ArrowLeftRegular",
+                              "ArrowResetRegular",
+                              "ArrowRightRegular",
+                              "ArrowUpRegular",
+                              "CheckmarkCircleRegular",
+                              "CheckmarkRegular",
+                              "ChevronDownRegular",
+                              "ChevronLeftRegular",
+                              "ChevronRightRegular",
+                              "ChevronUpRegular",
+                              "ClockRegular",
+                              "CopyRegular",
+                              "CutRegular",
+                              "DeleteRegular",
+                              "DismissRegular",
+                              "DocumentRegular",
+                              "EditRegular",
+                              "ErrorCircleRegular",
+                              "EyeOffRegular",
+                              "EyeRegular",
+                              "FolderOpenRegular",
+                              "HistoryRegular",
+                              "HomeRegular",
+                              "ImageRegular",
+                              "InfoRegular",
+                              "LinkRegular",
+                              "LockClosedRegular",
+                              "MusicNote1Regular",
+                              "OpenRegular",
+                              "PauseRegular",
+                              "PersonRegular",
+                              "PlayRegular",
+                              "QuestionCircleRegular",
+                              "SaveRegular",
+                              "SearchRegular",
+                              "SettingsRegular",
+                              "StopRegular",
+                              "SubtractRegular",
+                              "TimerRegular",
+                              "TranslateRegular",
+                              "WarningRegular"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
                       },
                       "field": {
                         "oneOf": [
@@ -317,7 +420,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                 "oneOf": [
                                   {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 2048
                                   },
                                   {
                                     "type": "object",
@@ -327,30 +431,60 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                     "properties": {
                                       "default": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 2048
                                       }
                                     },
                                     "additionalProperties": {
-                                      "type": "string"
-                                    }
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
                                   }
                                 ]
                               },
                               "default": {
-                                "type": "string"
+                                "type": "string",
+                                "maxLength": 4096
                               },
                               "placeholder": {
-                                "type": "string"
+                                "type": "string",
+                                "maxLength": 256
                               },
                               "required": {
                                 "type": "boolean"
                               },
                               "maxLength": {
                                 "type": "integer",
-                                "minimum": 1
+                                "minimum": 1,
+                                "maximum": 65536
                               },
                               "multiline": {
                                 "type": "boolean"
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "labelPlacement": {
+                                "enum": [
+                                  "top",
+                                  "hidden"
+                                ]
+                              },
+                              "width": {
+                                "enum": [
+                                  "full",
+                                  "compact"
+                                ]
+                              },
+                              "controlSize": {
+                                "enum": [
+                                  "small",
+                                  "medium"
+                                ]
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
                               }
                             },
                             "additionalProperties": false
@@ -374,7 +508,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                 "oneOf": [
                                   {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 2048
                                   },
                                   {
                                     "type": "object",
@@ -384,12 +519,15 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                     "properties": {
                                       "default": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 2048
                                       }
                                     },
                                     "additionalProperties": {
-                                      "type": "string"
-                                    }
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
                                   }
                                 ]
                               },
@@ -408,6 +546,42 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "required": {
                                 "type": "boolean"
+                              },
+                              "control": {
+                                "enum": [
+                                  "input",
+                                  "stepper"
+                                ]
+                              },
+                              "decrementIcon": {
+                                "$ref": "#/$defs/icon"
+                              },
+                              "incrementIcon": {
+                                "$ref": "#/$defs/icon"
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "labelPlacement": {
+                                "enum": [
+                                  "top",
+                                  "hidden"
+                                ]
+                              },
+                              "width": {
+                                "enum": [
+                                  "full",
+                                  "compact"
+                                ]
+                              },
+                              "controlSize": {
+                                "enum": [
+                                  "small",
+                                  "medium"
+                                ]
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
                               }
                             },
                             "additionalProperties": false
@@ -431,7 +605,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                 "oneOf": [
                                   {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 2048
                                   },
                                   {
                                     "type": "object",
@@ -441,17 +616,44 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                     "properties": {
                                       "default": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 2048
                                       }
                                     },
                                     "additionalProperties": {
-                                      "type": "string"
-                                    }
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
                                   }
                                 ]
                               },
                               "default": {
                                 "type": "boolean"
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "labelPlacement": {
+                                "enum": [
+                                  "top",
+                                  "hidden"
+                                ]
+                              },
+                              "width": {
+                                "enum": [
+                                  "full",
+                                  "compact"
+                                ]
+                              },
+                              "controlSize": {
+                                "enum": [
+                                  "small",
+                                  "medium"
+                                ]
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
                               }
                             },
                             "additionalProperties": false
@@ -479,7 +681,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                 "oneOf": [
                                   {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 2048
                                   },
                                   {
                                     "type": "object",
@@ -489,18 +692,22 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                     "properties": {
                                       "default": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 2048
                                       }
                                     },
                                     "additionalProperties": {
-                                      "type": "string"
-                                    }
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
                                   }
                                 ]
                               },
                               "options": {
                                 "type": "array",
                                 "minItems": 1,
+                                "maxItems": 200,
                                 "items": {
                                   "type": "object",
                                   "required": [
@@ -517,7 +724,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                       "oneOf": [
                                         {
                                           "type": "string",
-                                          "minLength": 1
+                                          "minLength": 1,
+                                          "maxLength": 2048
                                         },
                                         {
                                           "type": "object",
@@ -527,14 +735,23 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                           "properties": {
                                             "default": {
                                               "type": "string",
-                                              "minLength": 1
+                                              "minLength": 1,
+                                              "maxLength": 2048
                                             }
                                           },
                                           "additionalProperties": {
-                                            "type": "string"
-                                          }
+                                            "type": "string",
+                                            "maxLength": 2048
+                                          },
+                                          "maxProperties": 16
                                         }
                                       ]
+                                    },
+                                    "disabled": {
+                                      "type": "boolean"
+                                    },
+                                    "icon": {
+                                      "$ref": "#/$defs/icon"
                                     }
                                   },
                                   "additionalProperties": false
@@ -542,6 +759,36 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "default": {
                                 "type": "string"
+                              },
+                              "orientation": {
+                                "enum": [
+                                  "vertical",
+                                  "horizontal"
+                                ]
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "labelPlacement": {
+                                "enum": [
+                                  "top",
+                                  "hidden"
+                                ]
+                              },
+                              "width": {
+                                "enum": [
+                                  "full",
+                                  "compact"
+                                ]
+                              },
+                              "controlSize": {
+                                "enum": [
+                                  "small",
+                                  "medium"
+                                ]
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
                               }
                             },
                             "additionalProperties": false
@@ -560,7 +807,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                 "oneOf": [
                                   {
                                     "type": "string",
-                                    "minLength": 1
+                                    "minLength": 1,
+                                    "maxLength": 2048
                                   },
                                   {
                                     "type": "object",
@@ -570,14 +818,111 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                                     "properties": {
                                       "default": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 1,
+                                        "maxLength": 2048
                                       }
                                     },
                                     "additionalProperties": {
-                                      "type": "string"
-                                    }
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
                                   }
                                 ]
+                              },
+                              "tone": {
+                                "enum": [
+                                  "default",
+                                  "muted"
+                                ]
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "id",
+                              "fields"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "group"
+                              },
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                              },
+                              "label": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 2048
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "default"
+                                    ],
+                                    "properties": {
+                                      "default": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2048
+                                      }
+                                    },
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "maxLength": 2048
+                                    },
+                                    "maxProperties": 16
+                                  }
+                                ]
+                              },
+                              "direction": {
+                                "enum": [
+                                  "row",
+                                  "column"
+                                ]
+                              },
+                              "align": {
+                                "enum": [
+                                  "start",
+                                  "center",
+                                  "end"
+                                ]
+                              },
+                              "gap": {
+                                "enum": [
+                                  "small",
+                                  "medium",
+                                  "large"
+                                ]
+                              },
+                              "indent": {
+                                "type": "boolean"
+                              },
+                              "visibleWhen": {
+                                "$ref": "#/$defs/condition"
+                              },
+                              "icon": {
+                                "$ref": "#/$defs/icon"
+                              },
+                              "fields": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 64,
+                                "items": {
+                                  "$ref": "#/$defs/field"
+                                }
                               }
                             },
                             "additionalProperties": false
@@ -599,15 +944,94 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                       },
                       "fields": {
                         "type": "array",
+                        "maxItems": 64,
                         "items": {
                           "$ref": "#/$defs/field"
                         }
+                      },
+                      "size": {
+                        "enum": [
+                          "small",
+                          "medium",
+                          "large"
+                        ]
+                      },
+                      "icon": {
+                        "$ref": "#/$defs/icon"
                       },
                       "submitLabel": {
                         "$ref": "#/$defs/localizedText"
                       },
                       "cancelLabel": {
                         "$ref": "#/$defs/localizedText"
+                      },
+                      "submitIcon": {
+                        "$ref": "#/$defs/icon"
+                      },
+                      "cancelIcon": {
+                        "$ref": "#/$defs/icon"
+                      },
+                      "actions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "label"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                            },
+                            "label": {
+                              "oneOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 2048
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "default"
+                                  ],
+                                  "properties": {
+                                    "default": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 2048
+                                    }
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string",
+                                    "maxLength": 2048
+                                  },
+                                  "maxProperties": 16
+                                }
+                              ]
+                            },
+                            "role": {
+                              "enum": [
+                                "submit",
+                                "cancel"
+                              ]
+                            },
+                            "tone": {
+                              "enum": [
+                                "primary",
+                                "danger",
+                                "neutral"
+                              ]
+                            },
+                            "icon": {
+                              "$ref": "#/$defs/icon"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -1512,7 +1936,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
       "oneOf": [
         {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 2048
         },
         {
           "type": "object",
@@ -1522,14 +1947,104 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
           "properties": {
             "default": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 2048
             }
           },
           "additionalProperties": {
-            "type": "string"
-          }
+            "type": "string",
+            "maxLength": 2048
+          },
+          "maxProperties": 16
         }
       ]
+    },
+    "condition": {
+      "type": "object",
+      "required": [
+        "field",
+        "equals"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "equals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "icon": {
+      "type": "object",
+      "required": [
+        "source",
+        "name"
+      ],
+      "properties": {
+        "source": {
+          "const": "@fluentui/react-icons"
+        },
+        "name": {
+          "enum": [
+            "AddRegular",
+            "ArrowDownRegular",
+            "ArrowLeftRegular",
+            "ArrowResetRegular",
+            "ArrowRightRegular",
+            "ArrowUpRegular",
+            "CheckmarkCircleRegular",
+            "CheckmarkRegular",
+            "ChevronDownRegular",
+            "ChevronLeftRegular",
+            "ChevronRightRegular",
+            "ChevronUpRegular",
+            "ClockRegular",
+            "CopyRegular",
+            "CutRegular",
+            "DeleteRegular",
+            "DismissRegular",
+            "DocumentRegular",
+            "EditRegular",
+            "ErrorCircleRegular",
+            "EyeOffRegular",
+            "EyeRegular",
+            "FolderOpenRegular",
+            "HistoryRegular",
+            "HomeRegular",
+            "ImageRegular",
+            "InfoRegular",
+            "LinkRegular",
+            "LockClosedRegular",
+            "MusicNote1Regular",
+            "OpenRegular",
+            "PauseRegular",
+            "PersonRegular",
+            "PlayRegular",
+            "QuestionCircleRegular",
+            "SaveRegular",
+            "SearchRegular",
+            "SettingsRegular",
+            "StopRegular",
+            "SubtractRegular",
+            "TimerRegular",
+            "TranslateRegular",
+            "WarningRegular"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "field": {
       "oneOf": [
@@ -1552,7 +2067,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
               "oneOf": [
                 {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 {
                   "type": "object",
@@ -1562,30 +2078,60 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                   "properties": {
                     "default": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "additionalProperties": {
-                    "type": "string"
-                  }
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
                 }
               ]
             },
             "default": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 4096
             },
             "placeholder": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             },
             "required": {
               "type": "boolean"
             },
             "maxLength": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 65536
             },
             "multiline": {
               "type": "boolean"
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "labelPlacement": {
+              "enum": [
+                "top",
+                "hidden"
+              ]
+            },
+            "width": {
+              "enum": [
+                "full",
+                "compact"
+              ]
+            },
+            "controlSize": {
+              "enum": [
+                "small",
+                "medium"
+              ]
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
             }
           },
           "additionalProperties": false
@@ -1609,7 +2155,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
               "oneOf": [
                 {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 {
                   "type": "object",
@@ -1619,12 +2166,15 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                   "properties": {
                     "default": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "additionalProperties": {
-                    "type": "string"
-                  }
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
                 }
               ]
             },
@@ -1643,6 +2193,42 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "required": {
               "type": "boolean"
+            },
+            "control": {
+              "enum": [
+                "input",
+                "stepper"
+              ]
+            },
+            "decrementIcon": {
+              "$ref": "#/$defs/icon"
+            },
+            "incrementIcon": {
+              "$ref": "#/$defs/icon"
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "labelPlacement": {
+              "enum": [
+                "top",
+                "hidden"
+              ]
+            },
+            "width": {
+              "enum": [
+                "full",
+                "compact"
+              ]
+            },
+            "controlSize": {
+              "enum": [
+                "small",
+                "medium"
+              ]
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
             }
           },
           "additionalProperties": false
@@ -1666,7 +2252,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
               "oneOf": [
                 {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 {
                   "type": "object",
@@ -1676,17 +2263,44 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                   "properties": {
                     "default": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "additionalProperties": {
-                    "type": "string"
-                  }
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
                 }
               ]
             },
             "default": {
               "type": "boolean"
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "labelPlacement": {
+              "enum": [
+                "top",
+                "hidden"
+              ]
+            },
+            "width": {
+              "enum": [
+                "full",
+                "compact"
+              ]
+            },
+            "controlSize": {
+              "enum": [
+                "small",
+                "medium"
+              ]
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
             }
           },
           "additionalProperties": false
@@ -1714,7 +2328,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
               "oneOf": [
                 {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 {
                   "type": "object",
@@ -1724,18 +2339,22 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                   "properties": {
                     "default": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "additionalProperties": {
-                    "type": "string"
-                  }
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
                 }
               ]
             },
             "options": {
               "type": "array",
               "minItems": 1,
+              "maxItems": 200,
               "items": {
                 "type": "object",
                 "required": [
@@ -1752,7 +2371,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                     "oneOf": [
                       {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 2048
                       },
                       {
                         "type": "object",
@@ -1762,14 +2382,23 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         "properties": {
                           "default": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "maxLength": 2048
                           }
                         },
                         "additionalProperties": {
-                          "type": "string"
-                        }
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
                       }
                     ]
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  },
+                  "icon": {
+                    "$ref": "#/$defs/icon"
                   }
                 },
                 "additionalProperties": false
@@ -1777,6 +2406,36 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "default": {
               "type": "string"
+            },
+            "orientation": {
+              "enum": [
+                "vertical",
+                "horizontal"
+              ]
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "labelPlacement": {
+              "enum": [
+                "top",
+                "hidden"
+              ]
+            },
+            "width": {
+              "enum": [
+                "full",
+                "compact"
+              ]
+            },
+            "controlSize": {
+              "enum": [
+                "small",
+                "medium"
+              ]
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
             }
           },
           "additionalProperties": false
@@ -1795,7 +2454,8 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
               "oneOf": [
                 {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 2048
                 },
                 {
                   "type": "object",
@@ -1805,14 +2465,111 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                   "properties": {
                     "default": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 2048
                     }
                   },
                   "additionalProperties": {
-                    "type": "string"
-                  }
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
                 }
               ]
+            },
+            "tone": {
+              "enum": [
+                "default",
+                "muted"
+              ]
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "id",
+            "fields"
+          ],
+          "properties": {
+            "kind": {
+              "const": "group"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+            },
+            "label": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "default"
+                  ],
+                  "properties": {
+                    "default": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
+                }
+              ]
+            },
+            "direction": {
+              "enum": [
+                "row",
+                "column"
+              ]
+            },
+            "align": {
+              "enum": [
+                "start",
+                "center",
+                "end"
+              ]
+            },
+            "gap": {
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "indent": {
+              "type": "boolean"
+            },
+            "visibleWhen": {
+              "$ref": "#/$defs/condition"
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/field"
+              }
             }
           },
           "additionalProperties": false
@@ -1834,15 +2591,94 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
     },
     "fields": {
       "type": "array",
+      "maxItems": 64,
       "items": {
         "$ref": "#/$defs/field"
       }
+    },
+    "size": {
+      "enum": [
+        "small",
+        "medium",
+        "large"
+      ]
+    },
+    "icon": {
+      "$ref": "#/$defs/icon"
     },
     "submitLabel": {
       "$ref": "#/$defs/localizedText"
     },
     "cancelLabel": {
       "$ref": "#/$defs/localizedText"
+    },
+    "submitIcon": {
+      "$ref": "#/$defs/icon"
+    },
+    "cancelIcon": {
+      "$ref": "#/$defs/icon"
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+          },
+          "label": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "object",
+                "required": [
+                  "default"
+                ],
+                "properties": {
+                  "default": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  }
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                "maxProperties": 16
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "submit",
+              "cancel"
+            ]
+          },
+          "tone": {
+            "enum": [
+              "primary",
+              "danger",
+              "neutral"
+            ]
+          },
+          "icon": {
+            "$ref": "#/$defs/icon"
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

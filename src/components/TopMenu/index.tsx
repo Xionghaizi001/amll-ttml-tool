@@ -2,17 +2,18 @@ import { Box, Flex } from "@radix-ui/themes";
 import { Toolbar } from "radix-ui";
 import { type FC, useEffect, useState } from "react";
 import {
-	keyDeleteSelectionAtom,
-	keyNewFileAtom,
-	keyOpenFileAtom,
-	keyRedoAtom,
-	keySaveFileAtom,
-	keySelectAllAtom,
-	keySelectInvertedAtom,
-	keySelectWordsOfMatchedSelectionAtom,
-	keyUndoAtom,
-} from "$/states/keybindings.ts";
-import { useKeyBindingAtom } from "$/utils/keybindings.ts";
+	cmdDeleteSelection,
+	cmdNewFile,
+	cmdOpenFile,
+	cmdRedo,
+	cmdSaveFile,
+	cmdSelectAll,
+	cmdSelectInverted,
+	cmdSelectWordsOfMatchedSelection,
+	cmdUndo,
+	cmdUnselectAll,
+} from "$/modules/keyboard/commands";
+import { useCommandKeyBinding } from "$/modules/keyboard/hooks";
 import { HeaderFileInfo } from "./HeaderFileInfo";
 import { EditMenu } from "./modals/EditMenu";
 import { FileMenu } from "./modals/FileMenu";
@@ -45,26 +46,18 @@ const useWindowSize = () => {
 export const TopMenu: FC = () => {
 	const { width } = useWindowSize();
 	const showHomeButton = width < 800;
-	const menu = useTopMenuActions();
+	useTopMenuActions();
 
-	useKeyBindingAtom(keyNewFileAtom, menu.onNewFile, [menu.onNewFile]);
-	useKeyBindingAtom(keyOpenFileAtom, menu.onOpenFile, [menu.onOpenFile]);
-	useKeyBindingAtom(keySaveFileAtom, menu.onSaveFile, [menu.onSaveFile]);
-	useKeyBindingAtom(keyUndoAtom, menu.onUndo, [menu.onUndo]);
-	useKeyBindingAtom(keyRedoAtom, menu.onRedo, [menu.onRedo]);
-	useKeyBindingAtom(keySelectAllAtom, menu.onUnselectAll, [menu.onUnselectAll]);
-	useKeyBindingAtom(keySelectAllAtom, menu.onSelectAll, [menu.onSelectAll]);
-	useKeyBindingAtom(keySelectInvertedAtom, menu.onSelectInverted, [
-		menu.onSelectInverted,
-	]);
-	useKeyBindingAtom(
-		keySelectWordsOfMatchedSelectionAtom,
-		menu.onSelectWordsOfMatchedSelection,
-		[menu.onSelectWordsOfMatchedSelection],
-	);
-	useKeyBindingAtom(keyDeleteSelectionAtom, menu.onDeleteSelection, [
-		menu.onDeleteSelection,
-	]);
+	useCommandKeyBinding(cmdNewFile);
+	useCommandKeyBinding(cmdOpenFile);
+	useCommandKeyBinding(cmdSaveFile);
+	useCommandKeyBinding(cmdUndo);
+	useCommandKeyBinding(cmdRedo);
+	useCommandKeyBinding(cmdUnselectAll);
+	useCommandKeyBinding(cmdSelectAll);
+	useCommandKeyBinding(cmdSelectInverted);
+	useCommandKeyBinding(cmdSelectWordsOfMatchedSelection);
+	useCommandKeyBinding(cmdDeleteSelection);
 
 	return (
 		<Flex

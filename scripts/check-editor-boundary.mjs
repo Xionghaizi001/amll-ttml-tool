@@ -412,6 +412,35 @@ for (const path of sourceFiles) {
 	}
 
 	const displayPath = relative(root, path).replaceAll("\\", "/");
+	const commandMenuAdapters = new Set([
+		"src/components/TopMenu/CommandMenuItem.tsx",
+		"src/components/TopMenu/ContextCommandMenuItem.tsx",
+	]);
+	if (!commandMenuAdapters.has(displayPath)) {
+		const directMenuCallback =
+			/<(?:DropdownMenu|ContextMenu)\.(?:Item|CheckboxItem)\b[^>]*\b(?:onSelect|onClick|onCheckedChange)\s*=/s.exec(
+				contents,
+			);
+		if (directMenuCallback) {
+			const line = contents
+				.slice(0, directMenuCallback.index)
+				.split("\n").length;
+			violations.push(
+				`${displayPath}:${line}: menu items must reference command IDs through a command menu adapter`,
+			);
+		}
+	}
+	if (displayPath === "src/modules/settings/states/custom-background.ts") {
+		const platformLeak = /(?:from\s+["']idb["']|\blocalStorage\b|\bfetch\s*\(|\bURL\.(?:createObjectURL|revokeObjectURL))/g.exec(
+			contents,
+		);
+		if (platformLeak) {
+			const line = contents.slice(0, platformLeak.index).split("\n").length;
+			violations.push(
+				`${displayPath}:${line}: custom background state must use platform storage/resource adapters`,
+			);
+		}
+	}
 	const isBusinessLayer =
 		isWithin(path, pluginApiPackageRoot) ||
 		isWithin(path, applicationRoot) ||

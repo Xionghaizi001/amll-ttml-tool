@@ -15,6 +15,8 @@ import {
 	getExportFileName,
 	prepareLyricLinesForExport,
 } from "$/application/lyrics";
+import { CommandMenuItem } from "$/components/TopMenu/CommandMenuItem";
+import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import {
 	importFromLRCLIBDialogAtom,
@@ -22,6 +24,22 @@ import {
 } from "$/states/dialogs.ts";
 import { lyricLinesAtom, saveFileNameAtom } from "$/states/main.ts";
 import { projectLogger } from "../logger";
+
+const commandIds = {
+	importText: "core.file.import.text",
+	importLrcLib: "core.file.import.lrclib",
+	importLrc: "core.file.import.lrc",
+	importEslrc: "core.file.import.eslrc",
+	importQrc: "core.file.import.qrc",
+	importYrc: "core.file.import.yrc",
+	importLys: "core.file.import.lys",
+	exportLrc: "core.file.export.lrc",
+	exportEslrc: "core.file.export.eslrc",
+	exportQrc: "core.file.export.qrc",
+	exportYrc: "core.file.export.yrc",
+	exportLys: "core.file.export.lys",
+	exportAss: "core.file.export.ass",
+} as const;
 
 export const ImportExportLyric = () => {
 	const store = useStore();
@@ -66,6 +84,21 @@ export const ImportExportLyric = () => {
 				);
 			}
 		};
+	useLocalCommand(commandIds.importText, () => setImportFromTextDialog(true));
+	useLocalCommand(commandIds.importLrcLib, () =>
+		setImportFromLRCLIBDialog(true),
+	);
+	useLocalCommand(commandIds.importLrc, () => onImportLyric("lrc"));
+	useLocalCommand(commandIds.importEslrc, () => onImportLyric("eslrc"));
+	useLocalCommand(commandIds.importQrc, () => onImportLyric("qrc"));
+	useLocalCommand(commandIds.importYrc, () => onImportLyric("yrc"));
+	useLocalCommand(commandIds.importLys, () => onImportLyric("lys"));
+	useLocalCommand(commandIds.exportLrc, onExportLyric(stringifyLrc, "lrc"));
+	useLocalCommand(commandIds.exportEslrc, onExportLyric(stringifyEslrc, "lrc"));
+	useLocalCommand(commandIds.exportQrc, onExportLyric(stringifyQrc, "qrc"));
+	useLocalCommand(commandIds.exportYrc, onExportLyric(stringifyYrc, "yrc"));
+	useLocalCommand(commandIds.exportLys, onExportLyric(stringifyLys, "lys"));
+	useLocalCommand(commandIds.exportAss, onExportLyric(stringifyAss, "ass"));
 
 	return (
 		<>
@@ -74,30 +107,30 @@ export const ImportExportLyric = () => {
 					{t("topBar.menu.importLyric.import", "导入歌词...")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<DropdownMenu.Item onClick={() => setImportFromTextDialog(true)}>
+					<CommandMenuItem commandId={commandIds.importText}>
 						{t("topBar.menu.importLyric.fromPlainText", "从纯文本导入")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => setImportFromLRCLIBDialog(true)}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importLrcLib}>
 						{t("topBar.menu.importLyric.fromLRCLIB", "从 LRCLIB 导入...")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => onImportLyric("lrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importLrc}>
 						{t("topBar.menu.importLyric.fromLyRiC", "从 LyRiC 文件导入")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => onImportLyric("eslrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importEslrc}>
 						{t("topBar.menu.importLyric.fromESLyRiC", "从 ESLyRiC 文件导入")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => onImportLyric("qrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importQrc}>
 						{t("topBar.menu.importLyric.fromQRC", "从 QRC 文件导入")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => onImportLyric("yrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importYrc}>
 						{t("topBar.menu.importLyric.fromYRC", "从 YRC 文件导入")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={() => onImportLyric("lys")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.importLys}>
 						{t(
 							"topBar.menu.importLyric.fromLrcfySylb",
 							"从 Lyricify Syllable 文件导入",
 						)}
-					</DropdownMenu.Item>
+					</CommandMenuItem>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>
@@ -105,27 +138,27 @@ export const ImportExportLyric = () => {
 					{t("topBar.menu.exportLyric.export", "导出歌词...")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyLrc, "lrc")}>
+					<CommandMenuItem commandId={commandIds.exportLrc}>
 						{t("topBar.menu.exportLyric.toLyRiC", "导出到 LyRiC")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyEslrc, "lrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.exportEslrc}>
 						{t("topBar.menu.exportLyric.toESLyRiC", "导出到 ESLyRiC")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyQrc, "qrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.exportQrc}>
 						{t("topBar.menu.exportLyric.toQRC", "导出到 QRC")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyYrc, "yrc")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.exportYrc}>
 						{t("topBar.menu.exportLyric.toYRC", "导出到 YRC")}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyLys, "lys")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.exportLys}>
 						{t(
 							"topBar.menu.exportLyric.toLrcfySylb",
 							"导出到 Lyricify Syllable",
 						)}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item onClick={onExportLyric(stringifyAss, "ass")}>
+					</CommandMenuItem>
+					<CommandMenuItem commandId={commandIds.exportAss}>
 						{t("topBar.menu.exportLyric.toASS", "导出到 ASS 字幕")}
-					</DropdownMenu.Item>
+					</CommandMenuItem>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 		</>

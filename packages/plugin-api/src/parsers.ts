@@ -34,54 +34,145 @@ const relativePackagePath = /^(?![/\\])(?!.*(?:^|[/\\])\.\.(?:[/\\]|$)).+$/;
 function validateFormSemantics(form: FormSchemaV0, path: string): ParseIssue[] {
 	const issues: ParseIssue[] = [];
 	const keys = new Set<string>();
-	form.fields.forEach((field, index) => {
-		if (field.kind === "note") return;
-		if (keys.has(field.key))
+	const fieldTypes = new Map<string, "string" | "number" | "boolean">();
+	const groupIds = new Set<string>();
+	const conditions: {
+		field: string;
+		equals: string | number | boolean;
+		path: string;
+	}[] = [];
+	const visit = (
+		fields: FormSchemaV0["fields"],
+		fieldsPath: string,
+		depth: number,
+	) => {
+		if (depth > 4) {
 			issues.push({
-				path: `${path}/fields/${index}/key`,
-				message: "form field key must be unique",
+				path: fieldsPath,
+				message: "form groups exceed max depth 4",
 			});
-		keys.add(field.key);
-		if (
-			(field.kind === "select" || field.kind === "radio") &&
-			field.default !== undefined
-		) {
-			if (!field.options.some((option) => option.value === field.default))
-				issues.push({
-					path: `${path}/fields/${index}/default`,
-					message: "default must reference an option",
-				});
+			return;
 		}
-		if (field.kind === "number") {
-			if (
-				field.min !== undefined &&
-				field.max !== undefined &&
-				field.min > field.max
-			)
-				issues.push({
-					path: `${path}/fields/${index}`,
-					message: "min must not exceed max",
+		fields.forEach((field, index) => {
+			const fieldPath = `${fieldsPath}/${index}`;
+			if (field.visibleWhen)
+				conditions.push({
+					field: field.visibleWhen.field,
+					equals: field.visibleWhen.equals,
+					path: `${fieldPath}/visibleWhen/field`,
 				});
-			if (
-				field.default !== undefined &&
-				field.min !== undefined &&
-				field.default < field.min
-			)
+			if (field.kind === "group") {
+				if (groupIds.has(field.id))
+					issues.push({
+						path: `${fieldPath}/id`,
+						message: "form group id must be unique",
+					});
+				groupIds.add(field.id);
+				visit(field.fields, `${fieldPath}/fields`, depth + 1);
+				return;
+			}
+			if (field.kind === "note") return;
+			if (keys.has(field.key))
 				issues.push({
-					path: `${path}/fields/${index}/default`,
-					message: "default is below min",
+					path: `${fieldPath}/key`,
+					message: "form field key must be unique",
 				});
-			if (
-				field.default !== undefined &&
-				field.max !== undefined &&
-				field.default > field.max
-			)
-				issues.push({
-					path: `${path}/fields/${index}/default`,
-					message: "default is above max",
+			keys.add(field.key);
+			fieldTypes.set(
+				field.key,
+				field.kind === "number"
+					? "number"
+					: field.kind === "boolean"
+						? "boolean"
+						: "string",
+			);
+			if (field.kind === "select" || field.kind === "radio") {
+				const optionValues = new Set<string>();
+				field.options.forEach((option, optionIndex) => {
+					if (optionValues.has(option.value))
+						issues.push({
+							path: `${fieldPath}/options/${optionIndex}/value`,
+							message: "option value must be unique",
+						});
+					optionValues.add(option.value);
 				});
-		}
+				if (
+					field.default !== undefined &&
+					!field.options.some((option) => option.value === field.default)
+				)
+					issues.push({
+						path: `${fieldPath}/default`,
+						message: "default must reference an option",
+					});
+				if (
+					field.default !== undefined &&
+					field.options.some(
+						(option) => option.value === field.default && option.disabled,
+					)
+				)
+					issues.push({
+						path: `${fieldPath}/default`,
+						message: "default must not reference a disabled option",
+					});
+			}
+			if (field.kind === "number") {
+				if (field.step !== undefined && field.step <= 0)
+					issues.push({
+						path: `${fieldPath}/step`,
+						message: "step must be greater than zero",
+					});
+				if (
+					field.min !== undefined &&
+					field.max !== undefined &&
+					field.min > field.max
+				)
+					issues.push({
+						path: fieldPath,
+						message: "min must not exceed max",
+					});
+				if (
+					field.default !== undefined &&
+					field.min !== undefined &&
+					field.default < field.min
+				)
+					issues.push({
+						path: `${fieldPath}/default`,
+						message: "default is below min",
+					});
+				if (
+					field.default !== undefined &&
+					field.max !== undefined &&
+					field.default > field.max
+				)
+					issues.push({
+						path: `${fieldPath}/default`,
+						message: "default is above max",
+					});
+			}
+		});
+	};
+	visit(form.fields, `${path}/fields`, 0);
+	const actionIds = new Set<string>();
+	form.actions?.forEach((action, index) => {
+		if (actionIds.has(action.id))
+			issues.push({
+				path: `${path}/actions/${index}/id`,
+				message: "form action id must be unique",
+			});
+		actionIds.add(action.id);
 	});
+	for (const condition of conditions) {
+		if (!keys.has(condition.field))
+			issues.push({
+				path: condition.path,
+				message: "visibleWhen must reference a form field key",
+			});
+		else if (fieldTypes.get(condition.field) !== typeof condition.equals)
+			issues.push({
+				path: condition.path.replace(/\/field$/, "/equals"),
+				message: "visibleWhen value type must match the referenced field",
+			});
+	}
 	return issues;
 }
 
@@ -143,6 +234,13 @@ export function parseManifestSchema(
 				issues.push({
 					path: `$/contributes/commands/${index}/id`,
 					message: `must start with ${prefix}`,
+				});
+		});
+		manifest.contributes?.menus?.forEach((menu, index) => {
+			if (!menu.command.startsWith(prefix))
+				issues.push({
+					path: `$/contributes/menus/${index}/command`,
+					message: `must reference a command starting with ${prefix}`,
 				});
 		});
 		manifest.contributes?.settings?.forEach((page, index) => {
@@ -211,14 +309,24 @@ export function parseHostCall(input: unknown): ParseResult<HostCallV0> {
 	if (!envelope.ok) return envelope;
 	const method = envelope.value.method as HostMethod;
 	const params = validate(HOST_PARAM_SCHEMAS[method], envelope.value.params);
-	return params.ok
-		? envelope
-		: fail(
-				params.issues.map((issue) => ({
-					...issue,
-					path: `/params${issue.path}`,
-				})),
-			);
+	if (!params.ok)
+		return fail(
+			params.issues.map((issue) => ({
+				...issue,
+				path: `/params${issue.path}`,
+			})),
+		);
+	if (method === "ui.showForm") {
+		// Structural validation alone still admits duplicate keys, dangling
+		// visibleWhen references and invalid defaults; run the same semantic
+		// pass that manifest settings forms get.
+		const semanticIssues = validateFormSemantics(
+			(envelope.value.params as { schema: FormSchemaV0 }).schema,
+			"/params/schema",
+		);
+		if (semanticIssues.length > 0) return fail(semanticIssues);
+	}
+	return envelope;
 }
 
 export const parseHostResponse = (

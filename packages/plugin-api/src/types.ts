@@ -246,8 +246,83 @@ export const PLUGIN_EXPORTS = {
 	handleEvent: "plugin_handle_event",
 } as const;
 
+export type FormValueV0 = string | number | boolean;
+
+export const FORM_FLUENT_ICON_NAMES_V0 = [
+	"AddRegular",
+	"ArrowDownRegular",
+	"ArrowLeftRegular",
+	"ArrowResetRegular",
+	"ArrowRightRegular",
+	"ArrowUpRegular",
+	"CheckmarkCircleRegular",
+	"CheckmarkRegular",
+	"ChevronDownRegular",
+	"ChevronLeftRegular",
+	"ChevronRightRegular",
+	"ChevronUpRegular",
+	"ClockRegular",
+	"CopyRegular",
+	"CutRegular",
+	"DeleteRegular",
+	"DismissRegular",
+	"DocumentRegular",
+	"EditRegular",
+	"ErrorCircleRegular",
+	"EyeOffRegular",
+	"EyeRegular",
+	"FolderOpenRegular",
+	"HistoryRegular",
+	"HomeRegular",
+	"ImageRegular",
+	"InfoRegular",
+	"LinkRegular",
+	"LockClosedRegular",
+	"MusicNote1Regular",
+	"OpenRegular",
+	"PauseRegular",
+	"PersonRegular",
+	"PlayRegular",
+	"QuestionCircleRegular",
+	"SaveRegular",
+	"SearchRegular",
+	"SettingsRegular",
+	"StopRegular",
+	"SubtractRegular",
+	"TimerRegular",
+	"TranslateRegular",
+	"WarningRegular",
+] as const;
+
+export type FormFluentIconNameV0 = (typeof FORM_FLUENT_ICON_NAMES_V0)[number];
+
+export interface FormIconV0 {
+	source: "@fluentui/react-icons";
+	name: FormFluentIconNameV0;
+}
+
+export interface FormConditionV0 {
+	field: string;
+	equals: FormValueV0;
+}
+
+export interface FormOptionV0 {
+	value: string;
+	label: LocalizedText;
+	disabled?: boolean;
+	icon?: FormIconV0;
+}
+
+export interface FormFieldPresentationV0 {
+	visibleWhen?: FormConditionV0;
+	labelPlacement?: "top" | "hidden";
+	width?: "full" | "compact";
+	controlSize?: "small" | "medium";
+	icon?: FormIconV0;
+}
+
 export type FormFieldV0 =
-	| {
+	| ({
 			kind: "text";
 			key: string;
 			label: LocalizedText;
@@ -256,8 +331,8 @@ export type FormFieldV0 =
 			required?: boolean;
 			maxLength?: number;
 			multiline?: boolean;
-	  }
-	| {
+	  } & FormFieldPresentationV0)
+	| ({
 			kind: "number";
 			key: string;
 			label: LocalizedText;
@@ -266,34 +341,69 @@ export type FormFieldV0 =
 			max?: number;
 			step?: number;
 			required?: boolean;
-	  }
-	| {
+			control?: "input" | "stepper";
+			decrementIcon?: FormIconV0;
+			incrementIcon?: FormIconV0;
+	  } & FormFieldPresentationV0)
+	| ({
 			kind: "boolean";
 			key: string;
 			label: LocalizedText;
 			default?: boolean;
-	  }
-	| {
+	  } & FormFieldPresentationV0)
+	| ({
 			kind: "select" | "radio";
 			key: string;
 			label: LocalizedText;
-			options: { value: string; label: LocalizedText }[];
+			options: FormOptionV0[];
 			default?: string;
-	  }
-	| { kind: "note"; text: LocalizedText };
+			orientation?: "vertical" | "horizontal";
+	  } & FormFieldPresentationV0)
+	| ({
+			kind: "note";
+			text: LocalizedText;
+			tone?: "default" | "muted";
+	  } & Pick<FormFieldPresentationV0, "visibleWhen" | "icon">)
+	| {
+			kind: "group";
+			id: string;
+			label?: LocalizedText;
+			direction?: "row" | "column";
+			align?: "start" | "center" | "end";
+			gap?: "small" | "medium" | "large";
+			indent?: boolean;
+			visibleWhen?: FormConditionV0;
+			icon?: FormIconV0;
+			fields: FormFieldV0[];
+	  };
+
+export interface FormActionV0 {
+	id: string;
+	label: LocalizedText;
+	/** "submit" resolves with sanitized values; "cancel" resolves without. Defaults to "submit". */
+	role?: "submit" | "cancel";
+	/** Defaults to "primary" for submit actions and "neutral" for cancel actions. */
+	tone?: "primary" | "danger" | "neutral";
+	icon?: FormIconV0;
+}
 
 export interface FormSchemaV0 {
 	title: LocalizedText;
 	description?: LocalizedText;
 	fields: FormFieldV0[];
+	size?: "small" | "medium" | "large";
+	icon?: FormIconV0;
 	submitLabel?: LocalizedText;
 	cancelLabel?: LocalizedText;
+	submitIcon?: FormIconV0;
+	cancelIcon?: FormIconV0;
+	/** Replaces the default cancel/apply footer; the legacy submit/cancel labels and icons are ignored when set. */
+	actions?: FormActionV0[];
 }
 
-export type FormValueV0 = string | number | boolean;
 export type FormResultV0 =
-	| { submitted: true; values: Record<string, FormValueV0> }
-	| { submitted: false };
+	| { submitted: true; action?: string; values: Record<string, FormValueV0> }
+	| { submitted: false; action?: string };
 
 export interface ThemeTokensV0 {
 	tokenVersion: number;

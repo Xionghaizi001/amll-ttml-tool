@@ -281,6 +281,82 @@ export const cmdAuditionSelectionAfter = registerCommand(
 	"Spectrogram",
 );
 
+// =========================================================================================
+//  菜单命令（无默认快捷键，不显示在快捷键设置页）
+// =========================================================================================
+
+const registerMenuCommand = (id: string, description: ReturnType<typeof t>) =>
+	registerCommand(id, [], description, "General", false);
+
+export const cmdOpenFileFromClipboard = registerMenuCommand(
+	"file.openFromClipboard",
+	t("topBar.menu.openFromClipboard"),
+);
+export const cmdOpenHistoryRestore = registerMenuCommand(
+	"file.openHistoryRestore",
+	t("topBar.menu.restoreFromHistory"),
+);
+export const cmdSaveFileToClipboard = registerMenuCommand(
+	"file.saveToClipboard",
+	t("topBar.menu.saveLyricToClipboard"),
+);
+export const cmdSubmitToAMLLDB = registerMenuCommand(
+	"file.submitToAMLLDB",
+	t("topBar.menu.uploadToAMLLDB"),
+);
+export const cmdOpenMetadataEditor = registerMenuCommand(
+	"edit.openMetadataEditor",
+	t("topBar.menu.editMetadata"),
+);
+export const cmdOpenSettings = registerMenuCommand(
+	"edit.openSettings",
+	t("settingsDialog.title"),
+);
+export const cmdAutoSegment = registerMenuCommand(
+	"tool.autoSegment",
+	t("topBar.menu.autoSegment"),
+);
+export const cmdRubySegment = registerMenuCommand(
+	"tool.rubySegment",
+	t("topBar.menu.rubySegment"),
+);
+export const cmdOpenAdvancedSegmentation = registerMenuCommand(
+	"tool.openAdvancedSegmentation",
+	t("topBar.menu.advancedSegment"),
+);
+export const cmdOpenSyllableSmoothing = registerMenuCommand(
+	"tool.openSyllableSmoothing",
+	t("topBar.menu.syllableSmoothing"),
+);
+export const cmdSyncLineTimestamps = registerMenuCommand(
+	"tool.syncLineTimestamps",
+	t("topBar.menu.syncLineTimestamps"),
+);
+export const cmdDistributeRomanization = registerMenuCommand(
+	"tool.distributeRomanization",
+	t("topBar.menu.perWordRomanization.distribute"),
+);
+export const cmdCheckRomanizationWarnings = registerMenuCommand(
+	"tool.checkRomanizationWarnings",
+	t("topBar.menu.perWordRomanization.check"),
+);
+export const cmdAutoRuby = registerMenuCommand(
+	"tool.autoRuby",
+	t("topBar.menu.perWordRomanization.autoRuby"),
+);
+export const cmdOpenLatencyTest = registerMenuCommand(
+	"tool.openLatencyTest",
+	t("settingsDialog.common.latencyTest"),
+);
+export const cmdOpenGitHub = registerMenuCommand(
+	"help.openGitHub",
+	t("topBar.menu.help"),
+);
+export const cmdOpenWiki = registerMenuCommand(
+	"help.openWiki",
+	t("topBar.menu.helpDoc"),
+);
+
 if (import.meta.env.DEV) {
 	t("settingsDialog.keybindings.category.File");
 	t("settingsDialog.keybindings.category.Edit");
