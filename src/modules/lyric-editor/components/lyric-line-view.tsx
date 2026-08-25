@@ -30,7 +30,6 @@ import {
 	type FC,
 	Fragment,
 	memo,
-	type SyntheticEvent,
 	useCallback,
 	useEffect,
 	useLayoutEffect,
@@ -55,7 +54,6 @@ import {
 	isDraggingGlobalAtom,
 	lyricLinesAtom,
 	selectedLinesAtom,
-	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
 	ToolMode,
 	toolModeAtom,
@@ -63,21 +61,10 @@ import {
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
+import { LyricLineScroller, SubLineEdit } from "./lyric-line-interactions";
+import { parseRubyShortcut } from "./lyric-view-model";
 import LyricWordView from "./lyric-word-view.tsx";
 import { RomanWordView } from "./roman-word-view.tsx";
-
-const parseRubyShortcut = (value: string) => {
-	if (value.endsWith("|")) {
-		return {
-			word: value.slice(0, -1),
-			enableRuby: true,
-		};
-	}
-	return {
-		word: value,
-		enableRuby: false,
-	};
-};
 
 // 定义一个派生 Atom，用于计算每一行的显示行号
 const lineDisplayNumbersAtom = atom((get) => {
@@ -97,175 +84,6 @@ const lineDisplayNumbersAtom = atom((get) => {
 
 	return displayNumbers;
 });
-
-const LyricLineScroller = ({
-	lineAtom,
-	wordsContainer,
-	editingRomanWordIndex,
-}: {
-	lineAtom: Atom<LyricLine>;
-	wordsContainer: HTMLDivElement | null;
-	editingRomanWordIndex: number | null;
-}) => {
-	const scrollToIndexAtom = useMemo(
-		() =>
-			atom((get) => {
-				const line = get(lineAtom);
-				const selectedWords = get(selectedWordsAtom);
-				if (selectedWords.size === 0) return Number.NaN;
-				let scrollToIndex = Number.NaN;
-				let i = 0;
-				for (const word of line.words) {
-					if (selectedWords.has(word.id)) {
-						scrollToIndex = i;
-						break;
-					}
-					i++;
-				}
-				return scrollToIndex;
-			}),
-		[lineAtom],
-	);
-	const scrollToIndex = useAtomValue(scrollToIndexAtom);
-
-	useEffect(() => {
-		const targetIndex = !Number.isNaN(scrollToIndex)
-			? scrollToIndex
-			: editingRomanWordIndex;
-		if (targetIndex === null || Number.isNaN(targetIndex)) return;
-		if (!wordsContainer) return;
-		const wordEl = wordsContainer.children[targetIndex] as HTMLElement;
-		if (!wordEl) return;
-		wordsContainer.scrollTo({
-			left: wordEl.offsetLeft - wordsContainer.clientWidth / 2,
-			behavior: "auto",
-		});
-	}, [scrollToIndex, editingRomanWordIndex, wordsContainer]);
-
-	useEffect(() => {
-		if (!wordsContainer) return;
-		const handleFocusIn = (evt: FocusEvent) => {
-			const target = evt.target as HTMLElement | null;
-			if (!target) return;
-			const wordGroup = target.closest<HTMLElement>("[data-word-index]");
-			if (!wordGroup || !wordsContainer.contains(wordGroup)) return;
-			wordsContainer.scrollTo({
-				left: wordGroup.offsetLeft - wordsContainer.clientWidth / 2,
-				behavior: "auto",
-			});
-		};
-		wordsContainer.addEventListener("focusin", handleFocusIn);
-		return () => {
-			wordsContainer.removeEventListener("focusin", handleFocusIn);
-		};
-	}, [wordsContainer]);
-
-	return null;
-};
-
-const SubLineEdit = memo(
-	({
-		lineAtom,
-		lineIndex,
-		type,
-	}: {
-		lineAtom: Atom<LyricLine>;
-		lineIndex: number;
-		type: "translatedLyric" | "romanLyric";
-	}) => {
-		const editLyricLines = useSetAtom(editorDocumentWriteAtom);
-		const line = useAtomValue(lineAtom);
-		const [editing, setEditing] = useState(false);
-		const [inputValue, setInputValue] = useState("");
-		const { t } = useTranslation();
-
-		const onEnter = useCallback(
-			(evt: SyntheticEvent<HTMLInputElement>) => {
-				setEditing(false);
-				const newValue = evt.currentTarget.value;
-				if (newValue !== line[type]) {
-					editLyricLines((state) => {
-						state.lyricLines[lineIndex][type] = newValue;
-					});
-				}
-			},
-			[editLyricLines, line, lineIndex, type],
-		);
-
-		useEffect(() => {
-			if (editing) {
-				setInputValue(line[type] || "");
-			}
-		}, [editing, line, type]);
-
-		const label = useMemo(
-			() =>
-				type === "translatedLyric"
-					? t("lyricLineView.translatedLabel", "翻译：")
-					: t("lyricLineView.romanLabel", "音译："),
-			[type, t],
-		);
-
-		return (
-			<Flex align="baseline">
-				<Text size="2">{label}</Text>
-				{editing ? (
-					<div
-						className={styles.autoSizeInput}
-						style={{
-							maxWidth: "calc(100% - 4rem)",
-							flexShrink: 1,
-						}}
-						onPointerDown={(e) => e.stopPropagation()}
-					>
-						<div
-							className={styles.autoSizeInputText}
-							style={{
-								padding: 0,
-								maxWidth: "100%",
-								overflow: "hidden",
-							}}
-						>
-							{`${inputValue}  `}
-						</div>
-
-						<TextField.Root
-							className={styles.autoSizeInputField}
-							autoFocus
-							size="1"
-							value={inputValue}
-							onChange={(evt) => setInputValue(evt.currentTarget.value)}
-							onBlur={onEnter}
-							onKeyDown={(evt) => {
-								if (evt.key === "Enter") onEnter(evt);
-							}}
-						/>
-					</div>
-				) : (
-					<Button
-						size="2"
-						color="gray"
-						variant="ghost"
-						onPointerDown={(e) => e.stopPropagation()}
-						onClick={(evt) => {
-							evt.stopPropagation();
-							setEditing(true);
-						}}
-						style={{
-							textAlign: "left",
-							maxWidth: "calc(100% - 4rem)",
-							wordBreak: "break-all",
-						}}
-					>
-						{line[type] || (
-							<Text color="gray">{t("lyricLineView.empty", "无")}</Text>
-						)}
-					</Button>
-				)}
-			</Flex>
-		);
-	},
-);
 
 export const LyricLineView: FC<{
 	lineAtom: Atom<LyricLine>;

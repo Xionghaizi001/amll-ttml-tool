@@ -33,11 +33,13 @@ import {
 	isAuditioningAtom,
 	pcmDataReadyAtom,
 } from "$/modules/audio/states/index.ts";
+import { useAudioCursorSync } from "$/modules/spectrogram/hooks/useAudioCursorSync";
 import { useScrubbing } from "$/modules/spectrogram/hooks/useScrubbing";
 import { useSpectrogramInteraction } from "$/modules/spectrogram/hooks/useSpectrogramInteraction.ts";
 import { useSpectrogramResize } from "$/modules/spectrogram/hooks/useSpectrogramResize.ts";
 import { useSpectrogramWorker } from "$/modules/spectrogram/hooks/useSpectrogramWorker.ts";
 import { useTimelineEditing } from "$/modules/spectrogram/hooks/useTimelineEditing.ts";
+import { useVisibleSpectrogramTiles } from "$/modules/spectrogram/hooks/useVisibleSpectrogramTiles";
 import {
 	currentPaletteAtom,
 	showBeatLinesAtom,
@@ -57,15 +59,12 @@ import {
 	type ISpectrogramContext,
 	SpectrogramContext,
 } from "./SpectrogramContext.ts";
-import { TileComponent, type TileComponentProps } from "./TileComponent.tsx";
+import { TileComponent } from "./TileComponent.tsx";
 import {
 	DEFAULT_RULER_HEIGHT,
 	TimelineRuler,
 	type TimelineRulerHandle,
 } from "./TimelineRuler.tsx";
-
-const TILE_DURATION_S = 5;
-const LOD_WIDTHS = [512, 1024, 2048, 4096, 8192];
 
 export const AudioSpectrogram: FC = () => {
 	const pcmDataReady = useAtomValue(pcmDataReadyAtom);
@@ -103,8 +102,6 @@ export const AudioSpectrogram: FC = () => {
 		onCommit: setDataHeight,
 	});
 	const palette = useAtomValue(currentPaletteAtom);
-	const [visibleTiles, setVisibleTiles] = useState<TileComponentProps[]>([]);
-
 	const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 	const [containerWidth, setContainerWidth] = useAtom(
 		spectrogramContainerWidthAtom,
@@ -116,46 +113,15 @@ export const AudioSpectrogram: FC = () => {
 		pcmDataReady,
 	);
 
-	const viewStateRef = useRef({ zoom, scrollLeft, containerWidth });
-
-	useLayoutEffect(() => {
-		viewStateRef.current = { zoom, scrollLeft, containerWidth };
-	}, [zoom, scrollLeft, containerWidth]);
-
-	const syncCursorsToDOM = useCallback((timeInSeconds: number) => {
-		const { zoom, scrollLeft, containerWidth } = viewStateRef.current;
-
-		const cursorPosition = timeInSeconds * zoom;
-		const handleLeftPosition = cursorPosition - scrollLeft;
-
-		if (playheadCursorRef.current) {
-			playheadCursorRef.current.style.left = `${cursorPosition}px`;
-		}
-
-		if (auditionCursorRef.current) {
-			auditionCursorRef.current.style.left = `${cursorPosition}px`;
-		}
-
-		if (playheadScrubHandleRef.current) {
-			playheadScrubHandleRef.current.style.left = `${handleLeftPosition}px`;
-			playheadScrubHandleRef.current.style.display =
-				handleLeftPosition < 0 || handleLeftPosition > containerWidth
-					? "none"
-					: "block";
-		}
-	}, []);
-
-	useEffect(() => {
-		syncCursorsToDOM(audioEngine.musicCurrentTime);
-		audioEngine.onTimeUpdate(syncCursorsToDOM);
-
-		return () => audioEngine.offTimeUpdate(syncCursorsToDOM);
-	}, [syncCursorsToDOM]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 因为暂停时不发射进度，依赖视口状态作为 Trigger 强制同步游标
-	useEffect(() => {
-		syncCursorsToDOM(audioEngine.musicCurrentTime);
-	}, [zoom, scrollLeft, containerWidth, syncCursorsToDOM]);
+	useAudioCursorSync({
+		playback: audioEngine,
+		zoom,
+		scrollLeft,
+		containerWidth,
+		playheadCursorRef,
+		playheadScrubHandleRef,
+		auditionCursorRef,
+	});
 
 	const [isHovering, setIsHovering] = useState(false);
 	const hoverPx = useAtomValue(spectrogramHoverPxAtom);
@@ -186,6 +152,20 @@ export const AudioSpectrogram: FC = () => {
 
 	const { tileCache, requestTileIfNeeded, lastTileTimestamp } =
 		useSpectrogramWorker(pcmDataReady, currentDurationMs, palette.data);
+	const { visibleTiles, updateVisibleTiles } = useVisibleSpectrogramTiles({
+		pcmDataReady,
+		currentDurationMs,
+		containerWidth,
+		gain,
+		dataHeight,
+		paletteId: palette.id,
+		zoom,
+		scrollLeft,
+		lastTileTimestamp,
+		tileCache,
+		requestTileIfNeeded,
+		container: scrollContainerRef.current,
+	});
 
 	const {
 		handleContainerMouseDown,
@@ -217,77 +197,10 @@ export const AudioSpectrogram: FC = () => {
 	// 	}
 	// }, [pcmDataReady]);
 
-	const updateVisibleTiles = useCallback(() => {
-		if (!pcmDataReady || currentDurationMs <= 0 || !scrollContainerRef.current)
-			return;
-		const durationS = currentDurationMs / 1000;
-		const pixelsPerSecond = zoom;
-		const tileDisplayWidthPx = TILE_DURATION_S * pixelsPerSecond;
-		const totalTiles = Math.ceil(durationS / TILE_DURATION_S);
-
-		const viewStart = scrollLeft;
-		const viewEnd = viewStart + containerWidth;
-
-		const firstVisibleIndex = Math.floor(viewStart / tileDisplayWidthPx);
-		const lastVisibleIndex = Math.ceil(viewEnd / tileDisplayWidthPx);
-
-		const newVisibleTiles: TileComponentProps[] = [];
-
-		const currentPaletteId = palette.id;
-
-		for (let i = firstVisibleIndex - 2; i <= lastVisibleIndex + 2; i++) {
-			if (i < 0 || i >= totalTiles) continue;
-
-			const cacheId = `tile-${i}`;
-			const targetLodWidth =
-				LOD_WIDTHS.find((w) => w >= tileDisplayWidthPx) ||
-				LOD_WIDTHS[LOD_WIDTHS.length - 1];
-
-			requestTileIfNeeded({
-				tileIndex: i,
-				startTime: i * TILE_DURATION_S,
-				endTime: i * TILE_DURATION_S + TILE_DURATION_S,
-				gain: gain,
-				height: dataHeight,
-				tileWidthPx: targetLodWidth,
-				paletteId: currentPaletteId,
-			});
-
-			const cacheEntry = tileCache.current.get(cacheId);
-			const currentBitmap = cacheEntry?.bitmap;
-
-			newVisibleTiles.push({
-				tileId: cacheId,
-				left: i * tileDisplayWidthPx,
-				width: tileDisplayWidthPx,
-				height: dataHeight,
-				canvasWidth: currentBitmap?.width || targetLodWidth,
-				bitmap: currentBitmap,
-			});
-		}
-		setVisibleTiles(newVisibleTiles);
-	}, [
-		pcmDataReady,
-		currentDurationMs,
-		containerWidth,
-		gain,
-		dataHeight,
-		requestTileIfNeeded,
-		tileCache,
-		palette.id,
-		zoom,
-		scrollLeft,
-	]);
-
 	const updateVisibleTilesRef = useRef(updateVisibleTiles);
 	useLayoutEffect(() => {
 		updateVisibleTilesRef.current = updateVisibleTiles;
 	}, [updateVisibleTiles]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: lastTileTimestamp 用来重运行这个 effect
-	useEffect(() => {
-		updateVisibleTiles();
-	}, [updateVisibleTiles, lastTileTimestamp]);
 
 	const handleRulerSeek = (timeInSeconds: number) => {
 		audioEngine.seekMusic(timeInSeconds);

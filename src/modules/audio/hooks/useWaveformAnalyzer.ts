@@ -1,9 +1,8 @@
 import { useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
+import type { AudioRuntimePort } from "$/modules/audio/ports/audio-runtime";
 import { bpmStateAtom, pcmDataReadyAtom } from "$/modules/audio/states";
-import AnalyzerWorker from "$/modules/ffmpeg/worker/analyzer.worker.ts?worker";
-import RendererWorker from "$/modules/ffmpeg/worker/renderer.worker.ts?worker";
-import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
+import { browserAudioRuntime } from "$/platform/audio/BrowserAudioRuntime";
 
 interface UseWaveformAnalyzerProps {
 	audioFile: Blob | null;
@@ -13,13 +12,16 @@ interface UseWaveformAnalyzerProps {
 	engineState: string;
 }
 
-export const useWaveformAnalyzer = ({
-	audioFile,
-	wsContainerRef,
-	canvasRef,
-	sliderWidthPx,
-	engineState,
-}: UseWaveformAnalyzerProps) => {
+export const useWaveformAnalyzer = (
+	{
+		audioFile,
+		wsContainerRef,
+		canvasRef,
+		sliderWidthPx,
+		engineState,
+	}: UseWaveformAnalyzerProps,
+	runtime: AudioRuntimePort = browserAudioRuntime,
+) => {
 	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
 	const setBpmState = useSetAtom(bpmStateAtom);
 
@@ -28,11 +30,11 @@ export const useWaveformAnalyzer = ({
 	const offscreenTransferred = useRef(false);
 
 	useEffect(() => {
-		rendererWorkerRef.current = new RendererWorker();
+		rendererWorkerRef.current = runtime.createWaveformRendererWorker();
 		return () => {
 			rendererWorkerRef.current?.terminate();
 		};
-	}, []);
+	}, [runtime]);
 
 	useEffect(() => {
 		if (!audioFile || audioFile.size === 0) {
@@ -86,7 +88,7 @@ export const useWaveformAnalyzer = ({
 			[mc.port2],
 		);
 
-		analyzerWorkerRef.current = new AnalyzerWorker();
+		analyzerWorkerRef.current = runtime.createAnalyzerWorker();
 		analyzerWorkerRef.current.onmessage = (e) => {
 			if (e.data.type === "ANALYZE_DONE") {
 				setPcmDataReady(true);
@@ -118,13 +120,20 @@ export const useWaveformAnalyzer = ({
 				type: "INIT",
 				payload: {
 					file: audioFile,
-					ffmpegWasmUrl,
+					ffmpegWasmUrl: runtime.analyzerWasmUrl,
 					port: mc.port1,
 				},
 			},
 			[mc.port1],
 		);
-	}, [audioFile, setPcmDataReady, setBpmState, canvasRef, wsContainerRef]);
+	}, [
+		audioFile,
+		setPcmDataReady,
+		setBpmState,
+		canvasRef,
+		wsContainerRef,
+		runtime,
+	]);
 
 	// 处理窗口大小变化并触发防抖重绘
 	useEffect(() => {

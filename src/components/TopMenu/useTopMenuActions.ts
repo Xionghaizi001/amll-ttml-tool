@@ -7,15 +7,14 @@ import saveFile from "save-file";
 import { uid } from "uid";
 import {
 	distributeDocumentRomanization,
+	previewSegmentWord,
 	refreshRomanizationWarnings,
+	segmentEntireDocument,
 } from "$/application/lyrics";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
-import {
-	segmentLyricLines,
-	segmentWord,
-} from "$/modules/segmentation/utils/segmentation";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
 import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
@@ -102,7 +101,11 @@ export const useTopMenuActions = () => {
 				endTime: baseWord.endTime,
 				emptyBeat: 0,
 			};
-			const segments = segmentWord(sourceWord, segmentationConfig);
+			const segments = previewSegmentWord(
+				sourceWord,
+				segmentationConfig,
+				segmentationEngine,
+			);
 			if (segments.length === 0) {
 				return [
 					{
@@ -327,13 +330,12 @@ export const useTopMenuActions = () => {
 	}, [store, editLyricLines]);
 
 	const onAutoSegment = useCallback(() => {
-		editLyricLines((draft) => {
-			draft.lyricLines = segmentLyricLines(
-				draft.lyricLines,
-				segmentationConfig,
-			);
-		});
-	}, [editLyricLines, segmentationConfig]);
+		segmentEntireDocument(
+			editorDocumentAdapter,
+			segmentationConfig,
+			segmentationEngine,
+		);
+	}, [segmentationConfig]);
 
 	const onRubySegment = useCallback(() => {
 		const selectedWordIds = store.get(selectedWordsAtom);

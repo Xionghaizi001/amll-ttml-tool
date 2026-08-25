@@ -33,7 +33,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { uid } from "uid";
 import { prepareLrcLibImport } from "$/application/lyrics";
-import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
@@ -108,7 +108,7 @@ export const ImportFromLRCLIB = () => {
 					{
 						convert: convertLrcLibTrackToTTML,
 						extractBackground: extractParenthesesToBg,
-						segment: segmentLyricLines,
+						segment: segmentationEngine.segmentLines,
 					},
 				);
 

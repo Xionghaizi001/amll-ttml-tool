@@ -13,16 +13,17 @@ import {
 import { useAtom } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { smoothDocumentLines } from "$/application/lyrics";
 import {
 	DialogScopeSelector,
 	useDialogScope,
 } from "$/hooks/useDialogScope.tsx";
-import { smoothSyllables } from "$/modules/segmentation/utils/syllable-smoothing.ts";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
 	hasDismissedSyllableSmoothingTipAtom,
 	syllableSmoothingDialogAtom,
 } from "$/states/dialogs.ts";
-import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 
 type ThresholdPreset = "5" | "15" | "30" | "custom";
 
@@ -50,23 +51,17 @@ export const SyllableSmoothingDialog = () => {
 			thresholdPreset === "custom" ? parsedCustom : Number(thresholdPreset);
 
 		const targetLineIndices = scopeState.getTargetLineIndices();
-
-		editorDocumentAdapter.transact(
-			{
-				source: "user",
-				label: "Smooth syllable timing",
-				expectedRevision: editorDocumentAdapter.getRevision(),
-			},
-			(draft) => {
-				draft.lyricLines.forEach((line, index) => {
-					if (targetLineIndices.has(index)) {
-						draft.lyricLines[index] = smoothSyllables(line, {
-							threshold: finalThreshold,
-							mergeSyllables,
-						});
-					}
-				});
-			},
+		const snapshot = editorDocumentAdapter.readSnapshot();
+		const targetLineIds = new Set(
+			snapshot.lyricLines
+				.filter((_line, index) => targetLineIndices.has(index))
+				.map((line) => line.id),
+		);
+		smoothDocumentLines(
+			editorDocumentAdapter,
+			targetLineIds,
+			{ threshold: finalThreshold, mergeSyllables },
+			segmentationEngine,
 		);
 
 		setOpen(false);

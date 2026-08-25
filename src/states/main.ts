@@ -13,7 +13,7 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { withHistory } from "jotai-history";
 import { uid } from "uid";
-import { identifyProject } from "$/modules/project/logic/project-info";
+import { identifyProject } from "$/application/project";
 import type { TTMLLyric } from "../types/ttml";
 
 export enum DarkMode {

@@ -19,7 +19,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { recalculateWordTime } from "$/modules/segmentation/utils/segmentation.ts";
+import { applyRubySegmentsToMatchingWords } from "$/application/lyrics";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig.ts";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import {
@@ -223,29 +224,16 @@ export const RubyEditor = ({
 		const rubySegments = currentWord.ruby?.map((ruby) => ruby.word) ?? [];
 		if (rubySegments.length === 0) return;
 
-		editorDocumentAdapter.transact(
+		applyRubySegmentsToMatchingWords(
+			editorDocumentAdapter,
 			{
-				source: "user",
-				label: "Apply ruby to matching words",
-				expectedRevision: editorDocumentAdapter.getRevision(),
+				wordId: currentWord.id,
+				wordText: currentWord.word,
+				segments: rubySegments,
+				applyToAll: true,
+				config: segmentationConfig,
 			},
-			(state) => {
-				for (const line of state.lyricLines) {
-					for (const word of line.words) {
-						if (word.word !== currentWord.word) continue;
-						const recalculated = recalculateWordTime(
-							word,
-							rubySegments,
-							segmentationConfig,
-						);
-						word.ruby = recalculated.map((segment) => ({
-							word: segment.word,
-							startTime: segment.startTime,
-							endTime: segment.endTime,
-						}));
-					}
-				}
-			},
+			segmentationEngine,
 		);
 	}, [segmentationConfig, store, wordAtom]);
 
@@ -322,6 +310,7 @@ export const RubyEditor = ({
 				)}
 				{rubyWords.map((rubyWord, index) => (
 					<AutoSizeTextField
+						// biome-ignore lint/suspicious/noArrayIndexKey: Ruby entries have no persistent ID and their editor identity follows the parent word index
 						key={`${word.id}-ruby-${index}`}
 						size="1"
 						inputRef={(el) => {

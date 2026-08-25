@@ -3,7 +3,7 @@ import { Box, Button, Flex, Text, TextField } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
+import { getSuggestedTtmlFileName } from "$/application/project";
 import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
 import {
 	lastSavedTimeAtom,

@@ -23,7 +23,6 @@ import { type Atom, atom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
 	type FC,
-	type MouseEvent,
 	memo,
 	type PropsWithChildren,
 	type SyntheticEvent,
@@ -37,7 +36,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	displayRomanizationInSyncAtom,
 	highlightActiveWordAtom,
@@ -47,6 +45,7 @@ import {
 	showTimestampsAtom,
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { splitWordDialogAtom } from "$/states/dialogs.ts";
 import {
 	editingWordStateAtom,
@@ -56,278 +55,22 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import { type LyricLine, type LyricWord, newLyricWord } from "$/types/ttml.ts";
+import type { LyricLine, LyricWord } from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { RubyEditor } from "../tools/RubyEditor.tsx";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
-import { normalizeLineTime } from "../utils/normalize-line-time.ts";
 import styles from "./index.module.css";
+import {
+	getDisplayWordText,
+	parseRubyShortcut,
+	useWordBlank,
+} from "./lyric-view-model";
+import {
+	type LyricWordViewEditProps,
+	LyricWordViewEditSpan,
+} from "./lyric-word-interactions";
 import { LyricWordMenu } from "./lyric-word-menu";
-
-const isDraggingAtom = atom(false);
-
-const useWordBlank = (word: string) =>
-	useMemo(
-		() => word.length === 0 || (word.length > 0 && word.trim().length === 0),
-		[word],
-	);
-
-const parseRubyShortcut = (value: string) => {
-	if (value.endsWith("|")) {
-		return {
-			word: value.slice(0, -1),
-			enableRuby: true,
-		};
-	}
-	return {
-		word: value,
-		enableRuby: false,
-	};
-};
-
-const getDisplayWordText = (
-	t: (
-		key: string,
-		defaultValue: string,
-		options?: { count?: number },
-	) => string,
-	word: string,
-	isWordBlank: boolean,
-	romanWord?: string,
-	displayRomanizationInSync?: boolean,
-) => {
-	if (displayRomanizationInSync && romanWord && romanWord.trim() !== "")
-		return romanWord;
-	if (word === "") return t("lyricWordView.empty", "空白");
-	if (isWordBlank)
-		return t("lyricWordView.spaceCount", "空格 x{count}", {
-			count: word.length,
-		});
-	return word;
-};
-
-type LyricWordViewEditProps = {
-	wordAtom: Atom<LyricWord>;
-	wordIndex: number;
-	line: LyricLine;
-	lineIndex: number;
-};
-
-const LyricWordViewEditSpan = ({
-	wordAtom,
-	wordIndex,
-	line,
-	lineIndex,
-	className,
-	children,
-	onDoubleClick,
-}: PropsWithChildren<
-	LyricWordViewEditProps & {
-		className?: string;
-		onDoubleClick?: () => void;
-	}
->) => {
-	const word = useAtomValue(wordAtom);
-	const store = useStore();
-	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
-	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
-	const isWordSelectedAtom = useMemo(
-		() => atom((get) => get(selectedWordsAtom).has(get(wordAtom).id)),
-		[wordAtom],
-	);
-	const isWordSelected = useAtomValue(isWordSelectedAtom);
-	const selectedWords = useAtomValue(selectedWordsAtom);
-	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
-	const toolMode = useAtomValue(toolModeAtom);
-	const blockDragRef = useRef(false);
-
-	function onWordSelect(evt: MouseEvent<HTMLSpanElement>) {
-		if (evt.ctrlKey || evt.metaKey) {
-			setSelectedWords((v) => {
-				if (v.has(word.id)) {
-					v.delete(word.id);
-				} else {
-					v.add(word.id);
-				}
-			});
-		} else if (evt.shiftKey) {
-			setSelectedWords((v) => {
-				if (v.size > 0) {
-					let minBoundry = Number.NaN;
-					let maxBoundry = Number.NaN;
-					line.words.forEach((word, i) => {
-						if (v.has(word.id)) {
-							if (Number.isNaN(minBoundry)) minBoundry = i;
-							if (Number.isNaN(maxBoundry)) maxBoundry = i;
-
-							minBoundry = Math.min(minBoundry, i, wordIndex);
-							maxBoundry = Math.max(maxBoundry, i, wordIndex);
-						}
-					});
-					for (let i = minBoundry; i <= maxBoundry; i++) {
-						v.add(line.words[i].id);
-					}
-				} else {
-					v.add(word.id);
-				}
-			});
-		} else {
-			setSelectedLines((state) => {
-				if (!state.has(line.id) || state.size !== 1) {
-					state.clear();
-					state.add(line.id);
-				}
-			});
-			setSelectedWords((state) => {
-				if (!state.has(word.id) || state.size !== 1) {
-					state.clear();
-					state.add(word.id);
-				}
-			});
-		}
-	}
-
-	return (
-		<ContextMenu.Root
-			onOpenChange={(open) => {
-				if (!open) return;
-				if (isWordSelected) return;
-				setSelectedWords((state) => {
-					state.clear();
-					state.add(word.id);
-				});
-				setSelectedLines((state) => {
-					state.clear();
-					state.add(line.id);
-				});
-			}}
-		>
-			<ContextMenu.Trigger>
-				<span
-					draggable={toolMode === ToolMode.Edit}
-					onPointerDown={(evt) => {
-						blockDragRef.current =
-							(evt.target as HTMLElement | null)?.tagName === "INPUT";
-					}}
-					onPointerUp={() => {
-						blockDragRef.current = false;
-					}}
-					onDragStart={(evt) => {
-						if (blockDragRef.current) {
-							blockDragRef.current = false;
-							evt.preventDefault();
-							evt.stopPropagation();
-							return;
-						}
-						if (!isWordSelected) onWordSelect(evt);
-						evt.dataTransfer.effectAllowed = "copyMove";
-						evt.dataTransfer.dropEffect = "move";
-						store.set(isDraggingAtom, true);
-						evt.stopPropagation();
-					}}
-					onDragEnd={() => {
-						store.set(isDraggingAtom, false);
-						blockDragRef.current = false;
-					}}
-					onDragOver={(evt) => {
-						if (!store.get(isDraggingAtom)) return;
-						if (isWordSelected) return;
-						evt.preventDefault();
-						evt.dataTransfer.dropEffect = "move";
-						const rect = evt.currentTarget.getBoundingClientRect();
-						const innerX = evt.clientX - rect.left;
-						if (innerX < rect.width / 2) {
-							evt.currentTarget.classList.add(styles.dropLeft);
-							evt.currentTarget.classList.remove(styles.dropRight);
-						} else {
-							evt.currentTarget.classList.remove(styles.dropLeft);
-							evt.currentTarget.classList.add(styles.dropRight);
-						}
-						const isCopyingWords = evt.ctrlKey || evt.metaKey;
-						evt.dataTransfer.dropEffect = isCopyingWords ? "copy" : "move";
-					}}
-					onDrop={(evt) => {
-						evt.currentTarget.classList.remove(styles.dropLeft);
-						evt.currentTarget.classList.remove(styles.dropRight);
-						if (!store.get(isDraggingAtom)) return;
-						if (isWordSelected) return;
-
-						const rect = evt.currentTarget.getBoundingClientRect();
-						const innerX = evt.clientX - rect.left;
-						const insertRight = innerX > rect.width / 2;
-
-						const isCopyingWords = evt.ctrlKey || evt.metaKey;
-						editLyricLines((state) => {
-							let collectedWords: LyricWord[] = [];
-							for (const line of state.lyricLines) {
-								const words = line.words.filter((w) => selectedWords.has(w.id));
-								collectedWords.push(...words);
-								if (!isCopyingWords) {
-									const deletedAtBounds =
-										line.words.length > 0 &&
-										(selectedWords.has(line.words[0].id) ||
-											selectedWords.has(line.words[line.words.length - 1].id));
-									line.words = line.words.filter(
-										(w) => !selectedWords.has(w.id),
-									);
-									if (deletedAtBounds) normalizeLineTime(line);
-								}
-							}
-							const targetLine = state.lyricLines.find(
-								({ id }) => id === line.id,
-							);
-							if (!targetLine) throw new Error("Target line not found");
-							const targetIndex = targetLine.words.findIndex(
-								(w) => w.id === word.id,
-							);
-							if (targetIndex < 0) throw new Error("Target word not found");
-							if (isCopyingWords) {
-								collectedWords = collectedWords.map((w) => ({
-									...w,
-									id: newLyricWord().id,
-								}));
-								setSelectedWords((v) => {
-									v.clear();
-									for (const w of collectedWords) {
-										v.add(w.id);
-									}
-								});
-							}
-							const insertPosition = targetIndex + (insertRight ? 1 : 0);
-							const insertedAtBounds =
-								insertPosition === 0 ||
-								insertPosition === targetLine.words.length;
-							targetLine.words.splice(insertPosition, 0, ...collectedWords);
-							if (insertedAtBounds) normalizeLineTime(targetLine);
-						});
-					}}
-					onDragLeave={(evt) => {
-						evt.currentTarget.classList.remove(styles.dropLeft);
-						evt.currentTarget.classList.remove(styles.dropRight);
-					}}
-					className={className}
-					onDoubleClick={onDoubleClick}
-					onClick={(evt) => {
-						evt.stopPropagation();
-						evt.preventDefault();
-						onWordSelect(evt);
-					}}
-				>
-					{children}
-				</span>
-			</ContextMenu.Trigger>
-			<ContextMenu.Content>
-				<LyricWordMenu
-					wordAtom={wordAtom}
-					wordIndex={wordIndex}
-					lineIndex={lineIndex}
-				/>
-				<LyricLineMenu lineIndex={lineIndex} />
-			</ContextMenu.Content>
-		</ContextMenu.Root>
-	);
-};
 
 function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 	wordAtom,
@@ -939,6 +682,7 @@ const LyricWorldViewSync: FC<{
 						(rubyWord.word.length > 0 && rubyWord.word.trim().length === 0);
 					return (
 						<LyricSyncWordView
+							// biome-ignore lint/suspicious/noArrayIndexKey: Ruby selection identity is defined by parent word ID and ruby index
 							key={`${word.id}-ruby-${rubyIndex}`}
 							syncId={buildRubySelectionId(word.id, rubyIndex)}
 							line={line}

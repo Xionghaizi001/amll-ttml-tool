@@ -24,15 +24,14 @@ import {
 } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { applyDefaultTtmlAuthorMetadata } from "$/application/project";
 import {
 	playbackRateAtom,
 	stretchAlgorithmAtom,
 	volumeAtom,
 } from "$/modules/audio/states";
 import type { StretchAlgorithm } from "$/modules/ffmpeg/types";
-import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { GithubIcon } from "$/modules/project/modals/PlatformIcons";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	autosaveEnabledAtom,
 	autosaveIntervalAtom,
@@ -48,6 +47,7 @@ import {
 	TranslationOutputMode,
 	translationOutputModeAtom,
 } from "$/modules/settings/states";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	KeyBindingTriggerMode,
 	keyBindingTriggerModeAtom,

@@ -13,8 +13,10 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createSegmentationConfig,
+	previewSegmentWord,
 	splitDocumentWord,
 } from "$/application/lyrics";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import {
 	segmentationCustomRulesAtom,
 	segmentationIgnoreListTextAtom,
@@ -32,10 +34,6 @@ import type {
 	SegmentationConfig,
 } from "$/modules/segmentation/types";
 import { loadHyphenator } from "$/modules/segmentation/utils/hyphen-loader.ts";
-import {
-	recalculateWordTime,
-	segmentWord,
-} from "$/modules/segmentation/utils/segmentation.ts";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { splitWordDialogAtom } from "$/states/dialogs.ts";
 import { editingWordStateAtom, lyricLinesAtom } from "$/states/main";
@@ -117,7 +115,11 @@ export const SplitWordDialog = memo(() => {
 		if (word) {
 			setTargetWordText(word.word);
 
-			const resultWords = segmentWord(word, segmentationConfig);
+			const resultWords = previewSegmentWord(
+				word,
+				segmentationConfig,
+				segmentationEngine,
+			);
 			if (resultWords.length > 1) {
 				const indices = new Set<number>();
 				let currentIndex = 0;
@@ -167,7 +169,7 @@ export const SplitWordDialog = memo(() => {
 				ignoreCase,
 				config: segmentationConfig,
 			},
-			recalculateWordTime,
+			segmentationEngine,
 		);
 	}, [
 		targetWordText,

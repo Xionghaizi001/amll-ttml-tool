@@ -1,15 +1,13 @@
 import { jotaiAudioEngineHost } from "$/modules/audio/adapters/jotai-audio-engine-host";
 import type { AudioEngineHostPort } from "$/modules/audio/ports/audio-engine-host";
+import type { AudioRuntimePort } from "$/modules/audio/ports/audio-runtime";
 import {
 	type AudioTrackMetadata,
 	parseAudioTrackMetadata,
 } from "$/modules/audio/utils/index.ts";
 import { FFmpegAudioEngine } from "$/modules/ffmpeg/index.ts";
 import type { StretchAlgorithm } from "$/modules/ffmpeg/types.ts";
-import workerUrl from "$/modules/ffmpeg/worker/decoder.worker.ts?worker&url";
-import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
-import workletUrl from "$/modules/ffmpeg/worklet/audio.worklet.ts?worker&url";
-import soundtouchWasmUrl from "$/modules/ffmpeg/worklet/wasm/soundtouch_bg.wasm?url";
+import { browserAudioRuntime } from "$/platform/audio/BrowserAudioRuntime";
 import type { TTMLMetadata } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
 
@@ -32,9 +30,7 @@ export class AudioEngineWrapper extends EventTarget {
 	private _ctx: AudioContext | null = null;
 	get ctx() {
 		if (this._ctx) return this._ctx;
-		this._ctx = new AudioContext({
-			latencyHint: "interactive",
-		});
+		this._ctx = this.runtime.createAudioContext();
 		return this._ctx;
 	}
 
@@ -96,19 +92,17 @@ export class AudioEngineWrapper extends EventTarget {
 	}
 	//#endregion
 
-	constructor(private readonly host: AudioEngineHostPort) {
+	constructor(
+		private readonly host: AudioEngineHostPort,
+		private readonly runtime: AudioRuntimePort,
+	) {
 		super();
 
 		this.engine = new FFmpegAudioEngine({
 			audioContext: this.ctx,
 			gainNode: this.gain,
 			defaultAlgorithm: host.getStretchAlgorithm(),
-			assets: {
-				workerUrl,
-				workletUrl,
-				ffmpegWasmUrl,
-				soundtouchWasmUrl,
-			},
+			assets: runtime.audioEngineAssets,
 		});
 
 		host.subscribeStretchAlgorithm((algorithm) => {
@@ -323,4 +317,7 @@ export class AudioEngineWrapper extends EventTarget {
 	}
 }
 
-export const audioEngine = new AudioEngineWrapper(jotaiAudioEngineHost);
+export const audioEngine = new AudioEngineWrapper(
+	jotaiAudioEngineHost,
+	browserAudioRuntime,
+);

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AudioRuntimePort } from "$/modules/audio/ports/audio-runtime";
 import { LRUCache } from "$/modules/spectrogram/utils/lru-cache";
 import type {
 	SpectrogramWorker,
 	TileGenerationParams,
 	WorkerResponse,
 } from "$/modules/spectrogram/workers/types";
+import { browserAudioRuntime } from "$/platform/audio/BrowserAudioRuntime";
 import { spectrogramLogger } from "../logger";
 
 const MAX_CACHED_TILES = 70;
@@ -29,12 +31,9 @@ class SpectrogramWorkerClient {
 	>();
 	private onInitCompleteCallback?: () => void;
 
-	constructor(onInitComplete?: () => void) {
+	constructor(runtime: AudioRuntimePort, onInitComplete?: () => void) {
 		this.onInitCompleteCallback = onInitComplete;
-		this.worker = new Worker(
-			new URL("../workers/spectrogram.worker.ts", import.meta.url),
-			{ type: "module" },
-		);
+		this.worker = runtime.createSpectrogramWorker();
 		this.worker.onmessage = this.handleMessage.bind(this);
 	}
 
@@ -94,6 +93,7 @@ export const useSpectrogramWorker = (
 	pcmDataReady: boolean,
 	durationInMs: number,
 	paletteData: Uint8Array,
+	runtime: AudioRuntimePort = browserAudioRuntime,
 ) => {
 	const clientRef = useRef<SpectrogramWorkerClient | null>(null);
 	const [isWorkerReady, setIsWorkerReady] = useState(false);
@@ -114,7 +114,7 @@ export const useSpectrogramWorker = (
 	}, [paletteData]);
 
 	useEffect(() => {
-		const client = new SpectrogramWorkerClient(() => {
+		const client = new SpectrogramWorkerClient(runtime, () => {
 			setIsWorkerReady(true);
 			setLastTileTimestamp(Date.now());
 		});
@@ -125,7 +125,7 @@ export const useSpectrogramWorker = (
 		}
 
 		return () => client.terminate();
-	}, []);
+	}, [runtime]);
 
 	useEffect(() => {
 		if (pcmDataReady && clientRef.current && durationInMs > 0) {

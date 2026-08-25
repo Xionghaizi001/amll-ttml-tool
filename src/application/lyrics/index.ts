@@ -1,5 +1,6 @@
 export * from "./LrcLibImportService";
 export * from "./LyricExportService";
+export * from "./LyricLineReorderService";
 export * from "./LyricNavigationService";
 export * from "./LyricTimelineMutationService";
 export * from "./LyricTimelineService";

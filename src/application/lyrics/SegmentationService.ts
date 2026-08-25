@@ -25,6 +25,24 @@ export interface SegmentationConfigInput {
 	hyphenator?: HyphenatorFunc;
 }
 
+/**
+ * 由宿主 adapter 注入的纯分词算法集合。application service 负责事务和范围，
+ * 算法实现继续保留在原纯模块中。
+ */
+export interface SegmentationEnginePort<TConfig> {
+	segmentLines(lines: LyricLine[], config: TConfig): LyricLine[];
+	segmentWord(word: LyricWord, config: TConfig): LyricWord[];
+	recalculateWordTime(
+		word: LyricWord,
+		segments: string[],
+		config: TConfig,
+	): LyricWord[];
+	smoothLine(
+		line: LyricLine,
+		options: { threshold?: number; mergeSyllables?: boolean },
+	): LyricLine;
+}
+
 export function createSegmentationConfig(
 	input: SegmentationConfigInput,
 ): ApplicationSegmentationConfig {
@@ -91,7 +109,7 @@ export function segmentDocumentRange<TConfig>(
 		rangeEnd: string;
 		config: TConfig;
 	},
-	segment: (lines: LyricLine[], config: TConfig) => LyricLine[],
+	engine: Pick<SegmentationEnginePort<TConfig>, "segmentLines">,
 ) {
 	const { startIndex, endIndex } = normalizeSegmentationRange(
 		request.lineCount,
@@ -106,7 +124,7 @@ export function segmentDocumentRange<TConfig>(
 			expectedRevision: document.getRevision(),
 		},
 		(draft) => {
-			const processed = segment(
+			const processed = engine.segmentLines(
 				draft.lyricLines.slice(startIndex, endIndex),
 				request.config,
 			);
@@ -126,11 +144,7 @@ export function splitDocumentWord<TConfig>(
 		ignoreCase: boolean;
 		config: TConfig;
 	},
-	recalculate: (
-		word: LyricWord,
-		segments: string[],
-		config: TConfig,
-	) => LyricWord[],
+	engine: Pick<SegmentationEnginePort<TConfig>, "recalculateWordTime">,
 ) {
 	const targetSegments = buildManualSegments(
 		request.targetText,
@@ -157,7 +171,7 @@ export function splitDocumentWord<TConfig>(
 						const segments = request.ignoreCase
 							? buildManualSegments(word.word, request.splitIndices)
 							: targetSegments;
-						return recalculate(
+						return engine.recalculateWordTime(
 							word,
 							segments.length ? segments : targetSegments,
 							request.config,
@@ -172,8 +186,107 @@ export function splitDocumentWord<TConfig>(
 				line.words.splice(
 					request.wordIndex,
 					1,
-					...recalculate(word, targetSegments, request.config),
+					...engine.recalculateWordTime(word, targetSegments, request.config),
 				);
+			}
+		},
+	);
+}
+
+export const previewSegmentWord = <TConfig>(
+	word: LyricWord,
+	config: TConfig,
+	engine: Pick<SegmentationEnginePort<TConfig>, "segmentWord">,
+) => engine.segmentWord(word, config);
+
+export const previewSegmentLines = <TConfig>(
+	lines: LyricLine[],
+	config: TConfig,
+	engine: Pick<SegmentationEnginePort<TConfig>, "segmentLines">,
+) => engine.segmentLines(lines, config);
+
+export function segmentEntireDocument<TConfig>(
+	document: SegmentationDocumentPort,
+	config: TConfig,
+	engine: Pick<SegmentationEnginePort<TConfig>, "segmentLines">,
+) {
+	return document.transact(
+		{
+			source: "user",
+			label: "Segment all lyric lines",
+			expectedRevision: document.getRevision(),
+		},
+		(draft) => {
+			draft.lyricLines = engine.segmentLines(draft.lyricLines, config);
+		},
+	);
+}
+
+export function smoothDocumentLines(
+	document: SegmentationDocumentPort,
+	lineIds: ReadonlySet<string>,
+	options: { threshold?: number; mergeSyllables?: boolean },
+	engine: Pick<SegmentationEnginePort<unknown>, "smoothLine">,
+) {
+	return document.transact(
+		{
+			source: "user",
+			label: "Smooth lyric syllables",
+			expectedRevision: document.getRevision(),
+		},
+		(draft) => {
+			draft.lyricLines = draft.lyricLines.map((line) =>
+				lineIds.has(line.id) ? engine.smoothLine(line, options) : line,
+			);
+		},
+	);
+}
+
+export function applyRubySegmentsToMatchingWords<TConfig>(
+	document: SegmentationDocumentPort,
+	request: {
+		wordId: string;
+		wordText: string;
+		segments: string[];
+		applyToAll: boolean;
+		config: TConfig;
+	},
+	engine: Pick<SegmentationEnginePort<TConfig>, "recalculateWordTime">,
+) {
+	return document.transact(
+		{
+			source: "user",
+			label: "Apply lyric word ruby segments",
+			expectedRevision: document.getRevision(),
+		},
+		(draft) => {
+			for (const line of draft.lyricLines) {
+				for (let index = 0; index < line.words.length; index += 1) {
+					const word = line.words[index];
+					if (
+						request.applyToAll
+							? word.word !== request.wordText
+							: word.id !== request.wordId
+					)
+						continue;
+					const recalculated = engine.recalculateWordTime(
+						word,
+						request.segments,
+						request.config,
+					);
+					const base = recalculated[0];
+					if (!base) continue;
+					line.words[index] = {
+						...word,
+						ruby: recalculated.map((item) => ({
+							word: item.word,
+							startTime: item.startTime,
+							endTime: item.endTime,
+							emptyBeat: item.emptyBeat,
+						})),
+					};
+					if (!request.applyToAll) return;
+				}
 			}
 		},
 	);

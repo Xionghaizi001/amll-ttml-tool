@@ -14,11 +14,13 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { uid } from "uid";
+import {
+	applyDefaultTtmlAuthorMetadata,
+	getSuggestedTtmlFileName,
+	isProjectMatch,
+} from "$/application/project";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import { getProjectList } from "$/modules/project/autosave/autosave";
-import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
-import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
-import { isProjectMatch } from "$/modules/project/logic/project-match";
 import {
 	defaultTtmlAuthorGithubAtom,
 	defaultTtmlAuthorGithubLoginAtom,

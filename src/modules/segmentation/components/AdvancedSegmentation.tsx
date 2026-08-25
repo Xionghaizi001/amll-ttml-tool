@@ -24,7 +24,11 @@ import {
 import { useAtom, useAtomValue } from "jotai";
 import { memo, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { segmentDocumentRange } from "$/application/lyrics";
+import {
+	previewSegmentLines,
+	segmentDocumentRange,
+} from "$/application/lyrics";
+import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import {
 	segmentationCustomRulesAtom,
 	segmentationIgnoreListTextAtom,
@@ -39,7 +43,6 @@ import {
 	segmentationSplitEnglishAtom,
 } from "$/modules/segmentation/states";
 import { SUPPORTED_LANGUAGES } from "$/modules/segmentation/utils/hyphen-loader";
-import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation.ts";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { advancedSegmentationDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
@@ -152,7 +155,11 @@ export const AdvancedSegmentationDialog = memo(() => {
 
 		try {
 			const tempLine = { ...newLyricLine(), words: [testWord] };
-			const processedLines = segmentLyricLines([tempLine], segmentationConfig);
+			const processedLines = previewSegmentLines(
+				[tempLine],
+				segmentationConfig,
+				segmentationEngine,
+			);
 			const resultWords = processedLines[0].words;
 
 			if (resultWords.length === 0) return;
@@ -196,7 +203,7 @@ export const AdvancedSegmentationDialog = memo(() => {
 				rangeEnd,
 				config: segmentationConfig,
 			},
-			segmentLyricLines,
+			segmentationEngine,
 		);
 
 		setOpen(false);

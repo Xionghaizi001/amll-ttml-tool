@@ -105,9 +105,8 @@
 
   当前验证：Mock Host 合同套件无需启动 React；时间平移与罗马音分配均可在 Node 测试中产生单一事务
   并完整撤销；历史版本策略、提交校验/网络端口、纯文本导入、歌词导出规范化和时间线分段均可在
-  Node/Vitest 中独立测试。全量 98 项测试、TypeScript、目标文件 Biome lint 和
-  `scripts/check-editor-boundary.mjs` 均通过。仓库级 Biome lint 仍有 2 个与本轮无关的既有
-  `noArrayIndexKey` 错误，以及既有样式/抑制警告。
+  Node/Vitest 中独立测试。全量 102 项测试、TypeScript、仓库级 Biome lint 和
+  `scripts/check-editor-boundary.mjs` 均通过；Biome 仅报告 13 个既有样式警告和 1 条既有抑制提示。
 
   阶段 3 剩余遗留模块审计（2026-08-25）
 
@@ -141,11 +140,17 @@
 
   优先级 P2：不阻塞当前 application service 验收，但在插件化前需要整理。
 
-  - `lyric-word-view.tsx`、`lyric-line-view.tsx`、`AudioSpectrogram.tsx` 等超大组件继续按 view、interaction adapter、command 拆分。
-  - `ffmpeg`、频谱和音频 Worker 已属于隔离/runtime 类代码，主要任务是迁移到明确的 runtime/platform 目录并注入端口，
-    不应把底层实时处理算法改写成普通 application service。
-  - `drag-reorder.ts`、`segmentation.ts`、`syllable-smoothing.ts`、项目 `logic/` 等现有纯模块无需重写；只需让调用方通过
-    application service/command 使用它们，避免无收益搬迁。
+  P2 进展（本轮工作区，2026-08-25）
+
+  - [x] `lyric-word-view.tsx`、`lyric-line-view.tsx`、`AudioSpectrogram.tsx` 已继续按 view、
+    interaction adapter/hook 拆分：新增歌词词拖拽交互、行滚动/副行编辑、共享 view-model、频谱游标同步和
+    可见瓦片 hooks；三个主文件分别由约 1018/771/625 行收敛到约 762/589/538 行。
+  - [x] Worker 构造、AudioContext 和 bundler 资源 URL 已集中到
+    `src/platform/audio/BrowserAudioRuntime.ts`，通过 `AudioRuntimePort` 注入 audio engine、波形分析和
+    频谱 Worker 客户端。`ffmpeg`、频谱与音频的底层实时算法及原注释保持不变，只收敛宿主装配入口。
+  - [x] `drag-reorder.ts`、`segmentation.ts`、`syllable-smoothing.ts` 和项目 `logic/` 的实现未重写；
+    UI 调用方已改为经过 `LyricLineReorderService`、`SegmentationService`、`ProjectFileService` 与对应 adapter。
+    分层检查新增规则，禁止 UI 再直接导入这些纯模块，并限制 `?worker` 资源只能由 platform/runtime adapter 引入。
 
   验收条件：Mock Host 中可以运行插件合同测试，不需要启动 React 应用；至少一个完整功能可在不渲染 React 的情况下通过 application service 执行、产生统一文档事务并撤销；业务层无 React/Jotai/Tauri/DOM 直接依赖。
 

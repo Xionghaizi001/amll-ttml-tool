@@ -77,6 +77,25 @@ for (const path of sourceFiles) {
 	for (const match of imports) {
 		const specifier = match[1];
 		const line = contents.slice(0, match.index).split("\n").length;
+		const directPureModule =
+			/^\$\/modules\/(?:segmentation\/utils\/(?:segmentation|syllable-smoothing)|lyric-drag\/drag-reorder|project\/logic\/)/.test(
+				specifier,
+			);
+		const isPureModuleAdapter =
+			displayPath.includes("/adapters/") ||
+			displayPath === "src/modules/lyric-drag/reorder-engine.ts";
+		if (directPureModule && !isPureModuleAdapter)
+			violations.push(
+				`${displayPath}:${line}: pure module ${specifier} must be called through an application service adapter`,
+			);
+		if (
+			specifier.includes("?worker") &&
+			!displayPath.startsWith("src/platform/") &&
+			!displayPath.startsWith("src/plugins/runtime/")
+		)
+			violations.push(
+				`${displayPath}:${line}: Worker constructors and asset URLs belong in platform/runtime adapters`,
+			);
 
 		if (path.startsWith(pluginApiRoot)) {
 			const isTestingDependency =
