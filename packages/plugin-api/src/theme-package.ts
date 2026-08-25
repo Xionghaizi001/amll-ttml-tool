@@ -6,7 +6,13 @@ import {
 import { validate } from "./schema/validator";
 import { validateThemeCss } from "./theme-css";
 import { validateThemeTokens } from "./theme-tokens";
-import type { ParseIssue, ParseResult, ThemePackageV0 } from "./types";
+import type {
+	ParseIssue,
+	ParseResult,
+	ThemePackageV0,
+	ThemeSurfaceBackgroundV0,
+	ThemeTokenSurfacesV0,
+} from "./types";
 
 const prefixIssues = (issues: ParseIssue[], prefix: string): ParseIssue[] =>
 	issues.map((issue) => ({ ...issue, path: `${prefix}${issue.path}` }));
@@ -42,6 +48,29 @@ export function parseThemePackage(input: unknown): ParseResult<ThemePackageV0> {
 			});
 	}
 	const assetNames = Object.keys(assets);
+
+	if (tokens.ok) {
+		// Image surfaces reference package assets; a dangling reference would
+		// silently render url("about:invalid") at apply time.
+		const groups: [string, ThemeTokenSurfacesV0 | undefined][] = [
+			["/tokens/surfaces", tokens.value.surfaces],
+			["/tokens/light/surfaces", tokens.value.light?.surfaces],
+			["/tokens/dark/surfaces", tokens.value.dark?.surfaces],
+		];
+		for (const [prefix, surfaces] of groups) {
+			for (const [name, surface] of Object.entries<
+				ThemeSurfaceBackgroundV0 | undefined
+			>(surfaces ?? {})) {
+				if (surface?.kind !== "image" || surface.value === undefined) continue;
+				const assetRef = surface.value.slice("asset:".length);
+				if (!assetNames.includes(assetRef))
+					issues.push({
+						path: `${prefix}/${name}/value`,
+						message: `unknown theme asset "${assetRef}"`,
+					});
+			}
+		}
+	}
 
 	const styles = parsed.value.styles ?? {};
 	const declaredStyles =

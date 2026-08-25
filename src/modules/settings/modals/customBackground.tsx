@@ -7,6 +7,9 @@ import { Button, Card, Flex, IconButton, Slider, Text } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "react-toastify";
+import { isDarkThemeAtom } from "$/states/main";
+import { analyzeAppBackgroundImage } from "../adapters/background-readability";
 import {
 	customBackgroundBlurAtom,
 	customBackgroundBrightnessAtom,
@@ -31,14 +34,59 @@ export const SettingsCustomBackgroundSettings = () => {
 	const [customBackgroundBrightness, setCustomBackgroundBrightness] = useAtom(
 		customBackgroundBrightnessAtom,
 	);
+	const isDarkTheme = useAtomValue(isDarkThemeAtom);
 	const { t } = useTranslation();
 	const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
 	const onSelectBackgroundFile = useCallback(
 		(file: File) => {
 			setCustomBackgroundImage(file);
+			// Readability gate: sample the image regions that will sit under
+			// the UI slots and, when text would clash, nudge the existing mask
+			// (dark mode) or opacity (light mode) controls to a safe value.
+			void (async () => {
+				const analysis = await analyzeAppBackgroundImage(file, isDarkTheme);
+				if (analysis === null || analysis.recommendation === null) {
+					if (analysis !== null)
+						toast.success(
+							t(
+								"settings.common.customBackgroundReadable",
+								"背景可读性检测通过。",
+							),
+						);
+					return;
+				}
+				const slots = analysis.failingSlots.join("、");
+				if (analysis.recommendation.kind === "mask") {
+					const value = analysis.recommendation.value;
+					setCustomBackgroundMask((current) => Math.max(current, value));
+					toast.warn(
+						t(
+							"settings.common.customBackgroundMaskAdjusted",
+							"以下区域的文字可读性不足：{slots}。已将遮罩提高到 {percent}%，可在下方微调。",
+							{ slots, percent: Math.round(value * 100) },
+						),
+					);
+				} else {
+					const value = analysis.recommendation.value;
+					setCustomBackgroundOpacity((current) => Math.min(current, value));
+					toast.warn(
+						t(
+							"settings.common.customBackgroundOpacityAdjusted",
+							"以下区域的文字可读性不足：{slots}。已将背景透明度降低到 {percent}%，可在下方微调。",
+							{ slots, percent: Math.round(value * 100) },
+						),
+					);
+				}
+			})();
 		},
-		[setCustomBackgroundImage],
+		[
+			setCustomBackgroundImage,
+			setCustomBackgroundMask,
+			setCustomBackgroundOpacity,
+			isDarkTheme,
+			t,
+		],
 	);
 
 	return (

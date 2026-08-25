@@ -162,7 +162,7 @@ export const ImportFromLRCLIB = () => {
 					setIsOpen(open);
 				}}
 			>
-				<Dialog.Content className={styles.dialogContent}>
+				<Dialog.Content className={styles.dialogContent} data-amll-modal-size="large">
 					<Dialog.Title>{t("lrclib.title", "从 LRCLIB 导入歌词")}</Dialog.Title>
 
 					<Flex gap="3" mb="4">
@@ -320,7 +320,7 @@ export const ImportFromLRCLIB = () => {
 				open={!!previewTrack}
 				onOpenChange={(open) => !open && setPreviewTrack(null)}
 			>
-				<Dialog.Content className={styles.previewDialogContent}>
+				<Dialog.Content className={styles.previewDialogContent} data-amll-modal-size="large">
 					<Flex justify="between" align="center" mb="2">
 						<Dialog.Title style={{ marginBottom: 0 }}>
 							{previewTrack?.name}

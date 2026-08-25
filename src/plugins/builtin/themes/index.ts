@@ -39,6 +39,14 @@ const midnightTheme = {
 			kind: "gradient",
 			value: "linear-gradient(160deg, #14101f 0%, #1c1630 55%, #251c42 100%)",
 		},
+		surfaces: {
+			dropdownMenu: { kind: "solid", value: "rgb(30 24 48 / 0.97)" },
+			playControls: { kind: "solid", value: "rgb(24 19 40 / 0.75)" },
+			modalLarge: {
+				kind: "gradient",
+				value: "linear-gradient(180deg, #201a36 0%, #161226 100%)",
+			},
+		},
 	},
 	styles: {
 		"theme.css": [

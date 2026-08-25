@@ -2,6 +2,7 @@ import { useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
+import { initializeThemeSurfaceImages } from "$/modules/settings/adapters/theme-surface-images";
 import { setDocumentAppearance } from "$/platform/theme/DomThemeStyleAdapter";
 import { isDarkThemeAtom } from "$/states/main";
 import { themeService } from "../adapters/theme-host";
@@ -28,6 +29,7 @@ export const ThemeHost = () => {
 			new URLSearchParams(window.location.search).get("theme-safe-mode") ===
 			"1";
 		themeService.initialize({ forceSafeMode });
+		void initializeThemeSurfaceImages();
 		if (themeService.getState().safeModeReason === "crash") {
 			toast.warn(
 				t(

@@ -354,6 +354,58 @@
     Biome）通过（仅既有 13 warning + 1 info）、`plugin:api:check` 通过（协议文档已重新生成）、
     Vite production build 通过。
 
+  阶段 5 扩展：组件级背景、强调色与可读性检测（2026-08-26）
+
+  - Token 合同扩展：新增 `THEME_SURFACE_NAMES_V0`（titleBar、ribbonBar、dropdownMenu、
+    playControls、modalLarge/Medium/Small）与 `surfaces` token 组，每个 surface 为
+    `{ kind: solid|gradient|image|none, value, scrim }` 判别对象；solid 必须是安全颜色、
+    gradient 必须是安全渐变、image 只能引用包内资源（`asset:<name>`，parseThemePackage 校验
+    引用存在）、scrim 必须是安全颜色。模态回退链规则：backgrounds 按 小 → 中 → 大 回退，
+    因此 modalMedium/modalSmall 需要 modalLarge（“可以只选最大，不能只选中/小”），校验作用于
+    base 与合并 light/dark 后的有效集；`validateThemeTokens` 提供
+    `requireModalFallbackChain: false` 供宿主对“主题+用户”组合配置做有效性检查。
+  - Flag 门控桥接：`ThemeService` 计算有效配置（主题 tokens ⊕ 用户 tokens（none 可移除主题
+    surface）⊕ 用户图片），通过 `ThemeStyleSinkPort.setFlags` 在 `<html>` 上打
+    `data-amll-accent` / `data-amll-surface-*` 属性；index.css 中的桥接规则只在属性存在时生效，
+    未设置的 token 永远不会重绘组件。强调色 / surfaces 的 light/dark 覆盖要求 base 定义存在
+    （flag 与外观无关，否则另一外观下变量悬空）。安全模式与恢复默认会清空全部 flag。
+  - 强调色：`color.accent` 一个 token 通过 color-mix 派生完整 Radix accent 量表
+    （--accent-1..12、a1..a12、surface/indicator/track/contrast，亮暗两套混合基准），
+    `--accent-contrast` 由内核对 hex/rgb 颜色做相对亮度计算得出黑/白。
+  - Surface 背景桥：title-bar/ribbon-bar/audio-controls 走 data-slot 选择器（Card 同时桥接
+    `--card-background-color`）；下拉菜单（DropdownMenu/ContextMenu/Select Content，portal 于
+    slot 树外，属宿主桥接而非主题选择器）；模态按 `data-amll-modal-size` 标注分大/中/小，
+    未标注 Dialog.Content 视为中、AlertDialog 视为小，CSS 变量回退链 小→中→大 且全部规则
+    `:not([data-amll-protected])` —— 主题/用户永远无法重绘设置对话框等安全 UI。gradient 编译进
+    `-image` 变量（background-color 无法渲染渐变），`none` 编译为 `initial`（guaranteed-invalid）
+    以精确回退。
+  - 用户侧能力：token 覆盖编辑器新增强调色与 7 个 surface 的纯色/渐变输入（与 token 表单一次
+    校验保存；用户 token 禁止 image kind）；每个 surface 可另选一张本地图片 ——
+    `ThemeService.setUserSurfaceImage` 只接受宿主生成的 `blob:` URL + 安全 scrim（信任边界注释
+    明确该入口不得暴露给插件），图片 Blob 持久化在 IndexedDB（amll-theme-surfaces），启动时
+    重建 Object URL，恢复默认/救援快捷键后通过订阅对账自动删除持久化条目。UI 上中/小模态输入
+    在大模态未配置时禁用；内核在主题切换导致大模态丢失时丢弃中/小 flag 并告警（对话框不会
+    变透明）。
+  - 可读性检测（`src/kernel/theme/readability.ts`，纯函数、Node 全测）：对图片区域计算
+    WCAG 相对亮度，取与文字亮度最接近的最差十分位做对比度（抓局部亮/暗斑），并用局部梯度均值 +
+    亮度标准差捕捉“颜色变化极为剧烈、人眼难辨文字”的花哨背景（阈值：对比度 ≥3、梯度 ≤0.05、
+    标准差 ≤0.22）；不达标时求解最小遮罩不透明度（暗字白遮罩/亮字黑遮罩，目标对比度 4.5，
+    上限 0.85）。`coverCropRegion` 把组件视口矩形映射到 background-size: cover 下的图片区域。
+    平台侧 `BrowserImageSampler` 负责解码/降采样/量取 slot 矩形。
+  - 检测接入点：① surface 选图 —— 按组件实测尺寸（未挂载的用默认尺寸）取 cover 裁剪分析，
+    不通过则自动叠加推荐遮罩并以 toast 说明原因（对比度不足/背景过于花哨）；② 全局自定义背景
+    选图 —— 对 title-bar、ribbon-bar、sidebar、lyric-editor、audio-controls 五个 slot 的图下
+    区域逐一检测，暗色模式自动抬高既有“遮罩”滑杆、亮色模式自动降低“透明度”滑杆到建议值并
+    toast 列出不达标区域，用户可再微调。
+  - 完成时全量验证：202/202 测试通过（本轮新增 26 项：可读性分析与 cover 映射 9、协议
+    surfaces/模态规则/模式覆盖 5、主题包资源引用 1、ThemeService flags/图片/组合模态规则 11），
+    `tsc -b`、`pnpm lint`（boundaries + Biome 基线）、`plugin:api:check`（协议文档已重新生成）、
+    Vite production build 全部通过。
+  - 已知取舍：强调色量表是 color-mix 近似而非 Radix 官方算法（极浅/极艳强调色下 11/12 步文字
+    对比度可能欠佳）；surface 图片可读性用启动时/选择时的组件尺寸近似，窗口大幅缩放后不会重算；
+    下拉菜单 surface 会影响设置对话框内的菜单（核心安全控件不是菜单，仍可操作）；主题包 surface
+    图片资源同样计入 localStorage 体积上限（迁 IndexedDB 的遗留项不变）。
+
   阶段 5 遗留与后续阶段注意事项
 
   - 安装主题包目前整包存于 localStorage（含 base64 资源），受 ~5MB 配额限制；阶段 6 插件管理

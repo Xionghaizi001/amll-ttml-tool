@@ -1,6 +1,7 @@
 import type {
 	ThemePackageAssetV0,
 	ThemePackageV0,
+	ThemeSurfaceNameV0,
 } from "@amll-ttml-tool/plugin-api";
 
 /** Synchronous key-value persistence; the platform adapter owns the store. */
@@ -11,18 +12,40 @@ export interface ThemeKeyValueStorePort {
 }
 
 /**
+ * Which flag-gated bridges are active. The adapter mirrors these as
+ * attributes on the document root so the static bridge CSS in index.css
+ * only applies when a theme or the user actually set the token.
+ */
+export interface ThemeStyleFlags {
+	accent: boolean;
+	/** camelCase surface names from THEME_SURFACE_NAMES_V0. */
+	surfaces: readonly ThemeSurfaceNameV0[];
+}
+
+/**
  * Style injection sink. The adapter is responsible for wrapping the CSS in
  * the amll.theme / amll.user cascade layers so user overrides always win.
  */
 export interface ThemeStyleSinkPort {
 	setThemeCss(css: string): void;
 	setUserCss(css: string): void;
+	setFlags(flags: ThemeStyleFlags): void;
 }
 
 /** Turns packaged binary assets into local URLs (Blob URLs in the browser). */
 export interface ThemeAssetUrlPort {
 	create(asset: ThemePackageAssetV0): string;
 	revoke(url: string): void;
+}
+
+/**
+ * A user-picked background image for one surface. The URL is a host-created
+ * local object URL — never plugin- or network-supplied — and the scrim is
+ * the readability overlay computed (or confirmed) when the image was chosen.
+ */
+export interface UserSurfaceImage {
+	url: string;
+	scrim?: string;
 }
 
 export interface ThemeServicePorts {
@@ -50,6 +73,11 @@ export interface ThemeServiceState {
 	safeMode: boolean;
 	safeModeReason: SafeModeReason;
 	hasUserOverrides: boolean;
+	accentActive: boolean;
+	activeSurfaces: readonly ThemeSurfaceNameV0[];
+	userSurfaceImages: Readonly<
+		Partial<Record<ThemeSurfaceNameV0, UserSurfaceImage>>
+	>;
 }
 
 export interface RegisteredTheme {

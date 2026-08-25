@@ -73,6 +73,212 @@ html .radix-themes {
 	--scaling: var(--attt-spacing-scale, 1);
 }
 
+/*
+ * Flag-gated bridges. The DomThemeStyleAdapter stamps data-amll-accent /
+ * data-amll-surface-* attributes on <html> only while the matching token is
+ * effectively configured, so an unset token never repaints a component.
+ * These rules are deliberately unlayered: they must beat the plain class
+ * selectors Radix ships, while the token *values* still resolve through the
+ * amll.base < amll.theme < amll.user layer order.
+ */
+
+/* Accent: a full Radix accent scale derived from one token via color-mix. */
+html[data-amll-accent] .radix-themes {
+	--accent-1: color-mix(in oklab, var(--attt-color-accent) 3%, white);
+	--accent-2: color-mix(in oklab, var(--attt-color-accent) 6%, white);
+	--accent-3: color-mix(in oklab, var(--attt-color-accent) 12%, white);
+	--accent-4: color-mix(in oklab, var(--attt-color-accent) 18%, white);
+	--accent-5: color-mix(in oklab, var(--attt-color-accent) 25%, white);
+	--accent-6: color-mix(in oklab, var(--attt-color-accent) 33%, white);
+	--accent-7: color-mix(in oklab, var(--attt-color-accent) 43%, white);
+	--accent-8: color-mix(in oklab, var(--attt-color-accent) 55%, white);
+	--accent-9: var(--attt-color-accent);
+	--accent-10: color-mix(in oklab, var(--attt-color-accent) 92%, black);
+	--accent-11: color-mix(in oklab, var(--attt-color-accent) 62%, black);
+	--accent-12: color-mix(in oklab, var(--attt-color-accent) 40%, black);
+	--accent-a1: color-mix(in srgb, var(--attt-color-accent) 4%, transparent);
+	--accent-a2: color-mix(in srgb, var(--attt-color-accent) 7%, transparent);
+	--accent-a3: color-mix(in srgb, var(--attt-color-accent) 12%, transparent);
+	--accent-a4: color-mix(in srgb, var(--attt-color-accent) 18%, transparent);
+	--accent-a5: color-mix(in srgb, var(--attt-color-accent) 25%, transparent);
+	--accent-a6: color-mix(in srgb, var(--attt-color-accent) 33%, transparent);
+	--accent-a7: color-mix(in srgb, var(--attt-color-accent) 43%, transparent);
+	--accent-a8: color-mix(in srgb, var(--attt-color-accent) 55%, transparent);
+	--accent-a9: var(--attt-color-accent);
+	--accent-a10: color-mix(in oklab, var(--attt-color-accent) 92%, black);
+	--accent-a11: color-mix(in oklab, var(--attt-color-accent) 62%, black);
+	--accent-a12: color-mix(in oklab, var(--attt-color-accent) 40%, black);
+	--accent-surface: color-mix(in srgb, var(--attt-color-accent) 10%, white);
+	--accent-indicator: var(--attt-color-accent);
+	--accent-track: var(--attt-color-accent);
+	--accent-contrast: var(--attt-color-accent-contrast, white);
+}
+
+html[data-amll-accent][data-amll-appearance="dark"] .radix-themes {
+	--accent-1: color-mix(in oklab, var(--attt-color-accent) 6%, #111113);
+	--accent-2: color-mix(in oklab, var(--attt-color-accent) 10%, #111113);
+	--accent-3: color-mix(in oklab, var(--attt-color-accent) 16%, #111113);
+	--accent-4: color-mix(in oklab, var(--attt-color-accent) 22%, #111113);
+	--accent-5: color-mix(in oklab, var(--attt-color-accent) 29%, #111113);
+	--accent-6: color-mix(in oklab, var(--attt-color-accent) 37%, #111113);
+	--accent-7: color-mix(in oklab, var(--attt-color-accent) 47%, #111113);
+	--accent-8: color-mix(in oklab, var(--attt-color-accent) 60%, #111113);
+	--accent-10: color-mix(in oklab, var(--attt-color-accent) 90%, white);
+	--accent-11: color-mix(in oklab, var(--attt-color-accent) 65%, white);
+	--accent-12: color-mix(in oklab, var(--attt-color-accent) 42%, white);
+	--accent-a10: color-mix(in oklab, var(--attt-color-accent) 90%, white);
+	--accent-a11: color-mix(in oklab, var(--attt-color-accent) 65%, white);
+	--accent-a12: color-mix(in oklab, var(--attt-color-accent) 42%, white);
+	--accent-surface: color-mix(in srgb, var(--attt-color-accent) 14%, #111113);
+}
+
+/*
+ * Surface background bridges. Solid colors land in --attt-surface-<name>,
+ * gradients and images in --attt-surface-<name>-image; the scrim is the
+ * readability overlay painted above the image. Radix Cards paint their own
+ * panel color through --card-background-color, so that is bridged too.
+ */
+html[data-amll-surface-title-bar] [data-slot="title-bar"] {
+	background-color: var(--attt-surface-title-bar, transparent);
+	background-image:
+		linear-gradient(
+			var(--attt-surface-title-bar-scrim, transparent),
+			var(--attt-surface-title-bar-scrim, transparent)
+		),
+		var(--attt-surface-title-bar-image, none);
+	background-size: cover;
+	background-position: center;
+}
+
+html[data-amll-surface-ribbon-bar] [data-slot="ribbon-bar"] {
+	--card-background-color: var(--attt-surface-ribbon-bar, transparent);
+	background-color: var(--attt-surface-ribbon-bar, transparent);
+	background-image:
+		linear-gradient(
+			var(--attt-surface-ribbon-bar-scrim, transparent),
+			var(--attt-surface-ribbon-bar-scrim, transparent)
+		),
+		var(--attt-surface-ribbon-bar-image, none);
+	background-size: cover;
+	background-position: center;
+}
+
+html[data-amll-surface-play-controls] [data-slot="audio-controls"] {
+	--card-background-color: var(--attt-surface-play-controls, transparent);
+	background-color: var(--attt-surface-play-controls, transparent);
+	background-image:
+		linear-gradient(
+			var(--attt-surface-play-controls-scrim, transparent),
+			var(--attt-surface-play-controls-scrim, transparent)
+		),
+		var(--attt-surface-play-controls-image, none);
+	background-size: cover;
+	background-position: center;
+}
+
+html[data-amll-surface-dropdown-menu]
+	:is(.rt-DropdownMenuContent, .rt-ContextMenuContent, .rt-SelectContent) {
+	background-color: var(--attt-surface-dropdown-menu, var(--color-panel-solid));
+	background-image:
+		linear-gradient(
+			var(--attt-surface-dropdown-menu-scrim, transparent),
+			var(--attt-surface-dropdown-menu-scrim, transparent)
+		),
+		var(--attt-surface-dropdown-menu-image, none);
+	background-size: cover;
+	background-position: center;
+}
+
+/*
+ * Modal backgrounds fall back small -> medium -> large; validation
+ * guarantees modalLarge whenever any modal surface is configured, which is
+ * why every rule gates on the modal-large flag. Untagged Dialog.Contents
+ * count as medium; AlertDialog confirmations count as small; protected
+ * dialogs (settings, plugin manager) are exempt so a theme can never
+ * restyle safety UI.
+ */
+html[data-amll-surface-modal-large]
+	:is(.rt-DialogContent, .rt-BaseDialogContent):not(
+		[data-amll-protected],
+		[data-amll-modal-size]
+	) {
+	background-color: var(
+		--attt-surface-modal-medium,
+		var(--attt-surface-modal-large, transparent)
+	);
+	background-image:
+		linear-gradient(
+			var(
+				--attt-surface-modal-medium-scrim,
+				var(--attt-surface-modal-large-scrim, transparent)
+			),
+			var(
+				--attt-surface-modal-medium-scrim,
+				var(--attt-surface-modal-large-scrim, transparent)
+			)
+		),
+		var(
+			--attt-surface-modal-medium-image,
+			var(--attt-surface-modal-large-image, none)
+		);
+	background-size: cover;
+	background-position: center;
+}
+
+html[data-amll-surface-modal-large]
+	:is(.rt-DialogContent, .rt-BaseDialogContent)[data-amll-modal-size="large"]:not(
+		[data-amll-protected]
+	) {
+	background-color: var(--attt-surface-modal-large, transparent);
+	background-image:
+		linear-gradient(
+			var(--attt-surface-modal-large-scrim, transparent),
+			var(--attt-surface-modal-large-scrim, transparent)
+		),
+		var(--attt-surface-modal-large-image, none);
+	background-size: cover;
+	background-position: center;
+}
+
+html[data-amll-surface-modal-large]
+	:is(
+		.rt-DialogContent[data-amll-modal-size="small"],
+		.rt-BaseDialogContent[data-amll-modal-size="small"],
+		.rt-AlertDialogContent
+	):not([data-amll-protected]) {
+	background-color: var(
+		--attt-surface-modal-small,
+		var(--attt-surface-modal-medium, var(--attt-surface-modal-large, transparent))
+	);
+	background-image:
+		linear-gradient(
+			var(
+				--attt-surface-modal-small-scrim,
+				var(
+					--attt-surface-modal-medium-scrim,
+					var(--attt-surface-modal-large-scrim, transparent)
+				)
+			),
+			var(
+				--attt-surface-modal-small-scrim,
+				var(
+					--attt-surface-modal-medium-scrim,
+					var(--attt-surface-modal-large-scrim, transparent)
+				)
+			)
+		),
+		var(
+			--attt-surface-modal-small-image,
+			var(
+				--attt-surface-modal-medium-image,
+				var(--attt-surface-modal-large-image, none)
+			)
+		);
+	background-size: cover;
+	background-position: center;
+}
+
+
 ::-webkit-scrollbar-track {
 	background: transparent;
 

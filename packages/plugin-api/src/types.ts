@@ -462,6 +462,22 @@ export type ThemeSlotNameV0 = (typeof THEME_SLOT_NAMES_V0)[number];
 export const THEME_PART_NAMES_V0 = ["lyric-line", "lyric-word"] as const;
 export type ThemePartNameV0 = (typeof THEME_PART_NAMES_V0)[number];
 
+/**
+ * UI surfaces whose background a theme (or the user) may replace. Modal
+ * surfaces form a fallback chain small → medium → large: styling the medium
+ * or small size therefore requires the large one to be defined too.
+ */
+export const THEME_SURFACE_NAMES_V0 = [
+	"titleBar",
+	"ribbonBar",
+	"dropdownMenu",
+	"playControls",
+	"modalLarge",
+	"modalMedium",
+	"modalSmall",
+] as const;
+export type ThemeSurfaceNameV0 = (typeof THEME_SURFACE_NAMES_V0)[number];
+
 export interface ThemeTokenColorsV0
 	extends Partial<Record<ThemeColorTokenNameV0, string>> {}
 export interface ThemeTokenLyricsV0
@@ -473,12 +489,27 @@ export interface ThemeTokenBackgroundV0 {
 	value?: string;
 }
 
+/**
+ * Background of one UI surface. `image` values must reference a package
+ * asset (`asset:<name>`); `scrim` is an overlay color painted above the
+ * image to keep text readable.
+ */
+export interface ThemeSurfaceBackgroundV0 {
+	kind: "solid" | "gradient" | "image" | "none";
+	value?: string;
+	scrim?: string;
+}
+
+export interface ThemeTokenSurfacesV0
+	extends Partial<Record<ThemeSurfaceNameV0, ThemeSurfaceBackgroundV0>> {}
+
 /** Appearance-specific overrides layered on top of the base token groups. */
 export interface ThemeTokenModeOverridesV0 {
 	color?: ThemeTokenColorsV0;
 	lyrics?: ThemeTokenLyricsV0;
 	spectrogram?: ThemeTokenSpectrogramV0;
 	background?: ThemeTokenBackgroundV0;
+	surfaces?: ThemeTokenSurfacesV0;
 }
 
 export interface ThemeTokensV0 {
@@ -489,6 +520,7 @@ export interface ThemeTokensV0 {
 	lyrics?: ThemeTokenLyricsV0;
 	spectrogram?: ThemeTokenSpectrogramV0;
 	background?: ThemeTokenBackgroundV0;
+	surfaces?: ThemeTokenSurfacesV0;
 	light?: ThemeTokenModeOverridesV0;
 	dark?: ThemeTokenModeOverridesV0;
 }

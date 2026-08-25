@@ -527,7 +527,7 @@ export const MetadataEditor = () => {
 			open={metadataEditorDialog}
 			onOpenChange={setMetadataEditorDialog}
 		>
-			<Dialog.Content className={styles.dialogContent}>
+			<Dialog.Content className={styles.dialogContent} data-amll-modal-size="large">
 				<Dialog.Title className={styles.srOnly}>
 					{t("metadataDialog.title", "元数据编辑器")}
 				</Dialog.Title>

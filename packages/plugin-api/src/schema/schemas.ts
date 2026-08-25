@@ -7,6 +7,7 @@ import {
 	THEME_COLOR_TOKEN_NAMES_V0,
 	THEME_LYRICS_TOKEN_NAMES_V0,
 	THEME_SPECTROGRAM_TOKEN_NAMES_V0,
+	THEME_SURFACE_NAMES_V0,
 	THEME_TOKEN_VERSION,
 } from "../types";
 import type { JsonSchema } from "./validator";
@@ -737,6 +738,23 @@ const themeBackgroundToken = {
 	},
 	additionalProperties: false,
 };
+const themeSurfaceBackground = {
+	type: "object",
+	required: ["kind"],
+	properties: {
+		kind: { enum: ["solid", "gradient", "image", "none"] },
+		value: { type: "string", minLength: 1, maxLength: 1024 },
+		scrim: { type: "string", minLength: 1, maxLength: 64 },
+	},
+	additionalProperties: false,
+};
+const themeSurfacesGroup = {
+	type: "object",
+	properties: Object.fromEntries(
+		THEME_SURFACE_NAMES_V0.map((name) => [name, themeSurfaceBackground]),
+	),
+	additionalProperties: false,
+};
 const themeModeOverrides = {
 	type: "object",
 	properties: {
@@ -744,6 +762,7 @@ const themeModeOverrides = {
 		lyrics: namedTokenGroup(THEME_LYRICS_TOKEN_NAMES_V0),
 		spectrogram: namedTokenGroup(THEME_SPECTROGRAM_TOKEN_NAMES_V0),
 		background: themeBackgroundToken,
+		surfaces: themeSurfacesGroup,
 	},
 	additionalProperties: false,
 };
@@ -774,6 +793,7 @@ export const THEME_TOKENS_SCHEMA = {
 		lyrics: namedTokenGroup(THEME_LYRICS_TOKEN_NAMES_V0),
 		spectrogram: namedTokenGroup(THEME_SPECTROGRAM_TOKEN_NAMES_V0),
 		background: themeBackgroundToken,
+		surfaces: themeSurfacesGroup,
 		light: themeModeOverrides,
 		dark: themeModeOverrides,
 	},

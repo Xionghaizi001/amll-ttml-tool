@@ -1,11 +1,15 @@
 import type {
 	ParseResult,
 	ThemePackageV0,
+	ThemeSurfaceBackgroundV0,
+	ThemeSurfaceNameV0,
 	ThemeTokensV0,
 } from "@amll-ttml-tool/plugin-api";
 import {
+	isSafeThemeColor,
 	parseThemePackage,
 	substituteThemeAssetUrls,
+	THEME_SURFACE_NAMES_V0,
 	validateThemeTokens,
 } from "@amll-ttml-tool/plugin-api";
 import { compileThemeTokensCss } from "./token-css";
@@ -15,6 +19,7 @@ import type {
 	ThemeServicePorts,
 	ThemeServiceState,
 	ThemeSummary,
+	UserSurfaceImage,
 } from "./types";
 
 const STORAGE_KEYS = {
@@ -39,6 +44,7 @@ export class ThemeService {
 	private safeMode = false;
 	private safeModeReason: SafeModeReason = null;
 	private userTokens: ThemeTokensV0 | null = null;
+	private userSurfaceImages = new Map<ThemeSurfaceNameV0, UserSurfaceImage>();
 	private assetUrls: string[] = [];
 	private initialized = false;
 	private disposed = false;
@@ -151,6 +157,11 @@ export class ThemeService {
 				safeMode: this.safeMode,
 				safeModeReason: this.safeModeReason,
 				hasUserOverrides: this.userTokens !== null,
+				accentActive:
+					(this.userTokens?.color?.accent ??
+						this.activeThemeTokens()?.color?.accent) !== undefined,
+				activeSurfaces: this.effectiveSurfaceNames(this.userSurfaceImages),
+				userSurfaceImages: this.getUserSurfaceImages(),
 			};
 		return this.stateSnapshot;
 	}
@@ -187,11 +198,12 @@ export class ThemeService {
 		this.render();
 	}
 
-	/** Back to the default look: no theme, no user overrides. */
+	/** Back to the default look: no theme, no user overrides, no images. */
 	restoreDefaultTheme(): void {
 		this.previewThemeId = null;
 		this.activeThemeId = null;
 		this.userTokens = null;
+		this.userSurfaceImages = new Map();
 		this.ports.storage.remove(STORAGE_KEYS.active);
 		this.ports.storage.remove(STORAGE_KEYS.userTokens);
 		this.render();
@@ -207,7 +219,10 @@ export class ThemeService {
 
 	/**
 	 * Declarative user token overrides, injected into the amll.user layer so
-	 * they beat any theme package value. Pass null to clear.
+	 * they beat any theme package value. Pass null to clear. Image surfaces
+	 * are rejected here — user images go through setUserSurfaceImage. The
+	 * modal fallback rule is checked against the combined theme + user
+	 * configuration, so refining a theme's modal backgrounds is allowed.
 	 */
 	setUserTokenOverrides(input: unknown): ParseResult<ThemeTokensV0 | null> {
 		if (input === null) {
@@ -216,8 +231,37 @@ export class ThemeService {
 			this.render();
 			return { ok: true, value: null };
 		}
-		const parsed = validateThemeTokens(input);
+		const parsed = validateThemeTokens(input, {
+			requireModalFallbackChain: false,
+		});
 		if (!parsed.ok) return parsed;
+		for (const [prefix, surfaces] of [
+			["", parsed.value.surfaces],
+			["/light", parsed.value.light?.surfaces],
+			["/dark", parsed.value.dark?.surfaces],
+		] as const) {
+			for (const [name, surface] of Object.entries<
+				ThemeSurfaceBackgroundV0 | undefined
+			>(surfaces ?? {})) {
+				if (surface?.kind === "image")
+					return {
+						ok: false,
+						issues: [
+							{
+								path: `${prefix}/surfaces/${name}/kind`,
+								message:
+									"user overrides cannot declare image surfaces; pick an image through the surface editor instead",
+							},
+						],
+					};
+			}
+		}
+		const violation = this.modalRuleViolation(
+			this.userSurfaceImages,
+			parsed.value,
+		);
+		if (violation !== null)
+			return { ok: false, issues: [{ path: "/surfaces", message: violation }] };
 		this.userTokens = parsed.value;
 		this.ports.storage.set(
 			STORAGE_KEYS.userTokens,
@@ -266,7 +310,47 @@ export class ThemeService {
 		this.revokeAssetUrls();
 		this.ports.styles.setThemeCss("");
 		this.ports.styles.setUserCss("");
+		this.ports.styles.setFlags({ accent: false, surfaces: [] });
 		this.listeners.clear();
+	}
+
+	/**
+	 * Sets or clears a user-picked background image for one surface. Trusted
+	 * host input only: the URL must be a local object URL the host created,
+	 * and the scrim (usually the readability recommendation) a safe color.
+	 * The modal fallback rule (medium/small require large) is enforced
+	 * against the combined theme + user configuration.
+	 */
+	setUserSurfaceImage(
+		surface: ThemeSurfaceNameV0,
+		image: UserSurfaceImage | null,
+	): ParseResult<UserSurfaceImage | null> {
+		const fail = (message: string): ParseResult<UserSurfaceImage | null> => ({
+			ok: false,
+			issues: [{ path: `/surfaces/${surface}`, message }],
+		});
+		if (!THEME_SURFACE_NAMES_V0.includes(surface))
+			return fail("unknown surface");
+		if (image !== null) {
+			if (!/^blob:[^"'\\)\s]+$/.test(image.url))
+				return fail("surface images must be local object URLs");
+			if (image.scrim !== undefined && !isSafeThemeColor(image.scrim))
+				return fail("unsafe scrim color");
+		}
+		const next = new Map(this.userSurfaceImages);
+		if (image === null) next.delete(surface);
+		else next.set(surface, image);
+		const violation = this.modalRuleViolation(next);
+		if (violation !== null) return fail(violation);
+		this.userSurfaceImages = next;
+		this.render();
+		return { ok: true, value: image };
+	}
+
+	getUserSurfaceImages(): Readonly<
+		Partial<Record<ThemeSurfaceNameV0, UserSurfaceImage>>
+	> {
+		return Object.fromEntries(this.userSurfaceImages);
 	}
 
 	private persistInstalled(): void {
@@ -284,12 +368,75 @@ export class ThemeService {
 		this.assetUrls = [];
 	}
 
+	private activeThemeTokens(): ThemeTokensV0 | null {
+		const effectiveId = this.previewThemeId ?? this.activeThemeId;
+		const theme =
+			effectiveId === null ? undefined : this.themes.get(effectiveId);
+		return theme?.pkg.tokens ?? null;
+	}
+
+	/**
+	 * Surfaces that are effectively configured across the active theme, user
+	 * token overrides (a user "none" removes a theme surface) and user
+	 * surface images. These names gate the static bridge CSS.
+	 */
+	private effectiveSurfaceNames(
+		userImages: ReadonlyMap<ThemeSurfaceNameV0, UserSurfaceImage>,
+		userTokens: ThemeTokensV0 | null = this.userTokens,
+	): ThemeSurfaceNameV0[] {
+		const themeTokens = this.activeThemeTokens();
+		const active = new Set<ThemeSurfaceNameV0>();
+		for (const [name, surface] of Object.entries<
+			ThemeSurfaceBackgroundV0 | undefined
+		>(themeTokens?.surfaces ?? {})) {
+			if (surface !== undefined && surface.kind !== "none")
+				active.add(name as ThemeSurfaceNameV0);
+		}
+		for (const [name, surface] of Object.entries<
+			ThemeSurfaceBackgroundV0 | undefined
+		>(userTokens?.surfaces ?? {})) {
+			if (surface === undefined) continue;
+			if (surface.kind === "none") active.delete(name as ThemeSurfaceNameV0);
+			else active.add(name as ThemeSurfaceNameV0);
+		}
+		for (const name of userImages.keys()) active.add(name);
+		return THEME_SURFACE_NAMES_V0.filter((name) => active.has(name));
+	}
+
+	private modalRuleViolation(
+		userImages: ReadonlyMap<ThemeSurfaceNameV0, UserSurfaceImage>,
+		userTokens: ThemeTokensV0 | null = this.userTokens,
+	): string | null {
+		const active = this.effectiveSurfaceNames(userImages, userTokens);
+		if (
+			(active.includes("modalMedium") || active.includes("modalSmall")) &&
+			!active.includes("modalLarge")
+		)
+			return "modalMedium/modalSmall require modalLarge to be configured (backgrounds fall back small -> medium -> large)";
+		return null;
+	}
+
+	private userSurfaceImageCss(): string {
+		if (this.userSurfaceImages.size === 0) return "";
+		const declarations: string[] = [];
+		for (const [name, image] of this.userSurfaceImages) {
+			const varName = `--attt-surface-${name.replace(
+				/[A-Z]/g,
+				(char) => `-${char.toLowerCase()}`,
+			)}`;
+			declarations.push(`${varName}-image: url("${image.url}");`);
+			declarations.push(`${varName}-scrim: ${image.scrim ?? "initial"};`);
+		}
+		return `:root {\n\t${declarations.join("\n\t")}\n}`;
+	}
+
 	private render(): void {
 		if (this.disposed) return;
 		this.revokeAssetUrls();
 		if (this.safeMode) {
 			this.ports.styles.setThemeCss("");
 			this.ports.styles.setUserCss("");
+			this.ports.styles.setFlags({ accent: false, surfaces: [] });
 			this.notify();
 			return;
 		}
@@ -303,19 +450,38 @@ export class ThemeService {
 			for (const [name, asset] of Object.entries(theme.pkg.assets ?? {}))
 				urls.set(name, this.ports.assets.create(asset));
 			this.assetUrls = [...urls.values()];
-			const tokensCss = compileThemeTokensCss(theme.pkg.tokens);
+			const resolveAsset = (name: string) => urls.get(name) ?? null;
+			const tokensCss = compileThemeTokensCss(theme.pkg.tokens, {
+				resolveAsset,
+			});
 			const stylesCss = Object.values(theme.pkg.styles ?? {})
-				.map((css) =>
-					substituteThemeAssetUrls(css, (name) => urls.get(name) ?? null),
-				)
+				.map((css) => substituteThemeAssetUrls(css, resolveAsset))
 				.join("\n");
 			this.ports.styles.setThemeCss(
 				[tokensCss, stylesCss].filter(Boolean).join("\n"),
 			);
 		}
-		this.ports.styles.setUserCss(
+		const userCssSections = [
 			this.userTokens === null ? "" : compileThemeTokensCss(this.userTokens),
-		);
+			this.userSurfaceImageCss(),
+		].filter(Boolean);
+		this.ports.styles.setUserCss(userCssSections.join("\n"));
+
+		// A theme switch can strand user modal surfaces without a large base;
+		// drop the offending flags (the vars stay dormant) instead of leaving
+		// most dialogs unstyled while claiming coverage.
+		let surfaces = this.effectiveSurfaceNames(this.userSurfaceImages);
+		if (this.modalRuleViolation(this.userSurfaceImages) !== null) {
+			surfaces = surfaces.filter(
+				(name) => name !== "modalMedium" && name !== "modalSmall",
+			);
+			this.ports.warn?.(
+				"Dropping modalMedium/modalSmall surfaces: modalLarge is not configured",
+			);
+		}
+		const accent =
+			this.userTokens?.color?.accent ?? this.activeThemeTokens()?.color?.accent;
+		this.ports.styles.setFlags({ accent: accent !== undefined, surfaces });
 		this.notify();
 	}
 
