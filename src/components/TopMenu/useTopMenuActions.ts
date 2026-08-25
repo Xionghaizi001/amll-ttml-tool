@@ -5,7 +5,20 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { uid } from "uid";
+import {
+	distributeDocumentRomanization,
+	refreshRomanizationWarnings,
+} from "$/application/lyrics";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
+import {
+	segmentLyricLines,
+	segmentWord,
+} from "$/modules/segmentation/utils/segmentation";
+import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
+import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import {
 	editorDocumentAdapter,
 	editorDocumentHistoryAtom,
@@ -13,16 +26,6 @@ import {
 	editorDocumentUndoAtom,
 	editorDocumentWriteAtom,
 } from "$/plugins/adapters/editor-document";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
-import {
-	segmentLyricLines,
-	segmentWord,
-} from "$/modules/segmentation/utils/segmentation";
-import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
-import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
-import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
-import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import {
 	advancedSegmentationDialogAtom,
 	confirmDialogAtom,
@@ -143,14 +146,7 @@ export const useTopMenuActions = () => {
 		} else {
 			action();
 		}
-	}, [
-		isDirty,
-		setConfirmDialog,
-		t,
-		setProjectId,
-		setSaveFileName,
-		store,
-	]);
+	}, [isDirty, setConfirmDialog, t, setProjectId, setSaveFileName, store]);
 
 	const onOpenFile = useCallback(() => {
 		const inputEl = document.createElement("input");
@@ -411,25 +407,17 @@ export const useTopMenuActions = () => {
 
 	const onOpenDistributeRomanization = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
-		const hasSelection = selectedLines.size > 0;
-		editLyricLines((draft) => {
-			draft.lyricLines.forEach((line) => {
-				if (hasSelection && !selectedLines.has(line.id)) return;
-				const fullRoman = line.romanLyric || "";
-				if (line.words.length === 0 || fullRoman.trim() === "") return;
-				try {
-					const results = predictLineRomanization(line.words, fullRoman);
-					line.words.forEach((word, wordIndex) => {
-						if (!results[wordIndex]) return;
-						word.romanWord = results[wordIndex];
-					});
-					applyRomanizationWarnings(line.words);
-				} catch (e) {
-					topMenuLogger.error("Failed to distribute romanization", e);
-				}
-			});
-		});
-	}, [editLyricLines, store]);
+		const { failures } = distributeDocumentRomanization(
+			editorDocumentAdapter,
+			romanizationEngine,
+			selectedLines.size ? selectedLines : undefined,
+		);
+		for (const failure of failures)
+			topMenuLogger.error(
+				`Failed to distribute romanization for line ${failure.lineIndex + 1}`,
+				failure.error,
+			);
+	}, [store]);
 
 	const onAutoRuby = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
@@ -447,12 +435,8 @@ export const useTopMenuActions = () => {
 	}, [editLyricLines, store]);
 
 	const onCheckRomanizationWarnings = useCallback(() => {
-		editLyricLines((draft) => {
-			for (const line of draft.lyricLines) {
-				applyRomanizationWarnings(line.words);
-			}
-		});
-	}, [editLyricLines]);
+		refreshRomanizationWarnings(editorDocumentAdapter, romanizationEngine);
+	}, []);
 
 	const onOpenAdvancedSegmentation = useCallback(() => {
 		setAdvancedSegmentationDialog(true);

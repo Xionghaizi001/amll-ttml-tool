@@ -1,12 +1,5 @@
-import {
-	audioEngineStateAtom,
-	audioErrorAtom,
-	audioPlayingAtom,
-	currentDurationAtom,
-	isAuditioningAtom,
-	loadedAudioAtom,
-	stretchAlgorithmAtom,
-} from "$/modules/audio/states/index.ts";
+import { jotaiAudioEngineHost } from "$/modules/audio/adapters/jotai-audio-engine-host";
+import type { AudioEngineHostPort } from "$/modules/audio/ports/audio-engine-host";
 import {
 	type AudioTrackMetadata,
 	parseAudioTrackMetadata,
@@ -17,7 +10,6 @@ import workerUrl from "$/modules/ffmpeg/worker/decoder.worker.ts?worker&url";
 import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
 import workletUrl from "$/modules/ffmpeg/worklet/audio.worklet.ts?worker&url";
 import soundtouchWasmUrl from "$/modules/ffmpeg/worklet/wasm/soundtouch_bg.wasm?url";
-import { globalStore } from "$/states/store.ts";
 import type { TTMLMetadata } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
 
@@ -25,7 +17,7 @@ export const audioEngineLogger = createLogger("AudioEngine");
 
 export type { AudioTrackMetadata };
 
-class AudioEngineWrapper extends EventTarget {
+export class AudioEngineWrapper extends EventTarget {
 	private engine: FFmpegAudioEngine;
 	private _audioTrackMetadata: AudioTrackMetadata = {
 		titles: [],
@@ -97,20 +89,20 @@ class AudioEngineWrapper extends EventTarget {
 	}
 
 	private clearAuditionState() {
-		if (this.engine.pauseAt !== null || globalStore.get(isAuditioningAtom)) {
+		if (this.engine.pauseAt !== null || this.host.getIsAuditioning()) {
 			this.engine.pauseAt = null;
-			globalStore.set(isAuditioningAtom, false);
+			this.host.setIsAuditioning(false);
 		}
 	}
 	//#endregion
 
-	constructor() {
+	constructor(private readonly host: AudioEngineHostPort) {
 		super();
 
 		this.engine = new FFmpegAudioEngine({
 			audioContext: this.ctx,
 			gainNode: this.gain,
-			defaultAlgorithm: globalStore.get(stretchAlgorithmAtom) ?? "spectral",
+			defaultAlgorithm: host.getStretchAlgorithm(),
 			assets: {
 				workerUrl,
 				workletUrl,
@@ -119,8 +111,8 @@ class AudioEngineWrapper extends EventTarget {
 			},
 		});
 
-		globalStore.sub(stretchAlgorithmAtom, () => {
-			this.engine.algorithm = globalStore.get(stretchAlgorithmAtom);
+		host.subscribeStretchAlgorithm((algorithm) => {
+			this.engine.algorithm = algorithm;
 		});
 
 		this.setupEngineListeners();
@@ -128,14 +120,14 @@ class AudioEngineWrapper extends EventTarget {
 
 	private setupEngineListeners() {
 		this.engine.addEventListener("play", () => {
-			globalStore.set(audioPlayingAtom, true);
-			globalStore.set(audioEngineStateAtom, this.engine.state);
+			this.host.setPlaying(true);
+			this.host.setEngineState(this.engine.state);
 			this.startTick();
 		});
 
 		this.engine.addEventListener("pause", () => {
-			globalStore.set(audioPlayingAtom, false);
-			globalStore.set(audioEngineStateAtom, this.engine.state);
+			this.host.setPlaying(false);
+			this.host.setEngineState(this.engine.state);
 			this.stopTick();
 			this.emitTimeUpdate();
 			this.clearAuditionState();
@@ -143,8 +135,8 @@ class AudioEngineWrapper extends EventTarget {
 
 		this.engine.addEventListener("loadedmetadata", () => {
 			this.updateAudioTrackMetadata();
-			globalStore.set(currentDurationAtom, (this.engine.duration * 1000) | 0);
-			globalStore.set(audioEngineStateAtom, this.engine.state);
+			this.host.setDuration((this.engine.duration * 1000) | 0);
+			this.host.setEngineState(this.engine.state);
 		});
 
 		this.engine.addEventListener("timeupdate", () => {
@@ -152,15 +144,15 @@ class AudioEngineWrapper extends EventTarget {
 		});
 
 		this.engine.addEventListener("ended", () => {
-			globalStore.set(audioPlayingAtom, false);
+			this.host.setPlaying(false);
 			this.stopTick();
 			this.emitTimeUpdate();
 			this.clearAuditionState();
 		});
 
 		this.engine.addEventListener("error", (e) => {
-			globalStore.set(audioEngineStateAtom, this.engine.state);
-			globalStore.set(audioErrorAtom, e.detail.message);
+			this.host.setEngineState(this.engine.state);
+			this.host.setError(e.detail.message);
 			audioEngineLogger.error(e.detail.message);
 			this.stopTick();
 		});
@@ -278,7 +270,7 @@ class AudioEngineWrapper extends EventTarget {
 		if (durationInSeconds <= 0) return;
 
 		this.engine.pauseAt = endTimeInSeconds;
-		globalStore.set(isAuditioningAtom, true);
+		this.host.setIsAuditioning(true);
 
 		this.engine.currentTime = startTimeInSeconds;
 		this.engine.play();
@@ -291,9 +283,9 @@ class AudioEngineWrapper extends EventTarget {
 			this.pauseMusic();
 		}
 		this.clearAuditionState();
-		globalStore.set(audioEngineStateAtom, "loading");
+		this.host.setEngineState("loading");
 
-		globalStore.set(loadedAudioAtom, src);
+		this.host.setLoadedAudio(src);
 		await this.engine.loadFile(src);
 		this.updateAudioTrackMetadata(src);
 
@@ -331,4 +323,4 @@ class AudioEngineWrapper extends EventTarget {
 	}
 }
 
-export const audioEngine = new AudioEngineWrapper();
+export const audioEngine = new AudioEngineWrapper(jotaiAudioEngineHost);

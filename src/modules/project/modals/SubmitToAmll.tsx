@@ -11,21 +11,28 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import type { TFunction } from "i18next";
-import { atom, useAtom, useAtomValue, useStore } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { memo, useCallback, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import {
+	createSubmissionName,
+	getLyricSubmissionIssues,
+	LyricSubmissionGenerationError,
+	LyricSubmissionUploadError,
+	type SubmissionIssue,
+} from "$/application/project";
+import { amllSubmissionService } from "$/modules/project/adapters/amll-submission";
+import {
 	generateNameFromMetadataAtom,
 	hideSubmitAMLLDBWarningAtom,
 } from "$/modules/settings/states";
-import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
+import type { JsError } from "$/modules/ttml-processor/types";
 import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { submitToAMLLDBDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main";
-import type { TTMLMetadata } from "$/types/ttml";
 import { projectLogger } from "../logger";
 
 enum UploadDBType {
@@ -35,88 +42,6 @@ enum UploadDBType {
 }
 
 const uploadDbTypeAtom = atomWithStorage("uploadDbType", UploadDBType.Official);
-const metadataAtom = atom((get) => get(lyricLinesAtom).metadata);
-const issuesAtom = atom((get) => {
-	const result: string[] = [];
-	const metadatas = get(metadataAtom);
-
-	if (
-		metadatas.findIndex((m) => m.key === "musicName" && m.value.length > 0) ===
-		-1
-	)
-		result.push("元数据缺少音乐名称");
-
-	if (
-		metadatas.findIndex((m) => m.key === "artists" && m.value.length > 0) === -1
-	)
-		result.push("元数据缺少音乐作者");
-
-	if (
-		metadatas.findIndex((m) => m.key === "album" && m.value.length > 0) === -1
-	)
-		result.push("元数据缺少音乐专辑名称");
-
-	const platforms = new Set([
-		"ncmMusicId",
-		"qqMusicId",
-		"spotifyId",
-		"appleMusicId",
-	]);
-
-	if (
-		metadatas.findIndex((m) => platforms.has(m.key) && m.value.length > 0) ===
-		-1
-	)
-		result.push("元数据缺少音乐平台对应歌曲 ID");
-
-	return result;
-});
-
-const validateMetadata = (
-	metadatas: TTMLMetadata[],
-	t: TFunction,
-): string[] => {
-	const result: string[] = [];
-	const musicName = metadatas.find((m) => m.key === "musicName");
-	if (!musicName?.value?.length) {
-		result.push(
-			t("submitToAMLLDB.validation.missingMusicName", "元数据缺少音乐名称"),
-		);
-	}
-
-	const artists = metadatas.find((m) => m.key === "artists");
-	if (!artists?.value?.length) {
-		result.push(
-			t("submitToAMLLDB.validation.missingArtists", "元数据缺少音乐作者"),
-		);
-	}
-
-	const album = metadatas.find((m) => m.key === "album");
-	if (!album?.value?.length) {
-		result.push(
-			t("submitToAMLLDB.validation.missingAlbum", "元数据缺少音乐专辑名称"),
-		);
-	}
-
-	const musicIds = [
-		metadatas.find((m) => m.key === "ncmMusicId"),
-		metadatas.find((m) => m.key === "qqMusicId"),
-		metadatas.find((m) => m.key === "spotifyId"),
-		metadatas.find((m) => m.key === "appleMusicId"),
-		metadatas.find((m) => m.key === "isrc"),
-	];
-
-	if (!musicIds.some((id) => id?.value?.length)) {
-		result.push(
-			t(
-				"submitToAMLLDB.validation.missingMusicId",
-				"元数据缺少音乐平台对应歌曲 ID",
-			),
-		);
-	}
-
-	return result;
-};
 
 export const SubmitToAMLLDBDialog = memo(() => {
 	const { t } = useTranslation();
@@ -126,100 +51,90 @@ export const SubmitToAMLLDBDialog = memo(() => {
 	const [genNameFromMetadata, setGenNameFromMetadata] = useAtom(
 		generateNameFromMetadataAtom,
 	);
-	const metadatas = useAtomValue(metadataAtom);
-	const issues = useAtomValue(issuesAtom);
+	const document = useAtomValue(lyricLinesAtom);
+	const metadatas = document.metadata;
+	const issueCodes = getLyricSubmissionIssues(document);
 	const [name, setName] = useState("");
 	const [comment, setComment] = useState("");
 	const [processing, setProcessing] = useState(false);
 	const [submitReason, setSubmitReason] = useState(
 		t("submitToAMLLDB.defaultReason", "新歌词提交"),
 	);
-	const store = useStore();
-
 	const handleTtmlError = useTtmlErrorHandler();
+	const issueMessage = useCallback(
+		(issue: SubmissionIssue) => {
+			switch (issue) {
+				case "missing-music-name":
+					return t(
+						"submitToAMLLDB.validation.missingMusicName",
+						"元数据缺少音乐名称",
+					);
+				case "missing-artists":
+					return t(
+						"submitToAMLLDB.validation.missingArtists",
+						"元数据缺少音乐作者",
+					);
+				case "missing-album":
+					return t(
+						"submitToAMLLDB.validation.missingAlbum",
+						"元数据缺少音乐专辑名称",
+					);
+				case "missing-music-id":
+					return t(
+						"submitToAMLLDB.validation.missingMusicId",
+						"元数据缺少音乐平台对应歌曲 ID",
+					);
+				case "empty-lyrics":
+					return t("submitToAMLLDB.errors.noLyrics", "歌词还什么都没有呢？");
+			}
+		},
+		[t],
+	);
+	const issues = issueCodes.map(issueMessage);
 
 	const onSubmit = useCallback(async () => {
 		if (processing) return;
 		setProcessing(true);
 		try {
-			const errors = validateMetadata(metadatas, t);
-			if (errors.length > 0) {
+			if (issues.length > 0) {
 				toast.error(
 					t("submitToAMLLDB.errors.validation", "提交验证失败：\n{errors}", {
-						errors: errors.join("\n"),
+						errors: issues.join("\n"),
 					}),
 				);
 				return;
 			}
-
-			if (store.get(lyricLinesAtom).lyricLines.length === 0) {
-				toast.error(
-					t("submitToAMLLDB.errors.noLyrics", "歌词还什么都没有呢？"),
+			const result = await amllSubmissionService.submit(
+				editorDocumentAdapter.readSnapshot(),
+				{
+					reason: submitReason,
+					comment,
+					label: t("submitToAMLLDB.labels.submit", "歌词提交/补正"),
+					issueTitle: t("submitToAMLLDB.issueTitle", "[歌词提交/修正] {name}", {
+						name,
+					}),
+				},
+			);
+			open(result.issueUrl);
+			setDialogOpen(false);
+		} catch (err) {
+			if (err instanceof LyricSubmissionGenerationError) {
+				handleTtmlError(
+					err.generationError as JsError,
+					"Error when generating TTML",
 				);
 				return;
 			}
-
-			const amllResult = ttmlLyricToAmllResult(store.get(lyricLinesAtom));
-			const result = amllToTTML(amllResult);
-
-			if (!result.success) {
-				handleTtmlError(result.error, `Error when generating TTML`);
-				setProcessing(false);
-				return;
-			}
-
-			const ttmlBlob = new Blob([result.data], { type: "text/xml" });
-
-			const formData = new FormData();
-			formData.append("file", ttmlBlob, "lyrics.ttml");
-
-			const uploadResp = await fetch(
-				"https://amll-ttml-db.stevexmh.com/api/upload",
-				{
-					method: "POST",
-					body: formData,
-				},
-			);
-
-			if (!uploadResp.ok) {
-				throw new Error(
+			if (err instanceof LyricSubmissionUploadError) {
+				toast.error(
 					t(
 						"submitToAMLLDB.errors.uploadFailed",
 						"发送上传歌词文件请求失败：{status} {statusText}",
-						{
-							status: uploadResp.status,
-							statusText: uploadResp.statusText,
-						},
+						{ status: err.status, statusText: err.statusText },
 					),
 				);
+				return;
 			}
-
-			const uploadResult = await uploadResp.json();
-
-			const issueUrl = new URL(
-				"https://github.com/amll-dev/amll-ttml-lyrics/issues/new",
-			);
-
-			issueUrl.searchParams.append(
-				"labels",
-				t("submitToAMLLDB.labels.submit", "歌词提交/补正"),
-			);
-			issueUrl.searchParams.append(
-				"title",
-				t("submitToAMLLDB.issueTitle", "[歌词提交/修正] {name}", { name }),
-			);
-			issueUrl.searchParams.append(
-				"body",
-				`${submitReason}
-
-${comment}
-
-<!-- AMLL TTML DB File ID: ${uploadResult.id} -->`,
-			);
-
-			open(issueUrl.toString());
-			setDialogOpen(false);
-		} catch (err) {
 			projectLogger.error(err);
 			toast.error(
 				t(
@@ -227,29 +142,29 @@ ${comment}
 					"提交发生错误，请查看控制台确认原因！",
 				),
 			);
+		} finally {
+			setProcessing(false);
 		}
-		setProcessing(false);
 	}, [
-		store,
 		name,
 		submitReason,
 		comment,
 		setDialogOpen,
 		t,
-		metadatas,
+		issues,
 		processing,
 		handleTtmlError,
 	]);
 
 	useLayoutEffect(() => {
 		if (genNameFromMetadata) {
-			const name =
-				metadatas.find((m) => m.key === "musicName")?.value?.join(", ") ??
-				t("submitToAMLLDB.unknownTitle", "未知曲名");
-			const artists =
-				metadatas.find((m) => m.key === "artists")?.value?.join(", ") ??
-				t("submitToAMLLDB.unknownArtist", "未知歌手");
-			setName(`${artists} - ${name}`);
+			setName(
+				createSubmissionName(
+					metadatas,
+					t("submitToAMLLDB.unknownTitle", "未知曲名"),
+					t("submitToAMLLDB.unknownArtist", "未知歌手"),
+				),
+			);
 		}
 	}, [genNameFromMetadata, metadatas, t]);
 

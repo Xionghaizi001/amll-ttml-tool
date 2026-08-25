@@ -40,8 +40,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
-import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
+import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import {
 	enableAutoRomanizationPredictionAtom,
 	showLineRomanizationAtom,
@@ -50,6 +49,7 @@ import {
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
+import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import {
 	dragSourceAtom,
 	isDraggingGlobalAtom,
@@ -416,7 +416,7 @@ export const LyricLineView: FC<{
 			return [];
 		}
 
-		return predictLineRomanization(line.words, line.romanLyric || "");
+		return romanizationEngine.predict(line.words, line.romanLyric || "");
 	}, [line.romanLyric, line.words, enablePrediction]);
 
 	const onToggleEndTimeLink = useCallback(

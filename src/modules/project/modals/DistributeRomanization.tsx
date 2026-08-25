@@ -1,50 +1,42 @@
 import { InfoRegular } from "@fluentui/react-icons";
 import { Button, Callout, Dialog, Flex } from "@radix-ui/themes";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
+import { distributeDocumentRomanization } from "$/application/lyrics";
 import {
 	DialogScopeSelector,
 	useDialogScope,
 } from "$/hooks/useDialogScope.tsx";
-import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
-import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
+import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { projectLogger } from "../logger";
 
 export const DistributeRomanizationDialog = () => {
 	const { t } = useTranslation();
 	const [open, setOpen] = useAtom(distributeRomanizationDialogAtom);
-	const setLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const scopeState = useDialogScope(open);
 
 	const handleConfirm = () => {
 		const targetLineIndices = scopeState.getTargetLineIndices();
 
-		setLyricLines((draft) => {
-			draft.lyricLines.forEach((line, index) => {
-				if (targetLineIndices.has(index)) {
-					const fullRoman = line.romanLyric || "";
-					if (line.words.length > 0 && fullRoman.trim() !== "") {
-						try {
-							const results = predictLineRomanization(line.words, fullRoman);
-
-							line.words.forEach((word, wordIndex) => {
-								if (results[wordIndex]) {
-									word.romanWord = results[wordIndex];
-								}
-							});
-							applyRomanizationWarnings(line.words);
-						} catch (e) {
-							projectLogger.error(
-								`Failed to distribute romanization for line ${index + 1}`,
-								e,
-							);
-						}
-					}
-				}
-			});
-		});
+		const snapshot = editorDocumentAdapter.readSnapshot();
+		const lineIds = new Set(
+			snapshot.lyricLines
+				.filter((_line, index) => targetLineIndices.has(index))
+				.map((line) => line.id),
+		);
+		const { failures } = distributeDocumentRomanization(
+			editorDocumentAdapter,
+			romanizationEngine,
+			lineIds,
+		);
+		for (const failure of failures) {
+			projectLogger.error(
+				`Failed to distribute romanization for line ${failure.lineIndex + 1}`,
+				failure.error,
+			);
+		}
 
 		setOpen(false);
 	};

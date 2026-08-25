@@ -5,5 +5,6 @@ export * from "./LyricTimelineMutationService";
 export * from "./LyricTimelineService";
 export * from "./MetadataService";
 export * from "./PlainTextImportService";
+export * from "./RomanizationService";
 export * from "./SegmentationService";
 export * from "./TtmlFormatService";

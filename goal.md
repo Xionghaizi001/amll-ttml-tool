@@ -11,8 +11,9 @@
     Jotai 通过单一 adapter 接入。工具、Ribbon、元数据、频谱、导入器和编辑器直写点已迁移，稳定
     行/词 ID、字段保留、冲突拒绝和 import boundary 均有测试覆盖。
   - 阶段 3：公开 `plugin-api`、JSON Schema、capability negotiation、Mock Host 合同测试和分层 lint
-    已落地；时间平移已完成完整 application service 闭环。当前工作区继续新增 `src/application/lyrics`，
-    将纯文本导入、导出前规范化和时间线分段从 React/Jotai 模块中拆出，并保留轻量状态/UI adapter。
+    已落地；时间平移已完成完整 application service 闭环。`src/application/lyrics` 与
+    `src/application/project` 已继续承接格式、导航、时间线、元数据、分词、罗马音、历史快照和提交编排，
+    平台实现收敛到 `src/platform` 或模块 adapter。
   - 对应提交链：`c9280cb`（ADR/依赖）→ `29aa81a`、`9ccef5a`（runtime PoC）→
     `6601c31`、`42ed686`、`c1356f3`（事务层与全量迁移）→ `e194c6f`（公开 Plugin API 与
     首批分层迁移）。`src/application/lyrics` 的继续拆分目前仍在工作区中，尚未提交。
@@ -91,7 +92,7 @@
     - [x] 纯文本导入：新增 `PlainTextImportService`，负责多行/同行翻译与音译、特殊前缀、分词符和空拍解析。
     - [x] 歌词导出：新增 `LyricExportService`，负责导出时间取整与文件名生成；文件保存仍由 UI/platform 负责。
     - [x] 时间线投影：新增 `LyricTimelineService`，负责生成 word/gap segment，Jotai 仅负责派生状态。
-    - [ ] TTML、LRCLIB、同步导航、元数据、完整分词流程等业务继续按功能闭环迁移。
+    - [x] TTML、LRCLIB、同步导航、元数据、完整分词流程等业务已按功能闭环迁移。
   - [x] 选择一个完整功能闭环（建议时间平移）完成 UI → command/application service → EditorDocumentService 的迁移，并删除该功能的旧直写入口。
   - [x] 为分层增加 import boundary/lint 约束，并在 CI 中检查新增跨层依赖。
   - [x] 定义 FunctionPluginManifest 和 ThemePluginManifest 判别联合。
@@ -102,10 +103,11 @@
   - [x] 为定制字段预留 capability 和 extensions，但不允许无约束覆盖内部对象。
   - [x] 自动生成 SDK 类型和协议文档。
 
-  当前验证：Mock Host 合同套件无需启动 React；时间平移可在 Node 测试中产生单一事务并完整撤销；
-  纯文本导入、歌词导出规范化和时间线分段可在 Node/Vitest 中独立测试；全量测试、TypeScript、目标文件
-  Biome lint 和 `scripts/check-editor-boundary.mjs` 均通过。仓库级 Biome lint 仍有 3 个与本轮无关的既有
-  `noArrayIndexKey` 错误。
+  当前验证：Mock Host 合同套件无需启动 React；时间平移与罗马音分配均可在 Node 测试中产生单一事务
+  并完整撤销；历史版本策略、提交校验/网络端口、纯文本导入、歌词导出规范化和时间线分段均可在
+  Node/Vitest 中独立测试。全量 98 项测试、TypeScript、目标文件 Biome lint 和
+  `scripts/check-editor-boundary.mjs` 均通过。仓库级 Biome lint 仍有 2 个与本轮无关的既有
+  `noArrayIndexKey` 错误，以及既有样式/抑制警告。
 
   阶段 3 剩余遗留模块审计（2026-08-25）
 
@@ -123,17 +125,19 @@
 
   优先级 P1：P0 完成后继续收敛平台和业务边界。
 
-  1. `src/modules/project/autosave/autosave.ts` 与 `modals/HistoryRestore.tsx`
+  P1 进展（本轮工作区，2026-08-25）
+
+  1. [x] `src/modules/project/autosave/autosave.ts` 与 `modals/HistoryRestore.tsx`
      - 将历史保留策略、项目快照业务与 IndexedDB 实现拆成 application service 和 storage adapter。
-  2. `src/modules/settings/states/custom-background.ts`
-     - 当前同时包含 Jotai、IndexedDB、localStorage 迁移、fetch、Blob URL 生命周期；应拆到 platform storage/resource adapter。
-  3. `src/modules/project/modals/SubmitToAmll.tsx`
-     - 将 TTML 生成、提交 payload、校验和请求流程从大型对话框中拆出；网络能力通过 platform port 注入。（此部分因外部平台原因暂不实现，但需要保留网络能力为日后接入类似插件做准备。）
-  4. `src/modules/audio/audio-engine.ts`
+  2. [x] `src/modules/project/modals/SubmitToAmll.tsx`
+     - TTML 生成编排、提交 payload、校验和请求流程已从大型对话框中拆出；新增 host-agnostic
+       `HttpClientPort` 与 Fetch adapter。外部平台协议和多歌词库提交行为不在本轮扩展。
+  3. [x] `src/modules/audio/audio-engine.ts`
      - 移除对 `globalStore` 的直接读取，以显式配置或 adapter 注入设置；Worker/AudioContext 仍属于 runtime/platform 实现。
-  5. `src/modules/segmentation/utils/Transliteration/roman-debugger.ts` 与
+  4. [x] `src/modules/segmentation/utils/Transliteration/roman-debugger.ts` 与
      `project/modals/DistributeRomanization.tsx`
-     - 核心罗马音分配算法已经独立，剩余调试 hook、文档应用和 UI 流程需要分层。
+     - 调试报告与文档应用已迁移到 `RomanizationService`；核心算法通过 port 注入，UI 仅处理范围选择、
+       日志和对话框生命周期，整次应用保持单一文档事务并可撤销。
 
   优先级 P2：不阻塞当前 application service 验收，但在插件化前需要整理。
 
@@ -154,6 +158,8 @@
   - [ ] 第三方插件不得注入 React 组件或任意 HTML。
   - [ ] 内置插件可以注册受信任 React view contribution。
   - [ ] 插件卸载时必须自动清理全部 contribution 和事件监听器。
+  - [ ] 将 `src/modules/settings/states/custom-background.ts` 的 Jotai、IndexedDB、localStorage
+    迁移、fetch 与 Blob URL 生命周期拆到 platform storage/resource adapter；与主题系统的资源生命周期一并设计。
 
   首个迁移对象建议选择“时间平移”一类工具，能同时验证菜单、表单、文档事务、撤销和通知。
 
