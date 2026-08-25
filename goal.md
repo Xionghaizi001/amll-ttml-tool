@@ -111,25 +111,15 @@
 
   优先级 P0：完成阶段 3 验收前应优先拆分。
 
-  1. `src/modules/ttml-processor/index.ts`
-     - 当前问题：TTML/AMLL 纯转换、字段规范化和 WASM 调用与 `globalStore`、翻译输出设置耦合。
-     - 目标：纯 `TtmlFormatService` 显式接收生成配置；Jotai adapter 只把用户设置转换为配置。
-  2. `src/modules/lyric-editor/utils/lyric-states.ts`
-     - 当前问题：同步单元、选中项定位、下一词导航等纯算法与 React hook、Jotai store 查询混在同一文件。
-     - 目标：拆为同步导航 application service 和 `useCurrentLocation` UI adapter。
-  3. `src/modules/spectrogram/utils/timeline-mutations.ts`
-     - 当前问题：约 590 行时间线计算同时直接依赖 `editorDocumentAdapter`，计算与提交事务边界不清晰。
-     - 目标：纯时间线 mutation/calculation service 返回变更结果，command/adapter 负责提交单一事务。
-  4. `src/modules/lrclib/modals/ImportDialog.tsx`
-     - 当前问题：搜索状态、LRCLIB 转换、背景歌词提取、自动分词、文件名生成和文档替换都在 React 组件中。
-     - 目标：`LrcLibImportService` 负责准备导入文档，UI 只负责搜索交互、确认和错误展示。
-  5. `src/modules/project/modals/MetadataEditor.tsx`
-     - 当前问题：元数据 CRUD、拖放文本拆分、去重和校验与约 738 行 UI 混合。
-     - 目标：抽出 `MetadataService`/command；组件只维护输入焦点和展示状态。
-  6. `src/modules/segmentation/components/AdvancedSegmentation.tsx`、`split-word.tsx` 和
-     `utils/useSegmentationConfig.ts`
-     - 当前问题：核心 `segmentation.ts` 已是纯算法，但配置解析、hyphenator 加载、预览、手动拆词和文档事务仍由 hook/组件编排。
-     - 目标：建立 `SegmentationService` 和配置工厂，React hook 仅绑定设置和异步加载状态。
+  P0 进展（本轮工作区，2026-08-25）
+
+  - [x] TTML：新增无 React/Jotai/Tauri/DOM 依赖的 `TtmlFormatService`，显式接收生成配置；旧 `ttml-processor` 仅保留 WASM/设置 adapter。
+  - [x] 同步导航：新增 `LyricNavigationService`，承载同步单元、Ruby 选择解析、跨行前后导航和当前位置定位；`useCurrentLocation` 只负责 Jotai 绑定。
+  - [x] 频谱时间线：新增 `LyricTimelineMutationService`，纯计算与文档端口提交分离；旧模块仅提供兼容提交 facade。
+  - [x] LRCLIB：新增 `LrcLibImportService`，负责导入文档准备、背景人声提取/自动分词编排和安全文件名生成；React 组件保留搜索、确认和错误展示。
+  - [x] 元数据：新增 `MetadataService`，负责增删改、拖放拆分、去重和清空事务；组件保留焦点、拖放交互和展示。
+  - [x] 分词：新增 `SegmentationService` 配置工厂、范围规范化和手动拆分工具；hook 仅负责设置绑定与异步 hyphenator 加载。
+  - [x] 本轮新增 application service 的 Node/Vitest 覆盖已加入；全量测试、TypeScript、编辑器边界检查通过。
 
   优先级 P1：P0 完成后继续收敛平台和业务边界。
 
@@ -138,7 +128,7 @@
   2. `src/modules/settings/states/custom-background.ts`
      - 当前同时包含 Jotai、IndexedDB、localStorage 迁移、fetch、Blob URL 生命周期；应拆到 platform storage/resource adapter。
   3. `src/modules/project/modals/SubmitToAmll.tsx`
-     - 将 TTML 生成、提交 payload、校验和请求流程从大型对话框中拆出；网络能力通过 platform port 注入。
+     - 将 TTML 生成、提交 payload、校验和请求流程从大型对话框中拆出；网络能力通过 platform port 注入。（此部分因外部平台原因暂不实现，但需要保留网络能力为日后接入类似插件做准备。）
   4. `src/modules/audio/audio-engine.ts`
      - 移除对 `globalStore` 的直接读取，以显式配置或 adapter 注入设置；Worker/AudioContext 仍属于 runtime/platform 实现。
   5. `src/modules/segmentation/utils/Transliteration/roman-debugger.ts` 与

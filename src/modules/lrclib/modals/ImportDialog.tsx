@@ -32,6 +32,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { uid } from "uid";
+import { prepareLrcLibImport } from "$/application/lyrics";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
@@ -100,38 +101,24 @@ export const ImportFromLRCLIB = () => {
 	const performImport = useCallback(
 		async (track: LrcLibTrack) => {
 			try {
-				let ttmlData = convertLrcLibTrackToTTML(track);
+				const prepared = prepareLrcLibImport(
+					track,
+					{ extractBackground: extractBg, autoSegment },
+					segmentationConfig,
+					{
+						convert: convertLrcLibTrackToTTML,
+						extractBackground: extractParenthesesToBg,
+						segment: segmentLyricLines,
+					},
+				);
 
-				if (extractBg) {
-					ttmlData = {
-						...ttmlData,
-						lyricLines: ttmlData.lyricLines.flatMap((line) =>
-							extractParenthesesToBg(line),
-						),
-					};
-				}
-
-				if (autoSegment) {
-					ttmlData = {
-						...ttmlData,
-						lyricLines: segmentLyricLines(
-							ttmlData.lyricLines,
-							segmentationConfig,
-						),
-					};
-				}
-
-				editorDocumentAdapter.replace(ttmlData, {
+				editorDocumentAdapter.replace(prepared.document, {
 					source: "user",
 					label: "Import lyrics from LRCLIB",
 					expectedRevision: editorDocumentAdapter.getRevision(),
 				});
 				setProjectId(uid());
-				const safeFilename = `${track.artistName} - ${track.name}.ttml`.replace(
-					/[\\/:*?"<>|]/g,
-					"_",
-				);
-				setSaveFileName(safeFilename);
+				setSaveFileName(prepared.fileName);
 
 				setIsOpen(false);
 				setPreviewTrack(null);

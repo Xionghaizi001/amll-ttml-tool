@@ -8,9 +8,13 @@ import {
 	Flex,
 	Text,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	createSegmentationConfig,
+	splitDocumentWord,
+} from "$/application/lyrics";
 import {
 	segmentationCustomRulesAtom,
 	segmentationIgnoreListTextAtom,
@@ -32,17 +36,15 @@ import {
 	recalculateWordTime,
 	segmentWord,
 } from "$/modules/segmentation/utils/segmentation.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { splitWordDialogAtom } from "$/states/dialogs.ts";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { editingWordStateAtom, lyricLinesAtom } from "$/states/main";
-import type { LyricWord } from "$/types/ttml";
 import { ManualWordSplitter } from "./ManualWordSplitter";
 
 export const SplitWordDialog = memo(() => {
 	const [splitWordDialog, splitWordDialogOpen] = useAtom(splitWordDialogAtom);
 	const editingState = useAtomValue(editingWordStateAtom);
 	const lyricLines = useAtomValue(lyricLinesAtom);
-	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const { t } = useTranslation();
 
 	const [splitIndices, setSplitIndices] = useState(new Set<number>());
@@ -80,36 +82,29 @@ export const SplitWordDialog = memo(() => {
 		};
 	}, [lang]);
 
-	const ignoreList = useMemo(() => {
-		return new Set(
-			ignoreListText.split("\n").filter((line) => line.trim() !== ""),
-		);
-	}, [ignoreListText]);
-
-	const segmentationConfig = useMemo((): SegmentationConfig => {
-		const weight = parseFloat(punctuationWeight);
-		const finalPunctuationWeight = Number.isNaN(weight) ? 0.2 : weight;
-
-		return {
+	const segmentationConfig = useMemo(
+		(): SegmentationConfig =>
+			createSegmentationConfig({
+				splitCJK,
+				splitEnglish,
+				punctuationMode,
+				punctuationWeight,
+				removeEmptySegments,
+				ignoreListText,
+				customRules,
+				hyphenator: activeHyphenator,
+			}),
+		[
 			splitCJK,
 			splitEnglish,
 			punctuationMode,
-			punctuationWeight: finalPunctuationWeight,
+			punctuationWeight,
 			removeEmptySegments,
-			ignoreList,
+			ignoreListText,
 			customRules,
-			hyphenator: activeHyphenator,
-		};
-	}, [
-		splitCJK,
-		splitEnglish,
-		punctuationMode,
-		punctuationWeight,
-		removeEmptySegments,
-		ignoreList,
-		customRules,
-		activeHyphenator,
-	]);
+			activeHyphenator,
+		],
+	);
 
 	useEffect(() => {
 		if (!splitWordDialog) {
@@ -161,70 +156,22 @@ export const SplitWordDialog = memo(() => {
 	const handleSplit = useCallback(() => {
 		if (!targetWordText) return;
 
-		const sortedIndices = Array.from(splitIndices).sort((a, b) => a - b);
-		const buildSegments = (text: string) => {
-			const parts: string[] = [];
-			let lastIndex = 0;
-			for (const index of sortedIndices) {
-				if (index <= lastIndex) continue;
-				parts.push(text.slice(lastIndex, index));
-				lastIndex = index;
-			}
-			parts.push(text.slice(lastIndex));
-			return parts.filter((p) => p.length > 0);
-		};
-
-		const targetSegments = buildSegments(targetWordText);
-
-		if (targetSegments.length === 0) return;
-
-		const createNewWords = (
-			targetWord: LyricWord,
-			segments: string[],
-		): LyricWord[] => {
-			return recalculateWordTime(targetWord, segments, segmentationConfig);
-		};
-
-		editLyricLines((state) => {
-			if (applyToAll) {
-				const targetLower = targetWordText.toLowerCase();
-
-				for (const line of state.lyricLines) {
-					line.words = line.words.flatMap((word) => {
-						const isMatch = ignoreCase
-							? word.word.toLowerCase() === targetLower
-							: word.word === targetWordText;
-
-						if (isMatch) {
-							const wordSegments = ignoreCase
-								? buildSegments(word.word)
-								: targetSegments;
-							return createNewWords(
-								word,
-								wordSegments.length > 0 ? wordSegments : targetSegments,
-							);
-						}
-						return word;
-					});
-				}
-			} else {
-				const line = state.lyricLines[editingState.lineIndex];
-				if (line) {
-					const word = line.words[editingState.wordIndex];
-					if (word && word.word === targetWordText) {
-						line.words.splice(
-							editingState.wordIndex,
-							1,
-							...createNewWords(word, targetSegments),
-						);
-					}
-				}
-			}
-		});
+		splitDocumentWord(
+			editorDocumentAdapter,
+			{
+				lineIndex: editingState.lineIndex,
+				wordIndex: editingState.wordIndex,
+				targetText: targetWordText,
+				splitIndices,
+				applyToAll,
+				ignoreCase,
+				config: segmentationConfig,
+			},
+			recalculateWordTime,
+		);
 	}, [
 		targetWordText,
 		splitIndices,
-		editLyricLines,
 		applyToAll,
 		ignoreCase,
 		editingState.lineIndex,

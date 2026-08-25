@@ -1,5 +1,6 @@
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
+import { createSegmentationConfig } from "$/application/lyrics";
 import {
 	segmentationCustomRulesAtom,
 	segmentationIgnoreListTextAtom,
@@ -10,7 +11,7 @@ import {
 	segmentationSplitCJKAtom,
 	segmentationSplitEnglishAtom,
 } from "../states";
-import type { HyphenatorFunc, SegmentationConfig } from "../types";
+import type { HyphenatorFunc } from "../types";
 import { loadHyphenator } from "../utils/hyphen-loader";
 
 export const useSegmentationConfig = () => {
@@ -46,34 +47,29 @@ export const useSegmentationConfig = () => {
 		};
 	}, [lang, splitEnglish]);
 
-	const config = useMemo((): SegmentationConfig => {
-		const weight = parseFloat(punctuationWeightStr);
-		const finalPunctuationWeight = Number.isNaN(weight) ? 0.2 : weight;
-
-		const ignoreList = new Set(
-			ignoreListText.split("\n").filter((line) => line.trim() !== ""),
-		);
-
-		return {
+	const config = useMemo(
+		() =>
+			createSegmentationConfig({
+				splitCJK,
+				splitEnglish,
+				punctuationMode,
+				punctuationWeight: punctuationWeightStr,
+				removeEmptySegments,
+				ignoreListText,
+				customRules,
+				hyphenator,
+			}),
+		[
 			splitCJK,
 			splitEnglish,
 			punctuationMode,
-			punctuationWeight: finalPunctuationWeight,
+			punctuationWeightStr,
 			removeEmptySegments,
-			ignoreList,
+			ignoreListText,
 			customRules,
 			hyphenator,
-		};
-	}, [
-		splitCJK,
-		splitEnglish,
-		punctuationMode,
-		punctuationWeightStr,
-		removeEmptySegments,
-		ignoreListText,
-		customRules,
-		hyphenator,
-	]);
+		],
+	);
 
 	return {
 		config,

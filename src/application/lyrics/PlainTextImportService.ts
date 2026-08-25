@@ -1,4 +1,4 @@
-import { newLyricLine, newLyricWord, type LyricLine } from "../../types/ttml";
+import { type LyricLine, newLyricLine, newLyricWord } from "../../types/ttml";
 
 export type PlainTextImportMode =
 	| "lyric"

@@ -20,7 +20,10 @@ export function prepareLyricLinesForExport(
 	}));
 }
 
-export function getExportFileName(saveFileName: string, extension: string): string {
+export function getExportFileName(
+	saveFileName: string,
+	extension: string,
+): string {
 	const baseName = saveFileName.replace(/\.[^.]*$/, "");
 	return `${baseName}.${extension}`;
 }

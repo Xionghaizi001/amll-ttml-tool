@@ -29,6 +29,15 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	addMetadataKey,
+	addMetadataValue,
+	appendDroppedMetadataValues,
+	clearMetadata,
+	hasDuplicateMetadataValues,
+	removeMetadataValue,
+	updateMetadataValue,
+} from "$/application/lyrics";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
 import { metadataEditorDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
@@ -71,12 +80,6 @@ const contentVariants = {
 	animate: { opacity: 1, y: 0 },
 } as const;
 
-const splitDroppedValues = (text: string) =>
-	text
-		.split(/[\n,;/，；、|\\]/)
-		.map((s) => s.trim())
-		.filter((s) => s !== "");
-
 const MetadataItemEditor = memo(
 	({ entry, option }: MetadataItemEditorProps) => {
 		const { t } = useTranslation();
@@ -99,111 +102,39 @@ const MetadataItemEditor = memo(
 			setFocusIndex(null);
 		}, [focusIndex]);
 
-		const editEntry = useCallback(
-			(label: string, editor: (metadata: TTMLMetadata) => void) => {
-				editorDocumentAdapter.transact(
-					{
-						source: "user",
-						label: `Metadata ${label}`,
-						expectedRevision: editorDocumentAdapter.getRevision(),
-					},
-					(prev) => {
-						let metadata = prev.metadata.find(
-							(item) => item.key === option.value,
-						);
-						if (!metadata) {
-							metadata = { key: option.value, value: [] };
-							prev.metadata.push(metadata);
-						}
-						editor(metadata);
-					},
-				);
-			},
-			[option.value],
-		);
-
 		const updateValue = useCallback(
-			(index: number, value: string) => {
-				editEntry("update value", (metadata) => {
-					metadata.value[index] = value;
-				});
-			},
-			[editEntry],
+			(index: number, value: string) =>
+				updateMetadataValue(editorDocumentAdapter, option.value, index, value),
+			[option.value],
 		);
 
 		const addValue = useCallback(
 			(value = "") => {
-				editEntry("add value", (metadata) => {
-					metadata.value.push(value);
-				});
+				addMetadataValue(editorDocumentAdapter, option.value, value);
 				setFocusIndex(values.length);
 			},
-			[editEntry, values.length],
+			[option.value, values.length],
 		);
 
 		const removeValue = useCallback(
 			(index: number) => {
-				editorDocumentAdapter.transact(
-					{
-						source: "user",
-						label: "Metadata remove value",
-						expectedRevision: editorDocumentAdapter.getRevision(),
-					},
-					(prev) => {
-						const metadataIndex = prev.metadata.findIndex(
-							(item) => item.key === option.value,
-						);
-						if (metadataIndex === -1) return;
-
-						prev.metadata[metadataIndex].value.splice(index, 1);
-						if (prev.metadata[metadataIndex].value.length === 0) {
-							prev.metadata.splice(metadataIndex, 1);
-						}
-					},
-				);
+				removeMetadataValue(editorDocumentAdapter, option.value, index);
 			},
 			[option.value],
 		);
 
 		const appendDroppedValues = useCallback(
 			(text: string) => {
-				const parts = splitDroppedValues(text);
-				if (parts.length === 0) return;
-
-				editEntry("append dropped values", (metadata) => {
-					const existingSet = new Set<string>();
-					const emptyIndices: number[] = [];
-
-					metadata.value.forEach((val, i) => {
-						if (val.trim() === "") {
-							emptyIndices.push(i);
-						} else {
-							existingSet.add(val);
-						}
-					});
-
-					for (const part of parts) {
-						if (existingSet.has(part)) continue;
-
-						if (emptyIndices.length > 0) {
-							const slotIndex = emptyIndices.shift();
-							if (slotIndex !== undefined) metadata.value[slotIndex] = part;
-						} else {
-							metadata.value.push(part);
-						}
-						existingSet.add(part);
-					}
-				});
+				appendDroppedMetadataValues(editorDocumentAdapter, option.value, text);
 			},
-			[editEntry],
+			[option.value],
 		);
 
 		const rowHasError = validation
 			? values.some((val) => val.trim() !== "" && !validation.verifier(val))
 			: false;
 		const rowHasDuplicate = useMemo(() => {
-			const filledValues = values.filter((v) => v.trim() !== "");
-			return new Set(filledValues).size !== filledValues.length;
+			return hasDuplicateMetadataValues(values);
 		}, [values]);
 
 		return (
@@ -581,33 +512,13 @@ export const MetadataEditor = () => {
 		const nextKey = customKey.trim();
 		if (!nextKey) return;
 
-		editorDocumentAdapter.transact(
-			{
-				source: "user",
-				label: "Metadata add custom key",
-				expectedRevision: editorDocumentAdapter.getRevision(),
-			},
-			(prev) => {
-				if (!prev.metadata.some((metadata) => metadata.key === nextKey)) {
-					prev.metadata.push({ key: nextKey, value: [] });
-				}
-			},
-		);
+		addMetadataKey(editorDocumentAdapter, nextKey);
 		setActiveKey(nextKey);
 		setCustomKey("");
 	}, [customKey]);
 
 	const clearAllMetadata = useCallback(() => {
-		editorDocumentAdapter.transact(
-			{
-				source: "user",
-				label: "Metadata clear all",
-				expectedRevision: editorDocumentAdapter.getRevision(),
-			},
-			(prev) => {
-				prev.metadata = [];
-			},
-		);
+		clearMetadata(editorDocumentAdapter);
 		setActiveKey(builtinOptions[0]?.value ?? "");
 	}, [builtinOptions]);
 

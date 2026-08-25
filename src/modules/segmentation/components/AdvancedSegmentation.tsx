@@ -21,9 +21,10 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { memo, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { segmentDocumentRange } from "$/application/lyrics";
 import {
 	segmentationCustomRulesAtom,
 	segmentationIgnoreListTextAtom,
@@ -39,8 +40,8 @@ import {
 } from "$/modules/segmentation/states";
 import { SUPPORTED_LANGUAGES } from "$/modules/segmentation/utils/hyphen-loader";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation.ts";
+import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 import { advancedSegmentationDialogAtom } from "$/states/dialogs.ts";
-import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
 import { lyricLinesAtom } from "$/states/main.ts";
 import { type LyricWord, newLyricLine, newLyricWord } from "$/types/ttml";
 import { segmentationLogger } from "../logger";
@@ -77,7 +78,6 @@ export const AdvancedSegmentationDialog = memo(() => {
 		new Set<number>(),
 	);
 
-	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const currentLyric = useAtomValue(lyricLinesAtom);
 
 	const [lang, setLang] = useAtom(segmentationLangAtom);
@@ -159,11 +159,8 @@ export const AdvancedSegmentationDialog = memo(() => {
 
 			return (
 				<Flex gap="1" wrap="wrap" align="center">
-					{resultWords.map((w, i) => (
-						<span
-							className={styles.previewWord}
-							key={`preview-word-${i}-${w.id}`}
-						>
+					{resultWords.map((w) => (
+						<span className={styles.previewWord} key={`preview-word-${w.id}`}>
 							{w.word.trim() === "" ? (
 								<Text color="gray" as="span">
 									{w.word.length > 0
@@ -190,29 +187,17 @@ export const AdvancedSegmentationDialog = memo(() => {
 	}, [testInput, t, segmentationConfig]);
 
 	const onApply = useCallback(() => {
-		const maxLines = currentLyric.lyricLines.length;
-		let startIndex = 0;
-		let endIndex = maxLines;
-
-		if (scope === "range") {
-			startIndex = (parseInt(rangeStart, 10) || 1) - 1;
-			endIndex = parseInt(rangeEnd, 10) || maxLines;
-			startIndex = Math.max(0, Math.min(startIndex, maxLines));
-			endIndex = Math.max(startIndex, Math.min(endIndex, maxLines));
-		}
-
-		editLyricLines((draft) => {
-			const linesToProcess = draft.lyricLines.slice(startIndex, endIndex);
-			const processedLines = segmentLyricLines(
-				linesToProcess,
-				segmentationConfig,
-			);
-			draft.lyricLines.splice(
-				startIndex,
-				processedLines.length,
-				...processedLines,
-			);
-		});
+		segmentDocumentRange(
+			editorDocumentAdapter,
+			{
+				lineCount: currentLyric.lyricLines.length,
+				scope,
+				rangeStart,
+				rangeEnd,
+				config: segmentationConfig,
+			},
+			segmentLyricLines,
+		);
 
 		setOpen(false);
 	}, [
@@ -220,7 +205,6 @@ export const AdvancedSegmentationDialog = memo(() => {
 		scope,
 		rangeStart,
 		rangeEnd,
-		editLyricLines,
 		currentLyric.lyricLines.length,
 		setOpen,
 	]);
