@@ -11,6 +11,10 @@ import { DropdownMenu } from "@radix-ui/themes";
 import { useSetAtom, useStore } from "jotai";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
+import {
+	getExportFileName,
+	prepareLyricLinesForExport,
+} from "$/application/lyrics";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import {
 	importFromLRCLIBDialogAtom,
@@ -48,19 +52,9 @@ export const ImportExportLyric = () => {
 		(stringifier: (lines: LyricLine[]) => string, extension: string) =>
 		async () => {
 			const lyric = store.get(lyricLinesAtom).lyricLines;
-			const lyricForExport = lyric.map((line) => ({
-				...line,
-				startTime: Math.round(line.startTime),
-				endTime: Math.round(line.endTime),
-				words: line.words.map((word) => ({
-					...word,
-					startTime: Math.round(word.startTime),
-					endTime: Math.round(word.endTime),
-				})),
-			}));
+			const lyricForExport = prepareLyricLinesForExport(lyric);
 			const saveFileName = store.get(saveFileNameAtom);
-			const baseName = saveFileName.replace(/\.[^.]*$/, "");
-			const fileName = `${baseName}.${extension}`;
+			const fileName = getExportFileName(saveFileName, extension);
 			try {
 				const data = stringifier(lyricForExport);
 				const b = new Blob([data], { type: "text/plain" });

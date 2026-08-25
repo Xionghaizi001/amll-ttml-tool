@@ -18,7 +18,11 @@ import {
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
 import { isDirtyAtom } from "$/states/main.ts";
-import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
+import {
+	parsePlainTextLyrics,
+	type PlainTextImportMode,
+	type PlainTextLineSeparatorMode,
+} from "$/application/lyrics";
 
 // import styles from "./ImportFromText.module.css";
 import error = toast.error;
@@ -126,148 +130,18 @@ export const ImportFromText = () => {
 
 	const onImport = useCallback(
 		(text: string) => {
-			const importMode = store.get(importModeAtom);
-			const lineSeparatorMode = store.get(lineSeparatorModeAtom);
-			const lineSeparator = store.get(lineSeparatorAtom);
-			const swapTransAndRoman = store.get(swapTransAndRomanAtom);
-			const wordSeparator = store.get(wordSeparatorAtom);
-			const enableSpecialPrefix = store.get(enableSpecialPrefixAtom);
-			const bgLyricPrefix = store.get(bgLyricPrefixAtom);
-			const duetLyricPrefix = store.get(duetLyricPrefixAtom);
-			const enableEmptyBeat = store.get(enableEmptyBeatAtom);
-			const emptyBeatSymbol = store.get(emptyBeatSymbolAtom);
-
-			const lines = text.split("\n");
-			const result: LyricLine[] = [];
-
-			function addLine(orig = "", trans = "", roman = "") {
-				let finalOrig = orig;
-				let isBG = false;
-				let isDuet = false;
-
-				if (enableSpecialPrefix) {
-					// 循环遍历是否存在前缀，有则与之分离
-					while (true) {
-						if (finalOrig.startsWith(bgLyricPrefix)) {
-							isBG = true;
-							finalOrig = finalOrig.slice(bgLyricPrefix.length);
-						} else if (finalOrig.startsWith(duetLyricPrefix)) {
-							isDuet = true;
-							finalOrig = finalOrig.slice(duetLyricPrefix.length);
-						} else {
-							break;
-						}
-					}
-				}
-
-				const line: LyricLine = {
-					...newLyricLine(),
-					words: [
-						{
-							...newLyricWord(),
-							word: finalOrig,
-						},
-					],
-					translatedLyric: trans,
-					romanLyric: roman,
-					isBG,
-					isDuet,
-				};
-
-				result.push(line);
-				return line;
-			}
-
-			function addAsLyricOnly() {
-				for (const line of lines) {
-					addLine(line);
-				}
-			}
-
-			type KeysMatching<T, V> = NonNullable<
-				{ [K in keyof T]: T[K] extends V ? K : never }[keyof T]
-			>;
-
-			function addAsLyricWithSub(
-				sub1?: KeysMatching<LyricLine, string>,
-				sub2?: KeysMatching<LyricLine, string>,
-			) {
-				switch (lineSeparatorMode) {
-					case LineSeparatorMode.Interleaved: {
-						let skip = 1;
-						if (sub1) skip++;
-						if (sub2) skip++;
-						for (let i = 0; i < lines.length; i += skip) {
-							const orig = lines[i];
-							let ii = 0;
-							const subText1 = sub1 ? lines[i + ++ii] : "";
-							const subText2 = sub2 ? lines[i + ++ii] : "";
-							const line = addLine(orig);
-							if (sub1) line[sub1] = subText1;
-							if (sub2) line[sub2] = subText2;
-						}
-						return;
-					}
-					case LineSeparatorMode.SameLineSeparator: {
-						for (const lineText of lines) {
-							const parts = lineText.split(lineSeparator);
-							const orig = parts[0];
-							const subText1 = sub1 ? parts[1] : "";
-							const subText2 = sub2 ? parts[2] : "";
-							const line = addLine(orig);
-							if (sub1) line[sub1] = subText1;
-							if (sub2) line[sub2] = subText2;
-						}
-						return;
-					}
-				}
-			}
-
-			switch (importMode) {
-				case ImportMode.Lyric:
-					addAsLyricOnly();
-					break;
-				case ImportMode.LyricTrans:
-					addAsLyricWithSub("translatedLyric");
-					break;
-				case ImportMode.LyricRoman:
-					addAsLyricWithSub("romanLyric");
-					break;
-				case ImportMode.LyricTransRoman:
-					addAsLyricWithSub("translatedLyric", "romanLyric");
-					break;
-			}
-
-			if (swapTransAndRoman) {
-				for (const line of result) {
-					[line.romanLyric, line.translatedLyric] = [
-						line.translatedLyric,
-						line.romanLyric,
-					];
-				}
-			}
-
-			if (wordSeparator.length > 0) {
-				for (const line of result) {
-					const wholeLine = line.words.map((word) => word.word).join("");
-					line.words = wholeLine.split(wordSeparator).map((word) => ({
-						...newLyricWord(),
-						word,
-					}));
-				}
-			}
-
-			if (enableEmptyBeat && emptyBeatSymbol.length > 0) {
-				for (const line of result) {
-					for (const word of line.words) {
-						while (word.word.endsWith(emptyBeatSymbol)) {
-							word.word = word.word.slice(0, -emptyBeatSymbol.length);
-							word.emptyBeat += 1;
-						}
-					}
-				}
-			}
-
+			const result = parsePlainTextLyrics(text, {
+				mode: store.get(importModeAtom) as PlainTextImportMode,
+				lineSeparatorMode: store.get(lineSeparatorModeAtom) as PlainTextLineSeparatorMode,
+				lineSeparator: store.get(lineSeparatorAtom),
+				swapTransAndRoman: store.get(swapTransAndRomanAtom),
+				wordSeparator: store.get(wordSeparatorAtom),
+				enableSpecialPrefix: store.get(enableSpecialPrefixAtom),
+				bgLyricPrefix: store.get(bgLyricPrefixAtom),
+				duetLyricPrefix: store.get(duetLyricPrefixAtom),
+				enableEmptyBeat: store.get(enableEmptyBeatAtom),
+				emptyBeatSymbol: store.get(emptyBeatSymbolAtom),
+			});
 			editorDocumentAdapter.replace(
 				{
 					lyricLines: result,

@@ -1,6 +1,6 @@
 • 下面这份清单按依赖顺序排列。核心原则是：先建立内核边界和稳定协议，再接 Extism；先迁移一个完整功能闭环，再批量插件化。
 
-  已实现成果盘点（2026-08-24）
+  已实现成果盘点（2026-08-25）
 
   - 阶段 0：已在 `feat-plugin` 分支固定插件架构、信任边界、MVP/非目标和 experimental v0
     版本策略；ADR 0001–0003 与 `PLUGIN.md` 已成为架构和协议的权威入口。
@@ -10,8 +10,12 @@
   - 阶段 2：已落地 `EditorDocumentService` 的 snapshot、事务、replace、revision、undo/redo 和事件；
     Jotai 通过单一 adapter 接入。工具、Ribbon、元数据、频谱、导入器和编辑器直写点已迁移，稳定
     行/词 ID、字段保留、冲突拒绝和 import boundary 均有测试覆盖。
+  - 阶段 3：公开 `plugin-api`、JSON Schema、capability negotiation、Mock Host 合同测试和分层 lint
+    已落地；时间平移已完成完整 application service 闭环。当前工作区继续新增 `src/application/lyrics`，
+    将纯文本导入、导出前规范化和时间线分段从 React/Jotai 模块中拆出，并保留轻量状态/UI adapter。
   - 对应提交链：`c9280cb`（ADR/依赖）→ `29aa81a`、`9ccef5a`（runtime PoC）→
-    `6601c31`、`42ed686`、`c1356f3`（事务层与全量迁移）。
+    `6601c31`、`42ed686`、`c1356f3`（事务层与全量迁移）→ `e194c6f`（公开 Plugin API 与
+    首批分层迁移）。`src/application/lyrics` 的继续拆分目前仍在工作区中，尚未提交。
 
   目标结构
 
@@ -79,10 +83,15 @@
   - [x] 固定 UI 与业务的分层边界：业务逻辑只能依赖 kernel、platform 接口和 plugin-api；UI 只能通过 adapter、application service 或 command 调用业务，禁止直接修改 lyricLinesAtom。
   - [ ] 将 Jotai、React、Tauri、DOM 和 Worker 依赖收敛到 adapters/ui/runtime；业务层不得反向导入这些实现。
     - [x] 正式的 `kernel`、`application` 和 `plugin-api` 层已禁止反向导入并由 lint 检查。
+    - [x] `segment-processing.ts` 已收敛为 Jotai 派生状态 adapter，时间线分段算法已迁移到
+      `LyricTimelineService`。
     - [ ] 继续拆分 `src/modules` 中混合 UI/业务的遗留模块。
   - [ ] 为文档、导入导出、分词、时间处理等可复用业务建立 host-agnostic application service；React hook 只负责状态绑定、交互和错误展示。
     - [x] 时间处理：新增无 React/Jotai/DOM 依赖的 `TimeShiftService`。
-    - [ ] 文档、导入导出和分词等业务继续按功能闭环迁移。
+    - [x] 纯文本导入：新增 `PlainTextImportService`，负责多行/同行翻译与音译、特殊前缀、分词符和空拍解析。
+    - [x] 歌词导出：新增 `LyricExportService`，负责导出时间取整与文件名生成；文件保存仍由 UI/platform 负责。
+    - [x] 时间线投影：新增 `LyricTimelineService`，负责生成 word/gap segment，Jotai 仅负责派生状态。
+    - [ ] TTML、LRCLIB、同步导航、元数据、完整分词流程等业务继续按功能闭环迁移。
   - [x] 选择一个完整功能闭环（建议时间平移）完成 UI → command/application service → EditorDocumentService 的迁移，并删除该功能的旧直写入口。
   - [x] 为分层增加 import boundary/lint 约束，并在 CI 中检查新增跨层依赖。
   - [x] 定义 FunctionPluginManifest 和 ThemePluginManifest 判别联合。
@@ -94,7 +103,55 @@
   - [x] 自动生成 SDK 类型和协议文档。
 
   当前验证：Mock Host 合同套件无需启动 React；时间平移可在 Node 测试中产生单一事务并完整撤销；
-  `scripts/check-editor-boundary.mjs` 与 CI 会阻止新增跨层依赖和 `lyricLinesAtom` 直写。
+  纯文本导入、歌词导出规范化和时间线分段可在 Node/Vitest 中独立测试；全量测试、TypeScript、目标文件
+  Biome lint 和 `scripts/check-editor-boundary.mjs` 均通过。仓库级 Biome lint 仍有 3 个与本轮无关的既有
+  `noArrayIndexKey` 错误。
+
+  阶段 3 剩余遗留模块审计（2026-08-25）
+
+  优先级 P0：完成阶段 3 验收前应优先拆分。
+
+  1. `src/modules/ttml-processor/index.ts`
+     - 当前问题：TTML/AMLL 纯转换、字段规范化和 WASM 调用与 `globalStore`、翻译输出设置耦合。
+     - 目标：纯 `TtmlFormatService` 显式接收生成配置；Jotai adapter 只把用户设置转换为配置。
+  2. `src/modules/lyric-editor/utils/lyric-states.ts`
+     - 当前问题：同步单元、选中项定位、下一词导航等纯算法与 React hook、Jotai store 查询混在同一文件。
+     - 目标：拆为同步导航 application service 和 `useCurrentLocation` UI adapter。
+  3. `src/modules/spectrogram/utils/timeline-mutations.ts`
+     - 当前问题：约 590 行时间线计算同时直接依赖 `editorDocumentAdapter`，计算与提交事务边界不清晰。
+     - 目标：纯时间线 mutation/calculation service 返回变更结果，command/adapter 负责提交单一事务。
+  4. `src/modules/lrclib/modals/ImportDialog.tsx`
+     - 当前问题：搜索状态、LRCLIB 转换、背景歌词提取、自动分词、文件名生成和文档替换都在 React 组件中。
+     - 目标：`LrcLibImportService` 负责准备导入文档，UI 只负责搜索交互、确认和错误展示。
+  5. `src/modules/project/modals/MetadataEditor.tsx`
+     - 当前问题：元数据 CRUD、拖放文本拆分、去重和校验与约 738 行 UI 混合。
+     - 目标：抽出 `MetadataService`/command；组件只维护输入焦点和展示状态。
+  6. `src/modules/segmentation/components/AdvancedSegmentation.tsx`、`split-word.tsx` 和
+     `utils/useSegmentationConfig.ts`
+     - 当前问题：核心 `segmentation.ts` 已是纯算法，但配置解析、hyphenator 加载、预览、手动拆词和文档事务仍由 hook/组件编排。
+     - 目标：建立 `SegmentationService` 和配置工厂，React hook 仅绑定设置和异步加载状态。
+
+  优先级 P1：P0 完成后继续收敛平台和业务边界。
+
+  1. `src/modules/project/autosave/autosave.ts` 与 `modals/HistoryRestore.tsx`
+     - 将历史保留策略、项目快照业务与 IndexedDB 实现拆成 application service 和 storage adapter。
+  2. `src/modules/settings/states/custom-background.ts`
+     - 当前同时包含 Jotai、IndexedDB、localStorage 迁移、fetch、Blob URL 生命周期；应拆到 platform storage/resource adapter。
+  3. `src/modules/project/modals/SubmitToAmll.tsx`
+     - 将 TTML 生成、提交 payload、校验和请求流程从大型对话框中拆出；网络能力通过 platform port 注入。
+  4. `src/modules/audio/audio-engine.ts`
+     - 移除对 `globalStore` 的直接读取，以显式配置或 adapter 注入设置；Worker/AudioContext 仍属于 runtime/platform 实现。
+  5. `src/modules/segmentation/utils/Transliteration/roman-debugger.ts` 与
+     `project/modals/DistributeRomanization.tsx`
+     - 核心罗马音分配算法已经独立，剩余调试 hook、文档应用和 UI 流程需要分层。
+
+  优先级 P2：不阻塞当前 application service 验收，但在插件化前需要整理。
+
+  - `lyric-word-view.tsx`、`lyric-line-view.tsx`、`AudioSpectrogram.tsx` 等超大组件继续按 view、interaction adapter、command 拆分。
+  - `ffmpeg`、频谱和音频 Worker 已属于隔离/runtime 类代码，主要任务是迁移到明确的 runtime/platform 目录并注入端口，
+    不应把底层实时处理算法改写成普通 application service。
+  - `drag-reorder.ts`、`segmentation.ts`、`syllable-smoothing.ts`、项目 `logic/` 等现有纯模块无需重写；只需让调用方通过
+    application service/command 使用它们，避免无收益搬迁。
 
   验收条件：Mock Host 中可以运行插件合同测试，不需要启动 React 应用；至少一个完整功能可在不渲染 React 的情况下通过 application service 执行、产生统一文档事务并撤销；业务层无 React/Jotai/Tauri/DOM 直接依赖。
 
