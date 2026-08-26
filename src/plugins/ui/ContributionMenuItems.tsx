@@ -1,36 +1,15 @@
-import {
-	type LocalizedText,
-	type MenuLocation,
-	evaluateEnablement,
-	parseEnablement,
-} from "@amll-ttml-tool/plugin-api";
+import type { LocalizedText, MenuLocation } from "@amll-ttml-tool/plugin-api";
 import { DropdownMenu } from "@radix-ui/themes";
 import { Fragment, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { CommandMenuItem } from "$/components/TopMenu/CommandMenuItem";
 import { commandRegistry } from "$/modules/keyboard/registry";
-import { getHostEnablementContext } from "../adapters/enablement-context";
 import { extensionRegistry } from "../adapters/extension-host";
+import { matchesWhenClause } from "../adapters/when-clause";
 
 const localize = (text: LocalizedText, locale: string): string => {
 	if (typeof text === "string") return text;
 	return text[locale] ?? text[locale.split("-")[0]] ?? text.default;
-};
-
-// Fail closed: a `when` clause that does not parse or references unknown
-// identifiers hides the entry instead of showing it unconditionally.
-const matchesWhenClause = (when: string | undefined): boolean => {
-	if (when === undefined) return true;
-	try {
-		const parsed = parseEnablement(when);
-		return evaluateEnablement(
-			parsed.ast,
-			getHostEnablementContext(),
-			parsed.unknownIdents,
-		);
-	} catch {
-		return false;
-	}
 };
 
 export const ContributionMenuItems = ({

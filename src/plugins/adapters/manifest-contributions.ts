@@ -55,4 +55,10 @@ export const registerManifestContributions = (
 			title: settings.title,
 			form: settings.form,
 		});
+	// Declarative title bar actions: command reference + whitelisted icon +
+	// plain-text tooltip. The registry enforces the per-plugin cap and the
+	// own-namespace rule; modes never reach this adapter (parseManifest
+	// rejects them for every manifest).
+	for (const action of validated.contributes?.titleBarActions ?? [])
+		scope.registerTitleBarAction(action);
 };

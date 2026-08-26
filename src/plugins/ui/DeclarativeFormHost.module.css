@@ -1,0 +1,60 @@
+/*
+ * Host-owned implementations of the declarative form animation presets.
+ * Plugins can only pick a preset + speed tier from the protocol enum; the
+ * keyframes, easing and reduced-motion handling live here.
+ */
+
+.animated {
+	animation-duration: var(--form-anim-duration, 200ms);
+	animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+	animation-fill-mode: both;
+}
+
+.fade {
+	animation-name: formFade;
+}
+
+.slideUp {
+	animation-name: formSlideUp;
+}
+
+.scaleIn {
+	animation-name: formScaleIn;
+}
+
+@keyframes formFade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes formSlideUp {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes formScaleIn {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animated {
+		animation: none;
+	}
+}

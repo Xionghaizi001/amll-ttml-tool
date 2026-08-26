@@ -55,10 +55,32 @@ export interface SettingsPageContribution {
 	form: FormSchemaV0;
 }
 
+/**
+ * Per-plugin cap on declarative title bar actions. The title bar is a
+ * recovery-entry region; contributions there are icon-sized, count-limited
+ * and rendered in a fixed slot that can never cover the mode switcher or
+ * the window controls.
+ */
+export const TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0 = 3;
+
+/**
+ * Declarative title bar action: a command reference plus a whitelisted host
+ * icon and a plain-text tooltip. No markup, callbacks or layout control.
+ */
+export interface TitleBarActionContribution {
+	id?: string;
+	command: string;
+	icon: FormIconV0;
+	tooltip: LocalizedText;
+	order?: number;
+	when?: EnablementExpr;
+}
+
 export interface FunctionContributions {
 	commands?: CommandContribution[];
 	menus?: MenuItemContribution[];
 	settings?: SettingsPageContribution[];
+	titleBarActions?: TitleBarActionContribution[];
 }
 
 export interface PluginManifestBase {
@@ -301,6 +323,27 @@ export interface FormIconV0 {
 	name: FormFluentIconNameV0;
 }
 
+/**
+ * Declarative entrance animation. Presets are implemented entirely by the
+ * host (which also honors `prefers-reduced-motion`); the protocol never
+ * accepts CSS text, keyframes or durations in milliseconds.
+ */
+export const FORM_ANIMATION_PRESETS_V0 = [
+	"fade",
+	"slide-up",
+	"scale-in",
+] as const;
+export type FormAnimationPresetV0 = (typeof FORM_ANIMATION_PRESETS_V0)[number];
+
+export const FORM_ANIMATION_SPEEDS_V0 = ["fast", "normal", "slow"] as const;
+export type FormAnimationSpeedV0 = (typeof FORM_ANIMATION_SPEEDS_V0)[number];
+
+export interface FormAnimationV0 {
+	preset: FormAnimationPresetV0;
+	/** Defaults to "normal". */
+	speed?: FormAnimationSpeedV0;
+}
+
 export interface FormConditionV0 {
 	field: string;
 	equals: FormValueV0;
@@ -319,6 +362,8 @@ export interface FormFieldPresentationV0 {
 	width?: "full" | "compact";
 	controlSize?: "small" | "medium";
 	icon?: FormIconV0;
+	/** Plays when the field mounts (initial render or `visibleWhen` toggling). */
+	animation?: FormAnimationV0;
 }
 
 export type FormFieldV0 =
@@ -363,7 +408,7 @@ export type FormFieldV0 =
 			kind: "note";
 			text: LocalizedText;
 			tone?: "default" | "muted";
-	  } & Pick<FormFieldPresentationV0, "visibleWhen" | "icon">)
+	  } & Pick<FormFieldPresentationV0, "visibleWhen" | "icon" | "animation">)
 	| {
 			kind: "group";
 			id: string;
@@ -374,6 +419,7 @@ export type FormFieldV0 =
 			indent?: boolean;
 			visibleWhen?: FormConditionV0;
 			icon?: FormIconV0;
+			animation?: FormAnimationV0;
 			fields: FormFieldV0[];
 	  };
 
@@ -393,6 +439,8 @@ export interface FormSchemaV0 {
 	fields: FormFieldV0[];
 	size?: "small" | "medium" | "large";
 	icon?: FormIconV0;
+	/** Entrance animation for the whole dialog body. */
+	animation?: FormAnimationV0;
 	submitLabel?: LocalizedText;
 	cancelLabel?: LocalizedText;
 	submitIcon?: FormIconV0;

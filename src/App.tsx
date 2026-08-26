@@ -25,8 +25,8 @@ import "@radix-ui/themes/styles.css";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform, version } from "@tauri-apps/plugin-os";
-import { AnimatePresence, motion } from "framer-motion";
-import { useAtomValue, useSetAtom, useStore } from "jotai";
+import { AnimatePresence } from "framer-motion";
+import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ErrorBoundary } from "react-error-boundary";
@@ -63,8 +63,10 @@ import {
 } from "./modules/ttml-processor/index.ts";
 import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
 import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
+import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
+import { useActiveMode } from "./plugins/ui/mode-host.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
 	isDarkThemeAtom,
@@ -75,9 +77,11 @@ import {
 } from "./states/main.ts";
 import { useAppUpdate } from "./utils/useAppUpdate.ts";
 
-const LyricLinesView = lazy(() => import("./modules/lyric-editor/components"));
-const AMLLWrapper = lazy(() => import("./components/AMLLWrapper"));
 const Dialogs = lazy(() => import("./components/Dialogs"));
+
+// Builtin Edit/Sync/Preview must exist before the first render of the
+// registry-driven TitleBar/RibbonBar/main viewport.
+ensureBuiltinModesRegistered();
 
 const appLogger = createLogger("App");
 
@@ -149,7 +153,8 @@ const AppErrorPage = ({
 
 function EditorApp() {
 	const isDarkTheme = useAtomValue(isDarkThemeAtom);
-	const toolMode = useAtomValue(toolModeAtom);
+	const [toolMode, setToolMode] = useAtom(toolModeAtom);
+	const { activeModeId, activeMode } = useActiveMode(toolMode);
 	const showTouchSyncPanel = useAtomValue(showTouchSyncPanelAtom);
 	const customBackgroundImage = useAtomValue(customBackgroundImageAtom);
 	const customBackgroundOpacity = useAtomValue(customBackgroundOpacityAtom);
@@ -170,6 +175,13 @@ function EditorApp() {
 	);
 	const { t } = useTranslation();
 	const store = useStore();
+
+	// Mode fail-safe: when the active mode's contribution disappears (its
+	// plugin was disabled, unloaded or crashed), fall back to the builtin
+	// edit mode instead of leaving a blank viewport.
+	useEffect(() => {
+		if (toolMode !== activeModeId) setToolMode(activeModeId);
+	}, [toolMode, activeModeId, setToolMode]);
 
 	useEffect(() => {
 		void initCustomBackgroundImage();
@@ -346,38 +358,14 @@ function EditorApp() {
 						<TitleBar />
 						<RibbonBar />
 						<Flex flexGrow="1" overflow="hidden" direction="row" mt="2">
-							<Sidebar />
+							{!activeMode?.hideSidebar && <Sidebar />}
 							<Box flexGrow="1" overflow="hidden" minWidth="0">
 								<AnimatePresence mode="wait">
-									{toolMode !== ToolMode.Preview && (
-										<SuspensePlaceHolder key="edit">
-											<motion.div
-												layout="position"
-												style={{
-													height: "100%",
-													maxHeight: "100%",
-													overflowY: "hidden",
-												}}
-												initial={{ opacity: 0 }}
-												animate={{ opacity: 1 }}
-												exit={{ opacity: 0 }}
-											>
-												<LyricLinesView key="edit" />
-											</motion.div>
-										</SuspensePlaceHolder>
-									)}
-									{toolMode === ToolMode.Preview && (
-										<SuspensePlaceHolder key="amll-preview">
-											<Box height="100%" key="amll-preview" p="2" asChild>
-												<motion.div
-													layout="position"
-													initial={{ opacity: 0 }}
-													animate={{ opacity: 1 }}
-													exit={{ opacity: 0 }}
-												>
-													<AMLLWrapper />
-												</motion.div>
-											</Box>
+									{activeMode && (
+										<SuspensePlaceHolder
+											key={activeMode.mainViewKey ?? activeMode.modeId}
+										>
+											<activeMode.mainView />
 										</SuspensePlaceHolder>
 									)}
 								</AnimatePresence>

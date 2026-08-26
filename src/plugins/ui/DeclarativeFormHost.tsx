@@ -1,4 +1,5 @@
 import type {
+	FormAnimationV0,
 	FormFieldV0,
 	FormResultV0,
 	FormValueV0,
@@ -16,8 +17,10 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
+import type { CSSProperties } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import styles from "./DeclarativeFormHost.module.css";
 import { declarativeFormService } from "./declarative-form-service";
 import { FluentFormIcon } from "./fluent-form-icons";
 import {
@@ -35,6 +38,35 @@ const localize = (text: LocalizedText, locale: string): string => {
 
 const formWidths = { small: "450px", medium: "560px", large: "720px" } as const;
 const formGaps = { small: "2", medium: "3", large: "4" } as const;
+
+const animationDurations = {
+	fast: "120ms",
+	normal: "200ms",
+	slow: "320ms",
+} as const;
+const animationClassNames = {
+	fade: styles.fade,
+	"slide-up": styles.slideUp,
+	"scale-in": styles.scaleIn,
+} as const;
+
+/**
+ * Host implementation of the enum-only animation contract: the schema names
+ * a preset + speed tier, this maps it onto fixed CSS keyframes that respect
+ * `prefers-reduced-motion`. No plugin CSS is ever injected.
+ */
+const animationProps = (
+	animation: FormAnimationV0 | undefined,
+): { className?: string; style?: CSSProperties } =>
+	animation
+		? {
+				className: `${styles.animated} ${animationClassNames[animation.preset]}`,
+				style: {
+					"--form-anim-duration":
+						animationDurations[animation.speed ?? "normal"],
+				} as CSSProperties,
+			}
+		: {};
 
 export const DeclarativeFormHost = () => {
 	const { i18n, t } = useTranslation();
@@ -57,8 +89,15 @@ export const DeclarativeFormHost = () => {
 		fields.map((field, fieldIndex) => {
 			if (!matchesFormCondition(field.visibleWhen, values)) return null;
 			if (field.kind === "group") {
+				const groupAnimation = animationProps(field.animation);
 				return (
-					<Flex key={field.id} direction="column" gap="1">
+					<Flex
+						key={field.id}
+						direction="column"
+						gap="1"
+						className={groupAnimation.className}
+						style={groupAnimation.style}
+					>
 						{(field.label || field.icon) && (
 							<Flex align="center" gap="1">
 								<FluentFormIcon icon={field.icon} />
@@ -80,10 +119,19 @@ export const DeclarativeFormHost = () => {
 					</Flex>
 				);
 			}
-			if (field.kind === "note")
+			if (field.kind === "note") {
+				const noteAnimation = animationProps(field.animation);
+				// The schema is immutable for the lifetime of a form request, so
+				// positional note keys are stable.
+				const noteKey = `note-${fieldIndex}`;
 				return (
-					// biome-ignore lint/suspicious/noArrayIndexKey: the schema is immutable for the lifetime of a form request, so positions are stable
-					<Flex key={`note-${fieldIndex}`} align="center" gap="1">
+					<Flex
+						key={noteKey}
+						align="center"
+						gap="1"
+						className={noteAnimation.className}
+						style={noteAnimation.style}
+					>
 						<FluentFormIcon icon={field.icon} />
 						<Text
 							size="2"
@@ -93,15 +141,25 @@ export const DeclarativeFormHost = () => {
 						</Text>
 					</Flex>
 				);
+			}
 			const label = localize(field.label, i18n.language);
 			const value = values[field.key];
 			const controlSize = field.controlSize === "small" ? "1" : "2";
-			const fieldStyle =
-				field.width === "compact"
+			const fieldAnimation = animationProps(field.animation);
+			const fieldStyle: CSSProperties = {
+				...(field.width === "compact"
 					? { width: "60px", flexShrink: 0 }
-					: { flexGrow: 1 };
+					: { flexGrow: 1 }),
+				...fieldAnimation.style,
+			};
 			return (
-				<Flex key={field.key} direction="column" gap="1" style={fieldStyle}>
+				<Flex
+					key={field.key}
+					direction="column"
+					gap="1"
+					className={fieldAnimation.className}
+					style={fieldStyle}
+				>
 					{field.labelPlacement !== "hidden" && (
 						<Flex align="center" gap="1">
 							<FluentFormIcon icon={field.icon} />
@@ -296,6 +354,7 @@ export const DeclarativeFormHost = () => {
 		},
 	];
 
+	const schemaAnimation = animationProps(schema.animation);
 	return (
 		<Dialog.Root
 			open
@@ -303,7 +362,11 @@ export const DeclarativeFormHost = () => {
 				if (!open) declarativeFormService.cancel(request.id);
 			}}
 		>
-			<Dialog.Content maxWidth={formWidths[schema.size ?? "medium"]}>
+			<Dialog.Content
+				maxWidth={formWidths[schema.size ?? "medium"]}
+				className={schemaAnimation.className}
+				style={schemaAnimation.style}
+			>
 				<Dialog.Title>
 					<Flex align="center" gap="2">
 						<FluentFormIcon icon={schema.icon} />

@@ -399,6 +399,29 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                         },
                         "additionalProperties": false
                       },
+                      "animation": {
+                        "type": "object",
+                        "required": [
+                          "preset"
+                        ],
+                        "properties": {
+                          "preset": {
+                            "enum": [
+                              "fade",
+                              "slide-up",
+                              "scale-in"
+                            ]
+                          },
+                          "speed": {
+                            "enum": [
+                              "fast",
+                              "normal",
+                              "slow"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
                       "field": {
                         "oneOf": [
                           {
@@ -485,6 +508,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "icon": {
                                 "$ref": "#/$defs/icon"
+                              },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
                               }
                             },
                             "additionalProperties": false
@@ -582,6 +608,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "icon": {
                                 "$ref": "#/$defs/icon"
+                              },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
                               }
                             },
                             "additionalProperties": false
@@ -654,6 +683,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "icon": {
                                 "$ref": "#/$defs/icon"
+                              },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
                               }
                             },
                             "additionalProperties": false
@@ -789,6 +821,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "icon": {
                                 "$ref": "#/$defs/icon"
+                              },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
                               }
                             },
                             "additionalProperties": false
@@ -841,6 +876,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               },
                               "icon": {
                                 "$ref": "#/$defs/icon"
+                              },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
                               }
                             },
                             "additionalProperties": false
@@ -916,6 +954,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                               "icon": {
                                 "$ref": "#/$defs/icon"
                               },
+                              "animation": {
+                                "$ref": "#/$defs/animation"
+                              },
                               "fields": {
                                 "type": "array",
                                 "minItems": 1,
@@ -958,6 +999,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                       },
                       "icon": {
                         "$ref": "#/$defs/icon"
+                      },
+                      "animation": {
+                        "$ref": "#/$defs/animation"
                       },
                       "submitLabel": {
                         "$ref": "#/$defs/localizedText"
@@ -1035,6 +1079,125 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                       }
                     },
                     "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "titleBarActions": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": [
+                  "command",
+                  "icon",
+                  "tooltip"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "command": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "icon": {
+                    "type": "object",
+                    "required": [
+                      "source",
+                      "name"
+                    ],
+                    "properties": {
+                      "source": {
+                        "const": "@fluentui/react-icons"
+                      },
+                      "name": {
+                        "enum": [
+                          "AddRegular",
+                          "ArrowDownRegular",
+                          "ArrowLeftRegular",
+                          "ArrowResetRegular",
+                          "ArrowRightRegular",
+                          "ArrowUpRegular",
+                          "CheckmarkCircleRegular",
+                          "CheckmarkRegular",
+                          "ChevronDownRegular",
+                          "ChevronLeftRegular",
+                          "ChevronRightRegular",
+                          "ChevronUpRegular",
+                          "ClockRegular",
+                          "CopyRegular",
+                          "CutRegular",
+                          "DeleteRegular",
+                          "DismissRegular",
+                          "DocumentRegular",
+                          "EditRegular",
+                          "ErrorCircleRegular",
+                          "EyeOffRegular",
+                          "EyeRegular",
+                          "FolderOpenRegular",
+                          "HistoryRegular",
+                          "HomeRegular",
+                          "ImageRegular",
+                          "InfoRegular",
+                          "LinkRegular",
+                          "LockClosedRegular",
+                          "MusicNote1Regular",
+                          "OpenRegular",
+                          "PauseRegular",
+                          "PersonRegular",
+                          "PlayRegular",
+                          "QuestionCircleRegular",
+                          "SaveRegular",
+                          "SearchRegular",
+                          "SettingsRegular",
+                          "StopRegular",
+                          "SubtractRegular",
+                          "TimerRegular",
+                          "TranslateRegular",
+                          "WarningRegular"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tooltip": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "default"
+                        ],
+                        "properties": {
+                          "default": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2048
+                          }
+                        },
+                        "additionalProperties": {
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
+                      }
+                    ]
+                  },
+                  "order": {
+                    "type": "number"
+                  },
+                  "when": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "additionalProperties": false
@@ -2046,6 +2209,29 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
       },
       "additionalProperties": false
     },
+    "animation": {
+      "type": "object",
+      "required": [
+        "preset"
+      ],
+      "properties": {
+        "preset": {
+          "enum": [
+            "fade",
+            "slide-up",
+            "scale-in"
+          ]
+        },
+        "speed": {
+          "enum": [
+            "fast",
+            "normal",
+            "slow"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "field": {
       "oneOf": [
         {
@@ -2132,6 +2318,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "icon": {
               "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
             }
           },
           "additionalProperties": false
@@ -2229,6 +2418,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "icon": {
               "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
             }
           },
           "additionalProperties": false
@@ -2301,6 +2493,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "icon": {
               "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
             }
           },
           "additionalProperties": false
@@ -2436,6 +2631,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "icon": {
               "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
             }
           },
           "additionalProperties": false
@@ -2488,6 +2686,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             },
             "icon": {
               "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
             }
           },
           "additionalProperties": false
@@ -2563,6 +2764,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             "icon": {
               "$ref": "#/$defs/icon"
             },
+            "animation": {
+              "$ref": "#/$defs/animation"
+            },
             "fields": {
               "type": "array",
               "minItems": 1,
@@ -2605,6 +2809,9 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
     },
     "icon": {
       "$ref": "#/$defs/icon"
+    },
+    "animation": {
+      "$ref": "#/$defs/animation"
     },
     "submitLabel": {
       "$ref": "#/$defs/localizedText"

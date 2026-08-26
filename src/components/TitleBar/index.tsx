@@ -1,72 +1,94 @@
 import { SegmentedControl, Text } from "@radix-ui/themes";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
-import { type FC, useCallback } from "react";
+import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import WindowControls from "$/components/WindowControls";
-import {
-	keySwitchEditModeAtom,
-	keySwitchPreviewModeAtom,
-	keySwitchSyncModeAtom,
-} from "$/states/keybindings.ts";
-import {
-	selectedLinesAtom,
-	selectedWordsAtom,
-	ToolMode,
-	toolModeAtom,
-} from "$/states/main.ts";
-import { useKeyBindingAtom } from "$/utils/keybindings.ts";
+import { FALLBACK_MODE_ID } from "$/kernel/extensions";
+import { getModeSwitchCommand } from "$/modules/keyboard/mode-commands";
+import type { KeyBindingCommand } from "$/modules/keyboard/types";
+import { matchesWhenClause } from "$/plugins/adapters/when-clause";
+import { localizeText } from "$/plugins/ui/localized-text";
+import { useActiveMode } from "$/plugins/ui/mode-host";
+import { TitleBarActions } from "$/plugins/ui/TitleBarActions";
+import { selectedLinesAtom, selectedWordsAtom, toolModeAtom } from "$/states/main.ts";
+import { useKeyBinding } from "$/utils/keybindings.ts";
 import { TopMenu } from "../TopMenu/index.tsx";
 import styles from "./index.module.css";
+
+const ModeSwitchKeyBinding = ({ command }: { command: KeyBindingCommand }) => {
+	const keys = useAtomValue(command.atom);
+	useKeyBinding(
+		keys,
+		() => {
+			// A mode hidden by its `when` clause rejects with "disabled"; the
+			// shortcut then simply does nothing.
+			void command.execute().catch(() => undefined);
+		},
+		[command],
+	);
+	return null;
+};
 
 export const TitleBar: FC = () => {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
 	const setSelectedLines = useSetImmerAtom(selectedLinesAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const { modes, activeModeId, activeMode } = useActiveMode(toolMode);
 
-	const onSwitchEditMode = useCallback(() => {
-		setToolMode(ToolMode.Edit);
-	}, [setToolMode]);
-	const onSwitchSyncMode = useCallback(() => {
-		setToolMode(ToolMode.Sync);
-	}, [setToolMode]);
-	const onSwitchPreviewMode = useCallback(() => {
-		setToolMode(ToolMode.Preview);
-	}, [setToolMode]);
-
-	useKeyBindingAtom(keySwitchEditModeAtom, onSwitchEditMode);
-	useKeyBindingAtom(keySwitchSyncModeAtom, onSwitchSyncMode);
-	useKeyBindingAtom(keySwitchPreviewModeAtom, onSwitchPreviewMode);
+	// The fail-safe edit mode is always offered; every other mode's `when`
+	// clause is evaluated fail-closed. The active mode stays visible so the
+	// switcher never shows a value without a matching item.
+	const visibleModes = modes.filter(
+		(mode) =>
+			mode.modeId === FALLBACK_MODE_ID ||
+			mode.modeId === activeModeId ||
+			matchesWhenClause(mode.when),
+	);
 
 	return (
 		<WindowControls
 			startChildren={<TopMenu />}
 			titleChildren={
-				<SegmentedControl.Root
-					value={toolMode}
-					onValueChange={(v) => setToolMode(v as ToolMode)}
-					// size="1"
-				>
-					<SegmentedControl.Item value={ToolMode.Edit}>
-						{t("topBar.modeBtns.edit", "编辑")}
-					</SegmentedControl.Item>
-					<SegmentedControl.Item value={ToolMode.Sync}>
-						{t("topBar.modeBtns.sync", "打轴")}
-					</SegmentedControl.Item>
-					<SegmentedControl.Item value={ToolMode.Preview}>
-						{t("topBar.modeBtns.preview", "预览")}
-					</SegmentedControl.Item>
-				</SegmentedControl.Root>
+				// Recovery-entry region: the mode switcher renders outside any
+				// contribution slot and is marked protected so neither theme CSS
+				// nor contributions can cover or restyle it.
+				<span data-amll-protected>
+					<SegmentedControl.Root
+						value={activeModeId}
+						onValueChange={(value) => setToolMode(value)}
+					>
+						{visibleModes.map((mode) => (
+							<SegmentedControl.Item key={mode.modeId} value={mode.modeId}>
+								{t(
+									// Builtin modes keep their locale-file labels; dynamic
+									// modes fall back to the contribution's LocalizedText.
+									`topBar.modeBtns.${mode.modeId}` as "topBar.modeBtns.edit",
+									localizeText(mode.title, i18n.language),
+								)}
+							</SegmentedControl.Item>
+						))}
+					</SegmentedControl.Root>
+					{modes.map((mode) => {
+						const command = getModeSwitchCommand(mode.modeId);
+						return command ? (
+							<ModeSwitchKeyBinding key={mode.modeId} command={command} />
+						) : null;
+					})}
+				</span>
 			}
 			endChildren={
-				!import.meta.env.TAURI_ENV_PLATFORM && (
-					<Text color="gray" wrap="nowrap" size="2" mr="2">
-						<span className={styles.title}>
-							{t("topBar.appName", "Apple Music-like Lyrics TTML Tool")}
-						</span>
-					</Text>
-				)
+				<>
+					<TitleBarActions activeMode={activeMode} />
+					{!import.meta.env.TAURI_ENV_PLATFORM && (
+						<Text color="gray" wrap="nowrap" size="2" mr="2">
+							<span className={styles.title}>
+								{t("topBar.appName", "Apple Music-like Lyrics TTML Tool")}
+							</span>
+						</Text>
+					)}
+				</>
 			}
 			onSpacerClicked={() => {
 				setSelectedLines((o) => o.clear());

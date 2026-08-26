@@ -1,15 +1,25 @@
 import type {
+	FormIconV0,
 	FormSchemaV0,
 	LocalizedText,
 	MenuItemContribution,
 	MenuLocation,
+	TitleBarActionContribution,
 } from "@amll-ttml-tool/plugin-api";
+import { TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0 } from "@amll-ttml-tool/plugin-api";
 import type {
 	CommandEnablement,
 	CommandHandler,
 	CommandRegistry,
 	Disposable,
 } from "../commands";
+
+/**
+ * Fail-safe mode. It must always exist and may never be conditionally
+ * hidden: whenever the active mode's contribution disappears (plugin
+ * disabled, unloaded or crashed), the host falls back to it.
+ */
+export const FALLBACK_MODE_ID = "edit";
 
 export type ContributionOwner =
 	| { kind: "builtin"; id: string; trusted: true }
@@ -49,19 +59,64 @@ export interface DeclarativeFormContributionRecord extends OwnedContribution {
 
 export interface TrustedViewContributionRecord<TView = unknown>
 	extends OwnedContribution {
-	kind: "sidebar" | "settings-view" | "dialog-view";
+	kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
 	title: LocalizedText;
 	view: TView;
+}
+
+/**
+ * A first-class page (mode) occupying the whole main viewport. Modes carry
+ * arbitrary host views and are therefore restricted to trusted owners; a
+ * third-party manifest declaring one is rejected at parse time.
+ */
+export interface ModeContributionRecord<TView = unknown>
+	extends OwnedContribution {
+	kind: "mode";
+	modeId: string;
+	title: LocalizedText;
+	order?: number;
+	/** Enablement gating the switcher entry; never allowed on the fallback mode. */
+	when?: string;
+	mainView: TView;
+	/** Modes sharing the same key keep the main view mounted across switches. */
+	mainViewKey?: string;
+	ribbonView?: TView;
+	/** Trusted action group rendered in the title bar while the mode is active. */
+	titleBarActions?: TView;
+	hideSidebar?: boolean;
+}
+
+/**
+ * Declarative title bar action slot: command reference, whitelisted host
+ * icon and plain-text tooltip only. Rendered in a fixed region that cannot
+ * touch the drag area, window controls or the mode switcher.
+ */
+export interface TitleBarActionContributionRecord extends OwnedContribution {
+	kind: "titlebar-action";
+	commandId: string;
+	icon: FormIconV0;
+	tooltip: LocalizedText;
+	order?: number;
+	when?: string;
 }
 
 export type ContributionRecord<TView = unknown> =
 	| MenuContributionRecord
 	| ToolbarContributionRecord
 	| DeclarativeFormContributionRecord
-	| TrustedViewContributionRecord<TView>;
+	| TrustedViewContributionRecord<TView>
+	| ModeContributionRecord<TView>
+	| TitleBarActionContributionRecord;
 
 const ownerId = (owner: ContributionOwner): string =>
 	owner.kind === "plugin" ? owner.pluginId : owner.id;
+
+const TRUSTED_VIEW_KINDS = new Set([
+	"sidebar",
+	"settings-view",
+	"dialog-view",
+	"titlebar-group",
+]);
 
 class DisposableStore implements Disposable {
 	private readonly entries = new Set<Disposable>();
@@ -90,13 +145,13 @@ export class ContributionRegistry<TView = unknown> {
 		if (this.contributions.has(record.id))
 			throw new Error(`Contribution ${record.id} is already registered`);
 		if (
-			(record.kind === "sidebar" ||
-				record.kind === "settings-view" ||
-				record.kind === "dialog-view") &&
+			(TRUSTED_VIEW_KINDS.has(record.kind) || record.kind === "mode") &&
 			!record.owner.trusted
 		)
 			throw new Error(
-				`Plugin ${ownerId(record.owner)} cannot register trusted view contributions`,
+				record.kind === "mode"
+					? `Plugin ${ownerId(record.owner)} cannot register mode contributions`
+					: `Plugin ${ownerId(record.owner)} cannot register trusted view contributions`,
 			);
 		if (
 			record.owner.kind === "plugin" &&
@@ -105,6 +160,25 @@ export class ContributionRegistry<TView = unknown> {
 			throw new Error(
 				`Plugin ${record.owner.pluginId} cannot register ${record.kind} contributions in MVP`,
 			);
+		if (record.kind === "mode") {
+			if (this.getModes().some((mode) => mode.modeId === record.modeId))
+				throw new Error(`Mode ${record.modeId} is already registered`);
+			if (record.modeId === FALLBACK_MODE_ID && record.when !== undefined)
+				throw new Error(
+					`The ${FALLBACK_MODE_ID} fail-safe mode cannot be conditionally hidden`,
+				);
+		}
+		if (record.kind === "titlebar-action" && record.owner.kind === "plugin") {
+			const ownerKey = ownerId(record.owner);
+			const existing = this.getAll().filter(
+				(item) =>
+					item.kind === "titlebar-action" && ownerId(item.owner) === ownerKey,
+			).length;
+			if (existing >= TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0)
+				throw new Error(
+					`Plugin ${ownerKey} cannot register more than ${TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0} title bar actions`,
+				);
+		}
 		this.contributions.set(record.id, record);
 		this.emitChange();
 		let disposed = false;
@@ -135,6 +209,51 @@ export class ContributionRegistry<TView = unknown> {
 					(left.order ?? 1000) - (right.order ?? 1000) ||
 					left.id.localeCompare(right.id),
 			);
+	}
+
+	getModes(): ModeContributionRecord<TView>[] {
+		return this.getAll()
+			.filter(
+				(item): item is ModeContributionRecord<TView> => item.kind === "mode",
+			)
+			.sort(
+				(left, right) =>
+					(left.order ?? 1000) - (right.order ?? 1000) ||
+					left.modeId.localeCompare(right.modeId),
+			);
+	}
+
+	/**
+	 * Fail-safe resolution: an active mode whose contribution has vanished
+	 * (owner disabled, unloaded or crashed) falls back to the builtin edit
+	 * mode instead of leaving the user on a blank viewport.
+	 */
+	resolveActiveModeId(currentModeId: string): string {
+		return this.getModes().some((mode) => mode.modeId === currentModeId)
+			? currentModeId
+			: FALLBACK_MODE_ID;
+	}
+
+	getTitleBarActions(): TitleBarActionContributionRecord[] {
+		return this.getAll()
+			.filter(
+				(item): item is TitleBarActionContributionRecord =>
+					item.kind === "titlebar-action",
+			)
+			.sort(
+				(left, right) =>
+					(left.order ?? 1000) - (right.order ?? 1000) ||
+					left.id.localeCompare(right.id),
+			);
+	}
+
+	getTrustedViews(
+		kind: TrustedViewContributionRecord["kind"],
+	): TrustedViewContributionRecord<TView>[] {
+		return this.getAll().filter(
+			(item): item is TrustedViewContributionRecord<TView> =>
+				item.kind === kind,
+		);
 	}
 
 	subscribe(listener: () => void): Disposable {
@@ -175,10 +294,23 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 	}): Disposable;
 	registerTrustedView(input: {
 		id: string;
-		kind: "sidebar" | "settings-view" | "dialog-view";
+		kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
 		title: LocalizedText;
 		view: TView;
 	}): Disposable;
+	registerMode(input: {
+		id?: string;
+		modeId: string;
+		title: LocalizedText;
+		order?: number;
+		when?: string;
+		mainView: TView;
+		mainViewKey?: string;
+		ribbonView?: TView;
+		titleBarActions?: TView;
+		hideSidebar?: boolean;
+	}): Disposable;
+	registerTitleBarAction(input: TitleBarActionContribution): Disposable;
 	addEventListener<T>(
 		event: string,
 		listener: (payload: T) => void,
@@ -262,6 +394,35 @@ export class ExtensionRegistry<TView = unknown> {
 			},
 			registerTrustedView: (input) =>
 				disposables.add(this.contributions.register({ ...input, owner })),
+			registerMode: (input) =>
+				disposables.add(
+					this.contributions.register({
+						...input,
+						kind: "mode",
+						id: input.id ?? `${ownerId(owner)}.mode.${input.modeId}`,
+						owner,
+					}),
+				),
+			registerTitleBarAction: (input) => {
+				requireOwnNamespace(
+					input.command,
+					"title bar action command reference",
+				);
+				if (input.id !== undefined)
+					requireOwnNamespace(input.id, "title bar action");
+				return disposables.add(
+					this.contributions.register({
+						kind: "titlebar-action",
+						id: input.id ?? `${ownerId(owner)}.titlebar.${input.command}`,
+						owner,
+						commandId: input.command,
+						icon: input.icon,
+						tooltip: input.tooltip,
+						order: input.order,
+						when: input.when,
+					}),
+				);
+			},
 			addEventListener: <T>(event: string, listener: (payload: T) => void) => {
 				const listeners = this.eventListeners.get(event) ?? new Set();
 				const entry = {

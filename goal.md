@@ -219,6 +219,8 @@
 
   阶段 4 完成记录（2026-08-25）
 
+<details>
+
   - `src/kernel/commands` 已成为 command 真相源；keyboard registry 保留原有快捷键 storage key，
     同时桥接 handler、enablement、source、execute 和 disposable。重复注册、禁用执行和清理均有测试。
   - 顶部菜单、导入导出菜单、歌词行/单词右键菜单和编辑区菜单均通过 command menu adapter 只引用
@@ -243,9 +245,12 @@
     `FORM_FLUENT_ICON_NAMES_V0` 与宿主映射保持合同测试一致，未知名称、任意 SVG/URL 和动态组件均被拒绝。
   - 完成时全量验证：120/120 测试通过、`tsc -b` 与 Vite production build 通过、`pnpm lint`
     通过（仅 13 条既有 warning 和 1 条既有提示）、`plugin:api:check` 通过。
+</details>
+
 
   阶段 4 安全审计与加固（2026-08-25，Claude + 本机 codex 交叉审计）
 
+<details>
   审计结论：阶段 4 的勾选项全部属实（command 真相源、菜单只引用 command ID、contribution registry、
   MVP 限制、卸载清理、自定义背景拆分均有实现和测试）。交叉审计发现并修复了以下隐患：
 
@@ -286,6 +291,98 @@
     sanitize/校验、请求 ID 匹配、ManagedResource 竞态、协议尺寸上限与 ui.showForm 语义校验）、
     `tsc -b` 通过、`pnpm lint` 通过（仅既有 13 warning + 1 提示）、`plugin:api:check` 通过
     （协议文档已重新生成）、Vite production build 通过。
+
+</details>
+
+  阶段 4 扩展（2026-08-26 评估，待实施）：标题栏 contribution、一级页面（模式）contribution 与表单动画
+
+  现状确认：插件系统目前**不提供**标题栏组件或一级页面接口。contribution registry 只覆盖
+  menu（menu.file/edit/tool/help、context.lyricLine/lyricWord）、toolbar（builtin-only）、
+  settings/dialog 声明式表单和 builtin-only trusted view（sidebar/settings-view/dialog-view）。
+  标题栏没有任何 contribution 点（主题系统仅将 title-bar 作为样式 slot）；一级页面由硬编码
+  `ToolMode` enum（Edit/Sync/Preview）在 App/RibbonBar/TitleBar/Sidebar/enablement-context
+  多处分支实现，插件无法注册第四模式。amll-ttml-tool-test 分支的“审阅”页面正是
+  “第四 ToolMode + 权限门控的模式切换项 + 标题栏 ReviewActionGroup/通知中心 + 独立 Ribbon +
+  隐藏 Sidebar”的组合，属阶段 9 要以插件承接的定制功能 —— 因此该能力是阶段 9 的前置依赖。
+
+  可行性与安全边界结论：
+
+  - 一级页面（模式）contribution：可行，但必须分信任档。builtin/trusted 插件注册完整 React
+    mainView 属低风险工程工作（把 enum 换成 mode registry）；而向第三方 WASM 插件开放一级页面
+    等于交出整个主视口的任意渲染面 —— 页面位于 slot 树内却占满视口，可伪造设置对话框等安全 UI，
+    绕过阶段 5 靠“主题只能改样式 + portal/data-amll-protected”建立的防遮挡保证，直接违反
+    “第三方不得注入 React/任意 HTML”红线。MVP 不向第三方开放一级页面；后续如需支持，只能走
+    声明式页面 schema 或 WASM 渲染数据协议，另行评审。
+  - 标题栏 contribution：标题栏承载模式切换器与窗口控制，属恢复入口性质区域。第三方最多获得
+    声明式动作位（只引用自身 command ID + 宿主图标白名单 + 纯文本 tooltip），固定插槽、数量
+    上限、悬停展示插件来源，不得触碰窗口拖拽区、窗口控制和模式切换器（仿冒与遮挡风险）；
+    builtin 可注册受信任 action group（对应测试分支 ReviewActionGroup 形态）。
+  - 表单动画：采用声明式动画预设，不向表单协议开放 CSS 文本。表单由宿主完全控制渲染并在
+    提交前 sanitize 是该协议的核心安全卖点；允许插件 CSS（即便复用主题校验器）会引入对话框内
+    视觉仿冒（如把 cancel 按钮画成 primary）、布局破坏与遮挡面，且主题校验器的 slot 锚定模型
+    也不适配表单内部结构。图标白名单（FORM_FLUENT_ICON_NAMES_V0）已验证“枚举白名单 + 宿主
+    实现”模式可行，动画沿用同一模式。主题 CSS 校验器现禁 @keyframes；若未来需要主题动画，
+    应在阶段 5 合同内以受限 @keyframes（名称强制前缀 + 仅 transform/opacity/filter 属性白名单）
+    另行扩展，属主题包能力，不进表单协议。
+
+  工作项：
+
+  - [x] 建立 mode/page contribution registry：模式包含 id、LocalizedText 标题、order、
+    enablement、mainView，及可选 ribbonView、titleBarActions、hideSidebar；内置
+    Edit/Sync/Preview 迁移为首批 builtin mode contribution，App/RibbonBar/TitleBar 改为
+    遍历 registry 渲染。
+  - [x] fail-safe 保证：内置 Edit 模式不可被移除或隐藏；活动模式对应插件禁用/卸载/崩溃时
+    自动回退 Edit；模式切换器与窗口控制不可被任何 contribution 覆盖或遮挡。
+  - [x] mainView/ribbonView/titleBarActions 仅接受 builtin trusted scope（与
+    registerTrustedView 同一信任闸门），第三方 manifest 声明 mode 直接在 parseManifest 拒绝，
+    并有正反合同测试。
+  - [x] enablement 上下文 mode 字段与模式切换快捷键 storage key 支持动态模式 id
+    （命名空间化），when 表达式对未知模式 fail-closed。
+  - [x] 标题栏声明式动作位：新增 titlebar.actions contribution（command ID + 图标白名单 +
+    LocalizedText tooltip），plugin scope 强制自身命名空间，固定区域渲染、每插件数量上限、
+    悬停显示插件来源；builtin 可注册 trusted action group。
+  - [x] 表单动画预设：FormSchemaV0 与字段 presentation 增加 animation 枚举
+    （如 fade/slide-up/scale-in + fast/normal/slow 档位），宿主固定实现并尊重
+    prefers-reduced-motion，schema 校验拒绝未知预设与超界 duration；协议继续拒绝任何
+    CSS/HTML/React 注入。
+
+  阶段 4 扩展完成记录（2026-08-26）
+
+  - 模式（一级页面）registry：`ContributionRegistry` 新增 `mode` contribution
+    （modeId/title/order/when/mainView/mainViewKey/ribbonView/titleBarActions/hideSidebar），
+    `getModes()` 按 order 排序，modeId 全局唯一；注册与 trusted view 同一信任闸门（owner.trusted），
+    plugin scope 注册直接抛错。内置 Edit/Sync/Preview 由永不 dispose 的 `core.modes` builtin scope
+    在 `src/plugins/builtin/modes` 注册（Edit/Sync 共享 mainViewKey="edit"，模式切换不重挂载歌词
+    编辑器，保持原 AnimatePresence 行为）；App 主视口、RibbonBar、TitleBar 模式切换器全部改为遍历
+    registry 渲染，`ToolMode` enum 仅作为内置模式 id 常量保留，`toolModeAtom` 放宽为 string。
+  - fail-safe：`FALLBACK_MODE_ID = "edit"`；`resolveActiveModeId` 对未注册的活动模式返回 edit，
+    App 以 effect 将 atom 写回；edit 模式禁止携带 `when`（registry 抛错），modeId 唯一性防止
+    二次注册顶替；模式切换器包在 `data-amll-protected` 标记内且位于固定 title-bar 插槽，
+    contribution 渲染区（TitleBarActions）是独立 flex 插槽，物理上不与拖拽区/窗口控制/切换器重叠。
+  - 协议：`parseManifest` 对任何声明 `contributes.modes` 的 manifest 在 schema 校验前给出针对性
+    拒绝（正反合同测试覆盖 registry 与 manifest 两个入口）。
+  - 动态模式快捷键：新增 `registerModeSwitchCommand`——内置三模式沿用 legacy storage key
+    （switchEditMode 等，用户既有配置不失效），动态模式使用 `keybindings:switchMode.<modeId>`
+    命名空间 key；命令 handler 由 mode adapter 绑定（含 when fail-closed enablement），
+    模式卸载时命令与绑定一并清理。enablement 上下文 `mode` 字段返回 registry 解析后的
+    活动模式 id（含回退），对未知/已卸载模式的 `when` 比较自然为 false（新增 enablement 测试）。
+  - 标题栏声明式动作位：manifest `contributes.titleBarActions`（command + 白名单图标 + 纯文本
+    tooltip + order/when），schema 每 manifest ≤3 条，registry 对 plugin owner 再限 3 条并强制
+    自身命名空间（command 与 id）；`TitleBarActions` 组件在固定区域渲染 IconButton，tooltip
+    显示"文案 · 插件来源"，命令经 CommandRegistry enablement 门控执行；builtin 可注册
+    `titlebar-group` trusted view 与模式级 titleBarActions 动作组（对应 ReviewActionGroup 形态）。
+  - 表单动画：`FormAnimationV0`（preset: fade/slide-up/scale-in；speed: fast/normal/slow）加入
+    FormSchemaV0、字段 presentation、note 与 group；schema 枚举校验拒绝未知预设/档位/任何
+    数值 duration 字段；宿主以固定 CSS keyframes 实现（120/200/320ms），
+    `prefers-reduced-motion: reduce` 下全部禁用，协议不接受任何 CSS/HTML/React 注入。
+  - 完成时全量验证：212/212 测试通过（新增 10 项：mode registry 信任闸门/唯一性/fail-safe/排序 4、
+    titlebar 动作上限与命名空间 2、manifest modes 拒绝与 titleBarActions 校验 2、表单动画 1、
+    动态模式 enablement 1），`tsc -b`、`pnpm lint`（boundaries + Biome 基线 13 warning + 1 info）、
+    `plugin:api:check`（协议文档已重新生成）、Vite production build 全部通过。
+  - 已知取舍：标题栏声明式动作的 `when` 从 contribution/命令状态变化与父级重渲染时重估
+    （与菜单打开时求值一致），选择态驱动的表达式可能滞后一帧；动态模式的快捷键设置项描述
+    显示 contribution 标题的 default 文本（不走 locale 文件）；模式 contribution 的 mainView
+    为受信任 React 组件，向第三方 WASM 开放一级页面仍按上文结论排除在 MVP 之外。
 
   阶段 5：主题系统
 
@@ -454,15 +551,58 @@
 
   每迁移一个功能，都要求旧入口删除、插件禁用后功能消失、重新启用后状态恢复。
 
+  阶段 9 前置决策（2026-08-26）：审阅功能的受信任插件分发
+
+  背景与结论：审阅功能是测量驱动的命令式 React UI（FLIP 卡片展开、DOMRect/WAAPI 动画、
+  标题栏动作组、独立审阅模式），无法在声明式/WASM 档表达，只能以受信任插件承载；其用户
+  仅限通过身份验证的上游审阅者，且代码已在公开分支上（无保密价值）。因此采用
+  “资格门控的远程分发 + 受信任加载”，收益是发布解耦、包体卫生与权限门控，而非藏代码。
+  该决策同时是 trusted-js 档的第一个实例，注意当前 ContributionRegistry 中 plugin owner
+  一律 trusted: false，trusted-js 尚未接线，需在此处一并放开（仅对通过本闸门加载的包）。
+
+  信任模型（分发方式 / 信任等级 / 使用资格三维正交）：
+
+  - 信任锚是代码完整性而非登录态：认证只决定是否下载，完整性决定是否执行。
+  - Web 端（MVP 范围）：远程分发实现为同源 ES module 动态 import——认证后从资格接口取
+    入口清单，import() 自身 origin 下的模块。TLS + 同源 + 服务端鉴权已提供与主应用等同的
+    信道完整性（服务器沦陷时主包同样可被篡改，插件不引入新面），因此 MVP 不建签名/撤销/
+    包缓存基础设施；CSP 维持 script-src 'self'，禁止 fetch+eval。
+  - Tauri 端（MVP 禁止）：桌面信任根是安装二进制，远程 JS 可触达 Tauri IPC，爆炸半径远
+    大于浏览器。如未来开放，必须补齐二进制内固定公钥 + 分离签名 + 版本/撤销清单（届时才
+    建签名流水线）；在此之前桌面审阅用户使用浏览器版本。
+  - 一旦载入即为应用全权（可读全部 atom、PAT、调用宿主能力），与 builtin 无隔离差异；
+    所有防护均作用于“载入之前”，因此加载闸门必须唯一且可测试。
+
+  工作项：
+
+  - [ ] 远程受信任插件加载器（web-only）：认证 → 资格/版本清单接口 → 同源动态 import →
+    注册进 builtin 等级 trusted scope（owner.trusted: true）；登出或资格失效时 scope
+    dispose 全量清理 contribution 与监听器。
+  - [ ] 单一加载入口：远程下发与未来手动导入共用同一 parse/注册闸门（复用
+    parseThemePackage 的单一信任边界模式），不为自动下发开第二条路径。
+  - [ ] 平台硬门禁（分层）：安全边界在编译期——桌面构建经 import.meta.env.TAURI_ENV_PLATFORM
+    静态替换 + tree-shaking 物理剔除远程加载模块，CI 对桌面产物断言剔除生效（如加载器内
+    标记字符串不得出现在 bundle 中）；加载器入口保留运行时 Tauri 检测抛错作纵深防御。
+    服务端按客户端平台标记不向桌面返回插件清单，仅作资格/运营用途（灰度、kill switch）——
+    客户端标记可伪造且服务器本身在威胁模型内，不得作为安全依据。
+  - [ ] 加载器只接受自身 origin 的模块 URL，不提供“从任意 URL 加载”能力；开发模式的本地
+    加载需显式 flag 且不进入生产构建。
+  - [ ] 故障回退：复用主题系统崩溃标记模式，远程插件初始化连续崩溃自动禁用并回退编辑器
+    主功能；加载时执行 apiVersion/capability 协商，防插件与应用部署节奏解耦后的版本偏移。
+  - [ ] 审阅功能拆分随迁：页面壳/动画/标题栏动作组留在受信任视图内；report-service、
+    filter-service、operation-log 格式化等纯逻辑按 application service 既有模式拆干净，
+    不强行下沉 WASM。
+
   阶段 9：移植定制版
 
   - [ ] 通过独立提交逐批 cherry-pick plugin API、kernel 和 runtime，避免整体合并大分支。
   - [ ] 实现定制版 EditorHostAdapter。
   - [ ] 将插件事务接入 review operation log。
-  - [ ] 为 agents、vocalTags、多语言和 songPart 增加 capability。
+  - [ ] 为 agents、vocalTags、多语言和 songPart 增加 capability。（不作为原生能力提供，而是作为插件接入现有体系，对应修改插件系统的作用范围）
   - [ ] 对接定制版通知中心、设置页和复杂对话框。
-  - [ ] 将 GitHub、Review、歌词站和 NCM 功能迁移为内置插件。
+  - [ ] 将 GitHub、Review、歌词站和 NCM 功能迁移为外置插件（非必须功能，且涉及版权或数据安全风险，不内置）。
   - [ ] 上游版与定制版共同通过协议合同测试后，才冻结 API v1。
+  - [ ] 定制版所有功能移植完成后使用当前的插件基座版本覆盖定制版分支，并以插件形式分发原有的定制版功能。
 
   MVP 完成标准
 

@@ -1,6 +1,8 @@
 import { ALL_CAPABILITIES } from "../capabilities";
 import type { HostMethod } from "../types";
 import {
+	FORM_ANIMATION_PRESETS_V0,
+	FORM_ANIMATION_SPEEDS_V0,
 	FORM_FLUENT_ICON_NAMES_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
@@ -9,6 +11,7 @@ import {
 	THEME_SPECTROGRAM_TOKEN_NAMES_V0,
 	THEME_SURFACE_NAMES_V0,
 	THEME_TOKEN_VERSION,
+	TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
 } from "../types";
 import type { JsonSchema } from "./validator";
 
@@ -60,6 +63,17 @@ const icon = {
 	},
 	additionalProperties: false,
 };
+// Enum-only animation contract: unknown presets, speeds and any numeric
+// duration are rejected; the host owns the actual keyframes.
+const animation = {
+	type: "object",
+	required: ["preset"],
+	properties: {
+		preset: { enum: [...FORM_ANIMATION_PRESETS_V0] },
+		speed: { enum: [...FORM_ANIMATION_SPEEDS_V0] },
+	},
+	additionalProperties: false,
+};
 const formAction = {
 	type: "object",
 	required: ["id", "label"],
@@ -82,6 +96,7 @@ const presentationProperties = {
 	width: { enum: ["full", "compact"] },
 	controlSize: { enum: ["small", "medium"] },
 	icon: { $ref: "#/$defs/icon" },
+	animation: { $ref: "#/$defs/animation" },
 };
 
 export const FORM_SCHEMA_V0 = {
@@ -89,6 +104,7 @@ export const FORM_SCHEMA_V0 = {
 		localizedText,
 		condition,
 		icon,
+		animation,
 		field: {
 			oneOf: [
 				{
@@ -162,6 +178,7 @@ export const FORM_SCHEMA_V0 = {
 						tone: { enum: ["default", "muted"] },
 						visibleWhen: { $ref: "#/$defs/condition" },
 						icon: { $ref: "#/$defs/icon" },
+						animation: { $ref: "#/$defs/animation" },
 					},
 					additionalProperties: false,
 				},
@@ -178,6 +195,7 @@ export const FORM_SCHEMA_V0 = {
 						indent: { type: "boolean" },
 						visibleWhen: { $ref: "#/$defs/condition" },
 						icon: { $ref: "#/$defs/icon" },
+						animation: { $ref: "#/$defs/animation" },
 						fields: {
 							type: "array",
 							minItems: 1,
@@ -198,6 +216,7 @@ export const FORM_SCHEMA_V0 = {
 		fields: { type: "array", maxItems: 64, items: { $ref: "#/$defs/field" } },
 		size: { enum: ["small", "medium", "large"] },
 		icon: { $ref: "#/$defs/icon" },
+		animation: { $ref: "#/$defs/animation" },
 		submitLabel: { $ref: "#/$defs/localizedText" },
 		cancelLabel: { $ref: "#/$defs/localizedText" },
 		submitIcon: { $ref: "#/$defs/icon" },
@@ -246,6 +265,19 @@ const settingsContribution = {
 	type: "object",
 	required: ["id", "title", "form"],
 	properties: { id, title: localizedText, form: FORM_SCHEMA_V0 },
+	additionalProperties: false,
+};
+const titleBarActionContribution = {
+	type: "object",
+	required: ["command", "icon", "tooltip"],
+	properties: {
+		id,
+		command: id,
+		icon,
+		tooltip: localizedText,
+		order: { type: "number" },
+		when: { type: "string", minLength: 1 },
+	},
 	additionalProperties: false,
 };
 const baseManifestProperties = {
@@ -306,6 +338,11 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 						commands: { type: "array", items: commandContribution },
 						menus: { type: "array", items: menuContribution },
 						settings: { type: "array", items: settingsContribution },
+						titleBarActions: {
+							type: "array",
+							maxItems: TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
+							items: titleBarActionContribution,
+						},
 					},
 					additionalProperties: false,
 				},

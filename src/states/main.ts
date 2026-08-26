@@ -28,7 +28,14 @@ export enum ToolMode {
 	Preview = "preview",
 }
 
-export const toolModeAtom = atom(ToolMode.Edit);
+/**
+ * @description 当前激活的一级页面（模式）ID。
+ *
+ * 内置模式取 `ToolMode` 的三个值；受信任插件可通过 mode contribution 注册
+ * 命名空间化的动态模式 ID。当激活模式对应的 contribution 消失时，宿主会
+ * 回退到内置 Edit 模式（见 `ContributionRegistry.resolveActiveModeId`）。
+ */
+export const toolModeAtom = atom<string>(ToolMode.Edit);
 export const darkModeAtom = atomWithStorage("darkMode", DarkMode.Auto);
 export const isDarkThemeAtom = atom((get) => {
 	if (get(darkModeAtom) === DarkMode.Auto) return get(autoDarkModeAtom);

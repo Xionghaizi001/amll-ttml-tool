@@ -179,6 +179,24 @@ function validateFormSemantics(form: FormSchemaV0, path: string): ParseIssue[] {
 export function parseManifestSchema(
 	input: unknown,
 ): ParseResult<PluginManifest> {
+	// Modes own the whole main viewport and are a trusted-host-only surface;
+	// reject them with a targeted message before the generic schema pass turns
+	// the attempt into an anonymous "additional property" issue.
+	if (typeof input === "object" && input !== null) {
+		const contributes = (input as { contributes?: unknown }).contributes;
+		if (
+			typeof contributes === "object" &&
+			contributes !== null &&
+			"modes" in contributes
+		)
+			return fail([
+				{
+					path: "$/contributes/modes",
+					message:
+						"mode (main page) contributions are reserved for trusted builtin scopes and cannot be declared by plugin manifests",
+				},
+			]);
+	}
 	const parsed = validate<PluginManifest>(PLUGIN_MANIFEST_SCHEMA, input);
 	if (!parsed.ok) return parsed;
 	const manifest = parsed.value;
@@ -255,6 +273,18 @@ export function parseManifestSchema(
 					`$/contributes/settings/${index}/form`,
 				),
 			);
+		});
+		manifest.contributes?.titleBarActions?.forEach((action, index) => {
+			if (!action.command.startsWith(prefix))
+				issues.push({
+					path: `$/contributes/titleBarActions/${index}/command`,
+					message: `must reference a command starting with ${prefix}`,
+				});
+			if (action.id !== undefined && !action.id.startsWith(prefix))
+				issues.push({
+					path: `$/contributes/titleBarActions/${index}/id`,
+					message: `must start with ${prefix}`,
+				});
 		});
 	}
 	return issues.length === 0 ? parsed : fail(issues);
