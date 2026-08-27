@@ -3,6 +3,7 @@ import { Toolbar } from "radix-ui";
 import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { cmdOpenGitHub, cmdOpenWiki } from "$/modules/keyboard/commands";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
 type HelpMenuProps = {
@@ -19,6 +20,7 @@ const HelpMenuItems = () => {
 			<CommandMenuItem commandId={cmdOpenWiki.id}>
 				{t("topBar.menu.helpDoc", "使用说明")}
 			</CommandMenuItem>
+			<ContributionMenuItems location="menu.help" withLeadingSeparator />
 		</>
 	);
 };

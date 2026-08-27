@@ -8,6 +8,7 @@ import {
 } from "$/components/TopMenu/ContextCommandMenuItem";
 import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 
@@ -140,6 +141,11 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 					defaultValue: "删除行",
 				})}
 			</ContextCommandMenuItem>
+			<ContributionMenuItems
+				location="context.lyricLine"
+				variant="context"
+				withLeadingSeparator
+			/>
 		</>
 	);
 

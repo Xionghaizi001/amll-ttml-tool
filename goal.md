@@ -505,28 +505,94 @@
 
   阶段 5 遗留与后续阶段注意事项
 
-  - 安装主题包目前整包存于 localStorage（含 base64 资源），受 ~5MB 配额限制；阶段 6 插件管理
-    落地时应迁移到 IndexedDB（可复用 `ManagedResource` 与 idb adapter 模式）。
+  - [x] 安装主题包已从 localStorage（~5MB 配额）迁移到 IndexedDB（阶段 6 完成）：ThemeService 新增
+    异步 `packageStore` 端口 + `hydrateInstalledThemes()`，首次启动自动把旧 localStorage JSON 迁入
+    `amll-theme-packages` 库并删除旧键；持久化的活动主题在异步水合后重新解析生效，崩溃标记覆盖
+    待水合主题。无 packageStore 端口时保留旧同步行为（既有测试不变）。迁移完成后原按
+    localStorage 设计的体积上限（单资源 ≤2MB base64、CSS ≤128KB 等）可以放宽，新上限与
+    分发容器格式在阶段 10 一并定档（IndexedDB origin 配额与自动保存/历史快照共享，仍需显式上限）。
   - v0 已定义但尚未桥接到组件的 token：color.accent/textPrimary/textSecondary/border/danger、
     font.scale、spacing.radius、lyrics.wordText/wordSecondaryText/wordHighlight、
     spectrogram.lineSegment/wordSegment/gapSegment/waveform（频谱段颜色需接入 canvas 调色板
     体系）。CSS 变量均已按约定名编译，后续按需在 base 层加 var() 桥接即可，不动协议。
-  - 阶段 6 的插件管理器与权限弹窗 UI 必须 portal 到 body（slot 树之外）并标记
-    `data-amll-protected`，即可自动获得与设置对话框相同的防覆盖保证。
+  - [x] 阶段 6 的插件管理器（设置 → 插件）与权限授权弹窗均 portal 到 body（slot 树之外）并标记
+    `data-amll-protected`，与设置对话框享有相同的防主题覆盖保证。
   - 主题编辑器 MVP 仅覆盖 4 个高频 token 的声明式输入；完整 token 编辑器与“导出为主题包”
-    留待插件管理页一起做。
+    仍留待后续（插件管理页已落地，可在其上扩展）。
   - 定制版（阶段 9）新增 slot/part/token 名需扩展 `THEME_*_NAMES_V0` 并 bump
     THEME_TOKEN_VERSION，双方跑同一份合同测试后再冻结 v1。
 
   阶段 6：WASM 插件宿主
 
-  - [ ] 每个第三方插件运行在独立 Worker 中。
-  - [ ] 实现生命周期、RPC、调用 ID、取消、超时和 Worker 重启。
-  - [ ] 限制 payload、并发、日志数量和持续执行时间。
-  - [ ] 宿主函数逐项校验权限，WASM 不直接访问 DOM、网络和 Tauri。
-  - [ ] 为插件提供隔离 KV 存储。
-  - [ ] 实现崩溃通知、自动禁用和诊断日志。
-  - [ ] 提供开发模式、目录加载、热重载、Mock Host 和示例插件。
+  - [x] 每个第三方插件运行在独立 Worker 中。
+  - [x] 实现生命周期、RPC、调用 ID、取消、超时和 Worker 重启。
+  - [x] 限制 payload、并发、日志数量和持续执行时间。
+  - [x] 宿主函数逐项校验权限，WASM 不直接访问 DOM、网络和 Tauri。
+  - [x] 为插件提供隔离 KV 存储。
+  - [x] 实现崩溃通知、自动禁用和诊断日志。
+  - [x] 提供开发模式、目录加载、热重载、Mock Host 和示例插件。
+
+  阶段 6 完成记录（2026-08-26）
+
+  - 调用约定（协议扩展，`packages/plugin-api`）：受 Extism `runInWorker: false` + 无
+    SharedArrayBuffer 约束，宿主函数必须同步，v0 采用**回合制**模型。每次 guest 调用
+    （activate/executeCommand/handleEvent/resumeForm）为一个回合，主线程随回合下发文档投影、
+    选区与 KV 快照；Worker 内唯一同步宿主桥 `amll_host_call`（`extism:host/user`）解析
+    `HostCallV0`→`HostResponseV0`，逐调用做 schema 校验 + capability 检查。新增
+    `PluginCommandOutcomeV0`（done/showForm 判别）与 `plugin_resume_form` 导出：WASM 无法挂起
+    等待用户输入，`ui.showForm` 改为命令 outcome 续体（每次命令 ≤8 轮）；同步桥内的
+    `ui.showForm` 显式拒绝。新增 `FunctionPluginPackageV0` + `parseFunctionPluginPackage`
+    单一信任入口（与主题包同模式）、`limit-exceeded` 错误码、共享 `document-ops`
+    （MockPluginHost 与 Worker 回合宿主共用同一 op 应用实现）。协议文档已重新生成。
+  - 事务与撤销保证：回合内全部 `lyrics.applyEdit` 在回合结束后由主线程经
+    `PluginDocumentGateway` 合并为**一个** `EditorDocumentService` 事务（source=plugin、携带
+    pluginId/label），以回合起始 revision 冲突检测——用户并发修改会拒绝整批编辑并 toast 说明；
+    一次插件操作 = 一条撤销记录。插入行/词的 id 由回合种子确定性分配，Worker 侧与主线程提交
+    产生完全相同的 id，guest 在回合内可立即引用自己插入的 id。投影未携带的内部字段
+    （obscene/romanWarning/endTimeLink/定制扩展）因按 id 原位 patch 而完整保留（有测试锁定）。
+  - 运行时（`src/plugins/runtime`）：`WasmTurnHost`（纯逻辑回合宿主，Node 全测）、
+    `WasmGuestSession`（Extism 会话 + 宿主函数绑定，回合外的宿主调用被拒绝）、
+    `wasm-host.worker.ts` 独立 Worker、`WasmPluginWorkerClient`（调用 ID、每回合超时→终止
+    Worker、cancelAll、下次调用自动重建并重载模块、指标）。回合限额
+    （`DEFAULT_WASM_TURN_LIMITS`）：宿主调用 ≤128/回合、调用 payload ≤1MB、通知 ≤16、
+    applyEdit 批次 ≤16 / ops ≤10000、存储键 ≤128、单值 ≤32KB、命名空间 ≤1MB；模块 ≤32MB，
+    回合超时默认 10s。并发以每插件串行队列约束（一插件一 Worker 一在途回合）。
+  - 生命周期编排（`src/plugins/adapters/wasm-plugin-service.ts`，端口注入、Node 全测）：
+    install（能力协商 + 持久化 + 激活）、enable/disable、uninstall（scope dispose + Worker 关闭 +
+    KV 命名空间清除）、dev reload；激活失败进入 failed；命令失败通知，崩溃/超时/内部错误连续
+    3 次自动禁用（持久化 + toast + crash-disabled 状态）；每插件 200 条环形诊断日志。
+    `document.changed` 事件按 manifest `activationEvents: ["onDocumentChanged"]` 订阅派发，
+    插件自身修改不回灌，队列中未开始的事件回合按最新事件合并（coalesce）。scope dispose 统一
+    清理命令、菜单、监听器；Worker cancelAll 拒绝在途回合（覆盖阶段 4 遗留的异步 handler
+    取消项）。
+  - 权限与存储：授权弹窗在安装前列出插件与逐项能力说明（授权全有或全无，v0）；插件包 +
+    授权状态存 IndexedDB `amll-plugins`（加载时重跑 parseManifest，损坏记录丢弃）；隔离 KV 存
+    `amll-plugin-kv`（复合键 [pluginId, key]，读写按命名空间隔离，配额在 Worker 侧先行强制）。
+    WASM 无 DOM/网络（Extism allowedHosts 为空）/文件系统/Tauri 访问面。
+  - 宿主 UI：设置新增“插件”页（列表/状态/能力徽章/启停/卸载/诊断日志/导入 JSON 插件包/一键
+    安装示例插件），设置对话框本身 data-amll-protected；权限弹窗独立 portal 到 body 并标记
+    data-amll-protected。开发模式（支持 File System Access 的浏览器）：选择目录（manifest.json +
+    入口 wasm）加载为会话级 dev 插件，轮询 lastModified 热重载，可手动立即重载；dev 加载与
+    文件导入、示例安装共用 `installPluginPackage` 单一解析闸门与授权弹窗。
+  - 菜单位置补全（2026-08-27 修复）：此前只有 menu.edit 渲染 `ContributionMenuItems`，插件对
+    menu.tool/menu.file/menu.help 与 context.lyricLine/context.lyricWord 的贡献注册成功但不可见。
+    现五个位置全部接入（右键菜单走 ContextMenu 变体），分隔线只在存在可见贡献项时渲染。
+  - 示例插件与合同测试：`examples/plugins/sample-tools`（Rust + extism-pdk + serde_json，
+    `pnpm plugin:build:sample` 构建，产物 fixture 已提交）演示 trimWords（读文档 → 单事务
+    编辑 → 通知 → KV）与 wordCount（showForm outcome → resume 统计）。真实宿主栈
+    （EditorDocumentService + PluginDocumentGateway）通过与 MockPluginHost 完全相同的
+    `runHostContractTests` 合同套件；`WasmGuestSession` 直接以真实 wasm fixture 在 Node 中
+    测试全链路（激活、命令、权限拒绝、表单续体、效果队列、配额）。
+  - 完成时全量验证：264/264 测试通过（新增 52 项：回合宿主 9、真实 wasm 会话 3、Worker
+    客户端 6、文档投影/网关 8、真实宿主合同 4、服务生命周期 7、document-ops 4、插件包/outcome/
+    表单结果解析 7、主题包迁移 4）；`tsc -b`、`pnpm lint`（boundaries + Biome 基线 13 warning +
+    1 info）、`plugin:api:check`（协议文档已重新生成）、Vite production build（wasm-host.worker
+    独立 chunk）全部通过。
+  - 已知取舍：applyEdit 的成功响应在回合内是乐观的（以回合本地 revision 计），若提交时发生
+    revision 冲突则整批拒绝并通知（插件下次读取会看到真实状态）；跨多个表单轮次的编辑按回合
+    分别成交（典型流程编辑集中在最后一轮，仍是单撤销记录）；`document.undo/redo` 与
+    `selection.changed` 事件类型暂未派发（协议已定义）；能力授权为整包确认，无逐项开关；
+    Tauri 端 File System Access 不可用时开发模式区块自动隐藏。
 
   阶段 7：文件与格式插件化
 
@@ -603,6 +669,48 @@
   - [ ] 将 GitHub、Review、歌词站和 NCM 功能迁移为外置插件（非必须功能，且涉及版权或数据安全风险，不内置）。
   - [ ] 上游版与定制版共同通过协议合同测试后，才冻结 API v1。
   - [ ] 定制版所有功能移植完成后使用当前的插件基座版本覆盖定制版分支，并以插件形式分发原有的定制版功能。
+
+  阶段 10：插件商店后端（2026-08-27 要求定稿）
+
+  两条承重原则：
+
+  - 商店的“不分发”不是访问控制：插件代码公开（GPL/公开分支），任何资格用户可见 artifact
+    URL。安全闸门必须在审阅等业务 API 自身的鉴权上——即使有人手动加载插件代码，无资格账号
+    调用后端必须被拒。任何业务安全性不得依赖“用户看不到这个插件”。
+  - trusted-js artifact 必须不可变、内容寻址、仅由 CI 发布、对所有用户字节一致——四个属性
+    共同支撑“同源 = 与主应用等信任”的论证，缺一不可。
+
+  - [ ] 身份与资格：复用歌词站账号体系（reviewPermission）；插件在商店侧声明所需资格，
+    清单接口每会话重新校验；资格收回后下一次清单即不返回该插件（对接客户端“资格失效 →
+    scope dispose”）；插件代码不内嵌任何秘密，运行时以用户自身凭据调业务 API。
+  - [ ] 发布流水线：trusted-js 档只接受 CI 从打 tag 的源码构建发布，记录 commit hash →
+    artifact hash 溯源；版本不可覆盖重传，下架用 kill switch；发布操作走独立强认证（受限
+    发布账号 + 2FA）并留审计日志；artifact 元数据 schema 预留签名字段（未来桌面签名档免迁移）。
+  - [ ] 同源交付：trusted-js artifact 从应用自身 origin（同域路径或应用域名反代）提供，
+    CDN 只能藏在应用 origin 之后回源，不得成为独立脚本 origin（否则 CSP script-src 'self'
+    被迫放开）；内容寻址 URL + immutable 长缓存；清单接口 no-store/秒级缓存，保证 kill
+    switch 下次刷新即生效。
+  - [ ] 清单与版本协商：入参 platform/appVersion/pluginApiVersion，按兼容矩阵过滤返回
+    （入口 URL、版本、所需 capability）；对 platform=tauri 不返回 trusted-js 条目（运营性
+    过滤，非安全依据）；支持灰度发版与按用户锁版本。
+  - [ ] 运营控制：插件/版本级 kill switch；发布、资格授予/回收、kill 操作全量审计；客户端
+    崩溃自动禁用机制可选上报，除此之外遥测最小化。
+  - [ ] artifact 一致性红线：禁止服务端按用户个性化生成代码，同版本对所有用户字节一致
+    （缓存有效、审计可用 hash 回答、杜绝把用户 token 烘进代码下发）；个性化一律走数据 API。
+  - [ ] 分档差异：trusted-js 货架第一方专属（桌面签名档建成前无第三方进入受信任层的通道）；
+    WASM/主题包货架以客户端校验（parseThemePackage、WASM 沙箱）为边界，后端做托管、元数据、
+    账号实名与上传时复验客户端同款体积上限（主题包已迁 IndexedDB，上限重新定档后两端同步）；
+    两个货架发布通道分离。
+  - [ ] 可用性：商店不可用不影响编辑器——清单请求失败 = 功能缺席，不进入错误循环；插件
+    对应用永远是可选增强。
+  - [ ] 包容器格式（2026-08-27 定稿）：按用途而非体积双路径——本地手写导入用 base64-JSON
+    （保留设置页粘贴导入体验，维持既有紧上限，从构造上封死大包进 JSON 路径与 base64 内存
+    问题）；商店分发一律 zip（固定布局：根下 manifest.json + assets/，加固解包：entry 名单
+    由 manifest 派生、解压前校验展开体积上限、拒绝重复 entry 与路径分隔符，建议 fflate 类
+    审计过的库）。两条路径只是容器剥离前端，各自产出 manifest + Uint8Array 资源后汇入同一个
+    parseThemePackage 信任边界，语义校验永远只有一份；格式识别用 magic bytes（PK\x03\x04 vs
+    `{`），不用扩展名或用户选择；手写 JSON 上架由打包脚本一键转 zip，商店后端只面对单一
+    artifact 格式；IndexedDB 落盘统一为 manifest JSON + 二进制 Blob，不存 base64。
 
   MVP 完成标准
 

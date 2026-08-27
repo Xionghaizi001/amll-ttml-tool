@@ -223,6 +223,7 @@ export type PluginErrorCode =
 	| "timeout"
 	| "cancelled"
 	| "payload-too-large"
+	| "limit-exceeded"
 	| "plugin-crashed"
 	| "internal";
 
@@ -266,7 +267,61 @@ export const PLUGIN_EXPORTS = {
 	deactivate: "plugin_deactivate",
 	executeCommand: "plugin_execute_command",
 	handleEvent: "plugin_handle_event",
+	resumeForm: "plugin_resume_form",
 } as const;
+
+/**
+ * Import namespace and function name of the single synchronous host bridge a
+ * WASM guest may call. The guest passes one HostCallV0 JSON string and gets
+ * one HostResponseV0 JSON string back. `ui.showForm` is NOT available on this
+ * bridge (WASM execution cannot suspend for user input); interactive forms go
+ * through the command outcome protocol below instead.
+ */
+export const WASM_HOST_MODULE = "extism:host/user";
+export const WASM_HOST_CALL_FUNCTION = "amll_host_call";
+
+/**
+ * Upper bound on showForm outcome rounds inside one command invocation. The
+ * host aborts the invocation when a guest keeps requesting forms past it.
+ */
+export const FORM_ROUNDS_PER_INVOCATION_LIMIT_V0 = 8;
+
+/**
+ * Value shape a WASM guest returns from `plugin_execute_command` and
+ * `plugin_resume_form` (wrapped in a successful PluginReturnV0). Because a
+ * synchronous WASM export cannot block on user input, a form request ends the
+ * current turn: the host renders the schema and then calls
+ * `plugin_resume_form` with the sanitized result plus the guest's opaque
+ * `state` echoed back verbatim.
+ */
+export type PluginCommandOutcomeV0 =
+	| { kind: "done"; value?: JsonValue }
+	| { kind: "showForm"; schema: FormSchemaV0; state?: JsonValue };
+
+/** Params passed to the guest's `plugin_resume_form` export. */
+export interface ResumeFormParamsV0 {
+	commandId: string;
+	/** Opaque continuation state from the guest's showForm outcome. */
+	state?: JsonValue;
+	result: FormResultV0;
+}
+
+/** Params passed to the guest's `plugin_handle_event` export. */
+export interface HandleEventParamsV0 {
+	event: PluginEventV0;
+}
+
+/**
+ * Self-contained, importable WASM function plugin package: manifest plus the
+ * base64-encoded module for `manifest.entry`. Like theme packages this is a
+ * single trust-boundary format — the host never fetches remote code for it.
+ */
+export interface FunctionPluginPackageV0 {
+	packageVersion: 0;
+	manifest: FunctionPluginManifest;
+	/** base64 without data: prefix; decodes to the wasm module bytes. */
+	wasm: string;
+}
 
 export type FormValueV0 = string | number | boolean;
 

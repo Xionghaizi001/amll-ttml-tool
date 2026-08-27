@@ -1,5 +1,7 @@
 export * from "./capabilities";
+export * from "./document-ops";
 export * from "./enablement";
+export * from "./function-package";
 export * from "./manifest";
 export * from "./parsers";
 export * from "./permissions";

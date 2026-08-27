@@ -667,6 +667,7 @@ const pluginError = {
 				"timeout",
 				"cancelled",
 				"payload-too-large",
+				"limit-exceeded",
 				"plugin-crashed",
 				"internal",
 			],
@@ -899,16 +900,99 @@ export const THEME_PACKAGE_SCHEMA = {
 	additionalProperties: false,
 } satisfies JsonSchema;
 
+/**
+ * Value shape of a successful `plugin_execute_command` / `plugin_resume_form`
+ * return. A `showForm` outcome suspends the invocation at the turn boundary;
+ * the WASM guest cannot block on user input mid-call, so the host re-invokes
+ * `plugin_resume_form` with the result and the echoed opaque `state`.
+ */
+export const PLUGIN_COMMAND_OUTCOME_SCHEMA = {
+	$defs: jsonValueDefs,
+	oneOf: [
+		{
+			type: "object",
+			required: ["kind"],
+			properties: {
+				kind: { const: "done" },
+				value: { $ref: "#/$defs/jsonValue" },
+			},
+			additionalProperties: false,
+		},
+		{
+			type: "object",
+			required: ["kind", "schema"],
+			properties: {
+				kind: { const: "showForm" },
+				schema: FORM_SCHEMA_V0,
+				state: { $ref: "#/$defs/jsonValue" },
+			},
+			additionalProperties: false,
+		},
+	],
+} satisfies JsonSchema;
+
+export const FORM_RESULT_SCHEMA = {
+	oneOf: [
+		{
+			type: "object",
+			required: ["submitted", "values"],
+			properties: {
+				submitted: { const: true },
+				action: { type: "string", minLength: 1, maxLength: 64 },
+				values: {
+					type: "object",
+					maxProperties: 64,
+					additionalProperties: {
+						anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+					},
+				},
+			},
+			additionalProperties: false,
+		},
+		{
+			type: "object",
+			required: ["submitted"],
+			properties: {
+				submitted: { const: false },
+				action: { type: "string", minLength: 1, maxLength: 64 },
+			},
+			additionalProperties: false,
+		},
+	],
+} satisfies JsonSchema;
+
+export const FUNCTION_PLUGIN_PACKAGE_SCHEMA = {
+	type: "object",
+	required: ["packageVersion", "manifest", "wasm"],
+	properties: {
+		packageVersion: { const: 0 },
+		// The manifest re-runs full manifest validation in the parser; this keeps
+		// the discriminant errors readable (same approach as theme packages).
+		manifest: { type: "object" },
+		wasm: {
+			type: "string",
+			minLength: 8,
+			// 32 MiB decoded, matching the runtime's MAX_PLUGIN_WASM_BYTES.
+			maxLength: 44739244,
+			pattern: "^[A-Za-z0-9+/]+={0,2}$",
+		},
+	},
+	additionalProperties: false,
+} satisfies JsonSchema;
+
 export const SCHEMA_CATALOG = {
 	manifest: PLUGIN_MANIFEST_SCHEMA,
 	pluginDocument: PLUGIN_DOCUMENT_SCHEMA,
 	lyricsApplyEdit: LYRICS_APPLY_EDIT_SCHEMA,
 	form: FORM_SCHEMA_V0,
+	formResult: FORM_RESULT_SCHEMA,
 	notify: NOTIFY_PARAMS_SCHEMA,
 	hostCall: HOST_CALL_ENVELOPE_SCHEMA,
 	hostResponse: HOST_RESPONSE_SCHEMA,
 	pluginReturn: PLUGIN_RETURN_SCHEMA,
+	pluginCommandOutcome: PLUGIN_COMMAND_OUTCOME_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
+	functionPluginPackage: FUNCTION_PLUGIN_PACKAGE_SCHEMA,
 	themeTokens: THEME_TOKENS_SCHEMA,
 	themePackage: THEME_PACKAGE_SCHEMA,
 } as const;

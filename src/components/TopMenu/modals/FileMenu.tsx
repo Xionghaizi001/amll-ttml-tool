@@ -12,6 +12,7 @@ import {
 	cmdSubmitToAMLLDB,
 } from "$/modules/keyboard/commands";
 import { ImportExportLyric } from "$/modules/project/modals/ImportExportLyric";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
 type FileMenuProps = {
@@ -56,6 +57,7 @@ const FileMenuItems = () => {
 					上传到 AMLL 歌词数据库
 				</Trans>
 			</CommandMenuItem>
+			<ContributionMenuItems location="menu.file" withLeadingSeparator />
 		</>
 	);
 };

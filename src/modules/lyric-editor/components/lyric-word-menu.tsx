@@ -5,6 +5,7 @@ import { normalizeLineTime } from "$/application/lyrics";
 import { ContextCommandMenuItem } from "$/components/TopMenu/ContextCommandMenuItem";
 import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
 import { replaceWordDialogAtom, splitWordDialogAtom } from "$/states/dialogs";
 import {
 	editingWordStateAtom,
@@ -145,6 +146,12 @@ export const LyricWordMenu = ({
 					defaultValue: "所选单词拆至新行",
 				})}
 			</ContextCommandMenuItem>
+
+			<ContributionMenuItems
+				location="context.lyricWord"
+				variant="context"
+				withLeadingSeparator
+			/>
 
 			<ContextMenu.Separator />
 		</>

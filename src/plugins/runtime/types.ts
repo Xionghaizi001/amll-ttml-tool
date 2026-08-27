@@ -7,6 +7,7 @@ export type PluginRuntimeErrorCode =
 	| "timeout"
 	| "cancelled"
 	| "payload-too-large"
+	| "limit-exceeded"
 	| "plugin-crashed"
 	| "internal";
 

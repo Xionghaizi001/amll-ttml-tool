@@ -50,8 +50,7 @@ const EditMenuItems = () => {
 			<CommandMenuItem commandId={cmdDeleteSelection.id}>
 				<Trans i18nKey="contextMenu.deleteWords">删除选定单词</Trans>
 			</CommandMenuItem>
-			<DropdownMenu.Separator />
-			<ContributionMenuItems location="menu.edit" />
+			<ContributionMenuItems location="menu.edit" withLeadingSeparator />
 			<DropdownMenu.Separator />
 			<CommandMenuItem commandId={cmdOpenMetadataEditor.id}>
 				<Trans i18nKey="topBar.menu.editMetadata">编辑歌词元数据</Trans>

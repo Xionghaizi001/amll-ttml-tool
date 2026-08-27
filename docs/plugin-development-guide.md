@@ -278,7 +278,7 @@ type PluginErrorCode =
   | "cancelled" | "payload-too-large" | "plugin-crashed" | "internal";
 ```
 
-guest 生命周期导出名由 `PLUGIN_EXPORTS` 固定：`plugin_activate`、`plugin_deactivate`，可选 `plugin_execute_command` 和 `plugin_handle_event`。激活参数包括 `pluginId`、`apiVersion`、已授予 capability、locale 和 hostVersion。
+guest 生命周期导出名由 `PLUGIN_EXPORTS` 固定：`plugin_activate`、`plugin_deactivate`，可选 `plugin_execute_command`、`plugin_handle_event` 和 `plugin_resume_form`。激活参数包括 `pluginId`、`apiVersion`、已授予 capability、locale 和 hostVersion。
 
 文档事件使用 `changedLineIds`/`changedWordIds`；插件自身发起的同源事件不会回灌给自己，避免循环。
 
@@ -325,3 +325,39 @@ pnpm lint:boundaries
 ```
 
 不要提交生成的 `dist`、宿主私有字段或未经 capability 协商的扩展行为。协议发生破坏性变化时，先更新版本常量、Schema、合同测试和本手册，再实现 runtime。
+
+## 9. WASM 运行时（extism-wasm）调用约定
+
+WASM 插件在独立 Worker 中通过 Extism 执行（`runInWorker: false`，不依赖 SharedArrayBuffer）。
+WASM 执行是同步的，宿主不能在执行途中等待用户输入或主线程数据，因此 v0 采用**回合制**模型：
+
+- 每次 guest 调用（activate / executeCommand / handleEvent / resumeForm）是一个"回合"。
+  宿主在回合开始时快照：文档投影（`lyrics.core`）、选区、隔离 KV 命名空间（`storage.kv`）。
+- guest 通过唯一的同步宿主函数 `amll_host_call`（导入模块 `extism:host/user`，常量
+  `WASM_HOST_MODULE`/`WASM_HOST_CALL_FUNCTION`）发起 `HostCallV0` JSON，得到 `HostResponseV0` JSON。
+  每次调用都按已授予 capability 逐项校验。
+- `lyrics.getDocument`/`lyrics.getSelection`/`storage.*` 在 Worker 内对回合快照同步解析；
+  `lyrics.applyEdit` 与 `ui.notify` 进入回合效果队列。**回合内所有 applyEdit 会在回合结束后
+  由主线程合并为一个文档事务**：一次插件操作只产生一条撤销记录，且以回合开始时的 revision 做
+  冲突检测——若用户在回合期间修改了文档，整批编辑被拒绝并通知。
+- applyEdit 内插入行/词得到的 id 在回合内立即可引用（种子化确定性分配，提交时保持一致）。
+- `ui.showForm` **不能**作为同步宿主调用使用。需要表单时，从 `plugin_execute_command` 返回
+  `PluginCommandOutcomeV0`：`{ kind: "showForm", schema, state? }`。宿主渲染表单后调用
+  `plugin_resume_form`，参数为 `{ commandId, state, result: FormResultV0 }`；guest 可以继续返回
+  `showForm`（同一次命令最多 `FORM_ROUNDS_PER_INVOCATION_LIMIT_V0 = 8` 轮）或
+  `{ kind: "done", value? }` 结束。
+- guest 导出的返回值一律是 `PluginReturnV0`（`{ ok, value | error }`）；executeCommand /
+  resumeForm 的 `value` 是 `PluginCommandOutcomeV0`。
+
+回合资源限制（`DEFAULT_WASM_TURN_LIMITS`）：每回合宿主调用 ≤128、单次调用 payload ≤1MB、
+通知 ≤16、applyEdit 批次 ≤16、存储键 ≤128、单值 ≤32KB、命名空间 ≤1MB。默认回合超时 10s，
+超时或崩溃会终止 Worker（下次调用自动重载模块）；连续 3 次失败自动禁用插件。WASM 无法访问
+DOM、网络（Extism `allowedHosts` 为空）、文件系统和 Tauri。
+
+分发格式为 `FunctionPluginPackageV0`（JSON）：`{ packageVersion: 0, manifest, wasm: <base64> }`，
+经 `parseFunctionPluginPackage` 单一信任入口校验后，由宿主弹出能力授权确认再安装。开发模式
+（插件管理页，需支持 File System Access API）可从本地目录（`manifest.json` + 入口 wasm）加载并
+热重载，不持久化。
+
+参考实现：`examples/plugins/sample-tools`（Rust + extism-pdk），演示命令、表单续体、
+单事务编辑、通知与隔离存储；对应的 Node 合同测试见 `src/plugins/runtime/wasm-session.test.ts`。

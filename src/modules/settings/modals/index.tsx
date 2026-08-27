@@ -2,6 +2,7 @@ import {
 	Info24Regular,
 	Keyboard24Regular,
 	PaintBrush24Regular,
+	PuzzlePiece24Regular,
 	Settings24Regular,
 } from "@fluentui/react-icons";
 import { Box, Dialog, Heading, Text } from "@radix-ui/themes";
@@ -14,6 +15,7 @@ import { SettingsAboutTab } from "./about";
 import { SettingsCommonTab } from "./common";
 import { SettingsKeyBindingsDialog } from "./keybindings";
 import { SettingsPersonalizationTab } from "./personalization";
+import { SettingsPluginsTab } from "./plugins";
 import styles from "./SettingsDialog.module.css";
 
 type SettingsSubpage = "customBackground" | "customPalette";
@@ -53,6 +55,11 @@ export const SettingsDialog = memo(() => {
 				value: "personalization",
 				icon: PaintBrush24Regular,
 				label: t("settingsDialog.tab.appearance", "个性化"),
+			},
+			{
+				value: "plugins",
+				icon: PuzzlePiece24Regular,
+				label: t("settingsDialog.tab.plugins", "插件"),
 			},
 			{
 				value: "about",
@@ -156,6 +163,7 @@ export const SettingsDialog = memo(() => {
 										onSubpageChange={onSubpageChange}
 									/>
 								)}
+								{activeTab === "plugins" && <SettingsPluginsTab />}
 								{activeTab === "about" && <SettingsAboutTab />}
 							</motion.div>
 						</AnimatePresence>

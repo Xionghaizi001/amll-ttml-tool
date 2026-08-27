@@ -13,6 +13,7 @@ import {
 	cmdRubySegment,
 	cmdSyncLineTimestamps,
 } from "$/modules/keyboard/commands";
+import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
 type ToolMenuProps = {
@@ -70,6 +71,7 @@ const ToolMenuItems = () => {
 			<CommandMenuItem commandId={cmdOpenLatencyTest.id}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
 			</CommandMenuItem>
+			<ContributionMenuItems location="menu.tool" withLeadingSeparator />
 		</>
 	);
 };

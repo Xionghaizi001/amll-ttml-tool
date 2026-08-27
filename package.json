@@ -15,6 +15,7 @@
 		"locale:gen": "i18next-cli extract",
 		"plugin:build:example": "node scripts/build-plugin-example.mjs",
 		"plugin:build:pdk": "node scripts/build-plugin-pdk.mjs",
+		"plugin:build:sample": "node scripts/build-plugin-sample.mjs",
 		"plugin:api:build": "tsc -p packages/plugin-api/tsconfig.build.json && node scripts/gen-plugin-docs.ts",
 		"plugin:api:check": "tsc -p packages/plugin-api/tsconfig.json && node scripts/gen-plugin-docs.ts --check",
 		"test": "vitest run",

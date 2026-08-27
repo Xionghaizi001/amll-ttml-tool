@@ -1,10 +1,15 @@
-import createPlugin, { type Plugin } from "@extism/extism";
+import createPlugin, { type CallContext, type Plugin } from "@extism/extism";
 import {
 	MAX_PLUGIN_PAYLOAD_BYTES,
 	MAX_PLUGIN_WASM_BYTES,
 	PluginRuntimeError,
 	type PluginRuntimeErrorCode,
 } from "./types.ts";
+
+export type SessionHostFunctions = Record<
+	string,
+	Record<string, (callContext: CallContext, ...args: bigint[]) => unknown>
+>;
 
 function classifyError(error: unknown): PluginRuntimeErrorCode {
 	const message = String(error instanceof Error ? error.message : error);
@@ -17,7 +22,11 @@ function classifyError(error: unknown): PluginRuntimeErrorCode {
 export class ExtismPluginSession {
 	private plugin: Plugin | null = null;
 
-	async load(wasm: Uint8Array, useWasi = false): Promise<void> {
+	async load(
+		wasm: Uint8Array,
+		useWasi = false,
+		hostFunctions: SessionHostFunctions = {},
+	): Promise<void> {
 		if (wasm.byteLength === 0) {
 			throw new PluginRuntimeError("invalid-params", "WASM payload is empty");
 		}
@@ -29,21 +38,26 @@ export class ExtismPluginSession {
 		}
 
 		await this.close();
+		const wasiStubs = useWasi
+			? {
+					get_log_level: () => 0,
+					http_headers: () => 0n,
+					log_trace: () => undefined,
+				}
+			: undefined;
+		const functions: SessionHostFunctions = { ...hostFunctions };
+		if (wasiStubs)
+			functions["extism:host/env"] = {
+				...(wasiStubs as unknown as SessionHostFunctions[string]),
+				...functions["extism:host/env"],
+			};
 		try {
 			this.plugin = await createPlugin(
 				{ wasm: [{ data: new Uint8Array(wasm) }] },
 				{
 					useWasi,
 					runInWorker: false,
-					functions: useWasi
-						? {
-								"extism:host/env": {
-									get_log_level: () => 0,
-									http_headers: () => 0n,
-									log_trace: () => undefined,
-								},
-							}
-						: undefined,
+					functions: Object.keys(functions).length > 0 ? functions : undefined,
 				},
 			);
 		} catch (error) {

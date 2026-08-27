@@ -2894,6 +2894,71 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
 
 </details>
 
+## formResult
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "submitted",
+        "values"
+      ],
+      "properties": {
+        "submitted": {
+          "const": true
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "values": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "submitted"
+      ],
+      "properties": {
+        "submitted": {
+          "const": false
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
+```
+
+</details>
+
 ## notify
 
 <details><summary>JSON Schema</summary>
@@ -3068,6 +3133,7 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                     "timeout",
                     "cancelled",
                     "payload-too-large",
+                    "limit-exceeded",
                     "plugin-crashed",
                     "internal"
                   ]
@@ -3174,6 +3240,7 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
                 "timeout",
                 "cancelled",
                 "payload-too-large",
+                "limit-exceeded",
                 "plugin-crashed",
                 "internal"
               ]
@@ -3187,6 +3254,877 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
+```
+
+</details>
+
+## pluginCommandOutcome
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "done"
+        },
+        "value": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "schema"
+      ],
+      "properties": {
+        "kind": {
+          "const": "showForm"
+        },
+        "schema": {
+          "$defs": {
+            "localizedText": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "default"
+                  ],
+                  "properties": {
+                    "default": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 2048
+                  },
+                  "maxProperties": 16
+                }
+              ]
+            },
+            "condition": {
+              "type": "object",
+              "required": [
+                "field",
+                "equals"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                },
+                "equals": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "icon": {
+              "type": "object",
+              "required": [
+                "source",
+                "name"
+              ],
+              "properties": {
+                "source": {
+                  "const": "@fluentui/react-icons"
+                },
+                "name": {
+                  "enum": [
+                    "AddRegular",
+                    "ArrowDownRegular",
+                    "ArrowLeftRegular",
+                    "ArrowResetRegular",
+                    "ArrowRightRegular",
+                    "ArrowUpRegular",
+                    "CheckmarkCircleRegular",
+                    "CheckmarkRegular",
+                    "ChevronDownRegular",
+                    "ChevronLeftRegular",
+                    "ChevronRightRegular",
+                    "ChevronUpRegular",
+                    "ClockRegular",
+                    "CopyRegular",
+                    "CutRegular",
+                    "DeleteRegular",
+                    "DismissRegular",
+                    "DocumentRegular",
+                    "EditRegular",
+                    "ErrorCircleRegular",
+                    "EyeOffRegular",
+                    "EyeRegular",
+                    "FolderOpenRegular",
+                    "HistoryRegular",
+                    "HomeRegular",
+                    "ImageRegular",
+                    "InfoRegular",
+                    "LinkRegular",
+                    "LockClosedRegular",
+                    "MusicNote1Regular",
+                    "OpenRegular",
+                    "PauseRegular",
+                    "PersonRegular",
+                    "PlayRegular",
+                    "QuestionCircleRegular",
+                    "SaveRegular",
+                    "SearchRegular",
+                    "SettingsRegular",
+                    "StopRegular",
+                    "SubtractRegular",
+                    "TimerRegular",
+                    "TranslateRegular",
+                    "WarningRegular"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "animation": {
+              "type": "object",
+              "required": [
+                "preset"
+              ],
+              "properties": {
+                "preset": {
+                  "enum": [
+                    "fade",
+                    "slide-up",
+                    "scale-in"
+                  ]
+                },
+                "speed": {
+                  "enum": [
+                    "fast",
+                    "normal",
+                    "slow"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "field": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "key",
+                    "label"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "text"
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "default": {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    "placeholder": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "maxLength": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65536
+                    },
+                    "multiline": {
+                      "type": "boolean"
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "labelPlacement": {
+                      "enum": [
+                        "top",
+                        "hidden"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "full",
+                        "compact"
+                      ]
+                    },
+                    "controlSize": {
+                      "enum": [
+                        "small",
+                        "medium"
+                      ]
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "key",
+                    "label"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "number"
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "default": {
+                      "type": "number"
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "step": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "control": {
+                      "enum": [
+                        "input",
+                        "stepper"
+                      ]
+                    },
+                    "decrementIcon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "incrementIcon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "labelPlacement": {
+                      "enum": [
+                        "top",
+                        "hidden"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "full",
+                        "compact"
+                      ]
+                    },
+                    "controlSize": {
+                      "enum": [
+                        "small",
+                        "medium"
+                      ]
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "key",
+                    "label"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "boolean"
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "default": {
+                      "type": "boolean"
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "labelPlacement": {
+                      "enum": [
+                        "top",
+                        "hidden"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "full",
+                        "compact"
+                      ]
+                    },
+                    "controlSize": {
+                      "enum": [
+                        "small",
+                        "medium"
+                      ]
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "key",
+                    "label",
+                    "options"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "select",
+                        "radio"
+                      ]
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "options": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 200,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "value",
+                          "label"
+                        ],
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "label": {
+                            "oneOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2048
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "default"
+                                ],
+                                "properties": {
+                                  "default": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 2048
+                                  }
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 2048
+                                },
+                                "maxProperties": 16
+                              }
+                            ]
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "icon": {
+                            "$ref": "#/$defs/icon"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "default": {
+                      "type": "string"
+                    },
+                    "orientation": {
+                      "enum": [
+                        "vertical",
+                        "horizontal"
+                      ]
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "labelPlacement": {
+                      "enum": [
+                        "top",
+                        "hidden"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "full",
+                        "compact"
+                      ]
+                    },
+                    "controlSize": {
+                      "enum": [
+                        "small",
+                        "medium"
+                      ]
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "text"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "note"
+                    },
+                    "text": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "tone": {
+                      "enum": [
+                        "default",
+                        "muted"
+                      ]
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "id",
+                    "fields"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "group"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                    },
+                    "label": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "default"
+                          ],
+                          "properties": {
+                            "default": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2048
+                            }
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 2048
+                          },
+                          "maxProperties": 16
+                        }
+                      ]
+                    },
+                    "direction": {
+                      "enum": [
+                        "row",
+                        "column"
+                      ]
+                    },
+                    "align": {
+                      "enum": [
+                        "start",
+                        "center",
+                        "end"
+                      ]
+                    },
+                    "gap": {
+                      "enum": [
+                        "small",
+                        "medium",
+                        "large"
+                      ]
+                    },
+                    "indent": {
+                      "type": "boolean"
+                    },
+                    "visibleWhen": {
+                      "$ref": "#/$defs/condition"
+                    },
+                    "icon": {
+                      "$ref": "#/$defs/icon"
+                    },
+                    "animation": {
+                      "$ref": "#/$defs/animation"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 64,
+                      "items": {
+                        "$ref": "#/$defs/field"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "type": "object",
+          "required": [
+            "title",
+            "fields"
+          ],
+          "properties": {
+            "title": {
+              "$ref": "#/$defs/localizedText"
+            },
+            "description": {
+              "$ref": "#/$defs/localizedText"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/field"
+              }
+            },
+            "size": {
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "icon": {
+              "$ref": "#/$defs/icon"
+            },
+            "animation": {
+              "$ref": "#/$defs/animation"
+            },
+            "submitLabel": {
+              "$ref": "#/$defs/localizedText"
+            },
+            "cancelLabel": {
+              "$ref": "#/$defs/localizedText"
+            },
+            "submitIcon": {
+              "$ref": "#/$defs/icon"
+            },
+            "cancelIcon": {
+              "$ref": "#/$defs/icon"
+            },
+            "actions": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                  },
+                  "label": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "default"
+                        ],
+                        "properties": {
+                          "default": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2048
+                          }
+                        },
+                        "additionalProperties": {
+                          "type": "string",
+                          "maxLength": 2048
+                        },
+                        "maxProperties": 16
+                      }
+                    ]
+                  },
+                  "role": {
+                    "enum": [
+                      "submit",
+                      "cancel"
+                    ]
+                  },
+                  "tone": {
+                    "enum": [
+                      "primary",
+                      "danger",
+                      "neutral"
+                    ]
+                  },
+                  "icon": {
+                    "$ref": "#/$defs/icon"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "state": {
+          "$ref": "#/$defs/jsonValue"
         }
       },
       "additionalProperties": false
@@ -3322,6 +4260,38 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
       "additionalProperties": false
     }
   ]
+}
+```
+
+</details>
+
+## functionPluginPackage
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "type": "object",
+  "required": [
+    "packageVersion",
+    "manifest",
+    "wasm"
+  ],
+  "properties": {
+    "packageVersion": {
+      "const": 0
+    },
+    "manifest": {
+      "type": "object"
+    },
+    "wasm": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 44739244,
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 

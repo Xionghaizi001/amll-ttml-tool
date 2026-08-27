@@ -40,6 +40,8 @@ export class ThemeService {
 	private readonly themes = new Map<string, RegisteredTheme>();
 	private readonly listeners = new Set<() => void>();
 	private activeThemeId: string | null = null;
+	/** Persisted active id awaiting async hydration of installed themes. */
+	private pendingActiveId: string | null = null;
 	private previewThemeId: string | null = null;
 	private safeMode = false;
 	private safeModeReason: SafeModeReason = null;
@@ -90,7 +92,10 @@ export class ThemeService {
 		}
 
 		const installedRaw = storage.get(STORAGE_KEYS.installed);
-		if (installedRaw !== null) {
+		// With an async package store the legacy synchronous JSON is only a
+		// migration source, consumed in hydrateInstalledThemes(); reading it
+		// here too would double-register and re-persist stale entries.
+		if (installedRaw !== null && this.ports.packageStore === undefined) {
 			try {
 				const entries: unknown = JSON.parse(installedRaw);
 				for (const entry of Array.isArray(entries) ? entries : []) {
@@ -122,16 +127,79 @@ export class ThemeService {
 		}
 
 		const activeId = storage.get(STORAGE_KEYS.active);
+		this.pendingActiveId = activeId;
 		this.activeThemeId =
 			activeId !== null && this.themes.has(activeId) ? activeId : null;
 
 		// Marker protocol: set before the first injection, cleared once the
 		// host reports a stable startup. A crash in between means the next
-		// launch comes up with the default look.
-		if (!this.safeMode && this.activeThemeId !== null)
+		// launch comes up with the default look. With an async package store
+		// the marker also covers an installed theme that only becomes active
+		// after hydration.
+		if (
+			!this.safeMode &&
+			(this.activeThemeId !== null ||
+				(this.ports.packageStore !== undefined &&
+					this.pendingActiveId !== null))
+		)
 			storage.set(STORAGE_KEYS.applyPending, "1");
 		this.initialized = true;
 		this.render();
+	}
+
+	/**
+	 * Loads installed theme packages from the async package store, migrating
+	 * the legacy localStorage JSON into it once. Re-resolves the persisted
+	 * active theme, which may reference a just-hydrated package.
+	 */
+	async hydrateInstalledThemes(): Promise<void> {
+		const { storage, packageStore, warn } = this.ports;
+		if (packageStore === undefined) return;
+		const legacyRaw = storage.get(STORAGE_KEYS.installed);
+		if (legacyRaw !== null) {
+			try {
+				const entries: unknown = JSON.parse(legacyRaw);
+				for (const entry of Array.isArray(entries) ? entries : []) {
+					const parsed = parseThemePackage(entry);
+					if (!parsed.ok) {
+						warn?.("Skipping a legacy installed theme that failed validation");
+						continue;
+					}
+					// JSON round-trip drops undefined-valued keys the parser may have
+					// produced (e.g. styles), which would fail re-validation on load.
+					await packageStore.save(
+						parsed.value.manifest.id,
+						JSON.parse(JSON.stringify(parsed.value)),
+					);
+				}
+				storage.remove(STORAGE_KEYS.installed);
+				warn?.("Migrated installed themes from localStorage to the package store");
+			} catch {
+				warn?.("Legacy installed theme store is corrupted; ignoring it");
+				storage.remove(STORAGE_KEYS.installed);
+			}
+		}
+		const records = await packageStore.loadAll();
+		if (this.disposed) return;
+		for (const record of records) {
+			const parsed = parseThemePackage(record.pkg);
+			if (!parsed.ok) {
+				warn?.(`Skipping installed theme ${record.id}: failed validation`);
+				continue;
+			}
+			if (!this.themes.has(parsed.value.manifest.id))
+				this.themes.set(parsed.value.manifest.id, {
+					pkg: parsed.value,
+					source: "installed",
+				});
+		}
+		if (
+			this.activeThemeId === null &&
+			this.pendingActiveId !== null &&
+			this.themes.has(this.pendingActiveId)
+		)
+			this.activeThemeId = this.pendingActiveId;
+		if (this.initialized) this.render();
 	}
 
 	/** The host calls this once the UI has mounted and survived startup. */
@@ -180,6 +248,7 @@ export class ThemeService {
 			throw new Error(`Unknown theme ${id}`);
 		this.previewThemeId = null;
 		this.activeThemeId = id;
+		this.pendingActiveId = id;
 		if (id === null) this.ports.storage.remove(STORAGE_KEYS.active);
 		else this.ports.storage.set(STORAGE_KEYS.active, id);
 		this.render();
@@ -202,6 +271,7 @@ export class ThemeService {
 	restoreDefaultTheme(): void {
 		this.previewThemeId = null;
 		this.activeThemeId = null;
+		this.pendingActiveId = null;
 		this.userTokens = null;
 		this.userSurfaceImages = new Map();
 		this.ports.storage.remove(STORAGE_KEYS.active);
@@ -287,7 +357,12 @@ export class ThemeService {
 				],
 			};
 		this.themes.set(id, { pkg: parsed.value, source: "installed" });
-		this.persistInstalled();
+		if (this.ports.packageStore !== undefined)
+			void this.ports.packageStore.save(
+				id,
+				JSON.parse(JSON.stringify(parsed.value)),
+			);
+		else this.persistInstalled();
 		this.render();
 		return parsed;
 	}
@@ -299,9 +374,12 @@ export class ThemeService {
 		if (this.previewThemeId === id) this.previewThemeId = null;
 		if (this.activeThemeId === id) {
 			this.activeThemeId = null;
+			this.pendingActiveId = null;
 			this.ports.storage.remove(STORAGE_KEYS.active);
 		}
-		this.persistInstalled();
+		if (this.ports.packageStore !== undefined)
+			void this.ports.packageStore.remove(id);
+		else this.persistInstalled();
 		this.render();
 	}
 

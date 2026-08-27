@@ -52,7 +52,21 @@ export interface ThemeServicePorts {
 	storage: ThemeKeyValueStorePort;
 	styles: ThemeStyleSinkPort;
 	assets: ThemeAssetUrlPort;
+	/**
+	 * Async persistence for installed theme packages (IndexedDB in the
+	 * browser). When present, installed packages live here instead of the
+	 * legacy synchronous store; hydrateInstalledThemes() migrates the old
+	 * localStorage JSON once and removes it. When absent, the legacy
+	 * synchronous behavior is kept (used by existing tests).
+	 */
+	packageStore?: ThemePackageStorePort;
 	warn?: (message: string) => void;
+}
+
+export interface ThemePackageStorePort {
+	loadAll(): Promise<{ id: string; pkg: unknown }[]>;
+	save(id: string, pkg: unknown): Promise<void>;
+	remove(id: string): Promise<void>;
 }
 
 export type ThemeSource = "builtin" | "installed";

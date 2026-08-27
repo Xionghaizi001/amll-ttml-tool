@@ -52,6 +52,15 @@ src/plugins/ui/       插件管理、菜单、表单等宿主 UI
 纯文本通知和声明式表单；toolbar/sidebar 与 React view 对普通第三方保持关闭。内置
 `builtin.time-shift` 已作为菜单、表单、事务、撤销和通知的完整参考实现。
 
+阶段 6 已落地 WASM 插件宿主：每个 `extism-wasm` 插件运行在独立 Worker 中，采用回合制调用约定
+（同步宿主桥 `amll_host_call` + `showForm` outcome 续体，见开发手册 §9）。一个回合内的全部
+`lyrics.applyEdit` 由主线程合并为**一个**文档事务提交，并以回合起始 revision 做冲突拒绝；
+宿主函数逐项校验 capability，WASM 无法访问 DOM、网络、文件系统和 Tauri。插件包
+（`FunctionPluginPackageV0`）与授权状态持久化在 IndexedDB，隔离 KV 存储按插件命名空间隔离；
+超时/崩溃会终止并按需重建 Worker，连续失败自动禁用并记录诊断日志。插件管理页与权限授权弹窗
+portal 到 body 且带 `data-amll-protected`，主题无法覆盖。官方示例插件为
+`examples/plugins/sample-tools`。
+
 主题包与功能包互斥。需要同时提供功能和主题时，发布两个插件包，避免主题权限扩大到文档或平台能力。
 
 ## v0 公开协议

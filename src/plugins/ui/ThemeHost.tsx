@@ -29,6 +29,7 @@ export const ThemeHost = () => {
 			new URLSearchParams(window.location.search).get("theme-safe-mode") ===
 			"1";
 		themeService.initialize({ forceSafeMode });
+		void themeService.hydrateInstalledThemes();
 		void initializeThemeSurfaceImages();
 		if (themeService.getState().safeModeReason === "crash") {
 			toast.warn(

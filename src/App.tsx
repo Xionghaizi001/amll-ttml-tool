@@ -66,6 +66,7 @@ import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
+import { WasmPluginHost } from "./plugins/ui/WasmPluginHost.tsx";
 import { useActiveMode } from "./plugins/ui/mode-host.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
@@ -350,6 +351,7 @@ function EditorApp() {
 				<div className={styles.appContent} data-slot="app-root">
 					<ThemeHost />
 					<BuiltinPluginHost />
+						<WasmPluginHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />
 					{toolMode === ToolMode.Sync && <SyncKeyBinding />}

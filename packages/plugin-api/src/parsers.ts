@@ -1,9 +1,11 @@
 import { isCapability } from "./capabilities";
 import {
+	FORM_RESULT_SCHEMA,
 	FORM_SCHEMA_V0,
 	HOST_CALL_ENVELOPE_SCHEMA,
 	HOST_PARAM_SCHEMAS,
 	HOST_RESPONSE_SCHEMA,
+	PLUGIN_COMMAND_OUTCOME_SCHEMA,
 	PLUGIN_DOCUMENT_SCHEMA,
 	PLUGIN_EVENT_SCHEMA,
 	PLUGIN_MANIFEST_SCHEMA,
@@ -12,12 +14,14 @@ import {
 } from "./schema/schemas";
 import { validate } from "./schema/validator";
 import type {
+	FormResultV0,
 	FormSchemaV0,
 	HostCallV0,
 	HostMethod,
 	HostResponseV0,
 	ParseIssue,
 	ParseResult,
+	PluginCommandOutcomeV0,
 	PluginDocumentV0,
 	PluginEventV0,
 	PluginManifest,
@@ -368,6 +372,29 @@ export const parsePluginReturn = (
 	input: unknown,
 ): ParseResult<PluginReturnV0> =>
 	validate<PluginReturnV0>(PLUGIN_RETURN_SCHEMA, input);
+
+/**
+ * Validates the value a guest returned from `plugin_execute_command` or
+ * `plugin_resume_form`. showForm outcomes run the same semantic form pass as
+ * every other form entering the host renderer.
+ */
+export function parseCommandOutcome(
+	input: unknown,
+): ParseResult<PluginCommandOutcomeV0> {
+	const parsed = validate<PluginCommandOutcomeV0>(
+		PLUGIN_COMMAND_OUTCOME_SCHEMA,
+		input,
+	);
+	if (!parsed.ok) return parsed;
+	if (parsed.value.kind === "showForm") {
+		const issues = validateFormSemantics(parsed.value.schema, "/schema");
+		if (issues.length > 0) return fail(issues);
+	}
+	return parsed;
+}
+
+export const parseFormResult = (input: unknown): ParseResult<FormResultV0> =>
+	validate<FormResultV0>(FORM_RESULT_SCHEMA, input);
 
 export const parsePluginEvent = (input: unknown): ParseResult<PluginEventV0> =>
 	validate<PluginEventV0>(PLUGIN_EVENT_SCHEMA, input);

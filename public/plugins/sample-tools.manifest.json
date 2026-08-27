@@ -1,0 +1,44 @@
+{
+	"id": "example.sample-tools",
+	"kind": "function",
+	"name": "Sample Tools",
+	"version": "0.1.0",
+	"description": "Official sample WASM plugin: commands, declarative form, single-transaction document edit, notifications and isolated KV storage.",
+	"author": "AMLL TTML Tool",
+	"license": "GPL-3.0",
+	"apiVersion": 0,
+	"runtime": "extism-wasm",
+	"entry": "sample-tools.wasm",
+	"capabilities": ["lyrics.core", "ui.notify", "ui.form", "storage.kv"],
+	"contributes": {
+		"commands": [
+			{
+				"id": "example.sample-tools.trimWords",
+				"title": {
+					"default": "Trim word whitespace",
+					"zh-CN": "去除单词首尾空格"
+				},
+				"category": { "default": "Sample Tools", "zh-CN": "示例工具" }
+			},
+			{
+				"id": "example.sample-tools.wordCount",
+				"title": { "default": "Count words...", "zh-CN": "统计字词..." },
+				"category": { "default": "Sample Tools", "zh-CN": "示例工具" }
+			}
+		],
+		"menus": [
+			{
+				"command": "example.sample-tools.trimWords",
+				"menu": "menu.tool",
+				"group": "sample",
+				"order": 100
+			},
+			{
+				"command": "example.sample-tools.wordCount",
+				"menu": "menu.tool",
+				"group": "sample",
+				"order": 110
+			}
+		]
+	}
+}
