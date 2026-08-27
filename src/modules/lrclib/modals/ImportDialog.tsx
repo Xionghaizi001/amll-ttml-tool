@@ -27,20 +27,16 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import classNames from "classnames";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import { uid } from "uid";
 import { prepareLrcLibImport } from "$/application/lyrics";
 import { lrcLibImportEngine } from "$/modules/lrclib/adapters/lrc-import-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
-import {
-	confirmDialogAtom,
-	importFromLRCLIBDialogAtom,
-} from "$/states/dialogs.ts";
-import { isDirtyAtom, projectIdAtom, saveFileNameAtom } from "$/states/main.ts";
+import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host.ts";
+import { importFromLRCLIBDialogAtom } from "$/states/dialogs.ts";
 import { LrcLibApi } from "../api/client";
 import { lrcLibLogger } from "../logger";
 import type { LrcLibTrack } from "../types";
@@ -56,10 +52,6 @@ export const ImportFromLRCLIB = () => {
 	const { t } = useTranslation();
 
 	const [isOpen, setIsOpen] = useAtom(importFromLRCLIBDialogAtom);
-	const setProjectId = useSetAtom(projectIdAtom);
-	const setSaveFileName = useSetAtom(saveFileNameAtom);
-	const isDirty = useAtomValue(isDirtyAtom);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<LrcLibTrack[]>([]);
@@ -106,13 +98,11 @@ export const ImportFromLRCLIB = () => {
 					lrcLibImportEngine,
 				);
 
-				editorDocumentAdapter.replace(prepared.document, {
-					source: "user",
+				await lyricFileFlow.commitImportedLyric(prepared.document, {
 					label: "Import lyrics from LRCLIB",
+					fileNameOverride: prepared.fileName,
 					expectedRevision: editorDocumentAdapter.getRevision(),
 				});
-				setProjectId(uid());
-				setSaveFileName(prepared.fileName);
 
 				setIsOpen(false);
 				setPreviewTrack(null);
@@ -124,34 +114,23 @@ export const ImportFromLRCLIB = () => {
 				toast.error(t("lrclib.importError", "导入歌词时发生错误"));
 			}
 		},
-		[
-			setProjectId,
-			setSaveFileName,
-			setIsOpen,
-			t,
-			autoSegment,
-			segmentationConfig,
-			extractBg,
-		],
+		[setIsOpen, t, autoSegment, segmentationConfig, extractBg],
 	);
 
 	const onTriggerImport = useCallback(
 		(track: LrcLibTrack) => {
-			if (isDirty) {
-				setConfirmDialog({
-					open: true,
+			lyricFileFlow.confirmIfDirty(
+				{
 					title: t("confirmDialog.importFile.title", "确认导入歌词"),
 					description: t(
 						"confirmDialog.importFile.description",
 						"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？",
 					),
-					onConfirm: () => performImport(track),
-				});
-			} else {
-				performImport(track);
-			}
+				},
+				() => void performImport(track),
+			);
 		},
-		[isDirty, setConfirmDialog, t, performImport],
+		[t, performImport],
 	);
 
 	return (

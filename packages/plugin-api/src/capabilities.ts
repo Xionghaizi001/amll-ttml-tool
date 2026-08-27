@@ -3,6 +3,7 @@ import type { Capability, CoreCapability } from "./types";
 export const ALL_CAPABILITIES = [
 	"lyrics.core",
 	"lyrics.ruby",
+	"lyrics.format",
 	"ui.notify",
 	"ui.form",
 	"storage.kv",

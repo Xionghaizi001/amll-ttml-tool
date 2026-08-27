@@ -1,10 +1,8 @@
 import { open } from "@tauri-apps/plugin-shell";
-import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
+import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { withImmer } from "jotai-immer";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import saveFile from "save-file";
-import { uid } from "uid";
 import {
 	distributeDocumentRomanization,
 	generateDocumentRuby,
@@ -12,7 +10,6 @@ import {
 	refreshRomanizationWarnings,
 	segmentEntireDocument,
 } from "$/application/lyrics";
-import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import {
 	cmdAutoRuby,
 	cmdAutoSegment,
@@ -47,8 +44,6 @@ import { rubyGenerationEngine } from "$/modules/lyric-editor/adapters/ruby-gener
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
-import { amllToTTML, ttmlLyricToAmllResult } from "$/modules/ttml-processor";
-import { useTtmlErrorHandler } from "$/modules/ttml-processor/useTtmlErrorHandler";
 import {
 	editorDocumentAdapter,
 	editorDocumentHistoryAtom,
@@ -56,6 +51,7 @@ import {
 	editorDocumentUndoAtom,
 	editorDocumentWriteAtom,
 } from "$/plugins/adapters/editor-document";
+import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host";
 import {
 	advancedSegmentationDialogAtom,
 	confirmDialogAtom,
@@ -67,10 +63,7 @@ import {
 	syllableSmoothingDialogAtom,
 } from "$/states/dialogs.ts";
 import {
-	isDirtyAtom,
 	lyricLinesAtom,
-	projectIdAtom,
-	saveFileNameAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
 } from "$/states/main.ts";
@@ -81,23 +74,18 @@ const topMenuLogger = createLogger("TopMenu");
 
 export const useTopMenuActions = () => {
 	const { t } = useTranslation();
-	const [saveFileName, setSaveFileName] = useAtom(saveFileNameAtom);
 	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
 	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
-	const isDirty = useAtomValue(isDirtyAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setHistoryRestoreDialog = useSetAtom(historyRestoreDialogAtom);
 	const setAdvancedSegmentationDialog = useSetAtom(
 		advancedSegmentationDialogAtom,
 	);
 	const setSyllableSmoothingDialog = useSetAtom(syllableSmoothingDialogAtom);
-	const { openFile } = useFileOpener();
-	const setProjectId = useSetAtom(projectIdAtom);
 	const { config: segmentationConfig } = useSegmentationConfig();
-	const handleTtmlError = useTtmlErrorHandler();
 
 	const buildRubySegments = useCallback(
 		(text: string, baseWord: LyricWordBase) => {
@@ -132,76 +120,28 @@ export const useTopMenuActions = () => {
 	);
 
 	const onNewFile = useCallback(() => {
-		const action = () => {
-			editorDocumentAdapter.replace(
-				{ lyricLines: [], metadata: [] },
-				{ source: "user", label: "New lyric document" },
-			);
-			store.set(selectedLinesAtom, new Set());
-			store.set(selectedWordsAtom, new Set());
-			setProjectId(uid());
-			setSaveFileName("lyric.ttml");
-		};
-
-		if (isDirty) {
-			setConfirmDialog({
-				open: true,
-				title: t("confirmDialog.newFile.title", "确认新建文件"),
-				description: t(
-					"confirmDialog.newFile.description",
-					"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要新建文件吗？",
-				),
-				onConfirm: action,
-			});
-		} else {
-			action();
-		}
-	}, [isDirty, setConfirmDialog, t, setProjectId, setSaveFileName, store]);
+		lyricFileFlow.newDocument();
+	}, []);
 
 	const onOpenFile = useCallback(() => {
-		const inputEl = document.createElement("input");
-		inputEl.type = "file";
-		inputEl.accept = ".ttml,.lrc,.qrc,.eslrc,.lys,.yrc,*/*";
-		inputEl.addEventListener(
-			"change",
-			() => {
-				const file = inputEl.files?.[0];
-				if (!file) return;
-				openFile(file);
-			},
-			{
-				once: true,
-			},
-		);
-		inputEl.click();
-	}, [openFile]);
+		void lyricFileFlow.openWithPicker();
+	}, []);
 
 	const onOpenFileFromClipboard = useCallback(async () => {
 		try {
 			const ttmlText = await navigator.clipboard.readText();
-			const file = new File([ttmlText], "lyric.ttml", {
-				type: "application/xml",
+			lyricFileFlow.openLyricSource({
+				name: "lyric.ttml",
+				text: async () => ttmlText,
 			});
-			openFile(file);
 		} catch (e) {
 			topMenuLogger.error("Failed to parse TTML file from clipboard", e);
 		}
-	}, [openFile]);
+	}, []);
 
 	const onSaveFile = useCallback(() => {
-		try {
-			const amllResult = ttmlLyricToAmllResult(store.get(lyricLinesAtom));
-			const result = amllToTTML(amllResult);
-			if (!result.success) {
-				handleTtmlError(result.error, `Error when generating TTML`);
-				return;
-			}
-			const b = new Blob([result.data], { type: "text/xml" });
-			saveFile(b, saveFileName).catch(topMenuLogger.error);
-		} catch (e) {
-			topMenuLogger.error("Failed to save TTML file", e);
-		}
-	}, [saveFileName, store, handleTtmlError]);
+		void lyricFileFlow.saveDocumentToFile();
+	}, []);
 
 	const onOpenHistoryRestore = useCallback(() => {
 		setHistoryRestoreDialog(true);
@@ -209,18 +149,13 @@ export const useTopMenuActions = () => {
 
 	const onSaveFileToClipboard = useCallback(async () => {
 		try {
-			const lyric = store.get(lyricLinesAtom);
-			const amllResult = ttmlLyricToAmllResult(lyric);
-			const result = amllToTTML(amllResult);
-			if (!result.success) {
-				handleTtmlError(result.error, `Error when generating TTML`);
-				return;
-			}
-			await navigator.clipboard.writeText(result.data);
+			const content = await lyricFileFlow.serializeNativeDocument();
+			if (content === null) return;
+			await navigator.clipboard.writeText(content);
 		} catch (e) {
 			topMenuLogger.error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store, handleTtmlError]);
+	}, []);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);

@@ -166,56 +166,59 @@ function triggerCallbacks(
 	}
 }
 
-window.addEventListener("keydown", (evt) => {
-	if (evt.repeat) return;
-	if (isEditing(evt)) {
+// 全局按键监听只在浏览器宿主中安装；Node（Vitest）导入本模块时跳过。
+if (typeof window !== "undefined") {
+	window.addEventListener("keydown", (evt) => {
+		if (evt.repeat) return;
+		if (isEditing(evt)) {
+			pressingKeys.clear();
+			return;
+		}
+		if (pressingKeys.size === 0) {
+			downTime = evt.timeStamp;
+		}
+
+		const code = removeSideOfKeyCode(evt.code);
+
+		// 阻止空格滚动
+		if (
+			(evt.code === "Space" || evt.code === "Home" || evt.code === "End") &&
+			evt.target === document.body
+		) {
+			evt.preventDefault();
+			evt.stopPropagation();
+		}
+
+		pressingKeys.add(code);
+
+		if (currentTriggerMode === KeyBindingTriggerMode.KeyDown) {
+			const joined = [...pressingKeys].join(" + ").trim();
+			triggerCallbacks(joined, evt, downTime);
+		}
+	});
+
+	window.addEventListener("keyup", (evt) => {
+		if (isEditing(evt)) {
+			pressingKeys.clear();
+			return;
+		}
+
+		const code = removeSideOfKeyCode(evt.code);
+
+		if (currentTriggerMode === KeyBindingTriggerMode.KeyUp) {
+			const joined = [...pressingKeys].join(" + ").trim();
+			triggerCallbacks(joined, evt, downTime);
+		}
+
+		pressingKeys.delete(code);
+	});
+	window.addEventListener("blur", () => {
 		pressingKeys.clear();
-		return;
-	}
-	if (pressingKeys.size === 0) {
-		downTime = evt.timeStamp;
-	}
-
-	const code = removeSideOfKeyCode(evt.code);
-
-	// 阻止空格滚动
-	if (
-		(evt.code === "Space" || evt.code === "Home" || evt.code === "End") &&
-		evt.target === document.body
-	) {
-		evt.preventDefault();
-		evt.stopPropagation();
-	}
-
-	pressingKeys.add(code);
-
-	if (currentTriggerMode === KeyBindingTriggerMode.KeyDown) {
-		const joined = [...pressingKeys].join(" + ").trim();
-		triggerCallbacks(joined, evt, downTime);
-	}
-});
-
-window.addEventListener("keyup", (evt) => {
-	if (isEditing(evt)) {
+	});
+	window.addEventListener("focus", () => {
 		pressingKeys.clear();
-		return;
-	}
-
-	const code = removeSideOfKeyCode(evt.code);
-
-	if (currentTriggerMode === KeyBindingTriggerMode.KeyUp) {
-		const joined = [...pressingKeys].join(" + ").trim();
-		triggerCallbacks(joined, evt, downTime);
-	}
-
-	pressingKeys.delete(code);
-});
-window.addEventListener("blur", () => {
-	pressingKeys.clear();
-});
-window.addEventListener("focus", () => {
-	pressingKeys.clear();
-});
+	});
+}
 
 export function forceInvokeKeyBindingAtom(
 	store: ReturnType<typeof createStore>,

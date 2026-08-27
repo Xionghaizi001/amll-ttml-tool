@@ -252,7 +252,8 @@
 				"fromESLyRiC": "Import from ESLyRiC file…",
 				"fromQRC": "Import from QRC file…",
 				"fromYRC": "Import from YRC file…",
-				"fromLrcfySylb": "Import from Lyricify Syllable file…"
+				"fromLrcfySylb": "Import from Lyricify Syllable file…",
+				"fromFormatFile": "Import from {name} file…"
 			},
 			"exportLyric": {
 				"export": "Export lyrics",
@@ -261,7 +262,8 @@
 				"toQRC": "Export to QRC",
 				"toYRC": "Export to YRC",
 				"toLrcfySylb": "Export to Lyricify Syllable",
-				"toASS": "Export to ASS subtitles"
+				"toASS": "Export to ASS subtitles",
+				"toFormat": "Export to {name}"
 			},
 			"syllableSmoothing": "Smooth Timeline..."
 		}
@@ -350,6 +352,8 @@
 	"error": {
 		"unsupportedFileFormat": "Unsupported file format: {ext}",
 		"openFileFailed": "Failed to open file",
+		"exportFileFailed": "Failed to export lyrics",
+		"exportEmptyDocument": "There are no lyrics to export",
 		"ttml": {
 			"copied": "Copied to clipboard",
 			"kind": {

@@ -15,6 +15,10 @@ const CAPABILITY_DESCRIPTIONS: Record<string, { key: string; fallback: string }>
 			key: "plugins.capability.lyricsRuby",
 			fallback: "读取并修改注音（Ruby）分段",
 		},
+		"lyrics.format": {
+			key: "plugins.capability.lyricsFormat",
+			fallback: "提供歌词格式的导入/导出转换",
+		},
 		"ui.notify": {
 			key: "plugins.capability.uiNotify",
 			fallback: "显示纯文本通知",

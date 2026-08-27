@@ -9,15 +9,11 @@ import {
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
+import { atom, useAtom, useStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { memo, type PropsWithChildren, useCallback } from "react";
 import { toast } from "react-toastify";
-import {
-	confirmDialogAtom,
-	importFromTextDialogAtom,
-} from "$/states/dialogs.ts";
-import { isDirtyAtom } from "$/states/main.ts";
+import { importFromTextDialogAtom } from "$/states/dialogs.ts";
 import {
 	parsePlainTextLyrics,
 	type PlainTextImportMode,
@@ -29,6 +25,7 @@ import error = toast.error;
 
 import { useTranslation } from "react-i18next";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document.ts";
+import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host.ts";
 import { projectLogger } from "../logger";
 
 // type IModelDeltaDecoration = monaco.editor.IModelDeltaDecoration;
@@ -101,8 +98,6 @@ const ImportFromTextEditor = memo(() => {
 });
 
 export const ImportFromText = () => {
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
-	const isDirty = useAtomValue(isDirtyAtom);
 	const { t } = useTranslation();
 
 	const [importFromTextDialog, setImportFromTextDialog] = useAtom(
@@ -142,17 +137,23 @@ export const ImportFromText = () => {
 				enableEmptyBeat: store.get(enableEmptyBeatAtom),
 				emptyBeatSymbol: store.get(emptyBeatSymbolAtom),
 			});
-			editorDocumentAdapter.replace(
-				{
-					lyricLines: result,
-					metadata: [],
-				},
-				{
-					source: "user",
-					label: "Import plain text lyrics",
-					expectedRevision: editorDocumentAdapter.getRevision(),
-				},
-			);
+			void lyricFileFlow
+				.commitImportedLyric(
+					{
+						lyricLines: result,
+						metadata: [],
+					},
+					{
+						label: "Import plain text lyrics",
+						expectedRevision: editorDocumentAdapter.getRevision(),
+					},
+				)
+				.catch((e) => {
+					error(
+						"导入纯文本歌词失败，请检查输入的文本是否正确，或者导入设置是否正确",
+					);
+					projectLogger.error(e);
+				});
 		},
 		[store],
 	);
@@ -174,31 +175,27 @@ export const ImportFromText = () => {
 						</Dialog.Title>
 						<Button
 							onClick={() => {
-								try {
-									const importAction = () => {
+								const importAction = () => {
+									try {
 										onImport(store.get(textValueAtom));
 										setImportFromTextDialog(false);
-									};
-									if (isDirty)
-										setConfirmDialog({
-											open: true,
-											title: t(
-												"confirmDialog.importFile.title",
-												"确认导入歌词",
-											),
-											description: t(
-												"confirmDialog.importFile.description",
-												"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？",
-											),
-											onConfirm: () => importAction(),
-										});
-									else importAction();
-								} catch (e) {
-									error(
-										"导入纯文本歌词失败，请检查输入的文本是否正确，或者导入设置是否正确",
-									);
-									projectLogger.error(e);
-								}
+									} catch (e) {
+										error(
+											"导入纯文本歌词失败，请检查输入的文本是否正确，或者导入设置是否正确",
+										);
+										projectLogger.error(e);
+									}
+								};
+								lyricFileFlow.confirmIfDirty(
+									{
+										title: t("confirmDialog.importFile.title", "确认导入歌词"),
+										description: t(
+											"confirmDialog.importFile.description",
+											"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？",
+										),
+									},
+									importAction,
+								);
 							}}
 						>
 							{t("textImportDialog.actionButton", "导入歌词")}

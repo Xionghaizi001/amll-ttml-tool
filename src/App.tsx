@@ -22,7 +22,6 @@ import SuspensePlaceHolder from "$/components/SuspensePlaceHolder";
 import { TouchSyncPanel } from "$/modules/lyric-editor/components/TouchSyncPanel/index.tsx";
 import { createLogger } from "$/utils/logger.ts";
 import "@radix-ui/themes/styles.css";
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform, version } from "@tauri-apps/plugin-os";
 import { AnimatePresence } from "framer-motion";
@@ -32,7 +31,6 @@ import { createPortal } from "react-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { ToastContainer, toast } from "react-toastify";
-import saveFile from "save-file";
 import semverGt from "semver/functions/gt";
 import styles from "./App.module.css";
 import DarkThemeDetector from "./components/DarkThemeDetector";
@@ -47,6 +45,7 @@ import { DragGhostRenderer } from "./modules/lyric-drag/DragGhostRenderer.tsx";
 import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybinding.tsx";
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
+import { getTauriStartupOpenedFile } from "./platform/files/TauriStartupFile.ts";
 import {
 	customBackgroundBlurAtom,
 	customBackgroundBrightnessAtom,
@@ -57,12 +56,10 @@ import {
 	customBackgroundOpacityAtom,
 } from "./modules/settings/states/custom-background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
-import {
-	amllToTTML,
-	ttmlLyricToAmllResult,
-} from "./modules/ttml-processor/index.ts";
-import { useTtmlErrorHandler } from "./modules/ttml-processor/useTtmlErrorHandler.ts";
+import { ensureFormatCommandsRegistered } from "./plugins/adapters/format-commands.ts";
+import { lyricFileFlow } from "./plugins/adapters/lyric-file-flow-host.ts";
 import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
+import { ensureBuiltinFormatsRegistered } from "./plugins/builtin/formats/index.ts";
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
@@ -81,8 +78,11 @@ import { useAppUpdate } from "./utils/useAppUpdate.ts";
 const Dialogs = lazy(() => import("./components/Dialogs"));
 
 // Builtin Edit/Sync/Preview must exist before the first render of the
-// registry-driven TitleBar/RibbonBar/main viewport.
+// registry-driven TitleBar/RibbonBar/main viewport; builtin format providers
+// (and their derived import/export commands) before the first file menu render.
 ensureBuiltinModesRegistered();
+ensureBuiltinFormatsRegistered();
+ensureFormatCommandsRegistered();
 
 const appLogger = createLogger("App");
 
@@ -93,9 +93,6 @@ const AppErrorPage = ({
 	error: unknown;
 	resetErrorBoundary: () => void;
 }) => {
-	const handleTtmlError = useTtmlErrorHandler();
-
-	const store = useStore();
 	const { t } = useTranslation();
 
 	return (
@@ -111,20 +108,7 @@ const AppErrorPage = ({
 				<Flex gap="2">
 					<Button
 						onClick={() => {
-							try {
-								const amllResult = ttmlLyricToAmllResult(
-									store.get(lyricLinesAtom),
-								);
-								const result = amllToTTML(amllResult);
-								if (!result.success) {
-									handleTtmlError(result.error, `Error when generating TTML`);
-									return;
-								}
-								const b = new Blob([result.data], { type: "text/xml" });
-								saveFile(b, "lyric.ttml").catch(appLogger.error);
-							} catch (e) {
-								appLogger.error("Failed to save TTML file", e);
-							}
+							lyricFileFlow.saveDocumentToFile().catch(appLogger.error);
 						}}
 					>
 						{t("app.error.saveLyrics", "尝试保存当前歌词")}
@@ -242,23 +226,14 @@ function EditorApp() {
 		}
 
 		(async () => {
-			const file: {
-				filename: string;
-				data: string;
-				ext: string;
-			} | null = await invoke("get_open_file_data");
+			const file = await getTauriStartupOpenedFile();
 
 			if (file) {
-				appLogger.debug("File data from tauri args", file);
-
-				const fileObj = new File([file.data], file.filename, {
-					type: "text/plain",
-				});
-
-				openFile(fileObj);
+				appLogger.debug("File data from tauri args", file.name);
+				lyricFileFlow.openLyricSource(file);
 			}
 		})();
-	}, [openFile]);
+	}, []);
 
 	useEffect(() => {
 		const onBeforeClose = (evt: BeforeUnloadEvent) => {

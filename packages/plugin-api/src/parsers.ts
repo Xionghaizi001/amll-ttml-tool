@@ -2,6 +2,7 @@ import { isCapability } from "./capabilities";
 import {
 	FORM_RESULT_SCHEMA,
 	FORM_SCHEMA_V0,
+	FORMAT_CONVERSION_RESULT_SCHEMA,
 	HOST_CALL_ENVELOPE_SCHEMA,
 	HOST_PARAM_SCHEMAS,
 	HOST_RESPONSE_SCHEMA,
@@ -16,6 +17,7 @@ import { validate } from "./schema/validator";
 import type {
 	FormResultV0,
 	FormSchemaV0,
+	FormatConversionResultV0,
 	HostCallV0,
 	HostMethod,
 	HostResponseV0,
@@ -290,6 +292,33 @@ export function parseManifestSchema(
 					message: `must start with ${prefix}`,
 				});
 		});
+		if (
+			(manifest.contributes?.formats?.length ?? 0) > 0 &&
+			!manifest.capabilities.includes("lyrics.format")
+		)
+			issues.push({
+				path: "$/contributes/formats",
+				message: "format contributions require the lyrics.format capability",
+			});
+		const formatIds = new Set<string>();
+		manifest.contributes?.formats?.forEach((format, index) => {
+			if (!format.id.startsWith(prefix))
+				issues.push({
+					path: `$/contributes/formats/${index}/id`,
+					message: `must start with ${prefix}`,
+				});
+			if (formatIds.has(format.id))
+				issues.push({
+					path: `$/contributes/formats/${index}/id`,
+					message: "format id must be unique",
+				});
+			formatIds.add(format.id);
+			if (format.import !== true && format.export !== true)
+				issues.push({
+					path: `$/contributes/formats/${index}`,
+					message: "format must enable import or export",
+				});
+		});
 	}
 	return issues.length === 0 ? parsed : fail(issues);
 }
@@ -395,6 +424,30 @@ export function parseCommandOutcome(
 
 export const parseFormResult = (input: unknown): ParseResult<FormResultV0> =>
 	validate<FormResultV0>(FORM_RESULT_SCHEMA, input);
+
+/**
+ * Validates the value a guest returned from `plugin_convert_format` and that
+ * its kind matches the direction the host requested.
+ */
+export function parseFormatConversionResult(
+	input: unknown,
+	direction: "import" | "export",
+): ParseResult<FormatConversionResultV0> {
+	const parsed = validate<FormatConversionResultV0>(
+		FORMAT_CONVERSION_RESULT_SCHEMA,
+		input,
+	);
+	if (!parsed.ok) return parsed;
+	const expected = direction === "import" ? "imported" : "exported";
+	if (parsed.value.kind !== expected)
+		return fail([
+			{
+				path: "/kind",
+				message: `expected ${expected} for a ${direction} conversion`,
+			},
+		]);
+	return parsed;
+}
 
 export const parsePluginEvent = (input: unknown): ParseResult<PluginEventV0> =>
 	validate<PluginEventV0>(PLUGIN_EVENT_SCHEMA, input);

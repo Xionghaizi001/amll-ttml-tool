@@ -252,7 +252,8 @@
 				"fromESLyRiC": "从 ESLyRiC 文件导入…",
 				"fromQRC": "从 QRC 文件导入…",
 				"fromYRC": "从 YRC 文件导入…",
-				"fromLrcfySylb": "从 Lyricify Syllable 文件导入…"
+				"fromLrcfySylb": "从 Lyricify Syllable 文件导入…",
+				"fromFormatFile": "从 {name} 文件导入…"
 			},
 			"exportLyric": {
 				"export": "导出歌词…",
@@ -261,7 +262,8 @@
 				"toQRC": "导出到 QRC",
 				"toYRC": "导出到 YRC",
 				"toLrcfySylb": "导出到 Lyricify Syllable",
-				"toASS": "导出到 ASS 字幕"
+				"toASS": "导出到 ASS 字幕",
+				"toFormat": "导出到 {name}"
 			},
 			"syllableSmoothing": "平滑时间轴..."
 		}
@@ -350,6 +352,8 @@
 	"error": {
 		"unsupportedFileFormat": "不支持的文件格式: {ext}",
 		"openFileFailed": "打开文件失败",
+		"exportFileFailed": "导出歌词失败",
+		"exportEmptyDocument": "当前没有可导出的歌词内容",
 		"ttml": {
 			"copied": "错误日志已复制到剪贴板",
 			"kind": {

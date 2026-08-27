@@ -59,6 +59,11 @@ export interface WasmTurnContext {
 	 * may reference an id it just received from its own insert op.
 	 */
 	editIdSeed: string;
+	/**
+	 * false for pure turns (format conversions): lyrics.applyEdit is rejected,
+	 * the result is committed by the host flow as its own transaction instead.
+	 */
+	editsAllowed?: boolean;
 }
 
 export interface WasmTurnStorageChanges {
@@ -266,6 +271,12 @@ export class WasmTurnHost {
 			ops: DocumentOpV0[];
 		},
 	): HostResponseV0 {
+		if (this.context.editsAllowed === false)
+			return errorResponse(
+				id,
+				"permission-denied",
+				"document edits are not available during a format conversion turn",
+			);
 		if (this.document === null)
 			return errorResponse(id, "internal", "document snapshot is unavailable");
 		if (this.editLabels.length >= this.limits.maxEditBatches)

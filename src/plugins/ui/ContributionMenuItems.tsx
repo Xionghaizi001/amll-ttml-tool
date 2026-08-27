@@ -1,4 +1,4 @@
-import type { LocalizedText, MenuLocation } from "@amll-ttml-tool/plugin-api";
+import type { MenuLocation } from "@amll-ttml-tool/plugin-api";
 import { ContextMenu, DropdownMenu } from "@radix-ui/themes";
 import { Fragment, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,11 +7,7 @@ import { ContextCommandMenuItem } from "$/components/TopMenu/ContextCommandMenuI
 import { commandRegistry } from "$/modules/keyboard/registry";
 import { extensionRegistry } from "../adapters/extension-host";
 import { matchesWhenClause } from "../adapters/when-clause";
-
-const localize = (text: LocalizedText, locale: string): string => {
-	if (typeof text === "string") return text;
-	return text[locale] ?? text[locale.split("-")[0]] ?? text.default;
-};
+import { localizeText } from "./localize";
 
 /**
  * Renders every plugin/builtin menu contribution registered for one protocol
@@ -64,7 +60,7 @@ export const ContributionMenuItems = ({
 					<Fragment key={item.id}>
 						{separator && <Separator />}
 						<Item commandId={item.commandId}>
-							{localize(command.title, i18n.language)}
+							{localizeText(command.title, i18n.language)}
 						</Item>
 					</Fragment>
 				);

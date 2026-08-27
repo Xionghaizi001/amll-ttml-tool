@@ -1,5 +1,7 @@
 import type {
 	Capability,
+	ConvertFormatParamsV0,
+	FormatConversionResultV0,
 	FormResultV0,
 	FormSchemaV0,
 	FunctionPluginManifest,
@@ -11,8 +13,10 @@ import type {
 } from "@amll-ttml-tool/plugin-api";
 import {
 	FORM_ROUNDS_PER_INVOCATION_LIMIT_V0,
+	FORMAT_CONVERSION_TEXT_LIMIT_V0,
 	negotiateCapabilities,
 	parseCommandOutcome,
+	parseFormatConversionResult,
 	parsePluginReturn,
 	PLUGIN_API_VERSION,
 	PLUGIN_EXPORTS,
@@ -27,7 +31,13 @@ import {
 	type WasmTurnResult,
 	type WasmTurnStorageChanges,
 } from "$/plugins/runtime";
-import type { PluginDocumentGateway } from "./plugin-document";
+import type { TTMLLyric } from "$/types/ttml";
+import {
+	createDocumentFromPluginLines,
+	createSeededIdAllocator,
+	type PluginDocumentGateway,
+	toPluginDocument,
+} from "./plugin-document";
 
 /** Consecutive failed invocations before a plugin is auto-disabled. */
 export const PLUGIN_CRASH_AUTO_DISABLE_THRESHOLD = 3;
@@ -307,6 +317,31 @@ export class WasmPluginService {
 		);
 	}
 
+	/**
+	 * Runs one pure format conversion turn (`plugin_convert_format`). Errors
+	 * propagate to the host file flow, which owns the user-facing message;
+	 * crash accounting and auto-disable still apply.
+	 */
+	async convertFormat(
+		pluginId: string,
+		params: ConvertFormatParamsV0,
+	): Promise<FormatConversionResultV0> {
+		const instance = this.instances.get(pluginId);
+		if (instance?.status !== "active" || !instance.runtime)
+			throw new Error(`Plugin ${pluginId} is not active`);
+		if (
+			params.direction === "import" &&
+			params.text.length > FORMAT_CONVERSION_TEXT_LIMIT_V0
+		)
+			throw new PluginRuntimeError(
+				"payload-too-large",
+				`import text exceeds ${FORMAT_CONVERSION_TEXT_LIMIT_V0} characters`,
+			);
+		return this.enqueue(instance, () =>
+			this.runFormatConversion(instance, params),
+		);
+	}
+
 	async dispose(): Promise<void> {
 		this.disposed = true;
 		for (const instance of this.instances.values())
@@ -384,6 +419,7 @@ export class WasmPluginService {
 				(commandId, args) =>
 					this.executeCommand(pluginId, commandId, args) as Promise<unknown>,
 			);
+			this.registerFormatProviders(instance, scope);
 			instance.scope = scope;
 			if (
 				this.ports.subscribeDocumentEvents &&
@@ -444,6 +480,140 @@ export class WasmPluginService {
 		this.log(instance, "info", "deactivated");
 	}
 
+	/**
+	 * Registers the manifest's declared format providers into the plugin's
+	 * scope. Conversion goes through `plugin_convert_format`; the returned
+	 * structures feed the host file flow, which commits the one import
+	 * transaction — a format plugin can never bypass the document service.
+	 */
+	private registerFormatProviders(
+		instance: PluginInstance,
+		scope: ExtensionScope,
+	): void {
+		const formats = instance.data.manifest.contributes?.formats ?? [];
+		if (formats.length === 0) return;
+		const pluginId = instance.data.manifest.id;
+		if (!instance.data.grantedCapabilities.includes("lyrics.format")) {
+			this.log(
+				instance,
+				"warn",
+				"format contributions skipped: lyrics.format capability not granted",
+			);
+			return;
+		}
+		for (const format of formats) {
+			scope.registerFormatProvider({
+				formatId: format.id,
+				title: format.title,
+				extensions: format.extensions,
+				importer: format.import
+					? ({ text }) => this.importViaFormatPlugin(pluginId, format.id, text)
+					: undefined,
+				exporter: format.export
+					? ({ lyric }) =>
+							this.exportViaFormatPlugin(pluginId, format.id, lyric)
+					: undefined,
+			});
+		}
+	}
+
+	private async importViaFormatPlugin(
+		pluginId: string,
+		formatId: string,
+		text: string,
+	): Promise<TTMLLyric> {
+		const result = await this.convertFormat(pluginId, {
+			formatId,
+			direction: "import",
+			text,
+		});
+		if (result.kind !== "imported")
+			throw new PluginRuntimeError(
+				"invalid-params",
+				"guest returned an export result for an import conversion",
+			);
+		const seed = (this.ports.createTurnSeed ?? defaultTurnSeed)(pluginId);
+		return createDocumentFromPluginLines(
+			result.lines,
+			result.metadata,
+			createSeededIdAllocator(seed),
+		);
+	}
+
+	private async exportViaFormatPlugin(
+		pluginId: string,
+		formatId: string,
+		lyric: TTMLLyric,
+	): Promise<string> {
+		const instance = this.instances.get(pluginId);
+		const includeRuby =
+			instance?.data.grantedCapabilities.includes("lyrics.ruby") ?? false;
+		const projection = toPluginDocument(
+			lyric,
+			this.ports.documents.getRevision(),
+			{ includeRuby },
+		);
+		const result = await this.convertFormat(pluginId, {
+			formatId,
+			direction: "export",
+			document: { lines: projection.lines, metadata: projection.metadata },
+		});
+		if (result.kind !== "exported")
+			throw new PluginRuntimeError(
+				"invalid-params",
+				"guest returned an import result for an export conversion",
+			);
+		return result.text;
+	}
+
+	private async runFormatConversion(
+		instance: PluginInstance,
+		params: ConvertFormatParamsV0,
+	): Promise<FormatConversionResultV0> {
+		const runtime = instance.runtime;
+		if (!runtime || instance.status !== "active")
+			throw new Error(`Plugin ${instance.data.manifest.id} is not active`);
+		this.log(
+			instance,
+			"info",
+			`format ${params.formatId} ${params.direction} invoked`,
+		);
+		try {
+			const context: WasmTurnContext = {
+				...(await this.buildContext(instance)),
+				editsAllowed: false,
+			};
+			const turn = await runtime.runTurn(
+				PLUGIN_EXPORTS.convertFormat,
+				JSON.stringify(params),
+				context,
+				{ limits: this.ports.limits, timeoutMs: this.ports.turnTimeoutMs },
+			);
+			await this.commitEffects(instance, context, turn.effects);
+			const parsed = parseFormatConversionResult(
+				this.parseReturnValue(turn),
+				params.direction,
+			);
+			if (!parsed.ok)
+				throw new PluginRuntimeError(
+					"invalid-params",
+					`guest returned an invalid format conversion result: ${parsed.issues
+						.map((issue) => `${issue.path}: ${issue.message}`)
+						.join("; ")}`,
+				);
+			instance.consecutiveCrashes = 0;
+			return parsed.value;
+		} catch (error) {
+			await this.handleInvocationError(
+				instance,
+				`format ${params.formatId} (${params.direction})`,
+				error,
+				{ notifyUser: false },
+			);
+			throw error;
+		}
+	}
+
 	private async runCommandInvocation(
 		instance: PluginInstance,
 		commandId: string,
@@ -492,10 +662,8 @@ export class WasmPluginService {
 		}
 	}
 
-	private parseOutcome(
-		instance: PluginInstance,
-		turn: WasmTurnResult,
-	): PluginCommandOutcomeV0 {
+	/** Unwraps a turn's PluginReturnV0 envelope into the guest's value. */
+	private parseReturnValue(turn: WasmTurnResult): JsonValue {
 		let raw: unknown;
 		try {
 			raw = JSON.parse(turn.returnJson);
@@ -516,7 +684,14 @@ export class WasmPluginService {
 				"internal",
 				`plugin reported: ${wrapped.value.error.message}`,
 			);
-		const outcome = parseCommandOutcome(wrapped.value.value);
+		return wrapped.value.value;
+	}
+
+	private parseOutcome(
+		instance: PluginInstance,
+		turn: WasmTurnResult,
+	): PluginCommandOutcomeV0 {
+		const outcome = parseCommandOutcome(this.parseReturnValue(turn));
 		if (!outcome.ok)
 			throw new PluginRuntimeError(
 				"invalid-params",
@@ -532,8 +707,10 @@ export class WasmPluginService {
 		instance: PluginInstance,
 		commandId: string,
 		error: unknown,
+		options: { notifyUser?: boolean } = {},
 	): Promise<void> {
 		if (error instanceof PluginInvocationAborted) return;
+		const notifyUser = options.notifyUser ?? true;
 		const pluginId = instance.data.manifest.id;
 		const message = String(error instanceof Error ? error.message : error);
 		instance.lastError = message;
@@ -567,14 +744,15 @@ export class WasmPluginService {
 				return;
 			}
 		}
-		this.ports.notify(
-			{
-				level: "error",
-				message: `Plugin command failed: ${commandId}`,
-				detail: message,
-			},
-			{ pluginId },
-		);
+		if (notifyUser)
+			this.ports.notify(
+				{
+					level: "error",
+					message: `Plugin command failed: ${commandId}`,
+					detail: message,
+				},
+				{ pluginId },
+			);
 		this.emitChange();
 	}
 

@@ -11,6 +11,7 @@ export type JsonValue =
 export type CoreCapability =
 	| "lyrics.core"
 	| "lyrics.ruby"
+	| "lyrics.format"
 	| "ui.notify"
 	| "ui.form"
 	| "storage.kv";
@@ -76,11 +77,33 @@ export interface TitleBarActionContribution {
 	when?: EnablementExpr;
 }
 
+/** Per-plugin cap on declared lyric format providers. */
+export const FORMATS_PER_PLUGIN_LIMIT_V0 = 8;
+
+/**
+ * A declared lyric format provider (requires the `lyrics.format` capability).
+ * The plugin only converts text ↔ document structure; file picking, dirty
+ * confirmation, project id, filename and the import transaction stay in the
+ * host file flow, and the conversion turn cannot apply document edits.
+ */
+export interface FormatContribution {
+	/** Format id, prefixed with the plugin id (`<pluginId>.<name>`). */
+	id: string;
+	title: LocalizedText;
+	/** Lowercase extensions without the dot; the first is the export extension. */
+	extensions: string[];
+	/** Enables importing files of this format via `plugin_convert_format`. */
+	import?: boolean;
+	/** Enables exporting the document to this format. */
+	export?: boolean;
+}
+
 export interface FunctionContributions {
 	commands?: CommandContribution[];
 	menus?: MenuItemContribution[];
 	settings?: SettingsPageContribution[];
 	titleBarActions?: TitleBarActionContribution[];
+	formats?: FormatContribution[];
 }
 
 export interface PluginManifestBase {
@@ -268,7 +291,36 @@ export const PLUGIN_EXPORTS = {
 	executeCommand: "plugin_execute_command",
 	handleEvent: "plugin_handle_event",
 	resumeForm: "plugin_resume_form",
+	convertFormat: "plugin_convert_format",
 } as const;
+
+/**
+ * Upper bound on the text payload of one format conversion, in UTF-16 units.
+ * Matches the runtime's 1 MiB turn payload cap so oversized files fail with
+ * one consistent error before a worker round-trip.
+ */
+export const FORMAT_CONVERSION_TEXT_LIMIT_V0 = 1024 * 1024;
+
+/**
+ * Params passed to the guest's `plugin_convert_format` export. Conversion
+ * turns are pure: `lyrics.applyEdit` is rejected inside them — an import is
+ * committed by the host file flow as one import transaction afterwards.
+ */
+export type ConvertFormatParamsV0 =
+	| { formatId: string; direction: "import"; text: string }
+	| {
+			formatId: string;
+			direction: "export";
+			document: { lines: PluginLineV0[]; metadata: PluginMetadataEntryV0[] };
+	  };
+
+/**
+ * Value shape a guest returns from `plugin_convert_format` (wrapped in a
+ * successful PluginReturnV0). The kind must match the requested direction.
+ */
+export type FormatConversionResultV0 =
+	| { kind: "imported"; lines: NewLineV0[]; metadata: PluginMetadataEntryV0[] }
+	| { kind: "exported"; text: string };
 
 /**
  * Import namespace and function name of the single synchronous host bridge a

@@ -135,6 +135,22 @@ const createLine = (line: NewLineV0, ids: PluginOpIdAllocator): LyricLine => {
 	};
 };
 
+/**
+ * Builds a full internal document from plugin-provided new lines (format
+ * imports). Every line/word receives a fresh stable id from the allocator.
+ */
+export const createDocumentFromPluginLines = (
+	lines: NewLineV0[],
+	metadata: { key: string; values: string[] }[],
+	ids: PluginOpIdAllocator,
+): TTMLLyric => ({
+	lyricLines: lines.map((line) => createLine(line, ids)),
+	metadata: metadata.map((entry) => ({
+		key: entry.key,
+		value: [...entry.values],
+	})),
+});
+
 const insertAfter = <T extends { id: string }>(
 	items: T[],
 	afterId: string | null,

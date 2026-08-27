@@ -4,6 +4,8 @@ import {
 	FORM_ANIMATION_PRESETS_V0,
 	FORM_ANIMATION_SPEEDS_V0,
 	FORM_FLUENT_ICON_NAMES_V0,
+	FORMAT_CONVERSION_TEXT_LIMIT_V0,
+	FORMATS_PER_PLUGIN_LIMIT_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
 	THEME_COLOR_TOKEN_NAMES_V0,
@@ -280,6 +282,23 @@ const titleBarActionContribution = {
 	},
 	additionalProperties: false,
 };
+const formatContribution = {
+	type: "object",
+	required: ["id", "title", "extensions"],
+	properties: {
+		id,
+		title: localizedText,
+		extensions: {
+			type: "array",
+			minItems: 1,
+			maxItems: 8,
+			items: { type: "string", pattern: "^[a-z0-9]{1,16}$" },
+		},
+		import: { type: "boolean" },
+		export: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 const baseManifestProperties = {
 	id: {
 		type: "string",
@@ -342,6 +361,11 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 							type: "array",
 							maxItems: TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
 							items: titleBarActionContribution,
+						},
+						formats: {
+							type: "array",
+							maxItems: FORMATS_PER_PLUGIN_LIMIT_V0,
+							items: formatContribution,
 						},
 					},
 					additionalProperties: false,
@@ -580,6 +604,42 @@ export const LYRICS_APPLY_EDIT_SCHEMA = {
 		},
 	},
 	additionalProperties: false,
+} satisfies JsonSchema;
+
+/**
+ * Value a guest returns from `plugin_convert_format`. The host additionally
+ * checks that the kind matches the requested direction.
+ */
+export const FORMAT_CONVERSION_RESULT_SCHEMA = {
+	oneOf: [
+		{
+			type: "object",
+			required: ["kind", "lines", "metadata"],
+			properties: {
+				kind: { const: "imported" },
+				lines: { type: "array", maxItems: 10000, items: newLineSchema },
+				metadata: {
+					type: "array",
+					maxItems: 256,
+					items: documentDefs.metadata,
+				},
+			},
+			additionalProperties: false,
+		},
+		{
+			type: "object",
+			required: ["kind", "text"],
+			properties: {
+				kind: { const: "exported" },
+				text: {
+					type: "string",
+					minLength: 1,
+					maxLength: FORMAT_CONVERSION_TEXT_LIMIT_V0,
+				},
+			},
+			additionalProperties: false,
+		},
+	],
 } satisfies JsonSchema;
 
 export const NOTIFY_PARAMS_SCHEMA = {
@@ -991,6 +1051,7 @@ export const SCHEMA_CATALOG = {
 	hostResponse: HOST_RESPONSE_SCHEMA,
 	pluginReturn: PLUGIN_RETURN_SCHEMA,
 	pluginCommandOutcome: PLUGIN_COMMAND_OUTCOME_SCHEMA,
+	formatConversionResult: FORMAT_CONVERSION_RESULT_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
 	functionPluginPackage: FUNCTION_PLUGIN_PACKAGE_SCHEMA,
 	themeTokens: THEME_TOKENS_SCHEMA,

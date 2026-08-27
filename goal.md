@@ -596,12 +596,89 @@
 
   阶段 7：文件与格式插件化
 
-  - [ ] 将平台文件选择能力和歌词格式处理拆开。
-  - [ ] 建立 FileProvider 与 LyricFormatPlugin 接口。
-  - [ ] 将 TTML、LRC、YRC、QRC 等实现注册为格式插件。
-  - [ ] 文件流程统一处理 dirty 确认、项目 ID、文件名、导入事务和导出校验。
-  - [ ] Web 使用 File API/IndexedDB，Tauri 使用平台 adapter。
-  - [ ] 文件和格式插件不得绕过文档事务服务。
+  - [x] 将平台文件选择能力和歌词格式处理拆开。
+  - [x] 建立 FileProvider 与 LyricFormatPlugin 接口。
+  - [x] 将 TTML、LRC、YRC、QRC 等注册为格式 provider（粒度见下方 2026-08-27 澄清）。
+  - [x] 文件流程统一处理 dirty 确认、项目 ID、文件名、导入事务和导出校验。
+  - [x] Web 使用 File API/IndexedDB，Tauri 使用平台 adapter（范围调整见完成记录）。
+  - [x] 文件和格式插件不得绕过文档事务服务。
+
+  格式插件化粒度澄清（2026-08-27）：插件化的单位是"provider 注册"，不是"实现打包"。
+  现状为两个整体 wasm-bindgen 包加一个 TS 实现：TTML 由自有 ttml-processor wasm 承担
+  （parse/generate/降级 AMLL 结构），ESLRC/QRC/YRC/LYS/ASS 的 parse/stringify 全部来自
+  上游 @applemusic-like-lyrics/lyric 单一 wasm 包，LRC 为 TS（lrc-import-engine）。
+  不拆分这些整包：由单一 builtin scope（如 core.formats）注册多个格式 provider，每个
+  provider 是包内函数的薄 adapter（与 core.modes 一个 scope 注册三个内置模式同一先例）。
+  这些 wasm-bindgen 包是主线程内部库，不是 Extism 沙箱插件，也不改造成沙箱插件——
+  builtin 档不为受信任代码付 Worker/序列化成本。TTML 是宿主原生序列化格式（保存/
+  自动保存/提交管线依赖），注册为不可卸载 provider（与 Edit 模式 fail-safe 同先例）；
+  其余格式 provider 可禁用，禁用后对应导入/导出菜单命令随 scope 消失。第三方格式插件
+  经 extism-wasm 功能插件以新 capability（如 lyrics.format：文本 ↔ 文档结构）接入，
+  注册进同一 provider registry，走同一文件流程与导入事务路径。
+
+  阶段 7 完成记录（2026-08-27）
+
+  - 协议（kernel）：`src/kernel/formats/LyricFormatProvider.ts` 定义 provider 合同
+    （formatId/LocalizedText title/extensions/mimeType/importer/exporter）与
+    `LyricFormatHandledError`（provider 已自行向用户展示错误时抑制通用 toast）。
+    `ContributionRegistry` 新增 `format-provider` contribution：formatId 全局唯一、
+    extensions 归一化（小写去点）、至少一个方向、plugin owner 强制命名空间前缀；
+    `hostNative`（TTML）仅限 trusted owner、必须双向、全局唯一，扩展名冲突时优先解析；
+    getter：getFormatProviders/getFormatProvider/getHostNativeFormatProvider/
+    findFormatProviderForExtension。
+  - 平台文件端口：`src/kernel/platform/FileDialog.ts` 定义 `FilePickerPort`/
+    `TextFileSaverPort`/`HostOpenedFile`；`src/platform/files/BrowserFileDialog.ts`
+    以 File API + save-file 实现（Web 与 Tauri WebView 通用）；
+    `src/platform/files/TauriStartupFile.ts` 承接 Tauri 启动参数文件
+    （`get_open_file_data`），`invoke` 调用移出 App.tsx。范围调整：Tauri 端文件
+    选择/保存沿用 WebView 内 File API（现状即如此，仓库无 tauri fs/dialog 插件），
+    "Tauri 平台 adapter"落地为启动文件源；如未来需要原生对话框，仅需替换这两个端口实现。
+  - 统一文件流程：`src/plugins/adapters/lyric-file-flow.ts`（纯类、端口注入、Node 全测）
+    统一 dirty 确认（原 4 处副本收敛为 confirmIfDirty）、项目 ID 匹配、文件名推导、
+    单一导入 replace 事务（source=user + expectedRevision）、导出前/后校验（空文档阻止
+    导出、空输出报错）与音频元数据合并事务；`lyric-file-flow-host.ts` 装配浏览器端口 +
+    editorDocumentAdapter + registry（音频引擎按需动态加载，模块可在 Node 导入）。
+    纯业务决策拆入 `src/application/lyrics/LyricFileService.ts`（resolveImportedProjectId/
+    resolveImportedFileName/mergeExtractedLyricMetadata/导出 issue 检查）。
+    `useFileOpener` 变为流程薄封装（拖拽/剪贴板/音频选择器调用点不变）；
+    ImportFromText 与 LRCLIB 导入迁移到 commitImportedLyric（纯文本导入现在也会
+    重置项目 ID 并走统一流程）；新建/打开/保存/剪贴板保存/错误页救援保存全部经流程
+    （错误页此前硬编码 "lyric.ttml" 的问题一并修复）。
+  - 内置 provider：`src/plugins/builtin/formats`（scope `core.formats`，终生存活）注册
+    ttml（hostNative，text/xml，错误走既有 TTML 错误对话框）、lrc（TS parse + 上游
+    stringify）、eslrc/qrc/yrc/lys（上游 wasm 双向）、ass（仅导出）；重实现全部动态
+    import。行为变化：导出 ESLyRiC 现在产出 .eslrc 扩展名（原实现误用 .lrc）。
+  - 命令与菜单：`src/plugins/adapters/format-commands.ts` 依据 registry 自动派生
+    `core.formats.import/export.<formatId>` 命令（含中英双语标题），provider 消失时
+    reconciler 同步销毁命令——"禁用格式 → 菜单命令消失"由 scope dispose 机制保证；
+    ImportExportLyric 子菜单改为完全由 registry 驱动（含第三方 provider 自动出现），
+    菜单项只引用 command ID，标签用通用 i18n 模板 + provider 本地化名称
+    （新增 fromFormatFile/toFormat 与导出错误文案的 zh-CN/en-US 键）。
+  - 第三方格式插件（lyrics.format capability）：协议新增 `lyrics.format` capability、
+    manifest `contributes.formats`（id 强制插件命名空间前缀、需声明该 capability、
+    至少一个方向、扩展名 ^[a-z0-9]{1,16}$、每插件 ≤8）、guest 导出
+    `plugin_convert_format`（`ConvertFormatParamsV0`：import 收文本，export 收文档投影）
+    与 `FormatConversionResultV0`（imported: NewLineV0[]+metadata / exported: text，
+    schema 校验且 kind 必须匹配方向；导入文本上限 1MiB 与运行时回合 payload 上限一致）。
+    转换回合是纯回合：`WasmTurnContext.editsAllowed=false`，回合内 lyrics.applyEdit
+    被拒——导入结果由宿主文件流程作为一次导入事务提交，格式插件无法绕过文档事务服务。
+    `WasmPluginService` 激活时把 manifest formats 注册进同一 provider registry
+    （能力未授予则跳过并记诊断日志），导入结果经 `createDocumentFromPluginLines`
+    生成稳定 id；转换失败沿用崩溃计数/自动禁用但不重复 toast（文件流程统一报错）；
+    provider 与派生命令随插件禁用/卸载消失、重启用恢复。协议文档已重新生成。
+  - 附带修复：`src/utils/keybindings.ts` 的全局按键监听改为仅在浏览器宿主安装，
+    使宿主注册链（extension-host/keyboard registry）可在 Node 测试中导入。
+  - 完成时全量验证：296/296 测试通过（新增 32 项：format registry 合同 6、
+    LyricFileService 6、统一文件流程 11、命令 reconciler 2、内置 provider（含真实
+    ttml-processor wasm 与上游 wasm 在 Node 中的往返）4、协议 formats/转换结果 2、
+    服务端格式插件全链路 1），`tsc -b`、`pnpm lint`（boundaries + Biome 基线
+    13 warning + 1 info）、`plugin:api:check`（协议文档已重新生成）、Vite production
+    build 全部通过。
+  - 已知取舍：浏览器文件选择器取消时 Promise 不 resolve（与旧 input 行为一致，无泄漏）；
+    Ctrl+O 的音频路径依赖 `HostOpenedFile.asFile`（Tauri 启动参数等纯文本来源不支持
+    音频，与旧行为差异可忽略）；历史恢复（HistoryRestore）按"恢复"语义保留自身
+    replace 路径，不经导入流程；wasm 格式插件的示例（Rust sample）与开发文档留待
+    阶段 8 批量迁移时一并补充。
 
   文件系统耦合较强，应晚于事务、命令和权限系统迁移。
 

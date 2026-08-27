@@ -13,6 +13,12 @@ import type {
 	CommandRegistry,
 	Disposable,
 } from "../commands";
+import {
+	type LyricFormatExporter,
+	type LyricFormatImporter,
+	type LyricFormatProvider,
+	normalizeFormatExtension,
+} from "../formats/LyricFormatProvider";
 
 /**
  * Fail-safe mode. It must always exist and may never be conditionally
@@ -100,13 +106,34 @@ export interface TitleBarActionContributionRecord extends OwnedContribution {
 	when?: string;
 }
 
+/**
+ * A lyric format provider: pure text ↔ document conversion registered by a
+ * builtin scope or a plugin. File picking, dirty confirmation, project id,
+ * filename derivation and the import transaction are host concerns; the
+ * provider never touches the document transaction service itself.
+ */
+export interface FormatProviderContributionRecord
+	extends OwnedContribution,
+		LyricFormatProvider {
+	kind: "format-provider";
+	order?: number;
+	/**
+	 * The host's native serialization format (TTML). Save/autosave/submit
+	 * depend on it, so it may only come from a trusted owner, must support
+	 * both directions and — like the edit fail-safe mode — is registered
+	 * from a scope that is never disposed.
+	 */
+	hostNative?: boolean;
+}
+
 export type ContributionRecord<TView = unknown> =
 	| MenuContributionRecord
 	| ToolbarContributionRecord
 	| DeclarativeFormContributionRecord
 	| TrustedViewContributionRecord<TView>
 	| ModeContributionRecord<TView>
-	| TitleBarActionContributionRecord;
+	| TitleBarActionContributionRecord
+	| FormatProviderContributionRecord;
 
 const ownerId = (owner: ContributionOwner): string =>
 	owner.kind === "plugin" ? owner.pluginId : owner.id;
@@ -179,6 +206,40 @@ export class ContributionRegistry<TView = unknown> {
 					`Plugin ${ownerKey} cannot register more than ${TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0} title bar actions`,
 				);
 		}
+		if (record.kind === "format-provider") {
+			if (this.getFormatProviders().some((p) => p.formatId === record.formatId))
+				throw new Error(`Format ${record.formatId} is already registered`);
+			if (record.extensions.length === 0)
+				throw new Error(
+					`Format ${record.formatId} must declare at least one extension`,
+				);
+			if (
+				record.extensions.some(
+					(extension) => normalizeFormatExtension(extension) !== extension,
+				)
+			)
+				throw new Error(
+					`Format ${record.formatId} extensions must be normalized (lowercase, no dot)`,
+				);
+			if (!record.importer && !record.exporter)
+				throw new Error(
+					`Format ${record.formatId} must provide an importer or an exporter`,
+				);
+			if (record.hostNative) {
+				if (!record.owner.trusted)
+					throw new Error(
+						`Plugin ${ownerId(record.owner)} cannot register the host-native format`,
+					);
+				if (!record.importer || !record.exporter)
+					throw new Error(
+						`Host-native format ${record.formatId} must support import and export`,
+					);
+				if (this.getFormatProviders().some((p) => p.hostNative))
+					throw new Error(
+						`A host-native format is already registered; ${record.formatId} cannot claim it`,
+					);
+			}
+		}
 		this.contributions.set(record.id, record);
 		this.emitChange();
 		let disposed = false;
@@ -247,6 +308,50 @@ export class ContributionRegistry<TView = unknown> {
 			);
 	}
 
+	getFormatProviders(): FormatProviderContributionRecord[] {
+		return this.getAll()
+			.filter(
+				(item): item is FormatProviderContributionRecord =>
+					item.kind === "format-provider",
+			)
+			.sort(
+				(left, right) =>
+					(left.order ?? 1000) - (right.order ?? 1000) ||
+					left.formatId.localeCompare(right.formatId),
+			);
+	}
+
+	getFormatProvider(
+		formatId: string,
+	): FormatProviderContributionRecord | undefined {
+		return this.getFormatProviders().find(
+			(provider) => provider.formatId === formatId,
+		);
+	}
+
+	/** The host-native (TTML) serialization format used by save/autosave. */
+	getHostNativeFormatProvider():
+		| FormatProviderContributionRecord
+		| undefined {
+		return this.getFormatProviders().find((provider) => provider.hostNative);
+	}
+
+	/**
+	 * Resolves the provider handling a file extension. The host-native format
+	 * wins ties, then contribution order; extension is normalized first.
+	 */
+	findFormatProviderForExtension(
+		extension: string,
+	): FormatProviderContributionRecord | undefined {
+		const normalized = normalizeFormatExtension(extension);
+		const candidates = this.getFormatProviders().filter((provider) =>
+			provider.extensions.includes(normalized),
+		);
+		return (
+			candidates.find((provider) => provider.hostNative) ?? candidates[0]
+		);
+	}
+
 	getTrustedViews(
 		kind: TrustedViewContributionRecord["kind"],
 	): TrustedViewContributionRecord<TView>[] {
@@ -311,6 +416,17 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 		hideSidebar?: boolean;
 	}): Disposable;
 	registerTitleBarAction(input: TitleBarActionContribution): Disposable;
+	registerFormatProvider(input: {
+		id?: string;
+		formatId: string;
+		title: LocalizedText;
+		extensions: string[];
+		mimeType?: string;
+		order?: number;
+		hostNative?: boolean;
+		importer?: LyricFormatImporter;
+		exporter?: LyricFormatExporter;
+	}): Disposable;
 	addEventListener<T>(
 		event: string,
 		listener: (payload: T) => void,
@@ -420,6 +536,26 @@ export class ExtensionRegistry<TView = unknown> {
 						tooltip: input.tooltip,
 						order: input.order,
 						when: input.when,
+					}),
+				);
+			},
+			registerFormatProvider: (input) => {
+				requireOwnNamespace(input.formatId, "format provider");
+				if (input.id !== undefined)
+					requireOwnNamespace(input.id, "format provider contribution");
+				return disposables.add(
+					this.contributions.register({
+						kind: "format-provider",
+						id: input.id ?? `${ownerId(owner)}.format.${input.formatId}`,
+						owner,
+						formatId: input.formatId,
+						title: input.title,
+						extensions: input.extensions.map(normalizeFormatExtension),
+						mimeType: input.mimeType,
+						order: input.order,
+						hostNative: input.hostNative,
+						importer: input.importer,
+						exporter: input.exporter,
 					}),
 				);
 			},
