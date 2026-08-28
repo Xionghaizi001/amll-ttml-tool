@@ -63,6 +63,7 @@ import { ensureBuiltinFormatsRegistered } from "./plugins/builtin/formats/index.
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
+import { TrustedJsHost } from "./plugins/ui/TrustedJsHost.tsx";
 import { WasmPluginHost } from "./plugins/ui/WasmPluginHost.tsx";
 import { useActiveMode } from "./plugins/ui/mode-host.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
@@ -327,6 +328,7 @@ function EditorApp() {
 					<ThemeHost />
 					<BuiltinPluginHost />
 						<WasmPluginHost />
+					<TrustedJsHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />
 					{toolMode === ToolMode.Sync && <SyncKeyBinding />}

@@ -375,6 +375,47 @@ export interface FunctionPluginPackageV0 {
 	wasm: string;
 }
 
+export const REMOTE_PLUGIN_CATALOG_VERSION = 0 as const;
+
+export type RemotePluginChannelV0 = "trusted-js" | "extism-wasm" | "theme";
+export type RemotePluginPlatformV0 = "web" | "desktop";
+
+/**
+ * One shelf entry of the remote plugin catalog. The same catalog document
+ * serves every distribution channel (trusted-js modules, WASM packages,
+ * theme packages) so the store never needs a second manifest protocol.
+ * `entry` is a same-origin relative path — the loader refuses any URL that
+ * resolves outside the application origin, and the platforms filter is an
+ * operational knob, never a security boundary.
+ */
+export interface RemotePluginCatalogEntryV0 {
+	id: string;
+	name: string;
+	version: string;
+	description?: string;
+	author?: string;
+	homepage?: string;
+	channel: RemotePluginChannelV0;
+	/** Plugin API version (trusted-js/wasm) or theme API version the artifact targets. */
+	apiVersion: number;
+	/** Same-origin relative artifact path: an ES module for trusted-js, a package otherwise. */
+	entry: string;
+	/** Hex sha-256 of the artifact — the content-addressing red line for immutable delivery. */
+	sha256?: string;
+	platforms?: RemotePluginPlatformV0[];
+	minAppVersion?: string;
+	/**
+	 * First-party artifact published by the app's own CI alongside the app.
+	 * Shares the app's trust root, so the consent prompt is skipped.
+	 */
+	firstParty?: boolean;
+}
+
+export interface RemotePluginCatalogV0 {
+	catalogVersion: typeof REMOTE_PLUGIN_CATALOG_VERSION;
+	plugins: RemotePluginCatalogEntryV0[];
+}
+
 export type FormValueV0 = string | number | boolean;
 
 export const FORM_FLUENT_ICON_NAMES_V0 = [

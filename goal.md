@@ -719,11 +719,12 @@
 
   工作项：
 
-  - [ ] 远程受信任插件加载器（web-only）：认证 → 资格/版本清单接口 → 同源动态 import →
-    注册进 builtin 等级 trusted scope（owner.trusted: true）；登出或资格失效时 scope
-    dispose 全量清理 contribution 与监听器。
-  - [ ] 单一加载入口：远程下发与未来手动导入共用同一 parse/注册闸门（复用
-    parseThemePackage 的单一信任边界模式），不为自动下发开第二条路径。
+  - [x] 远程受信任插件加载器（web-only）：同源动态 import → 注册进 trusted 等级 scope
+    （owner.trusted: true）；scope dispose 全量清理 contribution 与监听器。资格/认证清单
+    接口属"后端实化"里程碑，当前为同源静态清单薄片（2026-08-28 调序决策）。
+  - [x] 单一加载入口：`TrustedJsPluginService.load()` 是唯一把远程/捆绑 JS 变成 trusted
+    scope 的闸门（同源校验 → apiVersion 协商 → 桌面 consent 闸门 → 诚实 consent →
+    崩溃标记护卫的 import/activate），不存在第二条路径。
   - [ ] 平台硬门禁（分层）（2026-08-27 再校准：本项已取代——桌面改为"默认关闭 + 运行时
     consent 闸门"，编译期剔除降级为可选构建选项，见"阶段 9/10 信任模型再校准"）：
     安全边界在编译期——桌面构建经 import.meta.env.TAURI_ENV_PLATFORM
@@ -731,10 +732,13 @@
     标记字符串不得出现在 bundle 中）；加载器入口保留运行时 Tauri 检测抛错作纵深防御。
     服务端按客户端平台标记不向桌面返回插件清单，仅作资格/运营用途（灰度、kill switch）——
     客户端标记可伪造且服务器本身在威胁模型内，不得作为安全依据。
-  - [ ] 加载器只接受自身 origin 的模块 URL，不提供“从任意 URL 加载”能力；开发模式的本地
-    加载需显式 flag 且不进入生产构建。
-  - [ ] 故障回退：复用主题系统崩溃标记模式，远程插件初始化连续崩溃自动禁用并回退编辑器
-    主功能；加载时执行 apiVersion/capability 协商，防插件与应用部署节奏解耦后的版本偏移。
+    （2026-08-28：替代形态已实现——桌面 consent 闸门默认关闭，见完成记录。）
+  - [x] 加载器只接受自身 origin 的模块 URL，不提供"从任意 URL 加载"能力；清单协议在
+    schema 层就无法表达带 scheme/绝对路径/点段的 entry。开发模式经 Vite dev server
+    同源提供，无需独立 flag。
+  - [x] 故障回退：复用主题系统崩溃标记模式（load 前落 pending 标记、宿主 mount 稳定
+    5s 后清除；上一会话异常终止计入崩溃数，连续 3 次自动禁用）；加载时执行 apiVersion
+    协商，不匹配直接拒绝。
   - [ ] 审阅功能拆分随迁：页面壳/动画/标题栏动作组留在受信任视图内；report-service、
     filter-service、operation-log 格式化等纯逻辑按 application service 既有模式拆干净，
     不强行下沉 WASM。
@@ -775,16 +779,103 @@
     （编译期剔除）"；阶段 10 分档差异中"trusted-js 货架第一方专属"（调整为：第三方
     trusted-js 可上架，走 consent + 来源展示；签名档仍为未来桌面强化项）。
 
-  阶段 9：移植定制版
+  工作顺序调整与定制版分支退役（2026-08-28 定稿）
 
-  - [ ] 通过独立提交逐批 cherry-pick plugin API、kernel 和 runtime，避免整体合并大分支。
-  - [ ] 实现定制版 EditorHostAdapter。
-  - [ ] 将插件事务接入 review operation log。
+  背景：阶段 0–7 已建成全部底层边界（事务层、命令/contribution registry、WASM 宿主、
+  格式 provider、单一安装闸门），"不要从插件管理页/应用市场开始"的早期警告前提已失效。
+  为让每个迁移出来的插件都能立即通过真实分发管线做接续测试，把阶段 8/9/10 的执行顺序
+  重排如下（各阶段的工作项清单与验收条件不变，只变先后）：
+
+  1. **远程受信任插件加载器先行**（原阶段 9 前置工作项提升为独立里程碑）：单一
+     parse/注册闸门、consent 展示（按上文三档措辞）、崩溃标记回退（复用主题系统模式）、
+     apiVersion/capability 协商、scope dispose 全清理。Web 先行；桌面 consent 闸门同批
+     实现但默认关闭。
+  2. **商店薄片**：同源静态清单（CI 构建时生成）+ 内容寻址 zip artifact + 商店页面
+     （复用 installPluginPackage / parseThemePackage 既有闸门）。账号资格、发布强认证、
+     审计、kill switch、灰度等重后端缓建，但两条不可变红线（内容寻址、不按用户个性化
+     生成）自薄片起遵守，后端实化时客户端零改动。
+  3. **试点迁移**：以 `builtin.time-shift`（已是声明式闭环）走全链路——随包 factory 版 +
+     商店更新 shadow + 卸载回退出厂，验证更新机制。
+  4. **批量迁移非核心内置功能**（阶段 8 推荐顺序沿用）与定制功能插件化。
+  5. **后端实化**（账号资格、kill switch、审计）安排在审阅插件上架前完成。
+
+  三条设计修正（对先前条款的约束）：
+
+  - 出厂副本原则：非核心内置功能迁移为插件后仍随应用打包（factory 版），商店只是
+    **更新与增量安装通道**（Android 系统应用更新模型：清单版本更高时 shadow 出厂版，
+    卸载更新回退出厂版）。商店不可用 = 没有更新，功能不缺席；桌面端与离线场景不受
+    trusted-js consent 门控影响。第一方随包插件与主包同信任根，免 consent 弹窗。
+  - 清单协议只有一份：trusted-js 与 WASM 两档共用同一清单/目录 schema（入参
+    platform/appVersion/pluginApiVersion 过滤），避免商店接入第二档时改协议。
+  - API v0 未冻结期间，远程分发插件由 CI 与应用版本联动发布，清单协商过滤不兼容版本；
+    该字段自静态薄片起进 schema。
+
+  定制版分支退役：插件系统实现完成并投入运行后，**不再维护定制版分支**——原定制功能
+  全部以插件形式运行在上游基座上，上游基座 + 插件是唯一分发形态。由此：
+
+  - 阶段 9 更名为"定制功能插件化"，删除以双宿主长期并存为前提的工作项
+    （"实现定制版 EditorHostAdapter"作废；"cherry-pick 至定制版分支"改为一次性
+    过渡手段，最终以插件基座覆盖定制版分支的既有条款即为终态）。
+  - API v1 冻结条件由"上游版与定制版共同通过协议合同测试"改为：**上游宿主 + 全部
+    原定制功能插件（含审阅、GitHub、歌词站、NCM）通过协议合同测试**。
+  - 本节取代阶段 9 中相应条目，下方清单已按此更新。
+
+  远程受信任插件加载器完成记录（2026-08-28，调序里程碑 1）
+
+  - 协议（packages/plugin-api）：新增 `RemotePluginCatalogV0` 远程清单协议——trusted-js、
+    extism-wasm 与 theme 三档共用同一 schema（修正三落地），entry 字段在 schema 层只能
+    表达相对路径（禁 scheme/绝对路径/`//`/反斜杠），parser 再拒点段与重复插件 id；含
+    apiVersion、sha256（内容寻址预留）、platforms（运营过滤，非安全依据）、minAppVersion
+    与 firstParty 字段。`parseRemotePluginCatalog` 为单一解析入口，schema 已并入
+    SCHEMA_CATALOG，协议文档已重新生成。
+  - 内核（ContributionRegistry）：`ContributionOwner` 的 trusted-js plugin owner 现可
+    `trusted: true`（仅由加载闸门授予）——可注册 mode、trusted view、toolbar/sidebar，
+    同时保留 plugin 供来源展示与命名空间强制（命令/菜单仍限 `pluginId.` 前缀）；
+    extism-wasm owner 恒为 trusted: false，第三方 WASM 的 MVP 限制不变。
+  - 加载器（src/plugins/trusted/trusted-js-service.ts，纯逻辑、端口注入、Node 全测）：
+    load() 顺序执行 already-loaded/apiVersion/同源解析/桌面闸门/崩溃门/consent 检查后才
+    import；activate(context) 收 { pluginId, entry, scope, host }，可返回 cleanup；
+    unload = cleanup + scope.dispose。崩溃标记（主题系统模式）：import 前落 pending，
+    宿主 mount 稳定（5s 计时，与 ThemeHost 相同）后清除并归零崩溃数；上一会话遗留的
+    pending 计为一次崩溃，连续 3 次自动禁用（resetFailures 可解）。consent 每插件一次
+    并持久化，拒绝不持久化；firstParty（CI 随应用发布）免 consent。桌面
+    （TAURI_ENV_PLATFORM）默认拒绝所有 trusted-js 加载，须显式打开
+    `amll-trusted-js-desktop-enabled` 运行时闸门。
+  - 宿主装配（trusted-js-host.ts）：`import(/* @vite-ignore */ url)` 同源动态导入；
+    loader 状态存 localStorage（读写全部异常护栏，配额失效仅降级崩溃记账、不降级信任
+    检查）；host API 暴露 editorDocumentAdapter/选区/声明式表单/通知——trusted-js 插件
+    经文档事务服务修改歌词，保持单事务单撤销与来源标记。启动时 fetch 同源
+    `plugins/catalog.json`（no-store）：缺失/不可达/校验失败一律静默或告警后跳过，
+    商店不可用不影响编辑器。
+  - Consent UI（TrustedJsConsentDialog）：portal 到 body + data-amll-protected（与
+    WASM 权限弹窗同级防主题覆盖），措辞按三档如实定价——浏览器档明说"以你的身份行事、
+    读取登录凭据"，桌面档追加"可能危害你的系统"；展示作者与主页（来源展示要求）。
+  - 测试与验证：新增 25 项 Node 测试（清单协议 6、加载器闸门 12、registry trusted-js
+    owner 3、Mock Host 合同套件 4——见下条）；`tsc -b`、`pnpm lint`（boundaries +
+    Biome 基线 13 warning + 1 info）、`plugin:api:check`（协议文档已重新生成）、
+    Vite production build 全部通过。
+  - ⚠️ 重要发现：本轮开始时工作区**不含任何测试文件**（0 个 spec/test），且
+    `packages/plugin-api/tests` 缺失导致 `pnpm lint` 在干净检出上直接崩溃——goal.md
+    各阶段"N/N 测试通过"记录对应的测试套件不在当前分支提交中（推测遗留在另一工作区
+    未提交）。本轮已重建 `tests/contract/mock-host.spec.ts`（复用仓库内现成的
+    `runHostContractTests` + `MockPluginHost`）使 lint 恢复可用；其余各阶段测试套件
+    需要从原工作区找回或按记录重建，列为独立待办。
+  - 已知取舍：桌面闸门目前无设置页开关（只有 localStorage 键，UI 随商店页补）；
+    桌面闸门同样拦截 firstParty 远程条目（保守取向，桌面第一方随包插件应走编译内置而非
+    远程加载）；清单的 minAppVersion/sha256 暂未在客户端强制（静态薄片阶段由 CI 保证，
+    后端实化时启用校验）；同版本 shadow/出厂回退属里程碑 3（试点迁移）范围。
+
+  阶段 9：定制功能插件化（原"移植定制版"，2026-08-28 按上文调整）
+
+  - [ ] 将插件事务接入 review operation log（以审阅插件内的 operation log 形态实现，
+    不再依赖定制版宿主）。
   - [ ] 为 agents、vocalTags、多语言和 songPart 增加 capability。（不作为原生能力提供，而是作为插件接入现有体系，对应修改插件系统的作用范围）
-  - [ ] 对接定制版通知中心、设置页和复杂对话框。
+  - [ ] 通知中心、设置页扩展和复杂对话框按 trusted-js 插件 contribution 形态承接
+    （原"对接定制版通知中心"）。
   - [ ] 将 GitHub、Review、歌词站和 NCM 功能迁移为外置插件（非必须功能，且涉及版权或数据安全风险，不内置）。
-  - [ ] 上游版与定制版共同通过协议合同测试后，才冻结 API v1。
-  - [ ] 定制版所有功能移植完成后使用当前的插件基座版本覆盖定制版分支，并以插件形式分发原有的定制版功能。
+  - [ ] 上游宿主 + 全部原定制功能插件通过协议合同测试后，才冻结 API v1。
+  - [ ] 全部定制功能插件化完成后，以插件基座版本覆盖定制版分支并停止维护该分支；
+    原定制功能经商店分发。
 
   阶段 10：插件商店后端（2026-08-27 要求定稿）
 

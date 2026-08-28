@@ -32,8 +32,19 @@ export type ContributionOwner =
 	| {
 			kind: "plugin";
 			pluginId: string;
-			runtime: "extism-wasm" | "trusted-js";
+			runtime: "extism-wasm";
 			trusted: false;
+	  }
+	| {
+			kind: "plugin";
+			pluginId: string;
+			runtime: "trusted-js";
+			/**
+			 * True only for modules admitted through the single trusted-js load
+			 * gate (same-origin import + consent). Such plugins are builtin-grade
+			 * for contribution kinds but keep plugin provenance and namespace.
+			 */
+			trusted: boolean;
 	  };
 
 export interface OwnedContribution {
@@ -182,6 +193,7 @@ export class ContributionRegistry<TView = unknown> {
 			);
 		if (
 			record.owner.kind === "plugin" &&
+			!record.owner.trusted &&
 			(record.kind === "toolbar" || record.kind === "sidebar")
 		)
 			throw new Error(
@@ -471,6 +483,7 @@ export class ExtensionRegistry<TView = unknown> {
 			registerMenu: (input) => {
 				if (
 					owner.kind === "plugin" &&
+					!owner.trusted &&
 					(input.menu.startsWith("toolbar.") || input.menu === "sidebar.panel")
 				)
 					throw new Error(

@@ -4531,6 +4531,110 @@ the form `extensions.<reverse-domain>.<name>`; no wildcard matching is performed
 
 </details>
 
+## remotePluginCatalog
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "type": "object",
+  "required": [
+    "catalogVersion",
+    "plugins"
+  ],
+  "properties": {
+    "catalogVersion": {
+      "const": 0
+    },
+    "plugins": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "channel",
+          "apiVersion",
+          "entry"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "homepage": {
+            "type": "string",
+            "pattern": "^https://"
+          },
+          "channel": {
+            "enum": [
+              "trusted-js",
+              "extism-wasm",
+              "theme"
+            ]
+          },
+          "apiVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "platforms": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": {
+              "enum": [
+                "web",
+                "desktop"
+              ]
+            }
+          },
+          "minAppVersion": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+          },
+          "firstParty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+</details>
+
 ## themeTokens
 
 <details><summary>JSON Schema</summary>

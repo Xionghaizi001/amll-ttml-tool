@@ -1040,6 +1040,51 @@ export const FUNCTION_PLUGIN_PACKAGE_SCHEMA = {
 	additionalProperties: false,
 } satisfies JsonSchema;
 
+export const REMOTE_PLUGIN_CATALOG_SCHEMA = {
+	type: "object",
+	required: ["catalogVersion", "plugins"],
+	properties: {
+		catalogVersion: { const: 0 },
+		plugins: {
+			type: "array",
+			maxItems: 256,
+			items: {
+				type: "object",
+				required: ["id", "name", "version", "channel", "apiVersion", "entry"],
+				properties: {
+					id: baseManifestProperties.id,
+					name: baseManifestProperties.name,
+					version: baseManifestProperties.version,
+					description: baseManifestProperties.description,
+					author: baseManifestProperties.author,
+					homepage: baseManifestProperties.homepage,
+					channel: { enum: ["trusted-js", "extism-wasm", "theme"] },
+					apiVersion: { type: "integer", minimum: 0 },
+					// Relative path only: no scheme, no leading slash, no empty or
+					// backslash segments. Dot-segment rejection happens in the parser.
+					entry: {
+						type: "string",
+						minLength: 1,
+						maxLength: 512,
+						pattern: "^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$",
+					},
+					sha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
+					platforms: {
+						type: "array",
+						minItems: 1,
+						maxItems: 2,
+						items: { enum: ["web", "desktop"] },
+					},
+					minAppVersion: baseManifestProperties.version,
+					firstParty: { type: "boolean" },
+				},
+				additionalProperties: false,
+			},
+		},
+	},
+	additionalProperties: false,
+} satisfies JsonSchema;
+
 export const SCHEMA_CATALOG = {
 	manifest: PLUGIN_MANIFEST_SCHEMA,
 	pluginDocument: PLUGIN_DOCUMENT_SCHEMA,
@@ -1054,6 +1099,7 @@ export const SCHEMA_CATALOG = {
 	formatConversionResult: FORMAT_CONVERSION_RESULT_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
 	functionPluginPackage: FUNCTION_PLUGIN_PACKAGE_SCHEMA,
+	remotePluginCatalog: REMOTE_PLUGIN_CATALOG_SCHEMA,
 	themeTokens: THEME_TOKENS_SCHEMA,
 	themePackage: THEME_PACKAGE_SCHEMA,
 } as const;
