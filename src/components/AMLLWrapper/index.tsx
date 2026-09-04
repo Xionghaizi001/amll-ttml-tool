@@ -1,5 +1,6 @@
 import "@applemusic-like-lyrics/core/style.css";
 // import { MaskObsceneWordsMode } from "@applemusic-like-lyrics/core";
+import type { OptimizeLyricOptions } from "@applemusic-like-lyrics/core";
 import {
 	LyricPlayer,
 	type LyricPlayerRef,
@@ -19,6 +20,14 @@ import {
 } from "$/modules/settings/states/preview";
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
 import styles from "./index.module.css";
+import {
+	amllCleanUnintentionalOverlapsAtom,
+	amllConvertExcessiveBackgroundLinesAtom,
+	amllNormalizeSpacesAtom,
+	amllResetLineTimestampsAtom,
+	amllSyncMainAndBackgroundLinesAtom,
+	amllTryAdvanceStartTimeAtom,
+} from "$/modules/settings/states/amll";
 
 const parseLineVocalIds = (value?: string | string[]) => {
 	if (!value) return [];
@@ -28,7 +37,7 @@ const parseLineVocalIds = (value?: string | string[]) => {
 
 const mapVocalTagsForPreview = (
 	vocal: string | string[] | undefined,
-	vocalTagMap: Map<string, string>,
+	vocalTagMap: Map<string, string>
 ) => {
 	if (!vocal) return;
 	const fallbackParts = Array.isArray(vocal) ? vocal : [vocal];
@@ -67,11 +76,23 @@ export const AMLLWrapper = memo(() => {
 	const showRomanLines = useAtomValue(showRomanLinesAtom);
 	// const hideObsceneWords = useAtomValue(hideObsceneWordsAtom);
 	const wordFadeWidth = useAtomValue(lyricWordFadeWidthAtom);
+	const normalizeSpaces = useAtomValue(amllNormalizeSpacesAtom);
+	const resetLineTimestamps = useAtomValue(amllResetLineTimestampsAtom);
+	const convertExcessiveBackgroundLines = useAtomValue(
+		amllConvertExcessiveBackgroundLinesAtom
+	);
+	const syncMainAndBackgroundLines = useAtomValue(
+		amllSyncMainAndBackgroundLinesAtom
+	);
+	const cleanUnintentionalOverlaps = useAtomValue(
+		amllCleanUnintentionalOverlapsAtom
+	);
+	const tryAdvanceStartTime = useAtomValue(amllTryAdvanceStartTimeAtom);
 	const playerRef = useRef<LyricPlayerRef>(null);
 
 	const lyricLines = useMemo(() => {
 		const vocalTagMap = new Map(
-			(originalLyricLines.vocalTags ?? []).map((tag) => [tag.key, tag.value]),
+			(originalLyricLines.vocalTags ?? []).map((tag) => [tag.key, tag.value])
 		);
 		return structuredClone(
 			originalLyricLines.lyricLines.map((line) => ({
@@ -79,9 +100,30 @@ export const AMLLWrapper = memo(() => {
 				translatedLyric: showTranslationLines ? line.translatedLyric : "",
 				romanLyric: showRomanLines ? line.romanLyric : "",
 				vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
-			})),
+			}))
 		);
 	}, [originalLyricLines, showTranslationLines, showRomanLines]);
+
+	const optimizeOptions = useMemo<OptimizeLyricOptions>(
+		() => ({
+			...originalLyricLines.optimizeOptions,
+			normalizeSpaces,
+			resetLineTimestamps,
+			convertExcessiveBackgroundLines,
+			syncMainAndBackgroundLines,
+			cleanUnintentionalOverlaps,
+			tryAdvanceStartTime,
+		}),
+		[
+			originalLyricLines.optimizeOptions,
+			normalizeSpaces,
+			resetLineTimestamps,
+			convertExcessiveBackgroundLines,
+			syncMainAndBackgroundLines,
+			cleanUnintentionalOverlaps,
+			tryAdvanceStartTime,
+		]
+	);
 
 	useEffect(() => {
 		const updateAMLLTime = (timeInSeconds: number) => {
@@ -113,6 +155,7 @@ export const AMLLWrapper = memo(() => {
 				// 		? MaskObsceneWordsMode.FullMask
 				// 		: MaskObsceneWordsMode.Disabled
 				// }
+				optimizeOptions={optimizeOptions}
 				wordFadeWidth={wordFadeWidth}
 				ref={playerRef}
 			/>

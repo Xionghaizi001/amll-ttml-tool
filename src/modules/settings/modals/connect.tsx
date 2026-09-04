@@ -1,4 +1,4 @@
-/** @jsxRuntime classic */
+
 import {
 	ChevronRight24Regular,
 	Person24Regular,

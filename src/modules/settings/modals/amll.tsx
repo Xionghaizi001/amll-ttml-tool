@@ -1,4 +1,3 @@
-/** @jsxRuntime classic */
 import {
 	ArrowClockwise24Regular,
 	ArrowSync24Regular,
@@ -9,8 +8,6 @@ import {
 } from "@fluentui/react-icons";
 import { Checkbox, Flex } from "@radix-ui/themes";
 import { useAtom } from "jotai";
-// biome-ignore lint/correctness/noUnusedImports: classic JSX runtime needs React in scope for IDE TypeScript.
-import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
 	amllCleanUnintentionalOverlapsAtom,
