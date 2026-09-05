@@ -42,6 +42,48 @@ function isSpaceSyllable(word: LyricWord): boolean {
 	return /^\s*$/.test(word.word);
 }
 
+/** 音节自身时长 */
+function getDuration(word: LyricWord): number {
+	return Math.max(0, (word.endTime ?? 0) - (word.startTime ?? 0));
+}
+
+/**
+ * 参与时长分配的字符数
+ *
+ * 过滤掉空格，以保证合并后带有空格的音节依然能准确反映真实 CJK 字符数
+ */
+function getCharCount(word: LyricWord): number {
+	const clean = (word.word || "").replace(/\s+/g, "");
+	return Math.max(1, Array.from(clean).length);
+}
+
+/**
+ * 两个相邻实体音节之间未被任何音节覆盖的空白时长
+ *
+ * 空格音节自身占用的时间不算间隔
+ */
+function getGapBetween(
+	prev: LyricWord,
+	next: LyricWord,
+	spacers: LyricWord[],
+): number {
+	const covered = spacers.reduce((sum, w) => sum + getDuration(w), 0);
+	return Math.max(0, (next.startTime ?? 0) - (prev.endTime ?? 0) - covered);
+}
+
+/**
+ * 变异参数的统一计算式
+ *
+ * 结果与两参数的公共缩放无关，因此既可比较单字时长，也可比较总时长
+ * @returns 变异参数值 (0 ~ 100)
+ */
+function calculateRateVariation(v1: number, v2: number): number {
+	if (v1 + v2 === 0) {
+		return 0;
+	}
+	return (Math.abs(v1 - v2) / (v1 + v2)) * 100;
+}
+
 /**
  * 判断字符串是否完全由 CJK 字符组成
  */
@@ -71,33 +113,57 @@ function isRubyEligibleForSmoothing(word: LyricWord): boolean {
 
 /**
  * 计算两个相邻实体音节之间的变异参数
+ *
+ * 间隔是边界的属性而非音节的属性，只在判定是否跨越该边界时计入左侧音节：
+ * 若两侧都用含间隔的时长，间隔前的音节会被从其所属簇中提前切离而无法参与平滑
+ *
  * @param w1 前一个音节
  * @param w2 后一个音节
+ * @param w1TrailingGap w1 与 w2 之间的间隔时长，计入 w1
  * @returns 变异参数值 (0 ~ 100)
  */
-function calculateSyllableVariation(w1: LyricWord, w2: LyricWord): number {
-	const d1 = Math.max(0, (w1.endTime ?? 0) - (w1.startTime ?? 0));
-	const d2 = Math.max(0, (w2.endTime ?? 0) - (w2.startTime ?? 0));
+function calculateSyllableVariation(
+	w1: LyricWord,
+	w2: LyricWord,
+	w1TrailingGap = 0,
+): number {
+	const r1 = (getDuration(w1) + w1TrailingGap) / getCharCount(w1);
+	const r2 = getDuration(w2) / getCharCount(w2);
+	return calculateRateVariation(r1, r2);
+}
 
-	// 字符数计算时过滤掉空格，以保证合并后带有空格的音节依然能准确反映真实 CJK 字符数
-	const text1 = (w1.word || "").replace(/\s+/g, "");
-	const text2 = (w2.word || "").replace(/\s+/g, "");
-
-	const len1 = Math.max(1, Array.from(text1).length);
-	const len2 = Math.max(1, Array.from(text2).length);
-
-	const r1 = d1 / len1;
-	const r2 = d2 / len2;
-
-	if (r1 + r2 === 0) {
-		return 0;
-	}
-
-	return (Math.abs(r1 - r2) / (r1 + r2)) * 100;
+/**
+ * 计算把候选音节并入簇后的簇级变异参数
+ *
+ * 逐对判定看不到被吸收间隔的累积量：每个间隔单独都低于阈值，
+ * 但重分配用的是整簇 span，多个小间隔累加后会把簇内所有音节一起拉长
+ *
+ * @param cluster 当前音节簇
+ * @param candidate 候选音节
+ * @returns 实唱时长与重分配时长（含全部被吸收间隔）之间的变异参数值 (0 ~ 100)
+ */
+function calculateClusterVariation(
+	cluster: LyricWord[],
+	candidate: LyricWord,
+): number {
+	const contentWords = [...cluster, candidate].filter(
+		(w) => !isSpaceSyllable(w),
+	);
+	const sungDuration = contentWords.reduce((sum, w) => sum + getDuration(w), 0);
+	const span = Math.max(
+		0,
+		(contentWords[contentWords.length - 1].endTime ?? 0) -
+			(contentWords[0].startTime ?? 0),
+	);
+	return calculateRateVariation(sungDuration, span);
 }
 
 /**
  * 对音节簇中的实体音节按字数比例均匀平滑重分配时间戳
+ *
+ * 簇内残留的间隔均已被判定为不显著，会一并摊入各音节；
+ * 显著间隔在簇划分阶段就成为了簇边界，不会进入这里
+ *
  * @param cluster 音节簇
  * @returns 时间戳平滑后的音节数组
  */
@@ -109,51 +175,65 @@ function smoothClusterTimestamps(cluster: LyricWord[]): LyricWord[] {
 
 	const totalStart = contentWords[0].startTime ?? 0;
 	const totalEnd = contentWords[contentWords.length - 1].endTime ?? 0;
-	const totalDuration = Math.max(0, totalEnd - totalStart);
+	const span = Math.max(0, totalEnd - totalStart);
 
-	const charCounts = contentWords.map((w) => {
-		const clean = (w.word || "").replace(/\s+/g, "");
-		return Math.max(1, Array.from(clean).length);
-	});
+	const reservedTotal = cluster
+		.filter(isSpaceSyllable)
+		.reduce((sum, w) => sum + getDuration(w), 0);
+	const distributable = Math.max(0, span - reservedTotal);
+
+	const charCounts = contentWords.map(getCharCount);
 	const totalWeight = charCounts.reduce((sum, c) => sum + c, 0);
 
+	const result: LyricWord[] = [];
 	let cursor = totalStart;
-	const newContentWords = new Map<LyricWord, LyricWord>();
+	let reserved = 0;
+	let cumWeight = 0;
+	let contentIndex = 0;
 
-	for (let j = 0; j < contentWords.length; j++) {
-		const originalWord = contentWords[j];
-		const weight = charCounts[j];
-		const duration =
-			totalWeight > 0 ? Math.round((totalDuration * weight) / totalWeight) : 0;
+	for (const word of cluster) {
+		if (isSpaceSyllable(word)) {
+			const spacerDuration = getDuration(word);
+			result.push({
+				...word,
+				startTime: cursor,
+				endTime: cursor + spacerDuration,
+			});
+			reserved += spacerDuration;
+			cursor += spacerDuration;
+			continue;
+		}
+
+		cumWeight += charCounts[contentIndex];
+		const isLast = contentIndex === contentWords.length - 1;
 		const wordStart = cursor;
-		const wordEnd =
-			j === contentWords.length - 1 ? totalEnd : cursor + duration;
+		const wordEnd = isLast
+			? totalEnd
+			: totalStart +
+				reserved +
+				(totalWeight > 0
+					? Math.round((distributable * cumWeight) / totalWeight)
+					: 0);
 		cursor = wordEnd;
+		contentIndex++;
 
 		// 平滑完成后把 base 音节的时间戳同步给单个 ruby 音节
 		// isRubyEligibleForSmoothing 已阻止复杂的同步需求
-		let ruby = originalWord.ruby;
-		if (ruby && ruby.length === 1) {
-			ruby = [
-				{
-					...ruby[0],
-					startTime: wordStart,
-					endTime: wordEnd,
-				},
-			];
-		}
+		const originalRuby = word.ruby;
+		const ruby =
+			originalRuby && originalRuby.length === 1
+				? [{ ...originalRuby[0], startTime: wordStart, endTime: wordEnd }]
+				: originalRuby;
 
-		newContentWords.set(originalWord, {
-			...originalWord,
+		result.push({
+			...word,
 			startTime: wordStart,
 			endTime: wordEnd,
 			...(ruby ? { ruby } : {}),
 		});
 	}
 
-	return cluster.map((w) =>
-		isSpaceSyllable(w) ? w : (newContentWords.get(w) ?? w),
-	);
+	return result;
 }
 
 /**
@@ -254,9 +334,21 @@ export function smoothSyllables(
 				isCurrentRubyEligible &&
 				isNextRubyEligible
 			) {
-				const variation = calculateSyllableVariation(lastContentWord, nextWord);
+				const gap = getGapBetween(lastContentWord, nextWord, pendingSpaces);
 
-				if (variation < threshold) {
+				const variation = calculateSyllableVariation(lastContentWord, nextWord);
+				const gapVariation = calculateSyllableVariation(
+					lastContentWord,
+					nextWord,
+					gap,
+				);
+				const clusterVariation = calculateClusterVariation(cluster, nextWord);
+
+				if (
+					variation < threshold &&
+					gapVariation < threshold &&
+					clusterVariation < threshold
+				) {
 					cluster.push(...pendingSpaces, nextWord);
 					lastContentWord = nextWord;
 					i = nextIndex;
