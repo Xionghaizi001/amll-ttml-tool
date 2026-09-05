@@ -9,7 +9,7 @@
 export function amllToTtml(amll_val: any, options_val: any, config_val: any): any;
 
 /**
- * 工具方法，将 AMLL 格式的歌词和元数据转换为 TTMLResult 结构
+ * 工具方法，将 AMLL 格式的歌词和元数据转换为 `TTMLResult` 结构
  *
  * 会对文本进行规范化，例如清理空格、移除背景人声括号等
  */
@@ -23,7 +23,7 @@ export function generateTtml(ttml_result_val: any, config_val: any): any;
 export function main_js(): void;
 
 /**
- * 解析 TTML 字符串为 TTMLResult
+ * 解析 TTML 字符串为 `TTMLResult`
  */
 export function parseTtml(ttml_content: string): any;
 

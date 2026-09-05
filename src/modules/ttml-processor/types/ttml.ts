@@ -78,4 +78,5 @@ export interface TTMLResult {
 export interface GeneratorConfig {
 	useAppleFormatRules: boolean;
 	format: boolean;
+	lineTiming: boolean;
 }
