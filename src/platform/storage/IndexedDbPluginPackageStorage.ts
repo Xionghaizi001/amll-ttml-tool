@@ -10,7 +10,7 @@ export interface StoredPluginPackageRecord {
 	wasm: ArrayBuffer;
 	granted: string[];
 	enabled: boolean;
-	source: "user" | "sample";
+	source: "user" | "sample" | "store";
 	installedAt: number;
 }
 

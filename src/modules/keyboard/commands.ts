@@ -348,6 +348,10 @@ export const cmdOpenLatencyTest = registerMenuCommand(
 	"tool.openLatencyTest",
 	t("settingsDialog.common.latencyTest"),
 );
+export const cmdOpenPluginStore = registerMenuCommand(
+	"tool.openPluginStore",
+	t("topBar.menu.pluginStore"),
+);
 export const cmdOpenGitHub = registerMenuCommand(
 	"help.openGitHub",
 	t("topBar.menu.help"),

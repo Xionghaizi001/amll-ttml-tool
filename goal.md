@@ -686,11 +686,11 @@
 
   推荐顺序：
 
-  1. 简单编辑工具和辅助工具。
+  1. 外围辅助工具。
   2. 元数据、Ruby、分词。
   3. 帮助、设置和更新。
   4. 文件与格式支持。
-  5. 网络服务、GitHub、Review 等定制功能。
+  5. 网络服务（开放相应接口；提供“离线模式”一键禁用与其相关的所有功能）、GitHub（内置）、Review(此功能另行处理，本阶段暂时跳过) 等定制功能。
 
   每迁移一个功能，都要求旧入口删除、插件禁用后功能消失、重新启用后状态恢复。
 
@@ -864,6 +864,70 @@
     桌面闸门同样拦截 firstParty 远程条目（保守取向，桌面第一方随包插件应走编译内置而非
     远程加载）；清单的 minAppVersion/sha256 暂未在客户端强制（静态薄片阶段由 CI 保证，
     后端实化时启用校验）；同版本 shadow/出厂回退属里程碑 3（试点迁移）范围。
+    （2026-08-28 更新：桌面开关 UI 已随商店页落地；sha256 已对 wasm/theme artifact
+    在客户端强制校验；trusted-js ES module 的 sha256 仍为 CI 保证；shadow/出厂回退
+    已在里程碑 3 完成——见下方完成记录。）
+
+  商店薄片与试点迁移完成记录（2026-08-28，调序里程碑 2 + 3，阶段 8 入口）
+
+  - 容器格式（阶段 10 双路径定稿的前端实现，`src/plugins/store/package-container.ts`，
+    纯逻辑、fflate、Node 全测）：magic bytes 识别（PK\x03\x04 vs `{`，不看扩展名）；
+    zip 固定布局 = 根下 manifest.json（无二进制载荷的包 JSON）+ assets/<name>；entry
+    名单由 manifest 派生（function → assets/<manifest.entry>，theme → 声明的资源名），
+    解压前按声明尺寸拦截 zip bomb（单 entry ≤33MiB、总量 ≤64MiB、≤64 个 entry），
+    拒绝重复 entry、反斜杠、绝对路径与点段；两种容器剥离后各自产出包对象汇入唯一的
+    parseFunctionPluginPackage / parseThemePackage 语义闸门，容器层不做任何语义校验。
+  - 商店安装管线（`store-install.ts` 纯逻辑 + `store-host.ts` 浏览器装配）：fetch 同源
+    artifact → **sha256 内容校验（crypto.subtle，内容寻址红线客户端强制）** → 容器剥离 →
+    kind/channel 交叉校验 → 汇入既有安装闸门（installPluginPackage 含能力授权弹窗 /
+    themeService.importThemePackage）。wasm 安装来源新增 "store"（source 联合类型三处
+    同步扩展）。ThemeSummary 补 version 字段供更新判断。
+  - Catalog 生成（`scripts/build-plugin-catalog.ts`，`pnpm plugin:catalog:build`，
+    已并入 `pnpm build` 前置步骤，Tauri beforeBuildCommand=pnpm build 故桌面 CI 自动
+    覆盖）：Vite lib 构建 time-shift trusted-js ES module（自包含、无裸导入，5.9KB）、
+    fflate 打包 sample-tools zip（固定 mtime，构建字节级可复现——内容寻址只随内容变化）；
+    产物写入 `public/plugins/store/<sha256>.<ext>`，catalog 经 parseRemotePluginCatalog
+    校验后写 `public/plugins/catalog.json`；两者均 gitignore（CI 构建时生成），
+    biome 忽略生成目录。
+  - 试点迁移（builtin.time-shift → trusted-js 工厂插件，Android 系统应用更新模型）：
+    - `TrustedJsPluginEntry` 新增可选 `loadModule`（bundled 工厂模块加载器）：与主包同
+      信任根，跳过同源解析与桌面闸门（**桌面构建不因闸门关闭而丢失出厂功能**），崩溃
+      记账/consent 语义不变（工厂条目 firstParty 免 consent）；Summary 新增 bundled 字段。
+    - `factory-plugins.ts` 工厂注册表 + `time-shift/plugin.ts` 插件模块（工厂静态引用与
+      商店 artifact 构建共用同一源文件）；**旧入口 BuiltinPluginHost 已删除**，time-shift
+      完全经 TrustedJsPluginService 单一闸门注册。
+    - shadow 决策纯模块 `trusted-js-load-plan.ts`：catalog 同 id + channel trusted-js +
+      平台匹配 + semver 严格更高 + 未 pin → 远程 shadow 出厂版（附出厂 fallback）；
+      桌面闸门关闭时计划层直接丢弃远程候选（不为注定被拒的加载拆掉在跑的工厂实例）。
+      启动顺序：工厂插件先行加载（离线/无清单零等待）→ catalog 到达后按计划换装；
+      **远程加载失败自动回退出厂版**（坏 artifact 不减功能）。
+    - "卸载更新回退出厂"：pin 持久化（localStorage `amll-trusted-js-factory-pins-v0`），
+      商店页"回退出厂版"设 pin 并换回工厂实例，"更新"清 pin 并换装远程版。
+  - 商店页（应用户要求为独立 modal，入口在"工具"菜单单独分隔线区）：
+    `src/modules/plugin-store/PluginStoreDialog.tsx`，`tool.openPluginStore` 命令 +
+    菜单项只引用 command ID；Dialog Content 标记 `data-amll-protected`（恢复入口防主题
+    覆盖保证不变）。功能：目录列表（channel 徽章按三档如实措辞：JS 插件/WASM 沙箱/主题，
+    第一方徽章、作者来源展示）、安装/更新/回退出厂版/加载、JS 插件管理（启停开关——禁用
+    即 scope dispose 菜单命令消失、重新启用恢复；崩溃自动禁用后可重试）、桌面端远程 JS
+    插件 consent 开关（补齐里程碑 1 遗留的开关 UI，措辞含"像安装一个软件一样对待"）、
+    商店不可用提示（不影响编辑器与出厂插件）。catalog fetch 收敛为共享缓存客户端
+    `src/plugins/store/catalog-client.ts`（启动与商店页共用一次请求，刷新按钮强制重取）。
+  - 浏览器端到端冒烟（Playwright headless，dev server 实测）：工厂 time-shift 菜单项/
+    表单可用；商店 modal 正常（出厂版已是最新徽章）；sample-tools 从 zip artifact 全链路
+    安装（sha256 → 容器 → 授权弹窗 → 安装成功 → 已是最新）；模拟 catalog 1.0.1 后启动
+    自动 shadow（商店版运行中）→ 回退出厂版 → 功能仍在 → 手动更新 → 禁用后菜单消失 →
+    重新启用恢复，页面零 JS 错误。
+  - 完成时全量验证：47/47 测试通过（新增 22 项：容器 9、安装管线 5、shadow 决策 6、
+    bundled 加载闸门 2）、`tsc -b`、`pnpm lint`（boundaries + Biome 基线 13 warning +
+    1 info）、`plugin:api:check`、`pnpm build`（含 catalog 生成，dist 含 store artifact）
+    全部通过；catalog 构建两次运行字节一致（可复现）。
+  - 已知取舍：trusted-js ES module 的 sha256 仍未在 import 时校验（动态 import 无字节
+    钩子，双 fetch 校验不保证同字节；静态薄片由 CI/同源保证，后端实化时以
+    内容寻址 URL 即地址即哈希解决）；minAppVersion 客户端未强制（同前）；商店 wasm 条目
+    每次更新走完整能力授权弹窗（无差量授权）；theme 货架 zip 路径已实现并有 Node 测试，
+    但 CI catalog 暂未发布主题条目（内置主题禁止被商店 shadow 的既有规则不变）；
+    settings → 插件页与商店页并存（前者管 WASM 安装/开发模式，后者管分发与 trusted-js），
+    合并留待批量迁移时整理。
 
   阶段 9：定制功能插件化（原"移植定制版"，2026-08-28 按上文调整）
 

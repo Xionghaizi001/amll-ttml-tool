@@ -12,6 +12,7 @@ export const metadataEditorDialogAtom = atom(false);
 export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
 export const latencyTestDialogAtom = atom(false);
+export const pluginStoreDialogAtom = atom(false);
 export const submitToAMLLDBDialogAtom = atom(false);
 export const splitWordDialogAtom = atom(false);
 export const replaceWordDialogAtom = atom(false);

@@ -74,6 +74,7 @@ export type ThemeSource = "builtin" | "installed";
 export interface ThemeSummary {
 	id: string;
 	name: string;
+	version: string;
 	description?: string;
 	appearance: "light" | "dark" | "both";
 	source: ThemeSource;

@@ -21,6 +21,13 @@ export interface TrustedJsPluginEntry {
 	entry: string;
 	/** First-party (published by the app's own CI): skips the consent prompt. */
 	firstParty?: boolean;
+	/**
+	 * Bundled (factory) module loader. When present the module is compiled
+	 * into the application bundle and shares its trust root, so same-origin
+	 * resolution and the desktop consent gate do not apply — a desktop build
+	 * must not lose its factory plugins. Crash accounting still applies.
+	 */
+	loadModule?: () => Promise<unknown>;
 }
 
 export interface TrustedJsActivationContext<THost> {
@@ -110,6 +117,8 @@ export interface TrustedJsPluginSummary {
 	author?: string;
 	homepage?: string;
 	firstParty: boolean;
+	/** True when the live instance came from the bundled (factory) module. */
+	bundled: boolean;
 }
 
 interface LoadedInstance {
@@ -168,6 +177,7 @@ export class TrustedJsPluginService<THost> {
 			author: entry.author,
 			homepage: entry.homepage,
 			firstParty: entry.firstParty === true,
+			bundled: typeof entry.loadModule === "function",
 		}));
 	}
 
@@ -191,17 +201,21 @@ export class TrustedJsPluginService<THost> {
 				"api-version",
 				`Plugin ${entry.id} targets api version ${entry.apiVersion}, host supports ${PLUGIN_API_VERSION}`,
 			);
-		const url = this.resolveSameOriginUrl(entry.entry);
-		if (url === null)
-			return rejected(
-				"cross-origin",
-				`Plugin ${entry.id} entry does not resolve inside the application origin`,
-			);
-		if (this.ports.isDesktop() && !this.ports.isDesktopTrustEnabled())
-			return rejected(
-				"desktop-disabled",
-				"Trusted JS plugins are disabled on the desktop app until explicitly enabled",
-			);
+		const bundled = typeof entry.loadModule === "function";
+		let url: string | null = null;
+		if (!bundled) {
+			url = this.resolveSameOriginUrl(entry.entry);
+			if (url === null)
+				return rejected(
+					"cross-origin",
+					`Plugin ${entry.id} entry does not resolve inside the application origin`,
+				);
+			if (this.ports.isDesktop() && !this.ports.isDesktopTrustEnabled())
+				return rejected(
+					"desktop-disabled",
+					"Trusted JS plugins are disabled on the desktop app until explicitly enabled",
+				);
+		}
 
 		const state = this.ports.state.get(entry.id) ?? {
 			crashes: 0,
@@ -249,7 +263,9 @@ export class TrustedJsPluginService<THost> {
 		this.ports.state.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
 		try {
-			const moduleExports = await this.ports.importModule(url);
+			const moduleExports = bundled
+				? await entry.loadModule?.()
+				: await this.ports.importModule(url as string);
 			const module = resolveModule<THost>(moduleExports);
 			if (module === null)
 				throw new TrustedJsInvalidModuleError(

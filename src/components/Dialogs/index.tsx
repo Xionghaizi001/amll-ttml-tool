@@ -6,6 +6,7 @@ import { DistributeRomanizationDialog } from "$/modules/project/modals/Distribut
 import { HistoryRestoreDialog } from "$/modules/project/modals/HistoryRestore.tsx";
 import { ImportFromText } from "$/modules/project/modals/ImportFromText.tsx";
 import { MetadataEditor } from "$/modules/project/modals/MetadataEditor.tsx";
+import { PluginStoreDialog } from "$/modules/plugin-store/PluginStoreDialog.tsx";
 import { SubmitToAMLLDBDialog } from "$/modules/project/modals/SubmitToAmll.tsx";
 import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
@@ -25,6 +26,7 @@ export const Dialogs = () => {
 			<ReplaceWordDialog />
 			<SubmitToAMLLDBDialog />
 			<LatencyTestDialog />
+			<PluginStoreDialog />
 			<ConfirmationDialog />
 			<HistoryRestoreDialog />
 			<AdvancedSegmentationDialog />

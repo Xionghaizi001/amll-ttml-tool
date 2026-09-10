@@ -265,7 +265,8 @@
 				"toASS": "导出到 ASS 字幕",
 				"toFormat": "导出到 {name}"
 			},
-			"syllableSmoothing": "平滑时间轴..."
+			"syllableSmoothing": "平滑时间轴...",
+			"pluginStore": "插件商店..."
 		}
 	},
 	"header": {

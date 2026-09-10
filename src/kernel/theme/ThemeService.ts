@@ -173,7 +173,9 @@ export class ThemeService {
 					);
 				}
 				storage.remove(STORAGE_KEYS.installed);
-				warn?.("Migrated installed themes from localStorage to the package store");
+				warn?.(
+					"Migrated installed themes from localStorage to the package store",
+				);
 			} catch {
 				warn?.("Legacy installed theme store is corrupted; ignoring it");
 				storage.remove(STORAGE_KEYS.installed);
@@ -211,6 +213,7 @@ export class ThemeService {
 		return [...this.themes.values()].map(({ pkg, source }) => ({
 			id: pkg.manifest.id,
 			name: pkg.manifest.name,
+			version: pkg.manifest.version,
 			description: pkg.manifest.description,
 			appearance: pkg.manifest.appearance,
 			source,

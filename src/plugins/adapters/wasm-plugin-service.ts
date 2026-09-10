@@ -66,7 +66,7 @@ export interface InstalledPluginData {
 	wasm: Uint8Array;
 	grantedCapabilities: Capability[];
 	enabled: boolean;
-	source: "user" | "sample" | "dev";
+	source: "user" | "sample" | "dev" | "store";
 	installedAt: number;
 }
 

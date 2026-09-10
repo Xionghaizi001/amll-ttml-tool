@@ -9,7 +9,7 @@ import {
 } from "@amll-ttml-tool/plugin-api";
 import { wasmPluginService } from "$/plugins/adapters/wasm-plugin-host";
 
-export type PluginInstallSource = "user" | "sample" | "dev";
+export type PluginInstallSource = "user" | "sample" | "dev" | "store";
 
 export interface PluginPermissionRequest {
 	id: number;

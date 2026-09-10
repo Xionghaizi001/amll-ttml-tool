@@ -58,7 +58,6 @@ import {
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import { ensureFormatCommandsRegistered } from "./plugins/adapters/format-commands.ts";
 import { lyricFileFlow } from "./plugins/adapters/lyric-file-flow-host.ts";
-import { BuiltinPluginHost } from "./plugins/builtin/BuiltinPluginHost";
 import { ensureBuiltinFormatsRegistered } from "./plugins/builtin/formats/index.ts";
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
@@ -326,8 +325,7 @@ function EditorApp() {
 				)}
 				<div className={styles.appContent} data-slot="app-root">
 					<ThemeHost />
-					<BuiltinPluginHost />
-						<WasmPluginHost />
+					<WasmPluginHost />
 					<TrustedJsHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />

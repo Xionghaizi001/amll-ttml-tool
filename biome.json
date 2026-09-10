@@ -8,6 +8,8 @@
 			"!**/build",
 			"!**/target",
 			"!**/vendor",
+			"!public/plugins/store",
+			"!public/plugins/catalog.json",
 			"!!**/decode-audio.js",
 			"!!**/wasm"
 		]

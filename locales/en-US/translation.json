@@ -265,7 +265,8 @@
 				"toASS": "Export to ASS subtitles",
 				"toFormat": "Export to {name}"
 			},
-			"syllableSmoothing": "Smooth Timeline..."
+			"syllableSmoothing": "Smooth Timeline...",
+			"pluginStore": "Plugin store..."
 		}
 	},
 	"header": {

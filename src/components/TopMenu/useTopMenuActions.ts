@@ -23,6 +23,7 @@ import {
 	cmdOpenGitHub,
 	cmdOpenHistoryRestore,
 	cmdOpenLatencyTest,
+	cmdOpenPluginStore,
 	cmdOpenMetadataEditor,
 	cmdOpenSettings,
 	cmdOpenSyllableSmoothing,
@@ -57,6 +58,7 @@ import {
 	confirmDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
+	pluginStoreDialogAtom,
 	metadataEditorDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
@@ -171,6 +173,10 @@ export const useTopMenuActions = () => {
 
 	const onOpenLatencyTest = useCallback(() => {
 		store.set(latencyTestDialogAtom, true);
+	}, [store]);
+
+	const onOpenPluginStore = useCallback(() => {
+		store.set(pluginStoreDialogAtom, true);
 	}, [store]);
 
 	const onOpenGitHub = useCallback(async () => {
@@ -410,6 +416,7 @@ export const useTopMenuActions = () => {
 	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
 	useCommandHandler(cmdAutoRuby, onAutoRuby);
 	useCommandHandler(cmdOpenLatencyTest, onOpenLatencyTest);
+	useCommandHandler(cmdOpenPluginStore, onOpenPluginStore);
 	useCommandHandler(cmdOpenGitHub, onOpenGitHub);
 	useCommandHandler(cmdOpenWiki, onOpenWiki);
 
