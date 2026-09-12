@@ -1,18 +1,22 @@
-import type {
-	FormResultV0,
-	FormSchemaV0,
-	NotifyParams,
-} from "@amll-ttml-tool/plugin-api";
+import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { toast } from "react-toastify";
-import type { EditorDocumentAtomAdapter } from "$/plugins/adapters/editor-document";
-import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
+import { getHostEnablementContext } from "$/plugins/adapters/enablement-context";
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
+import {
+	getHostSelection,
+	pluginDocumentGateway,
+	pluginKvStorage,
+	subscribeHostDocumentChanges,
+} from "$/plugins/adapters/host-services";
+import { registerHostMode } from "$/plugins/adapters/mode-contributions";
 import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
 import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
-import { selectedLinesAtom } from "$/states/main";
-import { globalStore } from "$/states/store";
 import { FACTORY_TRUSTED_JS_PLUGINS } from "./factory-plugins";
 import { trustedJsConsentService } from "./trusted-consent-service";
+import {
+	createTrustedJsHost,
+	type TrustedJsHostPorts,
+} from "./trusted-js-host-api";
 import {
 	resolveTrustedJsLoadPlan,
 	type TrustedJsFactoryUpdateState,
@@ -26,18 +30,28 @@ import {
 } from "./trusted-js-service";
 
 /**
- * Host services handed to a trusted-js plugin's activate(). A trusted-js
- * module is application-grade by admission, but going through these ports
- * (instead of reaching into app internals) keeps plugin edits inside the
- * document transaction service — one operation, one undo record, labeled
- * provenance — and keeps the surface documentable for plugin authors.
+ * Application ports behind the public `TrustedJsHostV0`. Document access and
+ * kv storage are the very instances the WASM turn host uses, so both tiers
+ * share one transaction path, one revision-conflict rule and one per-plugin
+ * storage namespace; modes go through the same entry as core.modes.
  */
-export interface TrustedJsHostApi {
-	document: EditorDocumentAtomAdapter;
-	getSelectedLineIds(): ReadonlySet<string>;
-	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
-	notify(params: NotifyParams): void;
-}
+const trustedJsHostPorts: TrustedJsHostPorts = {
+	documents: pluginDocumentGateway,
+	subscribeDocumentChanges: subscribeHostDocumentChanges,
+	getSelection: getHostSelection,
+	showForm: (schema) => declarativeFormService.showForm(schema),
+	notify: ({ level, message, detail, timeoutMs }, { pluginId }) => {
+		toast[level](
+			[message, detail, `(${pluginId})`].filter(Boolean).join("\n"),
+			{
+				autoClose: timeoutMs,
+			},
+		);
+	},
+	kv: pluginKvStorage,
+	getEnablementContext: getHostEnablementContext,
+	registerMode: registerHostMode,
+};
 
 const STATE_STORAGE_KEY = "amll-trusted-js-plugin-state-v0";
 const DESKTOP_TRUST_STORAGE_KEY = "amll-trusted-js-desktop-enabled";
@@ -113,7 +127,7 @@ export const setDesktopTrustedJsEnabled = (enabled: boolean): void => {
  * origin check, crash gate) inside TrustedJsPluginService.
  */
 export const trustedJsPluginService =
-	new TrustedJsPluginService<TrustedJsHostApi>({
+	new TrustedJsPluginService<TrustedJsHostV0>({
 		origin:
 			typeof location === "undefined" ? "http://localhost" : location.origin,
 		importModule: (url) => import(/* @vite-ignore */ url),
@@ -124,16 +138,8 @@ export const trustedJsPluginService =
 				runtime: "trusted-js",
 				trusted: true,
 			}),
-		host: {
-			document: editorDocumentAdapter,
-			getSelectedLineIds: () => globalStore.get(selectedLinesAtom),
-			showForm: (schema) => declarativeFormService.showForm(schema),
-			notify: ({ level, message, detail, timeoutMs }) => {
-				toast[level]([message, detail].filter(Boolean).join("\n"), {
-					autoClose: timeoutMs,
-				});
-			},
-		},
+		createHost: ({ pluginId, scope }) =>
+			createTrustedJsHost(trustedJsHostPorts, { pluginId, scope }),
 		requestConsent: (request) => trustedJsConsentService.request(request),
 		state: localStorageStatePort,
 		isDesktop,

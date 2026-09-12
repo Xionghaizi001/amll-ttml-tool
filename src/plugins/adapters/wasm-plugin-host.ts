@@ -1,42 +1,29 @@
 import type {
-	EditSource,
 	FunctionPluginManifest,
 	PluginEventV0,
 } from "@amll-ttml-tool/plugin-api";
 import { parseManifest } from "@amll-ttml-tool/plugin-api";
 import { toast } from "react-toastify";
-import type { DocumentChangeSource } from "$/kernel/editor/EditorDocumentService";
-import { IndexedDbPluginKvStorage } from "$/platform/storage/IndexedDbPluginKvStorage";
 import {
 	IndexedDbPluginPackageStorage,
 	type StoredPluginPackageRecord,
 } from "$/platform/storage/IndexedDbPluginPackageStorage";
 import { WasmPluginWorkerClient } from "$/plugins/runtime";
 import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
-import { selectedLinesAtom, selectedWordsAtom } from "$/states/main";
-import { globalStore } from "$/states/store";
-import { editorDocumentAdapter } from "./editor-document";
 import { getHostEnablementContext } from "./enablement-context";
 import { extensionRegistry } from "./extension-host";
+import {
+	getHostSelection,
+	pluginDocumentGateway,
+	pluginKvStorage,
+	subscribeHostDocumentChanges,
+} from "./host-services";
 import { registerManifestContributions } from "./manifest-contributions";
-import { PluginDocumentGateway } from "./plugin-document";
 import {
 	type InstalledPluginData,
 	WasmPluginService,
 } from "./wasm-plugin-service";
 
-const toEditSource = (source: DocumentChangeSource): EditSource => {
-	switch (source) {
-		case "plugin":
-			return "plugin";
-		case "system":
-			return "host";
-		default:
-			return "user";
-	}
-};
-
-const kvStorage = new IndexedDbPluginKvStorage();
 const packageStorage = new IndexedDbPluginPackageStorage();
 
 const toStoredRecord = (
@@ -75,25 +62,23 @@ const fromStoredRecord = (
 	};
 };
 
-export const pluginDocumentGateway = new PluginDocumentGateway(
-	editorDocumentAdapter,
-);
+export { pluginDocumentGateway } from "./host-services";
 
 /** Shared WASM plugin host: real workers, IndexedDB persistence, host UI. */
 export const wasmPluginService = new WasmPluginService({
 	createRuntime: () => new WasmPluginWorkerClient({ timeoutMs: 10000 }),
 	documents: pluginDocumentGateway,
-	getSelection: () => ({
-		lineIds: [...globalStore.get(selectedLinesAtom)],
-		wordIds: [...globalStore.get(selectedWordsAtom)],
-	}),
+	getSelection: getHostSelection,
 	showForm: (schema) => declarativeFormService.showForm(schema),
 	notify: ({ level, message, detail, timeoutMs }, { pluginId }) => {
-		toast[level]([message, detail, `(${pluginId})`].filter(Boolean).join("\n"), {
-			autoClose: timeoutMs,
-		});
+		toast[level](
+			[message, detail, `(${pluginId})`].filter(Boolean).join("\n"),
+			{
+				autoClose: timeoutMs,
+			},
+		);
 	},
-	kv: kvStorage,
+	kv: pluginKvStorage,
 	packages: {
 		loadAll: async () =>
 			(await packageStorage.loadAll())
@@ -115,17 +100,15 @@ export const wasmPluginService = new WasmPluginService({
 			getEnablementContext: getHostEnablementContext,
 		}),
 	subscribeDocumentEvents: (listener) =>
-		editorDocumentAdapter.service.subscribe((event) => {
+		subscribeHostDocumentChanges((change) => {
 			const pluginEvent: PluginEventV0 = {
 				type: "document.changed",
-				revision: event.revision,
-				source: toEditSource(event.transaction.source),
-				changedLineIds: [...event.changedLineIds],
-				changedWordIds: [...event.changedWordIds],
+				revision: change.revision,
+				source: change.source,
+				changedLineIds: change.changedLineIds,
+				changedWordIds: change.changedWordIds,
 			};
-			listener(pluginEvent, {
-				sourcePluginId: event.transaction.pluginId,
-			});
+			listener(pluginEvent, { sourcePluginId: change.sourcePluginId });
 		}),
 	locale: typeof navigator === "undefined" ? "en" : navigator.language,
 	hostVersion: "experimental-v0",

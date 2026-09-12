@@ -22,7 +22,18 @@ const componentsRoot = resolve(sourceRoot, "components");
 const hooksRoot = resolve(sourceRoot, "hooks");
 const pluginApiPackageRoot = resolve(root, "packages/plugin-api");
 const pluginApiRoot = resolve(pluginApiPackageRoot, "src");
-const pluginApiTestsRoot = resolve(pluginApiPackageRoot, "tests");
+const pluginSdkPackageRoot = resolve(root, "packages/plugin-sdk-js");
+const pluginSdkRoot = resolve(pluginSdkPackageRoot, "src");
+const pluginBuiltinRoot = resolve(pluginsRoot, "builtin");
+const testsRoot = resolve(root, "tests");
+const examplesRoot = resolve(root, "examples");
+/**
+ * Host-core builtins register directly against the kernel registries and never
+ * migrate to the SDK (fail-safe Edit mode, host-native TTML, bundled themes).
+ * Every other directory under src/plugins/builtin is a plugin module and is
+ * held to the SDK-only import rule.
+ */
+const HOST_CORE_BUILTINS = new Set(["formats", "modes", "themes"]);
 const allowedFiles = new Set([
 	resolve(sourceRoot, "plugins/adapters/editor-document.ts"),
 ]);
@@ -38,13 +49,29 @@ const isWithin = (path, directory) => {
 const isWithinAny = (path, directories) =>
 	directories.some((directory) => isWithin(path, directory));
 
+/** The plugin module directory owning `path`, or null for host code. */
+const pluginModuleRootOf = (path) => {
+	if (isWithin(path, examplesRoot)) return examplesRoot;
+	if (!isWithin(path, pluginBuiltinRoot)) return null;
+	const [pluginDirectory] = relative(pluginBuiltinRoot, path).split(/[\\/]/);
+	if (!pluginDirectory || HOST_CORE_BUILTINS.has(pluginDirectory)) return null;
+	return resolve(pluginBuiltinRoot, pluginDirectory);
+};
+
+const SKIPPED_DIRECTORIES = new Set([
+	"node_modules",
+	"dist",
+	"target",
+	"bin",
+	"obj",
+]);
+
 const sourceFiles = [];
 const walk = async (directory) => {
 	for (const entry of await readdir(directory, { withFileTypes: true })) {
 		const path = resolve(directory, entry.name);
 		if (entry.isDirectory()) {
-			if (entry.name !== "node_modules" && entry.name !== "dist")
-				await walk(path);
+			if (!SKIPPED_DIRECTORIES.has(entry.name)) await walk(path);
 			continue;
 		}
 		if (/\.(?:ts|tsx)$/.test(entry.name)) sourceFiles.push(path);
@@ -53,7 +80,9 @@ const walk = async (directory) => {
 
 await walk(sourceRoot);
 await walk(pluginApiRoot);
-await walk(pluginApiTestsRoot);
+await walk(pluginSdkRoot);
+await walk(testsRoot);
+await walk(examplesRoot);
 
 const forbiddenWrites = [
 	/\b(?:useSetAtom|useSetImmerAtom|useAtom)\(\s*lyricLinesAtom\s*\)/s,
@@ -80,6 +109,12 @@ const resolveInternalImport = (importer, specifier) => {
 			pluginApiRoot,
 			clean.slice("@amll-ttml-tool/plugin-api/".length),
 		);
+	if (clean === "@amll-ttml-tool/plugin-sdk-js") return pluginSdkRoot;
+	if (clean.startsWith("@amll-ttml-tool/plugin-sdk-js/"))
+		return resolve(
+			pluginSdkRoot,
+			clean.slice("@amll-ttml-tool/plugin-sdk-js/".length),
+		);
 	return null;
 };
 
@@ -99,18 +134,67 @@ const layerImportViolation = (path, specifier) => {
 	const target = resolveInternalImport(path, specifier);
 	const isExternal = target === null;
 
+	if (isWithin(path, testsRoot)) {
+		// Package tests exercise the packages alone; host tests may reach any layer.
+		if (isWithin(path, resolve(testsRoot, "plugin-api"))) {
+			if (isExternal)
+				return specifier === "vitest"
+					? null
+					: `plugin-api tests may only import plugin-api and vitest (${specifier})`;
+			if (!isWithin(target, pluginApiRoot))
+				return `plugin-api tests cannot import ${specifier}`;
+			return null;
+		}
+		if (isWithin(path, resolve(testsRoot, "plugin-sdk-js"))) {
+			if (isExternal)
+				return specifier === "vitest"
+					? null
+					: `plugin-sdk-js tests may only import plugin-api, plugin-sdk-js and vitest (${specifier})`;
+			if (!isWithinAny(target, [pluginApiRoot, pluginSdkRoot]))
+				return `plugin-sdk-js tests cannot import ${specifier}`;
+			return null;
+		}
+		return null;
+	}
+
 	if (isWithin(path, pluginApiPackageRoot)) {
 		if (
 			isExternal &&
 			!(
-				(isTestFile(path) ||
-					isWithin(path, resolve(pluginApiRoot, "testing"))) &&
+				isWithin(path, resolve(pluginApiRoot, "testing")) &&
 				specifier === "vitest"
 			)
 		)
 			return `plugin-api may only import its own files (${specifier})`;
 		if (target && !isWithin(target, pluginApiPackageRoot))
 			return `plugin-api relative import escapes its package (${specifier})`;
+		return null;
+	}
+
+	if (isWithin(path, pluginSdkPackageRoot)) {
+		// The SDK is protocol + React types only: no Jotai, no Tauri, no host
+		// internals (TTMLLyric included). `react` must be a type-only import,
+		// which the main loop checks separately.
+		if (isExternal)
+			return specifier === "react"
+				? null
+				: `plugin-sdk-js may only import plugin-api and React types (${specifier})`;
+		if (!isWithinAny(target, [pluginSdkPackageRoot, pluginApiRoot]))
+			return `plugin-sdk-js cannot import ${specifier}`;
+		return null;
+	}
+
+	const pluginModuleRoot = pluginModuleRootOf(path);
+	if (pluginModuleRoot !== null) {
+		// Plugin modules (src/plugins/builtin/<plugin>, examples/) see the host
+		// only through the SDK, so the store artifact built from the same source
+		// never depends on host-internal structure.
+		if (isExternal)
+			return specifier === "react" || specifier.startsWith("react/")
+				? null
+				: `plugin module may only import @amll-ttml-tool/plugin-api, @amll-ttml-tool/plugin-sdk-js and React (${specifier})`;
+		if (!isWithinAny(target, [pluginModuleRoot, pluginApiRoot, pluginSdkRoot]))
+			return `plugin module cannot import host internals (${specifier}); go through @amll-ttml-tool/plugin-sdk-js`;
 		return null;
 	}
 
@@ -179,6 +263,7 @@ const layerImportViolation = (path, specifier) => {
 				statesRoot,
 				typesRoot,
 				pluginApiRoot,
+				pluginSdkRoot,
 			])
 		)
 			return `plugin adapter cannot import ${specifier}`;
@@ -199,6 +284,7 @@ const layerImportViolation = (path, specifier) => {
 				componentsRoot,
 				hooksRoot,
 				pluginApiRoot,
+				pluginSdkRoot,
 			])
 		)
 			return `plugin UI cannot import ${specifier}`;
@@ -219,6 +305,7 @@ const layerImportViolation = (path, specifier) => {
 				componentsRoot,
 				hooksRoot,
 				pluginApiRoot,
+				pluginSdkRoot,
 			])
 		)
 			return `plugin layer cannot import ${specifier}`;
@@ -352,8 +439,81 @@ const boundaryRegressionChecks = [
 		message: "kernel relative imports must not escape into src/modules",
 	},
 	{
-		passed: sourceFiles.some((path) => isWithin(path, pluginApiTestsRoot)),
-		message: "packages/plugin-api/tests must be included in boundary traversal",
+		passed: sourceFiles.some((path) =>
+			isWithin(path, resolve(testsRoot, "plugin-api")),
+		),
+		message: "tests/plugin-api must be included in boundary traversal",
+	},
+	{
+		passed: sourceFiles.some((path) => isWithin(path, pluginSdkRoot)),
+		message:
+			"packages/plugin-sdk-js/src must be included in boundary traversal",
+	},
+	{
+		passed: ["jotai", "@tauri-apps/api", "$/types/ttml", "$/states/main"].every(
+			(specifier) =>
+				Boolean(
+					layerImportViolation(resolve(pluginSdkRoot, "fixture.ts"), specifier),
+				),
+		),
+		message: "plugin-sdk-js must reject Jotai, Tauri and host-internal imports",
+	},
+	{
+		passed:
+			layerImportViolation(
+				resolve(pluginSdkRoot, "fixture.ts"),
+				"@amll-ttml-tool/plugin-api",
+			) === null,
+		message: "plugin-sdk-js must be allowed to import plugin-api",
+	},
+	{
+		passed: [
+			"$/kernel/extensions",
+			"$/application/lyrics",
+			"$/states/main",
+			"$/plugins/adapters/plugin-document",
+			"$/plugins/trusted/trusted-js-host",
+			"jotai",
+		].every((specifier) =>
+			Boolean(
+				layerImportViolation(
+					resolve(pluginBuiltinRoot, "fixture-plugin/index.ts"),
+					specifier,
+				),
+			),
+		),
+		message:
+			"plugin modules under src/plugins/builtin must reject host-internal imports",
+	},
+	{
+		passed: [
+			"@amll-ttml-tool/plugin-api",
+			"@amll-ttml-tool/plugin-sdk-js",
+		].every(
+			(specifier) =>
+				layerImportViolation(
+					resolve(pluginBuiltinRoot, "fixture-plugin/index.ts"),
+					specifier,
+				) === null,
+		),
+		message: "plugin modules must be allowed to import plugin-api and the SDK",
+	},
+	{
+		passed:
+			layerImportViolation(
+				resolve(pluginBuiltinRoot, "formats/index.ts"),
+				"$/kernel/formats",
+			) === null,
+		message: "host-core builtins (formats/modes/themes) keep host import rules",
+	},
+	{
+		passed: Boolean(
+			layerImportViolation(
+				resolve(examplesRoot, "fixture/index.ts"),
+				"$/states/main",
+			),
+		),
+		message: "examples must reject host-internal imports",
 	},
 	{
 		passed: Boolean(
@@ -431,9 +591,10 @@ for (const path of sourceFiles) {
 		}
 	}
 	if (displayPath === "src/modules/settings/states/custom-background.ts") {
-		const platformLeak = /(?:from\s+["']idb["']|\blocalStorage\b|\bfetch\s*\(|\bURL\.(?:createObjectURL|revokeObjectURL))/g.exec(
-			contents,
-		);
+		const platformLeak =
+			/(?:from\s+["']idb["']|\blocalStorage\b|\bfetch\s*\(|\bURL\.(?:createObjectURL|revokeObjectURL))/g.exec(
+				contents,
+			);
 		if (platformLeak) {
 			const line = contents.slice(0, platformLeak.index).split("\n").length;
 			violations.push(
@@ -443,6 +604,7 @@ for (const path of sourceFiles) {
 	}
 	const isBusinessLayer =
 		isWithin(path, pluginApiPackageRoot) ||
+		isWithin(path, pluginSdkPackageRoot) ||
 		isWithin(path, applicationRoot) ||
 		isWithin(path, kernelRoot);
 	if (isBusinessLayer && path.endsWith(".tsx"))
@@ -484,6 +646,15 @@ for (const path of sourceFiles) {
 
 		const violation = layerImportViolation(path, specifier);
 		if (violation) violations.push(`${displayPath}:${line}: ${violation}`);
+
+		if (
+			isWithin(path, pluginSdkPackageRoot) &&
+			cleanSpecifier(specifier) === "react" &&
+			!/^(?:import|export)\s+type\b/.test(match[0])
+		)
+			violations.push(
+				`${displayPath}:${line}: plugin-sdk-js may import React as types only (import type)`,
+			);
 	}
 }
 

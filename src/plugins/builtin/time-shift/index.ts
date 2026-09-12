@@ -1,28 +1,21 @@
 import type {
-	FormResultV0,
+	DocumentOpV0,
 	FormSchemaV0,
-	NotifyParams,
+	PluginDocumentV0,
+	PluginRubySegmentV0,
 } from "@amll-ttml-tool/plugin-api";
-import {
-	shiftLyricTimes,
-	type TimeShiftDocumentPort,
-} from "$/application/time-shift";
-import type { ExtensionScope } from "$/kernel/extensions";
-import type { TTMLLyric } from "$/types/ttml";
+import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
+
+/**
+ * Time-shift plugin. Written against the trusted-js SDK only: the document is
+ * the v0 projection, the shift is a `DocumentOpV0` batch committed as one
+ * transaction, and the form/notification go through `host.ui`. The same
+ * source runs as the bundled factory plugin, as the store artifact and under
+ * the mock host in Node.
+ */
 
 export const TIME_SHIFT_PLUGIN_ID = "builtin.time-shift";
 export const TIME_SHIFT_COMMAND_ID = `${TIME_SHIFT_PLUGIN_ID}.run`;
-
-export interface TimeShiftBuiltinDocumentPort extends TimeShiftDocumentPort {
-	readSnapshot(): TTMLLyric;
-}
-
-export interface TimeShiftBuiltinPorts {
-	document: TimeShiftBuiltinDocumentPort;
-	getSelectedLineIds(): ReadonlySet<string>;
-	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
-	notify(params: NotifyParams): void;
-}
 
 export const createTimeShiftForm = ({
 	selectedCount,
@@ -160,8 +153,8 @@ export const createTimeShiftForm = ({
 	};
 };
 
-const resolveTargetLineIds = (
-	document: TTMLLyric,
+export const resolveTargetLineIds = (
+	document: PluginDocumentV0,
 	selectedIds: ReadonlySet<string>,
 	scope: string,
 	startLine: number,
@@ -169,69 +162,132 @@ const resolveTargetLineIds = (
 ): string[] | undefined => {
 	if (scope === "all") return undefined;
 	if (scope === "selected")
-		return document.lyricLines
+		return document.lines
 			.filter((line) => selectedIds.has(line.id))
 			.map((line) => line.id);
 	if (scope === "selected-following") {
-		const first = document.lyricLines.findIndex((line) =>
-			selectedIds.has(line.id),
-		);
-		return first < 0
-			? []
-			: document.lyricLines.slice(first).map((line) => line.id);
+		const first = document.lines.findIndex((line) => selectedIds.has(line.id));
+		return first < 0 ? [] : document.lines.slice(first).map((line) => line.id);
 	}
 	const start = Math.max(0, Math.trunc(startLine) - 1);
-	const end = Math.min(document.lyricLines.length, Math.trunc(endLine));
-	return document.lyricLines
+	const end = Math.min(document.lines.length, Math.trunc(endLine));
+	return document.lines
 		.slice(start, Math.max(start, end))
 		.map((line) => line.id);
 };
 
-export const activateTimeShiftBuiltin = (
-	scope: ExtensionScope,
-	ports: TimeShiftBuiltinPorts,
-): void => {
-	scope.registerCommand({
+export interface TimeShiftRequest {
+	/** Integer millisecond offset; negative advances, positive delays. */
+	offsetMs: number;
+	/** Target line ids; undefined means every line. */
+	lineIds?: readonly string[];
+}
+
+const shiftedTime = (time: number, offsetMs: number): number =>
+	Math.max(0, time + offsetMs);
+
+const shiftRuby = (
+	ruby: PluginRubySegmentV0[],
+	offsetMs: number,
+): PluginRubySegmentV0[] =>
+	ruby.map((segment) => ({
+		...segment,
+		startTime: shiftedTime(segment.startTime, offsetMs),
+		endTime: shiftedTime(segment.endTime, offsetMs),
+	}));
+
+/**
+ * Pure shift algorithm: line, word and ruby timing of the targeted lines as
+ * one op batch (clamped at zero). The batch is committed by the host as a
+ * single transaction, so undo reverts the whole shift at once.
+ */
+export const buildTimeShiftOps = (
+	document: PluginDocumentV0,
+	request: TimeShiftRequest,
+): { ops: DocumentOpV0[]; lineIds: string[] } => {
+	if (!Number.isFinite(request.offsetMs) || !Number.isInteger(request.offsetMs))
+		throw new RangeError("offsetMs must be a finite integer");
+	const ops: DocumentOpV0[] = [];
+	const lineIds: string[] = [];
+	if (request.offsetMs === 0) return { ops, lineIds };
+	const targets =
+		request.lineIds === undefined ? undefined : new Set(request.lineIds);
+	for (const line of document.lines) {
+		if (targets !== undefined && !targets.has(line.id)) continue;
+		lineIds.push(line.id);
+		ops.push({
+			op: "updateLine",
+			lineId: line.id,
+			patch: {
+				startTime: shiftedTime(line.startTime, request.offsetMs),
+				endTime: shiftedTime(line.endTime, request.offsetMs),
+			},
+		});
+		for (const word of line.words)
+			ops.push({
+				op: "updateWord",
+				wordId: word.id,
+				patch: {
+					startTime: shiftedTime(word.startTime, request.offsetMs),
+					endTime: shiftedTime(word.endTime, request.offsetMs),
+					...(word.ruby === undefined
+						? {}
+						: { ruby: shiftRuby(word.ruby, request.offsetMs) }),
+				},
+			});
+	}
+	return { ops, lineIds };
+};
+
+/** Registers the command and menu entry; disposal is owned by the host scope. */
+export const activateTimeShift = (host: TrustedJsHostV0): void => {
+	host.commands.register({
 		id: TIME_SHIFT_COMMAND_ID,
 		title: { default: "Shift timing...", "zh-CN": "平移时间..." },
 		category: { default: "Edit", "zh-CN": "编辑" },
 		handler: async () => {
-			const openingSnapshot = ports.document.readSnapshot();
-			const result = await ports.showForm(
+			const opening = host.document.readSnapshot();
+			const result = await host.ui.showForm(
 				createTimeShiftForm({
-					selectedCount: ports.getSelectedLineIds().size,
-					totalLines: openingSnapshot.lyricLines.length,
+					selectedCount: host.selection.get().lineIds.length,
+					totalLines: opening.lines.length,
 				}),
 			);
 			if (!result.submitted) return;
 			const amount = Number(result.values.amount);
 			if (!Number.isFinite(amount) || amount === 0) return;
 			const direction = String(result.values.direction);
-			const snapshot = ports.document.readSnapshot();
-			const lineIds = resolveTargetLineIds(
-				snapshot,
-				ports.getSelectedLineIds(),
-				String(result.values.scope),
-				Number(result.values.startLine),
-				Number(result.values.endLine),
-			);
-			const event = shiftLyricTimes(ports.document, {
+			const snapshot = host.document.readSnapshot();
+			const { ops, lineIds } = buildTimeShiftOps(snapshot, {
 				offsetMs: Math.trunc(direction === "advance" ? -amount : amount),
-				lineIds,
-				expectedRevision: ports.document.getRevision(),
-				source: "plugin",
-				pluginId: TIME_SHIFT_PLUGIN_ID,
-				label: "Shift lyric timing",
+				lineIds: resolveTargetLineIds(
+					snapshot,
+					new Set(host.selection.get().lineIds),
+					String(result.values.scope),
+					Number(result.values.startLine),
+					Number(result.values.endLine),
+				),
 			});
-			if (event)
-				ports.notify({
-					level: "success",
-					message: "Lyric timing shifted",
-					detail: `${event.changedLineIds.length} line(s) updated`,
+			if (ops.length === 0) return;
+			const applied = host.document.applyEdit(ops, "Shift lyric timing", {
+				expectedRevision: snapshot.revision,
+			});
+			if (!applied.ok) {
+				host.ui.notify({
+					level: "error",
+					message: "Lyric timing was not shifted",
+					detail: applied.error.message,
 				});
+				return;
+			}
+			host.ui.notify({
+				level: "success",
+				message: "Lyric timing shifted",
+				detail: `${lineIds.length} line(s) updated`,
+			});
 		},
 	});
-	scope.registerMenu({
+	host.menus.register({
 		id: `${TIME_SHIFT_PLUGIN_ID}.menu.edit`,
 		command: TIME_SHIFT_COMMAND_ID,
 		menu: "menu.edit",

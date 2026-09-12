@@ -6,17 +6,15 @@
 
 - 阶段 0–7 已完成：架构决策、运行时 PoC、编辑器事务层、公开 Plugin API、命令与 contribution registry、主题系统、WASM 插件宿主、文件与格式 provider。
 - 2026-08-28 调序后的里程碑 1（远程受信任插件加载器）、里程碑 2（商店薄片）、里程碑 3（time-shift 试点迁移）已完成。
-- 当前位置：里程碑 4（批量迁移非核心内置功能）之前。本轮新增"里程碑 4 前置：trusted-js SDK 固化与开发者体验"，见下文。
+- 当前位置：里程碑 4（批量迁移非核心内置功能）之前。里程碑 4 前置第 1 项（封装 trusted-js API）已于 2026-09-13 完成，time-shift 随之迁至 SDK；第 2–5 项见下文。
+- 2026-09-13：移除 `.gitignore` 中的 `*.test.ts` / `*.spec.ts` 规则，全部测试迁入根目录 `tests/`（镜像 `src/` 路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），vitest 只收 `tests/**`，测试自此随分支入库。
 - 尚未完成：阶段 3 遗留的 UI/业务混合模块拆分；阶段 8 批量迁移；阶段 9 定制功能插件化；阶段 10 商店后端。
-
-## 已知问题（需人工决策）
-
-- 测试文件从未入库：`.gitignore` 第 20–21 行的 `*.test.ts` / `*.spec.ts` 自阶段 1 提交 `9ccef5a1` 起就存在，工作区现有 51 个测试文件全部被 git 忽略。历次完成记录中"N/N 测试通过"对应的套件因此都不在分支提交里，干净检出上 CI 的 `pnpm test` 无测试可跑（2026-08-28 记录中"推测遗留在另一工作区未提交"属误判）。需决定：移除这两行并补提交全部测试，或确认有意不入库并调整 CI 断言。
 
 ## 目标结构
 
 ```
 packages/plugin-api/          # 稳定、与宿主实现无关的公开协议
+packages/plugin-sdk-js/       # trusted-js 运行时 SDK（TrustedJsHostV0、Mock 宿主），只依赖 plugin-api 与 React 类型
 src/kernel/
   editor/                     # 文档事务、revision、撤销重做
   commands/                   # 命令注册与执行
@@ -30,6 +28,7 @@ src/plugins/
   trusted/                    # trusted-js 加载闸门、工厂注册表、shadow 决策
   store/                      # 容器格式、安装管线、catalog 客户端
   ui/                         # 插件管理器、菜单、表单
+tests/                        # 全部测试，镜像 src/ 与 packages/ 路径
 ```
 
 ## 阶段 0：固定架构决策
@@ -317,16 +316,27 @@ src/plugins/
 
 ### 1. 封装 trusted-js API
 
-- [ ] 分包：`packages/plugin-api` 继续只放与运行档无关的协议类型；新增 `packages/plugin-sdk-js`（trusted-js 运行时 SDK），允许 React 类型（仅类型，peer），仍禁止 Jotai/Tauri/内部 TTMLLyric。边界脚本为新包加正向白名单。
-- [ ] 定义 `TrustedJsHostV0` 公开接口：`document`（`readSnapshot()` 返回 `PluginDocumentV0` 投影而非 TTMLLyric、`applyEdit(ops: DocumentOpV0[], label)` 走同一 `document-ops`、`revision`、`onChanged` 订阅）；`selection`（选中行/词 id）；`commands`/`menus`/`titleBarActions` 注册（薄封装 ExtensionScope，`pluginId.` 命名空间强制不变）；`ui.showForm`/`ui.notify`；`storage.kv`（复用 `amll-plugin-kv` 命名空间隔离）；`formats.register`（同一 provider registry）；trusted 专属 `views`（mode/trusted view/titlebar group，React 组件入参）。
-- [ ] 宿主侧：`trusted-js-host.ts` 由裸 adapter 改为实现 `TrustedJsHostV0`，文档访问经 `PluginDocumentGateway` 投影/合并（与 WASM 回合宿主共用 document-ops 与 revision 冲突逻辑），使两档对文档的语义一致：单事务、来源标记、内部字段原位保留。
-- [ ] activation 合同：`activate(ctx: { pluginId, host, signal })` 返回 cleanup；`signal` 在 unload/崩溃禁用时 abort，覆盖"异步 handler 在途取消"的遗留取舍。
-- [ ] 合同测试：`runHostContractTests` 增加 trusted-js host 第三个实现（Mock + 真实宿主）；边界脚本新增规则：`src/plugins/builtin/<plugin>/**` 插件模块与 `examples/` 只能导入 `@amll-ttml-tool/plugin-api` 与 `@amll-ttml-tool/plugin-sdk-js`，不得导入 `$/kernel`、`$/application`、`$/states`、`$/plugins/adapters`。
+- [x] 分包：`packages/plugin-api` 继续只放与运行档无关的协议类型；新增 `packages/plugin-sdk-js`（trusted-js 运行时 SDK），允许 React 类型（仅类型，peer），仍禁止 Jotai/Tauri/内部 TTMLLyric。边界脚本为新包加正向白名单。
+- [x] 定义 `TrustedJsHostV0` 公开接口：`document`（`readSnapshot()` 返回 `PluginDocumentV0` 投影而非 TTMLLyric、`applyEdit(ops: DocumentOpV0[], label)` 走同一 `document-ops`、`revision`、`onChanged` 订阅）；`selection`（选中行/词 id）；`commands`/`menus`/`titleBarActions` 注册（薄封装 ExtensionScope，`pluginId.` 命名空间强制不变）；`ui.showForm`/`ui.notify`；`storage.kv`（复用 `amll-plugin-kv` 命名空间隔离）；`formats.register`（同一 provider registry）；trusted 专属 `views`（mode/trusted view/titlebar group，React 组件入参）。
+- [x] 宿主侧：`trusted-js-host.ts` 由裸 adapter 改为实现 `TrustedJsHostV0`，文档访问经 `PluginDocumentGateway` 投影/合并（与 WASM 回合宿主共用 document-ops 与 revision 冲突逻辑），使两档对文档的语义一致：单事务、来源标记、内部字段原位保留。
+- [x] activation 合同：`activate(ctx: { pluginId, host, signal })` 返回 cleanup；`signal` 在 unload/崩溃禁用时 abort，覆盖"异步 handler 在途取消"的遗留取舍。
+- [x] 合同测试：`runHostContractTests` 增加 trusted-js host 第三个实现（Mock + 真实宿主）；边界脚本新增规则：`src/plugins/builtin/<plugin>/**` 插件模块与 `examples/` 只能导入 `@amll-ttml-tool/plugin-api` 与 `@amll-ttml-tool/plugin-sdk-js`，不得导入 `$/kernel`、`$/application`、`$/states`、`$/plugins/adapters`。
 - 验收：SDK 包可在不含宿主源码的独立项目里编译；同一插件源在 Node 中以 Mock trusted host 完成命令 → 表单 → 单事务 → 撤销。
+
+#### 第 1 项完成记录（2026-09-13）
+
+- 分包：`packages/plugin-sdk-js`（`@amll-ttml-tool/plugin-sdk-js`，`./testing` 子路径导出 `MockTrustedJsHost` 与 `createTrustedJsHostUnderTest`）。与 plugin-api 同样不走 pnpm workspace，靠 tsconfig paths 与 Vite/Vitest alias 解析；alias 改为正则形式以支持包子路径。React 只允许 `import type`（边界脚本逐条 import 检查）。`pnpm plugin:sdk:check` 以独立 tsconfig（仅 SDK 源 + plugin-api 源，lib 含 DOM 以取 AbortSignal）证明可脱离宿主编译。
+- `TrustedJsHostV0` 定稿：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突（同步读改无间隙时无需传，跨 await 表单时应传）；`onChanged` 事件为 `DocumentChangedEventV0`（含 `sourcePluginId`）；`selection.get()` 只读无订阅；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装，命名空间与 titlebar 上限由 registry 强制；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主用 seeded allocator 分配 id；exporter 收投影 lines/metadata）；`storage.kv` 每次调用直读写 `amll-plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`（与 core.modes 同一入口，含切换快捷键）。
+- 宿主共享服务：新增 `src/plugins/adapters/host-services.ts`（`pluginDocumentGateway`、`pluginKvStorage`、`getHostSelection`、`subscribeHostDocumentChanges`），WASM 回合宿主与 trusted-js 宿主共用同一实例，两档的事务路径、revision 冲突规则、来源标记与 kv 命名空间因此一致。`createTrustedJsHost`（`trusted-js-host-api.ts`）为纯工厂、端口注入，可在 Node 中与 `EditorDocumentService` 组成真实宿主。
+- 加载器：ports 由共享 `host` 改为 `createHost({ pluginId, scope, signal })` 返回 handle；activate 上下文精简为 `{ pluginId, host, signal }`（不再暴露 entry 与 scope）；unload 顺序固定为 abort → cleanup → host handle dispose → scope dispose；activation 抛错同样 abort 并全清理。
+- 合同测试：`runHostContractTests` 现有四个实现（MockPluginHost、WASM 真实宿主、MockTrustedJsHost、真实 trusted-js 宿主）通过同一套件；`createTrustedJsHostUnderTest` 把 HostCallV0 映射为 SDK 调用，不做能力检查（trusted 档全权）。
+- 边界脚本：`src/plugins/builtin/<plugin>/**`（formats/modes/themes 三个宿主核心目录除外）与 `examples/` 只允许 plugin-api、SDK、React；SDK 包只允许 plugin-api 与 type-only React；`tests/` 纳入遍历，`tests/plugin-api`、`tests/plugin-sdk-js` 仅限对应包 + vitest，其余测试不受层规则约束。
+- time-shift 提前迁至 SDK（本属第 2 项，被新边界规则强制）：算法改为生成 updateLine/updateWord（含 ruby）op 批，一次 `applyEdit` 即一次事务；`$/application/time-shift` 删除；版本升至 1.1.0；通知与 WASM 档一致附插件 id。
+- 已知取舍：SDK 事件仅 `document.onChanged`，selection 无订阅；`storage.kv.get/keys` 以读取整个命名空间实现（v0 数据量小）；catalog 构建脚本尚未对产物断言"无 `$/` 残留"（第 2 项）。
 
 ### 2. 内置插件改用 SDK
 
-- [ ] `builtin.time-shift`：移除对宿主内部路径的全部导入，只依赖 SDK；`shiftLyricTimes` 纯算法随插件打包（或由 SDK utils 提供），商店 artifact 不再隐式依赖宿主内部。
+- [x] `builtin.time-shift`：移除对宿主内部路径的全部导入，只依赖 SDK；`shiftLyricTimes` 纯算法随插件打包（或由 SDK utils 提供），商店 artifact 不再隐式依赖宿主内部。
 - [ ] 划定不迁 SDK 的宿主核心：`core.modes`（fail-safe Edit）、`core.formats`（hostNative TTML）、内置主题。它们保持 builtin 直接注册，但 provider/mode 注册走的 registry 入口须与 SDK 的 `formats.register`/`views.registerMode` 相同，避免两套路径。
 - [ ] catalog 构建脚本对 trusted-js 产物断言：无 `$/` 别名残留、外部依赖只允许 SDK 与 React（经 import map 或打包内联，二选一定稿）。
 - [ ] 里程碑 4 迁出的每个插件都以 SDK 为唯一依赖，本项作为其模板。

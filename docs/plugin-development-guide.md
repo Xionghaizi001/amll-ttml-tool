@@ -360,4 +360,4 @@ DOM、网络（Extism `allowedHosts` 为空）、文件系统和 Tauri。
 热重载，不持久化。
 
 参考实现：`examples/plugins/sample-tools`（Rust + extism-pdk），演示命令、表单续体、
-单事务编辑、通知与隔离存储；对应的 Node 合同测试见 `src/plugins/runtime/wasm-session.test.ts`。
+单事务编辑、通知与隔离存储；对应的 Node 合同测试见 `tests/plugins/runtime/wasm-session.test.ts`。

@@ -30,20 +30,26 @@ export interface TrustedJsPluginEntry {
 	loadModule?: () => Promise<unknown>;
 }
 
+/**
+ * Activation contract handed to a module's activate(). The SDK's public
+ * `TrustedJsActivationContextV0` is this shape with THost = TrustedJsHostV0;
+ * the loader stays generic so the gate itself never depends on the SDK.
+ */
 export interface TrustedJsActivationContext<THost> {
 	pluginId: string;
-	entry: TrustedJsPluginEntry;
-	/** Registry scope; disposing it removes every contribution and listener. */
-	scope: ExtensionScope;
 	host: THost;
+	/** Aborted on unload, disable and crash-disable; in-flight async work must stop. */
+	signal: AbortSignal;
 }
 
 type TrustedJsCleanup = () => void | Promise<void>;
 
+// biome-ignore lint/suspicious/noConfusingVoidType: plain `activate(): void` plugins are valid
+type TrustedJsActivateResult = TrustedJsCleanup | undefined | void;
+
 type TrustedJsActivateReturn =
-	| TrustedJsCleanup
-	| undefined
-	| Promise<TrustedJsCleanup | undefined>;
+	| TrustedJsActivateResult
+	| Promise<TrustedJsActivateResult>;
 
 export interface TrustedJsPluginModule<THost> {
 	activate(context: TrustedJsActivationContext<THost>): TrustedJsActivateReturn;
@@ -79,12 +85,23 @@ export interface TrustedJsConsentRequest {
 	tier: "browser" | "desktop";
 }
 
+/** Per-plugin host surface plus the disposal of whatever the host itself owns. */
+export interface TrustedJsHostHandle<THost> {
+	host: THost;
+	dispose(): void;
+}
+
 export interface TrustedJsLoaderPorts<THost> {
 	/** The application origin; modules resolving anywhere else are refused. */
 	origin: string;
 	importModule(url: string): Promise<unknown>;
 	createScope(pluginId: string): ExtensionScope;
-	host: THost;
+	/** Builds the plugin's host API over its scope; called once per successful gate pass. */
+	createHost(context: {
+		pluginId: string;
+		scope: ExtensionScope;
+		signal: AbortSignal;
+	}): TrustedJsHostHandle<THost>;
 	requestConsent(request: TrustedJsConsentRequest): Promise<boolean>;
 	state: TrustedJsStatePort;
 	isDesktop(): boolean;
@@ -121,9 +138,11 @@ export interface TrustedJsPluginSummary {
 	bundled: boolean;
 }
 
-interface LoadedInstance {
+interface LoadedInstance<THost> {
 	entry: TrustedJsPluginEntry;
 	scope: ExtensionScope;
+	hostHandle: TrustedJsHostHandle<THost>;
+	abort: AbortController;
 	cleanup: TrustedJsCleanup | null;
 }
 
@@ -163,7 +182,7 @@ const resolveModule = <THost>(
  * (crash accounting, scope disposal), not containment.
  */
 export class TrustedJsPluginService<THost> {
-	private readonly instances = new Map<string, LoadedInstance>();
+	private readonly instances = new Map<string, LoadedInstance<THost>>();
 	private readonly listeners = new Set<() => void>();
 	private startupStable = false;
 
@@ -262,6 +281,8 @@ export class TrustedJsPluginService<THost> {
 		state.pending = true;
 		this.ports.state.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
+		let hostHandle: TrustedJsHostHandle<THost> | null = null;
+		const abort = new AbortController();
 		try {
 			const moduleExports = bundled
 				? await entry.loadModule?.()
@@ -272,15 +293,21 @@ export class TrustedJsPluginService<THost> {
 					`Plugin ${entry.id} module does not export an activate() function`,
 				);
 			scope = this.ports.createScope(entry.id);
+			hostHandle = this.ports.createHost({
+				pluginId: entry.id,
+				scope,
+				signal: abort.signal,
+			});
 			const cleanup = await module.activate({
 				pluginId: entry.id,
-				entry,
-				scope,
-				host: this.ports.host,
+				host: hostHandle.host,
+				signal: abort.signal,
 			});
 			this.instances.set(entry.id, {
 				entry,
 				scope,
+				hostHandle,
+				abort,
 				cleanup: typeof cleanup === "function" ? cleanup : null,
 			});
 			state.crashes = 0;
@@ -292,6 +319,10 @@ export class TrustedJsPluginService<THost> {
 			this.emitChange();
 			return { ok: true };
 		} catch (error) {
+			// A failed activation is a disable: in-flight async work stops, then
+			// host subscriptions and registry contributions go.
+			abort.abort();
+			hostHandle?.dispose();
 			scope?.dispose();
 			state.pending = false;
 			state.crashes += 1;
@@ -333,6 +364,9 @@ export class TrustedJsPluginService<THost> {
 		const instance = this.instances.get(pluginId);
 		if (!instance) return;
 		this.instances.delete(pluginId);
+		// Order: abort (async handlers observe cancellation) -> plugin cleanup ->
+		// host-owned subscriptions -> registry scope (commands, menus, views).
+		instance.abort.abort();
 		try {
 			await instance.cleanup?.();
 		} catch (error) {
@@ -340,6 +374,7 @@ export class TrustedJsPluginService<THost> {
 				`[trusted-js] ${pluginId} cleanup threw: ${String(error)}`,
 			);
 		}
+		instance.hostHandle.dispose();
 		instance.scope.dispose();
 		const state = this.ports.state.get(pluginId);
 		if (state?.pending)

@@ -20,7 +20,9 @@
 		"plugin:api:build": "tsc -p packages/plugin-api/tsconfig.build.json && node scripts/gen-plugin-docs.ts",
 		"plugin:api:check": "tsc -p packages/plugin-api/tsconfig.json && node scripts/gen-plugin-docs.ts --check",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"plugin:sdk:build": "tsc -p packages/plugin-sdk-js/tsconfig.build.json",
+		"plugin:sdk:check": "tsc -p packages/plugin-sdk-js/tsconfig.json"
 	},
 	"dependencies": {
 		"@applemusic-like-lyrics/core": "0.5.2",

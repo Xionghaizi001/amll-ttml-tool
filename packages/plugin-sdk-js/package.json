@@ -1,0 +1,32 @@
+{
+	"name": "@amll-ttml-tool/plugin-sdk-js",
+	"version": "0.0.0",
+	"description": "Trusted-js runtime SDK for AMLL TTML Tool plugins (experimental v0)",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./src/index.ts"
+		},
+		"./testing": {
+			"types": "./dist/testing/index.d.ts",
+			"import": "./src/testing/index.ts"
+		}
+	},
+	"main": "./src/index.ts",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"src",
+		"dist"
+	],
+	"peerDependencies": {
+		"@amll-ttml-tool/plugin-api": "*",
+		"react": ">=18"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		}
+	}
+}

@@ -10,6 +10,18 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const isProduction = process.env.NODE_ENV === "production";
 
+/** Workspace package alias: bare specifier -> index.ts, subpaths -> files. */
+const packageAlias = (name: string, directory: string) => [
+	{
+		find: new RegExp(`^${name}$`),
+		replacement: resolve(__dirname, directory, "index.ts"),
+	},
+	{
+		find: new RegExp(`^${name}/(.*)$`),
+		replacement: `${resolve(__dirname, directory)}/$1`,
+	},
+];
+
 const plugins: PluginOption = [
 	react(),
 	babel({
@@ -165,13 +177,14 @@ export default defineConfig({
 		},
 	},
 	resolve: {
-		alias: {
-			"@amll-ttml-tool/plugin-api": resolve(
-				__dirname,
-				"packages/plugin-api/src/index.ts",
+		alias: [
+			...packageAlias("@amll-ttml-tool/plugin-api", "packages/plugin-api/src"),
+			...packageAlias(
+				"@amll-ttml-tool/plugin-sdk-js",
+				"packages/plugin-sdk-js/src",
 			),
-			$: resolve(__dirname, "src"),
-		},
+			{ find: /^\$\/(.*)$/, replacement: `${resolve(__dirname, "src")}/$1` },
+		],
 	},
 	worker: {
 		format: "es",

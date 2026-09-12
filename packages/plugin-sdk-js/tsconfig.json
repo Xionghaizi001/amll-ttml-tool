@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"lib": ["ESNext", "DOM"],
+		"types": [],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"moduleDetection": "force",
+		"noEmit": true,
+		"skipLibCheck": true,
+
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true,
+		"exactOptionalPropertyTypes": false,
+		"verbatimModuleSyntax": true,
+
+		"paths": {
+			"@amll-ttml-tool/plugin-api": ["../plugin-api/src/index.ts"],
+			"@amll-ttml-tool/plugin-api/*": ["../plugin-api/src/*"]
+		}
+	},
+	"include": ["src"]
+}

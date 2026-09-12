@@ -72,7 +72,7 @@ pnpm plugin:build:pdk
 grep -rl "extism" src --include=*.ts --include=*.tsx | grep -v "^src/plugins/runtime/"
 # 期望输出为空
 ```
-这条断言已写进 `src/plugins/runtime/boundary.test.ts`，CI 会守住。
+这条断言已写进 `tests/plugins/runtime/boundary.test.ts`，CI 会守住。
 
 ## 当前自动验证结果
 

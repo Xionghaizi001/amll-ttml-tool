@@ -43,6 +43,10 @@ await build({
 				root,
 				"packages/plugin-api/src/index.ts",
 			),
+			"@amll-ttml-tool/plugin-sdk-js": resolve(
+				root,
+				"packages/plugin-sdk-js/src/index.ts",
+			),
 			$: resolve(root, "src"),
 		},
 	},
