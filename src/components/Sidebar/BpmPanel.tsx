@@ -101,7 +101,8 @@ export const BpmPanel: FC = () => {
 	const updateAnchorMs = useCallback((ms: number) => {
 		const state = globalStore.get(bpmStateAtom);
 		if (state.status !== "completed") return;
-		const next = Math.max(0, ms) / 1000;
+		// 允许负值：前奏弱拍可能位于 0 之前，拍线/节拍器按相位取模渲染
+		const next = ms / 1000;
 		globalStore.set(bpmStateAtom, {
 			...state,
 			result: { ...state.result, anchorTick: next },
@@ -472,7 +473,6 @@ export const BpmPanel: FC = () => {
 							<TextField.Root
 								size="1"
 								type="number"
-								min={0}
 								step={1}
 								value={anchorMs}
 								onChange={(e) => {
