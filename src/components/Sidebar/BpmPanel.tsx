@@ -16,6 +16,7 @@ import {
 	IconButton,
 	Slider,
 	Text,
+	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -25,6 +26,7 @@ import { KeyBinding } from "$/components/KeyBinding";
 import { useBpmControl, useBpmTapEngine, useMetronome } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
+	autoAnchorTickAtom,
 	bpmStateAtom,
 	bpmTapSettingsAtom,
 	hasSeenTapWindowTipAtom,
@@ -35,6 +37,7 @@ import {
 import { isTapWarmupComplete } from "$/modules/audio/utils/bpm-algorithm";
 import { showBeatLinesAtom } from "$/modules/spectrogram/states";
 import { keySyncNextAtom } from "$/states/keybindings";
+import { globalStore } from "$/states/store";
 import { useKeyBindingAtom } from "$/utils/keybindings";
 
 function formatCalculationTime(timeMs: number): string {
@@ -81,9 +84,26 @@ export const BpmPanel: FC = () => {
 	const metronomeCheckboxId = useId();
 	const metronomeVolumeSliderId = useId();
 	const metronomeAccentCheckboxId = useId();
+	const autoAnchorTick = useAtomValue(autoAnchorTickAtom);
 
 	// 参考节拍器：面板挂载即生效，开关由 metronomeEnabledAtom 控制
 	useMetronome();
+
+	// 锚点偏移控件：直接改写 result.anchorTick（单位秒，控件以毫秒呈现）
+	const anchorMs =
+		bpmState.status === "completed"
+			? Math.round((bpmState.result.anchorTick ?? 0) * 1000)
+			: 0;
+
+	const updateAnchorMs = useCallback((ms: number) => {
+		const state = globalStore.get(bpmStateAtom);
+		if (state.status !== "completed") return;
+		const next = Math.max(0, ms) / 1000;
+		globalStore.set(bpmStateAtom, {
+			...state,
+			result: { ...state.result, anchorTick: next },
+		});
+	}, []);
 	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
 		hasSeenTapWindowTipAtom,
 	);
@@ -330,6 +350,75 @@ export const BpmPanel: FC = () => {
 								</label>
 							</Text>
 						</Flex>
+					</Flex>
+				)}
+
+				{isCompleted && (
+					<Flex direction="column" gap="2">
+						<Text size="1" color="gray">
+							{t("sidebar.bpm.anchorOffset", "锚点偏移 (ms)")}
+						</Text>
+						<Flex align="center" gap="1" justify="center">
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs - 10)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								-10
+							</Button>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs - 1)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								-1
+							</Button>
+							<TextField.Root
+								size="1"
+								type="number"
+								min={0}
+								step={1}
+								value={anchorMs}
+								onChange={(e) => {
+									const v = Number.parseFloat(e.target.value);
+									if (!Number.isNaN(v)) updateAnchorMs(v);
+								}}
+								style={{ width: "84px", fontFamily: "var(--default-font-family-mono)" }}
+							/>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs + 1)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								+1
+							</Button>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs + 10)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								+10
+							</Button>
+						</Flex>
+						{autoAnchorTick !== null && (
+							<Button
+								size="1"
+								variant="ghost"
+								color="gray"
+								onClick={() => updateAnchorMs(autoAnchorTick * 1000)}
+								style={{ alignSelf: "center", cursor: "pointer" }}
+							>
+								{t("sidebar.bpm.anchorResetAuto", "恢复自动值")}
+							</Button>
+						)}
 					</Flex>
 				)}
 

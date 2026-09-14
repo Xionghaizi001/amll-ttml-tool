@@ -1,6 +1,10 @@
 import { useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
-import { bpmStateAtom, pcmDataReadyAtom } from "$/modules/audio/states";
+import {
+	autoAnchorTickAtom,
+	bpmStateAtom,
+	pcmDataReadyAtom,
+} from "$/modules/audio/states";
 import AnalyzerWorker from "$/modules/ffmpeg/worker/analyzer.worker.ts?worker";
 import RendererWorker from "$/modules/ffmpeg/worker/renderer.worker.ts?worker";
 import ffmpegWasmUrl from "$/modules/ffmpeg/worker/wasm/ffmpeg/ffmpeg_wasm.wasm?url";
@@ -22,6 +26,7 @@ export const useWaveformAnalyzer = ({
 }: UseWaveformAnalyzerProps) => {
 	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
 	const setBpmState = useSetAtom(bpmStateAtom);
+	const setAutoAnchorTick = useSetAtom(autoAnchorTickAtom);
 
 	const analyzerWorkerRef = useRef<Worker | null>(null);
 	const rendererWorkerRef = useRef<Worker | null>(null);
@@ -96,6 +101,8 @@ export const useWaveformAnalyzer = ({
 						result: e.data.payload.bpmResult,
 						calculationTime: e.data.payload.calculationTime,
 					});
+					// 记录「自动锚点」供 offset 控件恢复（单位：秒）
+					setAutoAnchorTick(e.data.payload.bpmResult.anchorTick ?? null);
 				} else if (e.data.payload?.error) {
 					setBpmState({ status: "error", error: e.data.payload.error });
 				}
@@ -124,7 +131,7 @@ export const useWaveformAnalyzer = ({
 			},
 			[mc.port1],
 		);
-	}, [audioFile, setPcmDataReady, setBpmState, canvasRef, wsContainerRef]);
+	}, [audioFile, setPcmDataReady, setBpmState, setAutoAnchorTick, canvasRef, wsContainerRef]);
 
 	// 处理窗口大小变化并触发防抖重绘
 	useEffect(() => {

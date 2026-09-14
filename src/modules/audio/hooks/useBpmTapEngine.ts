@@ -2,6 +2,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef, useState } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import {
+	autoAnchorTickAtom,
 	bpmScaleAtom,
 	bpmStateAtom,
 	bpmTapModeAtom,
@@ -111,6 +112,10 @@ export function useBpmTapEngine() {
 						: prevResult.status === "completed"
 							? prevResult.result.anchorTick
 							: 0;
+					if (canUpdateAnchor) {
+						// 记录「自动锚点」供 offset 控件恢复
+						globalStore.set(autoAnchorTickAtom, optimalAnchor);
+					}
 					setBpmState({
 						status: "completed",
 						result: {

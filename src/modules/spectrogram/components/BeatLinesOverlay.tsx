@@ -26,15 +26,13 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 		if (bpmState.status !== "completed" || durationS <= 0) return [];
 
 		const { result } = bpmState;
-		const rawTicks = result.ticks || [];
+		// 单位统一为秒：WASM 分析与打拍路径输出的 anchorTick/ticks 均为秒
+		const ticksInSeconds = result.ticks || [];
 
 		let coreBeats: number[] = [];
 		let intervalS = 0;
 
-		if (rawTicks.length > 0) {
-			const isMs = rawTicks[rawTicks.length - 1] > durationS * 2;
-			const ticksInSeconds = isMs ? rawTicks.map((t) => t / 1000) : rawTicks;
-
+		if (ticksInSeconds.length > 0) {
 			if (ticksInSeconds.length >= 2) {
 				intervalS =
 					(ticksInSeconds[ticksInSeconds.length - 1] - ticksInSeconds[0]) /
@@ -68,8 +66,7 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 			if (effectiveBpm <= 0) return [];
 
 			intervalS = 60 / effectiveBpm;
-			const anchorTick = result.anchorTick ?? 0;
-			const anchorS = anchorTick > 500 ? anchorTick / 1000 : anchorTick;
+			const anchorS = result.anchorTick ?? 0;
 
 			const beats: number[] = [];
 			let t = anchorS;

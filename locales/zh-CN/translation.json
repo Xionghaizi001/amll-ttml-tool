@@ -953,6 +953,8 @@
 			"metronome": "参考节拍器",
 			"metronomeVolume": "音量",
 			"metronomeAccent": "每 4 拍重音",
+			"anchorOffset": "锚点偏移 (ms)",
+			"anchorResetAuto": "恢复自动值",
 			"slidingWindowTip": "只会使用最近 {{windowSize}} 次校准数据计算 BPM",
 			"spectrogramCalibration": "使用频谱图校准",
 			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"
