@@ -52,31 +52,34 @@ export const WaveformComparison: FC = () => {
 	const hoveredBeatRef = useRef<number | null>(null);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	// 已解码/解码中的音频 Blob 引用：幂等守卫，防止 effect 重建时重复发起
+	// 或被 cleanup 误取消（此前 canceled 模式会在 setDecoding 触发重建时
+	// 把自己的解码结果丢掉，造成「一直解码音频…」死锁）
+	const decodedBlobRef = useRef<Blob | null>(null);
 
 	const active =
 		bpmState.status === "completed" && durationMs > 0 && loadedAudio.size > 0;
 
 	// 展开时懒解码：一次性把整条音频聚合为 1ms 粒度峰值并缓存到 atom
 	useEffect(() => {
-		if (!active || pcmPeaks !== null || decoding || decodeError) return;
-		let canceled = false;
-		setDecoding(true);
+		if (!active || loadedAudio.size === 0) return;
+		if (decodedBlobRef.current === loadedAudio) return;
+		decodedBlobRef.current = loadedAudio;
+		setPcmPeaks(null);
 		setDecodeError(false);
+		setDecoding(true);
 		buildPcmPeaks(loadedAudio, audioEngine.ctx)
 			.then((result) => {
-				if (!canceled) setPcmPeaks(result);
+				setPcmPeaks(result);
 			})
 			.catch((err) => {
 				console.error("Waveform PCM decode failed:", err);
-				if (!canceled) setDecodeError(true);
+				setDecodeError(true);
 			})
 			.finally(() => {
-				if (!canceled) setDecoding(false);
+				setDecoding(false);
 			});
-		return () => {
-			canceled = true;
-		};
-	}, [active, loadedAudio, pcmPeaks, decoding, decodeError, setPcmPeaks]);
+	}, [active, loadedAudio, setPcmPeaks]);
 
 	// 绘制循环内读取的高频变化值走 ref（渲染后同步），
 	// BPM/锚点/缩放/峰值数据变化即时生效，无需重建循环
