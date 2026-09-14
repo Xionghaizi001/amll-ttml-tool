@@ -280,7 +280,8 @@ export const BpmPanel: FC = () => {
 						<Callout.Text size="1" style={{ flex: 1 }}>
 							{t(
 								"sidebar.bpm.slidingWindowTip",
-								"只会使用最近 10 次校准数据计算 BPM",
+								"只会使用最近 {{windowSize}} 次校准数据计算 BPM",
+								{ windowSize: tapSettings.windowSize },
 							)}
 						</Callout.Text>
 

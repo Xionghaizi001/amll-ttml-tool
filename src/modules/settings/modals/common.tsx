@@ -4,6 +4,7 @@ import {
 	History24Regular,
 	Keyboard12324Regular,
 	LocalLanguage24Regular,
+	MusicNote2Regular,
 	PaddingLeft24Regular,
 	PaddingRight24Regular,
 	Save24Regular,
@@ -23,7 +24,11 @@ import {
 } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
-import { playbackRateAtom, volumeAtom } from "$/modules/audio/states";
+import {
+	bpmTapSettingsAtom,
+	playbackRateAtom,
+	volumeAtom,
+} from "$/modules/audio/states";
 import { applyDefaultTtmlAuthorMetadata } from "$/modules/project/logic/default-metadata";
 import { GithubIcon } from "$/modules/project/modals/PlatformIcons";
 import {
@@ -49,6 +54,13 @@ import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 
 const languageOptions: readonly string[] = Object.keys(resources);
 const textFieldActionStyle = { width: "min(220px, 100%)" };
+const numberFieldStyle = { width: "80px" };
+
+const clampNumber = (raw: string, min: number, max: number, fallback: number) => {
+	const n = Number.parseFloat(raw);
+	if (Number.isNaN(n)) return fallback;
+	return Math.min(max, Math.max(min, n));
+};
 
 export const SettingsCommonTab = () => {
 	const [layoutMode, setLayoutMode] = useAtom(layoutModeAtom);
@@ -60,6 +72,7 @@ export const SettingsCommonTab = () => {
 	const [smartLastWord, setSmartLastWord] = useAtom(smartLastWordAtom);
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
+	const [bpmTapSettings, setBpmTapSettings] = useAtom(bpmTapSettingsAtom);
 	const [autosaveEnabled, setAutosaveEnabled] = useAtom(autosaveEnabledAtom);
 	const [autosaveInterval, setAutosaveInterval] = useAtom(autosaveIntervalAtom);
 	const [autosaveLimit, setAutosaveLimit] = useAtom(autosaveLimitAtom);
@@ -335,6 +348,160 @@ export const SettingsCommonTab = () => {
 						<Switch
 							checked={smartLastWord}
 							onCheckedChange={setSmartLastWord}
+						/>
+					}
+				/>
+			</SettingsGroup>
+
+			<SettingsGroup title={t("settings.group.bpm", "BPM 测定")}>
+				<SettingsRow
+					icon={<MusicNote2Regular />}
+					title={t("settings.common.bpmTap.ignoreCount", "预热忽略拍数")}
+					description={t(
+						"settings.common.bpmTap.ignoreCountDesc",
+						"开始打拍时先忽略的拍数，对齐 osu! 制谱器默认值",
+					)}
+					action={
+						<TextField.Root
+							type="number"
+							min={1}
+							max={16}
+							style={numberFieldStyle}
+							value={bpmTapSettings.ignoreCount}
+							onChange={(e) =>
+								setBpmTapSettings((s) => ({
+									...s,
+									ignoreCount: clampNumber(e.target.value, 1, 16, s.ignoreCount),
+								}))
+							}
+						/>
+					}
+				/>
+
+				<SettingsRow
+					icon={<MusicNote2Regular />}
+					title={t("settings.common.bpmTap.windowSize", "采样窗口拍数")}
+					description={t(
+						"settings.common.bpmTap.windowSizeDesc",
+						"参与计算的最近拍数，越大越稳定但响应越迟钝",
+					)}
+					action={
+						<TextField.Root
+							type="number"
+							min={8}
+							max={512}
+							style={numberFieldStyle}
+							value={bpmTapSettings.windowSize}
+							onChange={(e) =>
+								setBpmTapSettings((s) => ({
+									...s,
+									windowSize: clampNumber(e.target.value, 8, 512, s.windowSize),
+								}))
+							}
+						/>
+					}
+				/>
+
+				<SettingsRow
+					icon={<MusicNote2Regular />}
+					title={t("settings.common.bpmTap.bpmRange", "BPM 合法范围")}
+					description={t(
+						"settings.common.bpmTap.bpmRangeDesc",
+						"超出范围的结果直接丢弃",
+					)}
+					action={
+						<Flex align="center" gap="2">
+							<Text size="1" color="gray">
+								{t("settings.common.bpmTap.min", "下限")}
+							</Text>
+							<TextField.Root
+								type="number"
+								min={5}
+								style={numberFieldStyle}
+								value={bpmTapSettings.minBpm}
+								onChange={(e) =>
+									setBpmTapSettings((s) => ({
+										...s,
+										minBpm: clampNumber(
+											e.target.value,
+											5,
+											s.maxBpm - 10,
+											s.minBpm,
+										),
+									}))
+								}
+							/>
+							<Text size="1" color="gray">
+								{t("settings.common.bpmTap.max", "上限")}
+							</Text>
+							<TextField.Root
+								type="number"
+								min={30}
+								style={numberFieldStyle}
+								value={bpmTapSettings.maxBpm}
+								onChange={(e) =>
+									setBpmTapSettings((s) => ({
+										...s,
+										maxBpm: clampNumber(
+											e.target.value,
+											s.minBpm + 10,
+											2000,
+											s.maxBpm,
+										),
+									}))
+								}
+							/>
+						</Flex>
+					}
+				/>
+
+				<SettingsRow
+					icon={<MusicNote2Regular />}
+					title={t("settings.common.bpmTap.idleReset", "空闲重置 (秒)")}
+					description={t(
+						"settings.common.bpmTap.idleResetDesc",
+						"停顿超过该时长后，下一次打拍将重新开始",
+					)}
+					action={
+						<TextField.Root
+							type="number"
+							min={0.5}
+							max={10}
+							step={0.5}
+							style={numberFieldStyle}
+							value={bpmTapSettings.idleResetSeconds}
+							onChange={(e) =>
+								setBpmTapSettings((s) => ({
+									...s,
+									idleResetSeconds: clampNumber(
+										e.target.value,
+										0.5,
+										10,
+										s.idleResetSeconds,
+									),
+								}))
+							}
+						/>
+					}
+				/>
+
+				<SettingsRow
+					asLabel
+					icon={<MusicNote2Regular />}
+					title={t("settings.common.bpmTap.normalizeRate", "按倍速归一化")}
+					description={t(
+						"settings.common.bpmTap.normalizeRateDesc",
+						"变速播放打拍时，把结果换算回原曲速度",
+					)}
+					action={
+						<Switch
+							checked={bpmTapSettings.normalizePlaybackRate}
+							onCheckedChange={(checked) =>
+								setBpmTapSettings((s) => ({
+									...s,
+									normalizePlaybackRate: checked,
+								}))
+							}
 						/>
 					}
 				/>
