@@ -919,6 +919,9 @@
 			"tapInstructionPrefix": "Press ",
 			"tapInstructionSuffix": " or click here to the beat",
 			"showBeatLines": "Show beats on spectrogram",
+			"metronome": "Reference Metronome",
+			"metronomeVolume": "Volume",
+			"metronomeAccent": "Accent every 4 beats",
 			"slidingWindowTip": "Only the last {{windowSize}} calibration points are used to calculate BPM",
 			"spectrogramCalibration": "Calibrate with Spectrogram",
 			"clickOnSpectrogramToCalibrate": "Click on spectrogram to calibrate"

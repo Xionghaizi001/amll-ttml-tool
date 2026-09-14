@@ -14,6 +14,7 @@ import {
 	Checkbox,
 	Flex,
 	IconButton,
+	Slider,
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
@@ -21,12 +22,15 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { type FC, useCallback, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "$/components/KeyBinding";
-import { useBpmControl, useBpmTapEngine } from "$/modules/audio/hooks";
+import { useBpmControl, useBpmTapEngine, useMetronome } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
 	bpmStateAtom,
 	bpmTapSettingsAtom,
 	hasSeenTapWindowTipAtom,
+	metronomeAccentEnabledAtom,
+	metronomeEnabledAtom,
+	metronomeVolumeAtom,
 } from "$/modules/audio/states";
 import { isTapWarmupComplete } from "$/modules/audio/utils/bpm-algorithm";
 import { showBeatLinesAtom } from "$/modules/spectrogram/states";
@@ -69,6 +73,17 @@ export const BpmPanel: FC = () => {
 	const engineState = useAtomValue(audioEngineStateAtom);
 	const tapSettings = useAtomValue(bpmTapSettingsAtom);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
+	const [metronomeEnabled, setMetronomeEnabled] = useAtom(metronomeEnabledAtom);
+	const [metronomeVolume, setMetronomeVolume] = useAtom(metronomeVolumeAtom);
+	const [metronomeAccent, setMetronomeAccent] = useAtom(
+		metronomeAccentEnabledAtom,
+	);
+	const metronomeCheckboxId = useId();
+	const metronomeVolumeSliderId = useId();
+	const metronomeAccentCheckboxId = useId();
+
+	// 参考节拍器：面板挂载即生效，开关由 metronomeEnabledAtom 控制
+	useMetronome();
 	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
 		hasSeenTapWindowTipAtom,
 	);
@@ -261,6 +276,62 @@ export const BpmPanel: FC = () => {
 						</label>
 					</Text>
 				</Flex>
+
+				<Flex align="center" gap="2">
+					<Checkbox
+						id={metronomeCheckboxId}
+						checked={metronomeEnabled}
+						disabled={!isCompleted}
+						onCheckedChange={(checked) => setMetronomeEnabled(Boolean(checked))}
+					/>
+					<Text size="2" asChild>
+						<label
+							htmlFor={metronomeCheckboxId}
+							style={{ userSelect: "none", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.metronome", "参考节拍器")}
+						</label>
+					</Text>
+				</Flex>
+
+				{metronomeEnabled && (
+					<Flex direction="column" gap="2" pl="5">
+						<Flex align="center" gap="2">
+							<Text size="1" color="gray" wrap="nowrap">
+								{t("sidebar.bpm.metronomeVolume", "音量")}
+							</Text>
+							<Slider
+								id={metronomeVolumeSliderId}
+								min={0}
+								max={1}
+								step={0.01}
+								value={[metronomeVolume]}
+								onValueChange={(v) => setMetronomeVolume(v[0])}
+								style={{ flex: 1 }}
+							/>
+							<Text size="1" color="gray" wrap="nowrap">
+								{Math.round(metronomeVolume * 100)}%
+							</Text>
+						</Flex>
+						<Flex align="center" gap="2">
+							<Checkbox
+								id={metronomeAccentCheckboxId}
+								checked={metronomeAccent}
+								onCheckedChange={(checked) =>
+									setMetronomeAccent(Boolean(checked))
+								}
+							/>
+							<Text size="2" asChild>
+								<label
+									htmlFor={metronomeAccentCheckboxId}
+									style={{ userSelect: "none", cursor: "pointer" }}
+								>
+									{t("sidebar.bpm.metronomeAccent", "每 4 拍重音")}
+								</label>
+							</Text>
+						</Flex>
+					</Flex>
+				)}
 
 				{!hasSeenTapWindowTip && (isKeyTapMode || isSpectrogramTapMode) && (
 					<Callout.Root

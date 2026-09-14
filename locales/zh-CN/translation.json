@@ -950,6 +950,9 @@
 			"tapInstructionPrefix": "根据节拍按下 ",
 			"tapInstructionSuffix": " 键或点击此处",
 			"showBeatLines": "在频谱图上显示拍子",
+			"metronome": "参考节拍器",
+			"metronomeVolume": "音量",
+			"metronomeAccent": "每 4 拍重音",
 			"slidingWindowTip": "只会使用最近 {{windowSize}} 次校准数据计算 BPM",
 			"spectrogramCalibration": "使用频谱图校准",
 			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"

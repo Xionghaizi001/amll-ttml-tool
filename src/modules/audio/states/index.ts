@@ -49,3 +49,11 @@ export const bpmTapSettingsAtom = atomWithStorage<BpmTapSettings>(
 	"bpmTapSettings",
 	DEFAULT_TAP_SETTINGS,
 );
+
+// 参考节拍器（对齐乐曲拍线：anchorTick + 等间隔，跟随播放倍速）
+export const metronomeEnabledAtom = atomWithStorage("metronomeEnabled", false);
+export const metronomeVolumeAtom = atomWithStorage("metronomeVolume", 0.6);
+export const metronomeAccentEnabledAtom = atomWithStorage(
+	"metronomeAccent",
+	true,
+);

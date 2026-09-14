@@ -4,6 +4,7 @@ export * from "./useBpmControl";
 export * from "./useBpmTapEngine";
 export * from "./useHoverGuide";
 export * from "./useMediaSession";
+export * from "./useMetronome";
 
 export const clampZoom = (z: number) => Math.max(50, Math.min(z, 1000));
 export const clampScroll = (
