@@ -263,12 +263,13 @@ async function analyzeLoop() {
 		}
 
 		if (bpmResult) {
-			const { bpm, anchorTick, confidence, ticks } = bpmResult;
+			const { bpm, baseBpm, anchorTick, confidence, ticks } = bpmResult;
 			self.postMessage({
 				type: "ANALYZE_DONE",
 				payload: {
 					bpmResult: {
 						bpm,
+						baseBpm,
 						anchorTick,
 						confidence,
 						ticks,
