@@ -955,6 +955,8 @@
 			"metronomeAccent": "每 4 拍重音",
 			"anchorOffset": "锚点偏移 (ms)",
 			"anchorResetAuto": "恢复自动值",
+			"manualBpm": "原曲 BPM",
+			"manualBpmTip": "手动输入会覆盖分析/打拍结果，可通过右上角重置按钮恢复",
 			"slidingWindowTip": "只会使用最近 {{windowSize}} 次校准数据计算 BPM",
 			"spectrogramCalibration": "使用频谱图校准",
 			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"

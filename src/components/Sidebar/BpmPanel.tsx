@@ -27,6 +27,7 @@ import { useBpmControl, useBpmTapEngine, useMetronome } from "$/modules/audio/ho
 import {
 	audioEngineStateAtom,
 	autoAnchorTickAtom,
+	bpmScaleAtom,
 	bpmStateAtom,
 	bpmTapSettingsAtom,
 	hasSeenTapWindowTipAtom,
@@ -53,6 +54,7 @@ export const BpmPanel: FC = () => {
 	const showBeatLinesCheckboxId = useId();
 	const {
 		bpmState,
+		originalBpm,
 		currentBpm,
 		followPlaybackRate,
 		setFollowPlaybackRate,
@@ -61,6 +63,7 @@ export const BpmPanel: FC = () => {
 		doubleBpm,
 		resetBpm: rawResetBpm,
 	} = useBpmControl();
+	const setScale = useSetAtom(bpmScaleAtom);
 
 	const {
 		setTapMode,
@@ -104,6 +107,26 @@ export const BpmPanel: FC = () => {
 			result: { ...state.result, anchorTick: next },
 		});
 	}, []);
+
+	// 手动输入 BPM：写回原曲速度（与打拍/分析语义一致），
+	// 同时重置缩放并把 calculationTime 置 0 以触发「重置」按钮
+	const updateBpm = useCallback(
+		(value: number) => {
+			const state = globalStore.get(bpmStateAtom);
+			if (state.status !== "completed" || !Number.isFinite(value)) return;
+			const clamped =
+				Math.round(
+					Math.min(tapSettings.maxBpm, Math.max(tapSettings.minBpm, value)) * 10,
+				) / 10;
+			setScale(1);
+			globalStore.set(bpmStateAtom, {
+				...state,
+				calculationTime: 0,
+				result: { ...state.result, bpm: clamped, baseBpm: clamped },
+			});
+		},
+		[tapSettings, setScale],
+	);
 	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
 		hasSeenTapWindowTipAtom,
 	);
@@ -261,6 +284,75 @@ export const BpmPanel: FC = () => {
 						</Callout.Icon>
 						<Callout.Text>{bpmState.error}</Callout.Text>
 					</Callout.Root>
+				)}
+
+				{isCompleted && originalBpm !== null && (
+					<Tooltip
+						content={t(
+							"sidebar.bpm.manualBpmTip",
+							"手动输入会覆盖分析/打拍结果，可通过右上角重置按钮恢复",
+						)}
+					>
+						<Flex direction="column" gap="2" width="100%">
+							<Text size="1" color="gray" style={{ textAlign: "center" }}>
+								{t("sidebar.bpm.manualBpm", "原曲 BPM")}
+							</Text>
+							<Flex align="center" gap="1" justify="center">
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm - 1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									-1
+								</Button>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm - 0.1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									-.1
+								</Button>
+								<TextField.Root
+									size="1"
+									type="number"
+									min={tapSettings.minBpm}
+									max={tapSettings.maxBpm}
+									step={0.1}
+									value={originalBpm}
+									onChange={(e) => {
+										const v = Number.parseFloat(e.target.value);
+										if (!Number.isNaN(v)) updateBpm(v);
+									}}
+									style={{
+										width: "76px",
+										fontFamily: "var(--default-font-family-mono)",
+									}}
+								/>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm + 0.1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									+.1
+								</Button>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm + 1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									+1
+								</Button>
+							</Flex>
+						</Flex>
+					</Tooltip>
 				)}
 
 				<Flex align="center" gap="2" mt="2">
