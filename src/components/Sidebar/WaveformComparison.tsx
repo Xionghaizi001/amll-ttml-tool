@@ -1,5 +1,5 @@
 import { Flex, Text } from "@radix-ui/themes";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { type FC, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { audioEngine } from "$/modules/audio/audio-engine";
@@ -7,8 +7,10 @@ import {
 	bpmScaleAtom,
 	bpmStateAtom,
 	currentDurationAtom,
-	waveformPeaksAtom,
+	loadedAudioAtom,
+	waveformPcmPeaksAtom,
 } from "$/modules/audio/states";
+import { buildPcmPeaks } from "$/modules/audio/utils/waveform-analysis";
 
 /**
  * 波形对比校准视图（移植自 osu! 制谱器 WaveformComparisonDisplay）。
@@ -17,13 +19,18 @@ import {
  * 若锚点偏移与 BPM 正确，各行波形中的音乐尖峰（鼓点）会连成一条贯穿的竖线。
  * 调整「锚点偏移」时各行切片实时平移，对齐即完成校准。
  *
+ * 数据源：主线程 WebAudio 解码原始音频后按 1ms 粒度聚合的 min/max 峰值
+ * （wasm 解码器的帧级 peaks 约 26ms/列，不足以支撑窗口内的细节显示）。
+ *
  * - 默认跟随播放/暂停位置所在拍；鼠标悬停可按横轴位置预览任意拍（对齐 osu）；
  * - 单击锁定视图（osu 同款交互），再点解锁；
  * - 超出音频范围（前奏之前/结尾之后）的行以低透明度提示。
  */
 
 const ROW_COUNT = 8;
-const ROW_HEIGHT = 20;
+const ROW_HEIGHT = 26;
+const ROW_GAP = 2;
+const ROW_PITCH = ROW_HEIGHT + ROW_GAP;
 const WINDOW_MS = 300;
 const HALF_WINDOW_MS = WINDOW_MS / 2;
 /** 当前拍行（前 4 拍之后的那行，对齐 osu 的 total_waveforms / 2）。 */
@@ -34,25 +41,52 @@ export const WaveformComparison: FC = () => {
 	const bpmState = useAtomValue(bpmStateAtom);
 	const bpmScale = useAtomValue(bpmScaleAtom);
 	const durationMs = useAtomValue(currentDurationAtom);
-	const peaks = useAtomValue(waveformPeaksAtom);
+	const loadedAudio = useAtomValue(loadedAudioAtom);
+	const pcmPeaks = useAtomValue(waveformPcmPeaksAtom);
+	const setPcmPeaks = useSetAtom(waveformPcmPeaksAtom);
 
-	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const [decoding, setDecoding] = useState(false);
+	const [decodeError, setDecodeError] = useState(false);
 	const [locked, setLocked] = useState(false);
 	const lockedBeatRef = useRef(0);
 	const hoveredBeatRef = useRef<number | null>(null);
 
-	// 绘制循环内读取的高频变化值走 ref（渲染后同步），
-	// BPM/锚点/缩放/波形快照变化即时生效，无需重建循环
-	const stateRef = useRef({ bpmState, bpmScale, durationMs, peaks });
-	useEffect(() => {
-		stateRef.current = { bpmState, bpmScale, durationMs, peaks };
-	});
+	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	const active =
-		bpmState.status === "completed" && peaks !== null && durationMs > 0;
+		bpmState.status === "completed" && durationMs > 0 && loadedAudio.size > 0;
+
+	// 展开时懒解码：一次性把整条音频聚合为 1ms 粒度峰值并缓存到 atom
+	useEffect(() => {
+		if (!active || pcmPeaks !== null || decoding || decodeError) return;
+		let canceled = false;
+		setDecoding(true);
+		setDecodeError(false);
+		buildPcmPeaks(loadedAudio, audioEngine.ctx)
+			.then((result) => {
+				if (!canceled) setPcmPeaks(result);
+			})
+			.catch((err) => {
+				console.error("Waveform PCM decode failed:", err);
+				if (!canceled) setDecodeError(true);
+			})
+			.finally(() => {
+				if (!canceled) setDecoding(false);
+			});
+		return () => {
+			canceled = true;
+		};
+	}, [active, loadedAudio, pcmPeaks, decoding, decodeError, setPcmPeaks]);
+
+	// 绘制循环内读取的高频变化值走 ref（渲染后同步），
+	// BPM/锚点/缩放/峰值数据变化即时生效，无需重建循环
+	const stateRef = useRef({ bpmState, bpmScale, pcmPeaks });
+	useEffect(() => {
+		stateRef.current = { bpmState, bpmScale, pcmPeaks };
+	});
 
 	useEffect(() => {
-		if (!active) return;
+		if (!active || pcmPeaks === null) return;
 
 		const canvas = canvasRef.current;
 		if (!canvas) return;
@@ -62,7 +96,7 @@ export const WaveformComparison: FC = () => {
 		let rafId = 0;
 
 		const draw = () => {
-			const { bpmState: state, bpmScale: scale, durationMs: dur, peaks: pk } =
+			const { bpmState: state, bpmScale: scale, pcmPeaks: pp } =
 				stateRef.current;
 			const cssWidth = canvas.clientWidth;
 			const cssHeight = canvas.clientHeight;
@@ -86,7 +120,7 @@ export const WaveformComparison: FC = () => {
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.clearRect(0, 0, cssWidth, cssHeight);
 
-			if (state.status !== "completed" || pk === null || dur <= 0) {
+			if (state.status !== "completed" || pp === null) {
 				rafId = requestAnimationFrame(draw);
 				return;
 			}
@@ -98,11 +132,10 @@ export const WaveformComparison: FC = () => {
 				return;
 			}
 			const anchorMs = (state.result.anchorTick ?? 0) * 1000;
-			const tripletCount = Math.floor(pk.length / 3);
-			const msPerTriplet = dur / tripletCount;
+			const durationLocal = (pp.data.length / 2) * pp.msPerEntry;
 			const halfW = cssWidth / 2;
 			const halfRowH = ROW_HEIGHT / 2;
-			const amplitude = ROW_HEIGHT * 0.42;
+			const amplitude = (ROW_HEIGHT - 3) / 2;
 
 			// 参考拍：锁定 > 悬停 > 播放/暂停位置
 			let centerBeat: number;
@@ -124,8 +157,8 @@ export const WaveformComparison: FC = () => {
 			for (let row = 0; row < ROW_COUNT; row++) {
 				const beatIndex = firstBeatIndex + row;
 				const beatTimeMs = anchorMs + beatIndex * beatLenMs;
-				const rowTop = row * ROW_HEIGHT;
-				const inRange = beatTimeMs >= -HALF_WINDOW_MS && beatTimeMs <= dur;
+				const rowTop = row * ROW_PITCH;
+				const inRange = beatTimeMs >= -HALF_WINDOW_MS && beatTimeMs <= durationLocal;
 
 				if (row === MAIN_ROW_INDEX) {
 					ctx.globalAlpha = 1;
@@ -133,21 +166,27 @@ export const WaveformComparison: FC = () => {
 					ctx.fillRect(0, rowTop, cssWidth, ROW_HEIGHT);
 				}
 
-				// 波形切片：以该拍为中心的 ±150ms
+				// 波形切片：以该拍为中心的 ±150ms，逐毫秒取 min/max 包络
 				const from = beatTimeMs - HALF_WINDOW_MS;
 				const to = beatTimeMs + HALF_WINDOW_MS;
-				const startTriplet = Math.max(0, Math.floor(from / msPerTriplet));
-				const endTriplet = Math.min(tripletCount, Math.ceil(to / msPerTriplet));
+				const startEntry = Math.max(
+					0,
+					Math.floor(from / pp.msPerEntry),
+				);
+				const endEntry = Math.min(
+					pp.data.length / 2,
+					Math.ceil(to / pp.msPerEntry),
+				);
 
 				ctx.globalAlpha = inRange ? 1 : 0.25;
 				ctx.fillStyle = waveColor;
 				ctx.beginPath();
 
 				let first = true;
-				for (let i = startTriplet; i < endTriplet; i++) {
-					const pMs = pk[i * 3] * dur;
-					const x = ((pMs - from) / WINDOW_MS) * cssWidth;
-					const y = rowTop + halfRowH - pk[i * 3 + 2] * amplitude;
+				for (let i = startEntry; i < endEntry; i++) {
+					const entryMs = i * pp.msPerEntry;
+					const x = ((entryMs - from) / WINDOW_MS) * cssWidth;
+					const y = rowTop + halfRowH - pp.data[i * 2 + 1] * amplitude;
 					if (first) {
 						ctx.moveTo(x, y);
 						first = false;
@@ -155,17 +194,17 @@ export const WaveformComparison: FC = () => {
 						ctx.lineTo(x, y);
 					}
 				}
-				for (let i = endTriplet - 1; i >= startTriplet; i--) {
-					const pMs = pk[i * 3] * dur;
-					const x = ((pMs - from) / WINDOW_MS) * cssWidth;
-					ctx.lineTo(x, rowTop + halfRowH - pk[i * 3 + 1] * amplitude);
+				for (let i = endEntry - 1; i >= startEntry; i--) {
+					const entryMs = i * pp.msPerEntry;
+					const x = ((entryMs - from) / WINDOW_MS) * cssWidth;
+					ctx.lineTo(x, rowTop + halfRowH - pp.data[i * 2] * amplitude);
 				}
 				ctx.closePath();
 				ctx.fill();
 
 				// 拍号
 				ctx.fillStyle = textColor;
-				ctx.fillText(String(beatIndex), 4, rowTop + 5);
+				ctx.fillText(String(beatIndex), 4, rowTop + 7);
 			}
 
 			// 参考竖线：贯穿全部行，位于容器中心
@@ -179,16 +218,19 @@ export const WaveformComparison: FC = () => {
 
 		rafId = requestAnimationFrame(draw);
 		return () => cancelAnimationFrame(rafId);
-	}, [active, locked]);
+	}, [active, locked, pcmPeaks]);
 
 	// 对齐 osu：鼠标横轴位置直接映射到全曲拍号
 	const beatAtMouseX = (mouseXRatio: number): number | null => {
 		const st = stateRef.current;
-		if (st.bpmState.status !== "completed" || st.durationMs <= 0) return null;
+		if (st.bpmState.status !== "completed") return null;
 		const beatLenMs = 60000 / (st.bpmState.result.bpm * st.bpmScale || 1);
 		if (!(beatLenMs > 0)) return null;
 		const anchorMs = (st.bpmState.result.anchorTick ?? 0) * 1000;
-		return Math.round((mouseXRatio * st.durationMs - anchorMs) / beatLenMs);
+		const durationLocal =
+			st.pcmPeaks !== null ? (st.pcmPeaks.data.length / 2) * st.pcmPeaks.msPerEntry : 0;
+		if (durationLocal <= 0) return null;
+		return Math.round((mouseXRatio * durationLocal - anchorMs) / beatLenMs);
 	};
 
 	const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -202,10 +244,7 @@ export const WaveformComparison: FC = () => {
 			setLocked(false);
 			return;
 		}
-		lockedBeatRef.current =
-			hoveredBeatRef.current ??
-			beatAtMouseX(0.5) ??
-			0;
+		lockedBeatRef.current = hoveredBeatRef.current ?? beatAtMouseX(0.5) ?? 0;
 		setLocked(true);
 	};
 
@@ -221,6 +260,16 @@ export const WaveformComparison: FC = () => {
 				{locked &&
 					` · ${t("sidebar.bpm.waveformComparisonLocked", "已锁定，再次点击解锁")}`}
 			</Text>
+			{decoding && (
+				<Text size="1" color="gray">
+					{t("sidebar.bpm.waveformComparisonDecoding", "正在解码音频…")}
+				</Text>
+			)}
+			{decodeError && (
+				<Text size="1" color="red">
+					{t("sidebar.bpm.waveformComparisonDecodeError", "音频解码失败")}
+				</Text>
+			)}
 			<canvas
 				ref={canvasRef}
 				onMouseMove={handleMouseMove}
@@ -230,13 +279,14 @@ export const WaveformComparison: FC = () => {
 				}}
 				style={{
 					width: "100%",
-					height: ROW_COUNT * ROW_HEIGHT,
+					height: ROW_COUNT * ROW_PITCH - ROW_GAP,
 					borderRadius: "var(--radius-2)",
 					border: locked
 						? "2px solid var(--red-9)"
 						: "1px solid var(--gray-a5)",
 					cursor: locked ? "default" : "crosshair",
 					display: "block",
+					visibility: pcmPeaks === null ? "hidden" : "visible",
 				}}
 			/>
 		</Flex>

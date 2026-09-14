@@ -62,6 +62,9 @@ export const metronomeAccentEnabledAtom = atomWithStorage(
 // 供 offset 数值控件的「恢复自动值」使用。会话级，不持久化。
 export const autoAnchorTickAtom = atom<number | null>(null);
 
-// 全曲波形快照（renderer worker 的 [progress, min, max] 三元组，
-// progress 为 0-1 归一化时间），供波形对比校准视图切片。会话级。
-export const waveformPeaksAtom = atom<Float32Array | null>(null);
+// 波形对比校准用的高分辨率峰值：主线程 WebAudio 解码后按 1ms 粒度
+// 提取的 [min, max] 交织数组（data.length = 条目数 × 2）。会话级。
+export const waveformPcmPeaksAtom = atom<{
+	data: Float32Array;
+	msPerEntry: number;
+} | null>(null);

@@ -4,7 +4,6 @@ import {
 	autoAnchorTickAtom,
 	bpmStateAtom,
 	pcmDataReadyAtom,
-	waveformPeaksAtom,
 } from "$/modules/audio/states";
 import AnalyzerWorker from "$/modules/ffmpeg/worker/analyzer.worker.ts?worker";
 import RendererWorker from "$/modules/ffmpeg/worker/renderer.worker.ts?worker";
@@ -28,7 +27,6 @@ export const useWaveformAnalyzer = ({
 	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
 	const setBpmState = useSetAtom(bpmStateAtom);
 	const setAutoAnchorTick = useSetAtom(autoAnchorTickAtom);
-	const setWaveformPeaks = useSetAtom(waveformPeaksAtom);
 
 	const analyzerWorkerRef = useRef<Worker | null>(null);
 	const rendererWorkerRef = useRef<Worker | null>(null);
@@ -36,25 +34,14 @@ export const useWaveformAnalyzer = ({
 
 	useEffect(() => {
 		rendererWorkerRef.current = new RendererWorker();
-		// renderer worker 回传波形快照（[progress,min,max] 三元组），
-		// 供波形对比校准视图切片使用
-		rendererWorkerRef.current.onmessage = (e: MessageEvent) => {
-			if (
-				e.data?.type === "PEAKS_SNAPSHOT" &&
-				e.data.payload instanceof Float32Array
-			) {
-				setWaveformPeaks(e.data.payload);
-			}
-		};
 		return () => {
 			rendererWorkerRef.current?.terminate();
 		};
-	}, [setWaveformPeaks]);
+	}, []);
 
 	useEffect(() => {
 		if (!audioFile || audioFile.size === 0) {
 			setBpmState({ status: "idle" });
-			setWaveformPeaks(null);
 			rendererWorkerRef.current?.postMessage({ type: "CLEAR" });
 			return;
 		}
@@ -144,7 +131,7 @@ export const useWaveformAnalyzer = ({
 			},
 			[mc.port1],
 		);
-	}, [audioFile, setPcmDataReady, setBpmState, setAutoAnchorTick, setWaveformPeaks, canvasRef, wsContainerRef]);
+	}, [audioFile, setPcmDataReady, setBpmState, setAutoAnchorTick, canvasRef, wsContainerRef]);
 
 	// 处理窗口大小变化并触发防抖重绘
 	useEffect(() => {

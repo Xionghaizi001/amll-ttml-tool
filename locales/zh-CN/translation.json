@@ -960,6 +960,8 @@
 			"waveformComparison": "波形对比校准",
 			"waveformComparisonHint": "悬停预览任意拍，点击锁定视图；调整锚点偏移，使各行波形尖峰与中线对齐",
 			"waveformComparisonLocked": "已锁定，再次点击解锁",
+			"waveformComparisonDecoding": "正在解码音频…",
+			"waveformComparisonDecodeError": "音频解码失败",
 			"slidingWindowTip": "只会使用最近 {{windowSize}} 次校准数据计算 BPM",
 			"spectrogramCalibration": "使用频谱图校准",
 			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"

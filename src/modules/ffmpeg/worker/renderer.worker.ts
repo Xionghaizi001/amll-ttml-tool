@@ -136,16 +136,6 @@ self.onmessage = (e: MessageEvent) => {
 					}
 				}
 				drawWaveform();
-
-				// 向主线程回传一份波形快照（[progress, min, max] 三元组，
-				// progress 为 0-1 归一化时间），供 BPM 波形对比校准视图切片使用。
-				// worker 自身仍需 peaksBuffer 画主波形，因此复制而非转移。
-				if (peaksCount > 0) {
-					self.postMessage({
-						type: "PEAKS_SNAPSHOT",
-						payload: peaksBuffer.slice(0, peaksCount),
-					});
-				}
 			}
 		};
 	}
