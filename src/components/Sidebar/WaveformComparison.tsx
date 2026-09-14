@@ -28,8 +28,8 @@ import { buildPcmPeaks } from "$/modules/audio/utils/waveform-analysis";
  */
 
 const ROW_COUNT = 8;
-const ROW_HEIGHT = 26;
-const ROW_GAP = 2;
+const ROW_HEIGHT = 30;
+const ROW_GAP = 3;
 const ROW_PITCH = ROW_HEIGHT + ROW_GAP;
 const WINDOW_MS = 300;
 const HALF_WINDOW_MS = WINDOW_MS / 2;
