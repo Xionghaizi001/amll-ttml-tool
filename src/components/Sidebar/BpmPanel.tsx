@@ -20,9 +20,10 @@ import {
 	Tooltip,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { type FC, useCallback, useId, useRef } from "react";
+import { type FC, useCallback, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "$/components/KeyBinding";
+import { WaveformComparison } from "$/components/Sidebar/WaveformComparison";
 import { useBpmControl, useBpmTapEngine, useMetronome } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
@@ -88,6 +89,7 @@ export const BpmPanel: FC = () => {
 	const metronomeVolumeSliderId = useId();
 	const metronomeAccentCheckboxId = useId();
 	const autoAnchorTick = useAtomValue(autoAnchorTickAtom);
+	const [showWaveformComparison, setShowWaveformComparison] = useState(false);
 
 	// 参考节拍器：面板挂载即生效，开关由 metronomeEnabledAtom 控制
 	useMetronome();
@@ -511,6 +513,21 @@ export const BpmPanel: FC = () => {
 								{t("sidebar.bpm.anchorResetAuto", "恢复自动值")}
 							</Button>
 						)}
+					</Flex>
+				)}
+
+				{isCompleted && (
+					<Flex direction="column" gap="2">
+						<Button
+							size="1"
+							variant="soft"
+							color="gray"
+							onClick={() => setShowWaveformComparison((v) => !v)}
+							style={{ alignSelf: "flex-start", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.waveformComparison", "波形对比校准")}
+						</Button>
+						{showWaveformComparison && <WaveformComparison />}
 					</Flex>
 				)}
 

@@ -926,6 +926,9 @@
 			"anchorResetAuto": "Reset to auto",
 			"manualBpm": "Original BPM",
 			"manualBpmTip": "Manual input overrides the analyzed/tapped result; use the reset button to restore",
+			"waveformComparison": "Waveform Comparison",
+			"waveformComparisonHint": "Hover to preview any beat, click to lock the view; adjust the anchor offset so waveform peaks in every row align with the center line",
+			"waveformComparisonLocked": "Locked, click again to unlock",
 			"slidingWindowTip": "Only the last {{windowSize}} calibration points are used to calculate BPM",
 			"spectrogramCalibration": "Calibrate with Spectrogram",
 			"clickOnSpectrogramToCalibrate": "Click on spectrogram to calibrate"
