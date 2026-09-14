@@ -25,8 +25,10 @@ import { useBpmControl, useBpmTapEngine } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
 	bpmStateAtom,
+	bpmTapSettingsAtom,
 	hasSeenTapWindowTipAtom,
 } from "$/modules/audio/states";
+import { isTapWarmupComplete } from "$/modules/audio/utils/bpm-algorithm";
 import { showBeatLinesAtom } from "$/modules/spectrogram/states";
 import { keySyncNextAtom } from "$/states/keybindings";
 import { useKeyBindingAtom } from "$/utils/keybindings";
@@ -65,6 +67,7 @@ export const BpmPanel: FC = () => {
 
 	const setBpmState = useSetAtom(bpmStateAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
+	const tapSettings = useAtomValue(bpmTapSettingsAtom);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
 	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
 		hasSeenTapWindowTipAtom,
@@ -104,7 +107,17 @@ export const BpmPanel: FC = () => {
 	let bpmValueText = "--";
 	let durationText = "--";
 
-	if (bpmState.status === "completed") {
+	// 对齐 osu TapButton：预热期（前 ignoreCount*2 拍）不显示数值，仅显示点占位
+	const isTapWarmup =
+		(isKeyTapMode || isSpectrogramTapMode) &&
+		tapTimes.length > 0 &&
+		!isTapWarmupComplete(tapTimes.length, tapSettings);
+
+	if (isTapWarmup) {
+		bpmValueText = ".".repeat(
+			Math.min(tapTimes.length, tapSettings.ignoreCount * 2),
+		);
+	} else if (bpmState.status === "completed") {
 		bpmValueText = `${currentBpm ?? Math.round(bpmState.result.bpm)}`;
 		durationText = formatCalculationTime(bpmState.calculationTime);
 	} else if (bpmState.status === "analyzing") {

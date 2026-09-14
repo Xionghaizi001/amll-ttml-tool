@@ -2,6 +2,8 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import type { EngineState } from "$/modules/ffmpeg/types.ts";
 import type { BpmAnalysisResult } from "$/modules/ffmpeg/worker/wasm/bpm-analyzer/bpm_analyzer_wasm";
+import { DEFAULT_TAP_SETTINGS } from "$/modules/audio/utils/bpm-algorithm";
+import type { BpmTapSettings } from "$/modules/audio/utils/bpm-algorithm";
 
 export type BpmState =
 	| { status: "idle" }
@@ -40,4 +42,10 @@ export const totalTapCountAtom = atom<number>(0);
 export const hasSeenTapWindowTipAtom = atomWithStorage(
 	"hasSeenTapWindowTip",
 	false,
+);
+
+// 打拍测定参数（算法语义见 bpm-algorithm.ts，默认值源自 osu! 制谱器 TapButton）
+export const bpmTapSettingsAtom = atomWithStorage<BpmTapSettings>(
+	"bpmTapSettings",
+	DEFAULT_TAP_SETTINGS,
 );
