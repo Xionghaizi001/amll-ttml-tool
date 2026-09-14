@@ -30,9 +30,11 @@ export function useMetronome() {
 	const bpmState = useAtomValue(bpmStateAtom);
 	const bpmScale = useAtomValue(bpmScaleAtom);
 
-	// 循环内读取的高频变化值走 ref，避免每拍/每帧重建调度循环
+	// 循环内读取的高频变化值走 ref（渲染后同步），避免每拍/每帧重建调度循环
 	const stateRef = useRef({ bpmState, bpmScale, volume, accentEnabled });
-	stateRef.current = { bpmState, bpmScale, volume, accentEnabled };
+	useEffect(() => {
+		stateRef.current = { bpmState, bpmScale, volume, accentEnabled };
+	});
 
 	useEffect(() => {
 		if (!enabled || !audioPlaying || tapMode !== "off") {
@@ -46,6 +48,8 @@ export function useMetronome() {
 		let lastMusicTime = audioEngine.musicCurrentTime;
 		let nextBeatIndex: number | null = null;
 		let nextBeatTime: number | null = null;
+		// 拍点参数指纹：BPM/锚点/缩放任一变化时重新锚定，让新参数立即生效
+		let paramsKey = "";
 
 		const stopAllScheduled = () => {
 			for (const node of scheduled) {
@@ -104,6 +108,14 @@ export function useMetronome() {
 				return;
 			}
 			const anchor = bpmState.result.anchorTick ?? 0;
+
+			const nextParamsKey = `${bpmState.result.bpm}|${anchor}|${bpmScale}`;
+			if (nextParamsKey !== paramsKey) {
+				paramsKey = nextParamsKey;
+				// 参数变化：丢弃旧锚定，下一帧按新 BPM/锚点重新计算
+				nextBeatIndex = null;
+				nextBeatTime = null;
+			}
 
 			if (nextBeatTime === null || nextBeatIndex === null) {
 				const k = Math.ceil((musicNow - anchor) / beatLength - 1e-9);
