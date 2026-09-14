@@ -36,10 +36,20 @@ export const useWaveformAnalyzer = ({
 
 	useEffect(() => {
 		rendererWorkerRef.current = new RendererWorker();
+		// renderer worker 回传波形快照（[progress,min,max] 三元组），
+		// 供波形对比校准视图切片使用
+		rendererWorkerRef.current.onmessage = (e: MessageEvent) => {
+			if (
+				e.data?.type === "PEAKS_SNAPSHOT" &&
+				e.data.payload instanceof Float32Array
+			) {
+				setWaveformPeaks(e.data.payload);
+			}
+		};
 		return () => {
 			rendererWorkerRef.current?.terminate();
 		};
-	}, []);
+	}, [setWaveformPeaks]);
 
 	useEffect(() => {
 		if (!audioFile || audioFile.size === 0) {
@@ -120,10 +130,6 @@ export const useWaveformAnalyzer = ({
 				});
 				analyzerWorkerRef.current?.terminate();
 				analyzerWorkerRef.current = null;
-			} else if (e.data.type === "PEAKS_SNAPSHOT") {
-				if (e.data.payload instanceof Float32Array) {
-					setWaveformPeaks(e.data.payload);
-				}
 			}
 		};
 
