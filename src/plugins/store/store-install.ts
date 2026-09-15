@@ -22,13 +22,21 @@ export interface StoreArtifactInstallPorts {
 	installFunctionPackage(pkg: unknown): Promise<StoreInstallOutcome>;
 	/** The single theme package install gate (themeService.importThemePackage). */
 	installThemePackage(pkg: unknown): Promise<StoreInstallOutcome>;
+	/** Persists and activates a trusted-js package through the same loader gate. */
+	installTrustedJsPackage?(pkg: unknown): Promise<StoreInstallOutcome>;
 }
 
 export const installStoreArtifact = async (
 	entry: RemotePluginCatalogEntryV0,
 	ports: StoreArtifactInstallPorts,
 ): Promise<StoreInstallOutcome> => {
-	if (entry.channel !== "extism-wasm" && entry.channel !== "theme")
+	if (entry.channel === "trusted-js" && ports.installTrustedJsPackage) {
+		// Trusted-js artifacts are parsed and persisted locally before execution.
+		// The host's installTrustedJsPackage must call parseTrustedJsPackage and
+		// then hand the resulting entry to TrustedJsPluginService.load().
+	} else if (entry.channel === "trusted-js") {
+		return { ok: false, message: "trusted-js installation is unavailable" };
+	} else if (entry.channel !== "extism-wasm" && entry.channel !== "theme")
 		return {
 			ok: false,
 			message: `channel ${entry.channel} is not installed through artifacts`,
@@ -56,13 +64,15 @@ export const installStoreArtifact = async (
 	}
 	const unpacked = unpackPluginContainer(bytes);
 	if (!unpacked.ok) return { ok: false, message: unpacked.message };
-	const expectedKind = entry.channel === "extism-wasm" ? "function" : "theme";
+	const expectedKind = entry.channel === "extism-wasm" ? "function" : entry.channel === "theme" ? "theme" : "trusted-js";
 	if (unpacked.kind !== expectedKind)
 		return {
 			ok: false,
 			message: `artifact is a ${unpacked.kind} package but the catalog entry is ${entry.channel}`,
 		};
-	return unpacked.kind === "function"
+	return unpacked.kind === "trusted-js"
+		? ports.installTrustedJsPackage!(unpacked.pkg)
+		: unpacked.kind === "function"
 		? ports.installFunctionPackage(unpacked.pkg)
 		: ports.installThemePackage(unpacked.pkg);
 };

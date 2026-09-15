@@ -26,7 +26,7 @@ export const PLUGIN_CONTAINER_LIMITS = {
 	maxEntries: 64,
 } as const;
 
-export type PluginContainerKind = "function" | "theme";
+export type PluginContainerKind = "function" | "theme" | "trusted-js";
 
 export type PluginContainerResult =
 	| { ok: true; kind: PluginContainerKind; pkg: unknown }
@@ -135,6 +135,21 @@ const readDescriptor = (bytes: Uint8Array): ManifestDescriptor => {
 		descriptor,
 		manifest: manifest as Record<string, unknown>,
 	};
+};
+
+const assembleTrustedJsPackage = (
+	{ descriptor, manifest }: ManifestDescriptor,
+	files: Map<string, Uint8Array>,
+): PluginContainerResult => {
+	const entry = manifest.entry;
+	if (typeof entry !== "string" || entry.length === 0)
+		return failed("trusted-js manifest is missing an entry file name");
+	const assetPath = `assets/${entry}`;
+	const source = files.get(assetPath);
+	if (source === undefined) return failed(`zip is missing the trusted-js entry ${assetPath}`);
+	const extras = [...files.keys()].filter((name) => name !== "manifest.json" && name !== assetPath);
+	if (extras.length > 0) return failed(`zip contains entries outside the fixed layout: ${extras.join(", ")}`);
+	return { ok: true, kind: "trusted-js", pkg: { ...descriptor, manifest, code: new TextDecoder().decode(source) } };
 };
 
 const assembleFunctionPackage = (
@@ -256,9 +271,9 @@ const unpackZipContainer = (bytes: Uint8Array): PluginContainerResult => {
 		if (error instanceof ContainerEntryError) return failed(error.message);
 		throw error;
 	}
-	return descriptor.kind === "function"
-		? assembleFunctionPackage(descriptor, fileMap)
-		: assembleThemePackage(descriptor, fileMap);
+	if (descriptor.kind === "function" && descriptor.manifest.runtime === "trusted-js")
+		return assembleTrustedJsPackage(descriptor, fileMap);
+	return descriptor.kind === "function" ? assembleFunctionPackage(descriptor, fileMap) : assembleThemePackage(descriptor, fileMap);
 };
 
 const unpackJsonContainer = (bytes: Uint8Array): PluginContainerResult => {

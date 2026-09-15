@@ -1040,6 +1040,17 @@ export const FUNCTION_PLUGIN_PACKAGE_SCHEMA = {
 	additionalProperties: false,
 } satisfies JsonSchema;
 
+export const TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA = {
+	type: "object",
+	required: ["packageVersion", "manifest", "code"],
+	properties: {
+		packageVersion: { const: 0 },
+		manifest: { type: "object" },
+		code: { type: "string", minLength: 1, maxLength: 16 * 1024 * 1024 },
+	},
+	additionalProperties: false,
+} satisfies JsonSchema;
+
 export const REMOTE_PLUGIN_CATALOG_SCHEMA = {
 	type: "object",
 	required: ["catalogVersion", "plugins"],

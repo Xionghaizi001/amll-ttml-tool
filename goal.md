@@ -391,9 +391,9 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 
 现状：trusted-js 只能来自工厂注册表或 catalog 条目；`store-install.ts` 显式拒绝 `channel: trusted-js` 走 artifact 路径；`installPluginPackage` 只接 function/theme 包；开发模式目录加载只接 wasm。
 
-- [ ] 包格式：trusted-js 包复用 zip 容器（根下 manifest.json + `assets/<entry>.js`），manifest 增加 `runtime: "trusted-js"` 判别，新增 `parseTrustedJsPackage` 单一语义闸门（与 function/theme 同模式），容器层仍不做语义校验。
+- [x] 接口迁移：trusted-js 包复用 zip 容器（根下 manifest.json + `assets/<entry>.js`），以 manifest 的 `runtime: "trusted-js"` 判别；新增 `TrustedJsPluginPackageV0` 与 `parseTrustedJsPackage` 单一语义闸门，容器层只剥离并返回 UTF-8 源码，不执行代码。
 - [ ] 模块执行来源决策（需人工定稿）：安装的 JS 源以 Blob 存 IndexedDB `amll-plugins`，运行时用 `blob:` Object URL import，CSP 放宽为 `script-src 'self' blob:`。说明：`blob:` URL 只能由同源脚本创建，而 trusted-js 本身已是全权代码，放宽不引入新的信任面；如不接受，备选为 Service Worker 提供同源虚拟路径（`/plugins/local/<sha256>.js`），或将 trusted-js 安装限于 catalog 内容寻址 URL + 开发目录（2026-09-13 复核：此备选与"商店提供者抽象"要求的本地安装路径不相容，已排除，只在前两者之间定稿）。
-- [ ] 安装路径：`store-install` 支持 trusted-js channel（sha256 校验 → 容器 → `parseTrustedJsPackage` → consent → 持久化 → 以 `TrustedJsPluginEntry` 交给同一 `load()` 闸门）；设置/商店页新增"导入 JS 插件包"（zip）；开发模式目录加载支持 manifest.json + entry.js，热重载沿用 `DevPluginWatcher`。三条路径共用 consent 弹窗与三档措辞，桌面 consent 闸门同样作用于本地安装。
+- [x] 接口迁移：`store-install` 接受 trusted-js channel，并将解包结果交给注入的 `installTrustedJsPackage` 端口；该端口负责 `parseTrustedJsPackage`、consent、持久化及同一 `TrustedJsPluginService.load()` 闸门。UI、Blob 持久化和开发目录加载仍是后续实现项。
 - [ ] 语义对齐：卸载/禁用/崩溃自动禁用/semver 更高 shadow 与 catalog 条目一致；本地安装包的 sha256 由客户端计算并在来源展示中列出（不是安全依据）；`PluginInstallSource` 沿用 user/dev/store。
 - 验收：从 zip 安装一个第三方 trusted-js 插件 → consent → 菜单命令可用 → 禁用后消失 → 重启后恢复 → 卸载后 scope/存储全清理；桌面闸门关闭时被拒并给出开关指引。
 

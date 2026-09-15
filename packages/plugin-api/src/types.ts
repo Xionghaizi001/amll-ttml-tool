@@ -375,6 +375,14 @@ export interface FunctionPluginPackageV0 {
 	wasm: string;
 }
 
+/** Trusted-js package carried by the store zip container. */
+export interface TrustedJsPluginPackageV0 {
+	packageVersion: 0;
+	manifest: FunctionPluginManifest & { runtime: "trusted-js" };
+	/** UTF-8 JavaScript source for manifest.entry. */
+	code: string;
+}
+
 export const REMOTE_PLUGIN_CATALOG_VERSION = 0 as const;
 
 export type RemotePluginChannelV0 = "trusted-js" | "extism-wasm" | "theme";

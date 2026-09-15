@@ -8,5 +8,6 @@ export * from "./permissions";
 export * from "./remote-catalog";
 export * from "./theme-css";
 export * from "./theme-package";
+export * from "./trusted-js-package";
 export * from "./theme-tokens";
 export * from "./types";
