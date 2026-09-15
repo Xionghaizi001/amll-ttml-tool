@@ -14,21 +14,32 @@ import {
 	Checkbox,
 	Flex,
 	IconButton,
+	Slider,
 	Text,
+	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { type FC, useCallback, useId, useRef } from "react";
+import { type FC, useCallback, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "$/components/KeyBinding";
-import { useBpmControl, useBpmTapEngine } from "$/modules/audio/hooks";
+import { WaveformComparison } from "$/components/Sidebar/WaveformComparison";
+import { useBpmControl, useBpmTapEngine, useMetronome } from "$/modules/audio/hooks";
 import {
 	audioEngineStateAtom,
+	autoAnchorTickAtom,
+	bpmScaleAtom,
 	bpmStateAtom,
+	bpmTapSettingsAtom,
 	hasSeenTapWindowTipAtom,
+	metronomeAccentEnabledAtom,
+	metronomeEnabledAtom,
+	metronomeVolumeAtom,
 } from "$/modules/audio/states";
+import { isTapWarmupComplete } from "$/modules/audio/utils/bpm-algorithm";
 import { showBeatLinesAtom } from "$/modules/spectrogram/states";
 import { keySyncNextAtom } from "$/states/keybindings";
+import { globalStore } from "$/states/store";
 import { useKeyBindingAtom } from "$/utils/keybindings";
 
 function formatCalculationTime(timeMs: number): string {
@@ -44,6 +55,7 @@ export const BpmPanel: FC = () => {
 	const showBeatLinesCheckboxId = useId();
 	const {
 		bpmState,
+		originalBpm,
 		currentBpm,
 		followPlaybackRate,
 		setFollowPlaybackRate,
@@ -52,6 +64,7 @@ export const BpmPanel: FC = () => {
 		doubleBpm,
 		resetBpm: rawResetBpm,
 	} = useBpmControl();
+	const setScale = useSetAtom(bpmScaleAtom);
 
 	const {
 		setTapMode,
@@ -65,7 +78,58 @@ export const BpmPanel: FC = () => {
 
 	const setBpmState = useSetAtom(bpmStateAtom);
 	const engineState = useAtomValue(audioEngineStateAtom);
+	const tapSettings = useAtomValue(bpmTapSettingsAtom);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
+	const [metronomeEnabled, setMetronomeEnabled] = useAtom(metronomeEnabledAtom);
+	const [metronomeVolume, setMetronomeVolume] = useAtom(metronomeVolumeAtom);
+	const [metronomeAccent, setMetronomeAccent] = useAtom(
+		metronomeAccentEnabledAtom,
+	);
+	const metronomeCheckboxId = useId();
+	const metronomeVolumeSliderId = useId();
+	const metronomeAccentCheckboxId = useId();
+	const autoAnchorTick = useAtomValue(autoAnchorTickAtom);
+	const [showWaveformComparison, setShowWaveformComparison] = useState(false);
+
+	// 参考节拍器：面板挂载即生效，开关由 metronomeEnabledAtom 控制
+	useMetronome();
+
+	// 锚点偏移控件：直接改写 result.anchorTick（单位秒，控件以毫秒呈现）
+	const anchorMs =
+		bpmState.status === "completed"
+			? Math.round((bpmState.result.anchorTick ?? 0) * 1000)
+			: 0;
+
+	const updateAnchorMs = useCallback((ms: number) => {
+		const state = globalStore.get(bpmStateAtom);
+		if (state.status !== "completed") return;
+		// 允许负值：前奏弱拍可能位于 0 之前，拍线/节拍器按相位取模渲染
+		const next = ms / 1000;
+		globalStore.set(bpmStateAtom, {
+			...state,
+			result: { ...state.result, anchorTick: next },
+		});
+	}, []);
+
+	// 手动输入 BPM：写回原曲速度（与打拍/分析语义一致），
+	// 同时重置缩放并把 calculationTime 置 0 以触发「重置」按钮
+	const updateBpm = useCallback(
+		(value: number) => {
+			const state = globalStore.get(bpmStateAtom);
+			if (state.status !== "completed" || !Number.isFinite(value)) return;
+			const clamped =
+				Math.round(
+					Math.min(tapSettings.maxBpm, Math.max(tapSettings.minBpm, value)) * 10,
+				) / 10;
+			setScale(1);
+			globalStore.set(bpmStateAtom, {
+				...state,
+				calculationTime: 0,
+				result: { ...state.result, bpm: clamped, baseBpm: clamped },
+			});
+		},
+		[tapSettings, setScale],
+	);
 	const [hasSeenTapWindowTip, setHasSeenTapWindowTip] = useAtom(
 		hasSeenTapWindowTipAtom,
 	);
@@ -104,7 +168,17 @@ export const BpmPanel: FC = () => {
 	let bpmValueText = "--";
 	let durationText = "--";
 
-	if (bpmState.status === "completed") {
+	// 对齐 osu TapButton：预热期（前 ignoreCount*2 拍）不显示数值，仅显示点占位
+	const isTapWarmup =
+		(isKeyTapMode || isSpectrogramTapMode) &&
+		tapTimes.length > 0 &&
+		!isTapWarmupComplete(tapTimes.length, tapSettings);
+
+	if (isTapWarmup) {
+		bpmValueText = ".".repeat(
+			Math.min(tapTimes.length, tapSettings.ignoreCount * 2),
+		);
+	} else if (bpmState.status === "completed") {
 		bpmValueText = `${currentBpm ?? Math.round(bpmState.result.bpm)}`;
 		durationText = formatCalculationTime(bpmState.calculationTime);
 	} else if (bpmState.status === "analyzing") {
@@ -215,6 +289,75 @@ export const BpmPanel: FC = () => {
 					</Callout.Root>
 				)}
 
+				{isCompleted && originalBpm !== null && (
+					<Tooltip
+						content={t(
+							"sidebar.bpm.manualBpmTip",
+							"手动输入会覆盖分析/打拍结果，可通过右上角重置按钮恢复",
+						)}
+					>
+						<Flex direction="column" gap="2" width="100%">
+							<Text size="1" color="gray" style={{ textAlign: "center" }}>
+								{t("sidebar.bpm.manualBpm", "原曲 BPM")}
+							</Text>
+							<Flex align="center" gap="1" justify="center">
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm - 1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									-1
+								</Button>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm - 0.1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									-.1
+								</Button>
+								<TextField.Root
+									size="1"
+									type="number"
+									min={tapSettings.minBpm}
+									max={tapSettings.maxBpm}
+									step={0.1}
+									value={originalBpm}
+									onChange={(e) => {
+										const v = Number.parseFloat(e.target.value);
+										if (!Number.isNaN(v)) updateBpm(v);
+									}}
+									style={{
+										width: "76px",
+										fontFamily: "var(--default-font-family-mono)",
+									}}
+								/>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm + 0.1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									+.1
+								</Button>
+								<Button
+									size="1"
+									variant="soft"
+									color="gray"
+									onClick={() => updateBpm(originalBpm + 1)}
+									style={{ fontFamily: "var(--default-font-family-mono)" }}
+								>
+									+1
+								</Button>
+							</Flex>
+						</Flex>
+					</Tooltip>
+				)}
+
 				<Flex align="center" gap="2" mt="2">
 					<Checkbox
 						id={followRateCheckboxId}
@@ -249,6 +392,145 @@ export const BpmPanel: FC = () => {
 					</Text>
 				</Flex>
 
+				<Flex align="center" gap="2">
+					<Checkbox
+						id={metronomeCheckboxId}
+						checked={metronomeEnabled}
+						disabled={!isCompleted}
+						onCheckedChange={(checked) => setMetronomeEnabled(Boolean(checked))}
+					/>
+					<Text size="2" asChild>
+						<label
+							htmlFor={metronomeCheckboxId}
+							style={{ userSelect: "none", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.metronome", "参考节拍器")}
+						</label>
+					</Text>
+				</Flex>
+
+				{metronomeEnabled && (
+					<Flex direction="column" gap="2" pl="5">
+						<Flex align="center" gap="2">
+							<Text size="1" color="gray" wrap="nowrap">
+								{t("sidebar.bpm.metronomeVolume", "音量")}
+							</Text>
+							<Slider
+								id={metronomeVolumeSliderId}
+								min={0}
+								max={1}
+								step={0.01}
+								value={[metronomeVolume]}
+								onValueChange={(v) => setMetronomeVolume(v[0])}
+								style={{ flex: 1 }}
+							/>
+							<Text size="1" color="gray" wrap="nowrap">
+								{Math.round(metronomeVolume * 100)}%
+							</Text>
+						</Flex>
+						<Flex align="center" gap="2">
+							<Checkbox
+								id={metronomeAccentCheckboxId}
+								checked={metronomeAccent}
+								onCheckedChange={(checked) =>
+									setMetronomeAccent(Boolean(checked))
+								}
+							/>
+							<Text size="2" asChild>
+								<label
+									htmlFor={metronomeAccentCheckboxId}
+									style={{ userSelect: "none", cursor: "pointer" }}
+								>
+									{t("sidebar.bpm.metronomeAccent", "每 4 拍重音")}
+								</label>
+							</Text>
+						</Flex>
+					</Flex>
+				)}
+
+				{isCompleted && (
+					<Flex direction="column" gap="2">
+						<Text size="1" color="gray">
+							{t("sidebar.bpm.anchorOffset", "锚点偏移 (ms)")}
+						</Text>
+						<Flex align="center" gap="1" justify="center">
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs - 10)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								-10
+							</Button>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs - 1)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								-1
+							</Button>
+							<TextField.Root
+								size="1"
+								type="number"
+								step={1}
+								value={anchorMs}
+								onChange={(e) => {
+									const v = Number.parseFloat(e.target.value);
+									if (!Number.isNaN(v)) updateAnchorMs(v);
+								}}
+								style={{ width: "84px", fontFamily: "var(--default-font-family-mono)" }}
+							/>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs + 1)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								+1
+							</Button>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => updateAnchorMs(anchorMs + 10)}
+								style={{ fontFamily: "var(--default-font-family-mono)" }}
+							>
+								+10
+							</Button>
+						</Flex>
+						{autoAnchorTick !== null && (
+							<Button
+								size="1"
+								variant="ghost"
+								color="gray"
+								onClick={() => updateAnchorMs(autoAnchorTick * 1000)}
+								style={{ alignSelf: "center", cursor: "pointer" }}
+							>
+								{t("sidebar.bpm.anchorResetAuto", "恢复自动值")}
+							</Button>
+						)}
+					</Flex>
+				)}
+
+				{isCompleted && (
+					<Flex direction="column" gap="2">
+						<Button
+							size="1"
+							variant="soft"
+							color="gray"
+							onClick={() => setShowWaveformComparison((v) => !v)}
+							style={{ alignSelf: "flex-start", cursor: "pointer" }}
+						>
+							{t("sidebar.bpm.waveformComparison", "波形对比校准")}
+						</Button>
+						{showWaveformComparison && <WaveformComparison />}
+					</Flex>
+				)}
+
 				{!hasSeenTapWindowTip && (isKeyTapMode || isSpectrogramTapMode) && (
 					<Callout.Root
 						color="blue"
@@ -267,7 +549,8 @@ export const BpmPanel: FC = () => {
 						<Callout.Text size="1" style={{ flex: 1 }}>
 							{t(
 								"sidebar.bpm.slidingWindowTip",
-								"只会使用最近 10 次校准数据计算 BPM",
+								"只会使用最近 {{windowSize}} 次校准数据计算 BPM",
+								{ windowSize: tapSettings.windowSize },
 							)}
 						</Callout.Text>
 

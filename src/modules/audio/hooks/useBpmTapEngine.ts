@@ -1,53 +1,21 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import {
+	autoAnchorTickAtom,
 	bpmScaleAtom,
 	bpmStateAtom,
 	bpmTapModeAtom,
+	bpmTapSettingsAtom,
 	tapTimesAtom,
 	totalTapCountAtom,
 } from "$/modules/audio/states";
+import {
+	computeOptimalAnchorTick,
+	estimateBpmFromTaps,
+} from "$/modules/audio/utils/bpm-algorithm";
 import { SyncJudgeMode, syncJudgeModeAtom } from "$/modules/settings/states";
-
-export function computeOptimalAnchorTick(
-	tapTimes: number[],
-	bpm: number,
-): number {
-	if (tapTimes.length === 0) return 0;
-	if (tapTimes.length === 1) return tapTimes[0];
-
-	const period = 60 / bpm;
-	if (period <= 0) return tapTimes[0];
-
-	const t0 = tapTimes[0];
-	const stableTaps = tapTimes.length >= 4 ? tapTimes.slice(1) : tapTimes;
-
-	const offsets: number[] = stableTaps.map((t) => {
-		const diff = (t - t0) % period;
-		let normalizedDiff = diff;
-		if (normalizedDiff > period / 2) {
-			normalizedDiff -= period;
-		} else if (normalizedDiff < -period / 2) {
-			normalizedDiff += period;
-		}
-		return normalizedDiff;
-	});
-
-	offsets.sort((a, b) => a - b);
-	const mid = Math.floor(offsets.length / 2);
-	const medianOffset =
-		offsets.length % 2 !== 0
-			? offsets[mid]
-			: (offsets[mid - 1] + offsets[mid]) / 2;
-
-	let optimalAnchor = t0 + medianOffset;
-	while (optimalAnchor < 0) {
-		optimalAnchor += period;
-	}
-
-	return optimalAnchor;
-}
+import { globalStore } from "$/states/store";
 
 export function useBpmTapEngine() {
 	const [tapMode, setTapMode] = useAtom(bpmTapModeAtom);
@@ -56,6 +24,11 @@ export function useBpmTapEngine() {
 	const setBpmState = useSetAtom(bpmStateAtom);
 	const setScale = useSetAtom(bpmScaleAtom);
 	const syncJudgeMode = useAtomValue(syncJudgeModeAtom);
+	const tapSettings = useAtomValue(bpmTapSettingsAtom);
+
+	// 会话倍速快照：同一会话内所有时间戳必须处于同一时间基准，
+	// 中途变速（或从键盘拍切换到频谱拍）会导致窗口内数据混域，必须重置。
+	const sessionRateRef = useRef<number | null>(null);
 
 	const [isHighlighted, setIsHighlighted] = useState(false);
 
@@ -75,9 +48,13 @@ export function useBpmTapEngine() {
 			triggerHighlight();
 
 			let hitTime = 0;
+			// 时间基准：频谱图点击传入的是音乐时间轴（rate=1）；
+			// 键盘打拍采样 ctx 时钟，是真实世界时间，需除以播放倍速归一化。
+			let hitRate = 1;
 			if (typeof customTimeSeconds === "number") {
 				hitTime = customTimeSeconds;
 			} else {
+				hitRate = audioEngine.musicPlayBackRate;
 				hitTime = audioEngine.ctxCurrentTime + audioEngine.ctxOutputLatency;
 				if (hitTime <= 0) {
 					hitTime = performance.now() / 1000;
@@ -95,50 +72,62 @@ export function useBpmTapEngine() {
 				}
 			}
 
+			const settings = tapSettings;
+
 			setTapTimes((prev) => {
 				const now = hitTime;
 				let nextTapTimes: number[];
-				if (prev.length > 0) {
-					const last = prev[prev.length - 1];
-					if (now - last > 2.5) {
-						nextTapTimes = [now];
-						setTotalTapCount(1);
-					} else {
-						nextTapTimes = [...prev, now];
-						setTotalTapCount((c) => c + 1);
-					}
+				if (
+					prev.length > 0 &&
+					sessionRateRef.current !== null &&
+					sessionRateRef.current === hitRate &&
+					now - prev[prev.length - 1] <= settings.idleResetSeconds
+				) {
+					nextTapTimes = [...prev, now];
+					setTotalTapCount((c) => c + 1);
 				} else {
+					// 空闲超时、会话倍速变化或全新会话：重置
 					nextTapTimes = [now];
 					setTotalTapCount(1);
 				}
+				sessionRateRef.current = hitRate;
 
-				const MAX_TAP_HISTORY = 10;
-				if (nextTapTimes.length > MAX_TAP_HISTORY) {
-					nextTapTimes = nextTapTimes.slice(-MAX_TAP_HISTORY);
+				const maxTapHistory = settings.ignoreCount + settings.windowSize;
+				if (nextTapTimes.length > maxTapHistory) {
+					nextTapTimes = nextTapTimes.slice(-maxTapHistory);
 				}
 
-				if (nextTapTimes.length >= 2) {
-					const interval =
-						(nextTapTimes[nextTapTimes.length - 1] - nextTapTimes[0]) /
-						(nextTapTimes.length - 1);
-					if (interval > 0) {
-						const bpm = Math.round(60 / interval);
-						if (bpm >= 20 && bpm <= 400) {
-							const optimalAnchor = computeOptimalAnchorTick(nextTapTimes, bpm);
-							setBpmState({
-								status: "completed",
-								result: {
-									bpm,
-									baseBpm: bpm,
-									anchorTick: optimalAnchor,
-									confidence: 1,
-									ticks: [],
-								},
-								calculationTime: 0,
-							});
-							setScale(1);
-						}
+				const estimate = estimateBpmFromTaps(
+					nextTapTimes,
+					sessionRateRef.current,
+					settings,
+				);
+				if (estimate) {
+					// 锚点必须处于音乐时间轴：键盘打拍采样的是真实时间（rate≠1），
+					// 无法精确换算为音乐时间，此时保留既有锚点（首次则置 0，仅更新 BPM）。
+					const prevResult = globalStore.get(bpmStateAtom);
+					const canUpdateAnchor = sessionRateRef.current === 1;
+					const optimalAnchor = canUpdateAnchor
+						? computeOptimalAnchorTick(nextTapTimes, estimate.bpm)
+						: prevResult.status === "completed"
+							? prevResult.result.anchorTick
+							: 0;
+					if (canUpdateAnchor) {
+						// 记录「自动锚点」供 offset 控件恢复
+						globalStore.set(autoAnchorTickAtom, optimalAnchor);
 					}
+					setBpmState({
+						status: "completed",
+						result: {
+							bpm: estimate.bpm,
+							baseBpm: estimate.bpm,
+							anchorTick: optimalAnchor,
+							confidence: estimate.confidence,
+							ticks: [],
+						},
+						calculationTime: 0,
+					});
+					setScale(1);
 				}
 
 				return nextTapTimes;
@@ -146,6 +135,7 @@ export function useBpmTapEngine() {
 		},
 		[
 			syncJudgeMode,
+			tapSettings,
 			setBpmState,
 			setScale,
 			setTapTimes,
@@ -157,6 +147,7 @@ export function useBpmTapEngine() {
 	const resetTapTimes = useCallback(() => {
 		setTapTimes([]);
 		setTotalTapCount(0);
+		sessionRateRef.current = null;
 	}, [setTapTimes, setTotalTapCount]);
 
 	return {

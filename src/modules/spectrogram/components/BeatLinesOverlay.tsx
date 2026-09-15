@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import { type FC, useContext, useMemo } from "react";
 import {
+	autoAnchorTickAtom,
 	bpmScaleAtom,
 	bpmStateAtom,
 	currentDurationAtom,
@@ -17,6 +18,7 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 	const bpmState = useAtomValue(bpmStateAtom);
 	const scale = useAtomValue(bpmScaleAtom);
 	const currentDurationMs = useAtomValue(currentDurationAtom);
+	const autoAnchorTick = useAtomValue(autoAnchorTickAtom);
 
 	const { zoom, scrollLeft } = useContext(SpectrogramContext);
 
@@ -26,15 +28,22 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 		if (bpmState.status !== "completed" || durationS <= 0) return [];
 
 		const { result } = bpmState;
-		const rawTicks = result.ticks || [];
+
+		// 「锚点偏移」控件改写 result.anchorTick 后，自动分析输出的 ticks
+		// 需按（当前锚点 − 自动锚点）整体平移，拍线才会跟随偏移移动；
+		// 打拍路径（ticks 为空）走等距推算分支，其 anchorS 已含偏移，无需再加。
+		const manualOffset =
+			autoAnchorTick !== null && result.anchorTick != null
+				? result.anchorTick - autoAnchorTick
+				: 0;
+
+		// 单位统一为秒：WASM 分析与打拍路径输出的 anchorTick/ticks 均为秒
+		const ticksInSeconds = (result.ticks || []).map((t) => t + manualOffset);
 
 		let coreBeats: number[] = [];
 		let intervalS = 0;
 
-		if (rawTicks.length > 0) {
-			const isMs = rawTicks[rawTicks.length - 1] > durationS * 2;
-			const ticksInSeconds = isMs ? rawTicks.map((t) => t / 1000) : rawTicks;
-
+		if (ticksInSeconds.length > 0) {
 			if (ticksInSeconds.length >= 2) {
 				intervalS =
 					(ticksInSeconds[ticksInSeconds.length - 1] - ticksInSeconds[0]) /
@@ -68,8 +77,7 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 			if (effectiveBpm <= 0) return [];
 
 			intervalS = 60 / effectiveBpm;
-			const anchorTick = result.anchorTick ?? 0;
-			const anchorS = anchorTick > 500 ? anchorTick / 1000 : anchorTick;
+			const anchorS = result.anchorTick ?? 0;
 
 			const beats: number[] = [];
 			let t = anchorS;
@@ -102,7 +110,7 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 		}
 
 		return beats;
-	}, [bpmState, scale, durationS]);
+	}, [bpmState, scale, durationS, autoAnchorTick]);
 
 	const visibleBeats = useMemo(() => {
 		if (allBeatTimes.length === 0 || zoom <= 0) return [];
