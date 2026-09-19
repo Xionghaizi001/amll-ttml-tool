@@ -3,14 +3,18 @@ import { toast } from "react-toastify";
 import { getHostEnablementContext } from "$/plugins/adapters/enablement-context";
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import {
+	getHostProjectInfo,
 	getHostSelection,
 	pluginDocumentGateway,
 	pluginKvStorage,
+	pluginNetworkPort,
 	subscribeHostDocumentChanges,
+	subscribeHostSelectionChanges,
 } from "$/plugins/adapters/host-services";
 import { registerHostMode } from "$/plugins/adapters/mode-contributions";
 import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
 import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
+import { pluginViewService } from "$/plugins/ui/plugin-view-host";
 import { FACTORY_TRUSTED_JS_PLUGINS } from "./factory-plugins";
 import { trustedJsConsentService } from "./trusted-consent-service";
 import {
@@ -39,6 +43,8 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	documents: pluginDocumentGateway,
 	subscribeDocumentChanges: subscribeHostDocumentChanges,
 	getSelection: getHostSelection,
+	subscribeSelectionChanges: subscribeHostSelectionChanges,
+	getProjectInfo: getHostProjectInfo,
 	showForm: (schema) => declarativeFormService.showForm(schema),
 	notify: ({ level, message, detail, timeoutMs }, { pluginId }) => {
 		toast[level](
@@ -49,6 +55,8 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 		);
 	},
 	kv: pluginKvStorage,
+	network: pluginNetworkPort,
+	views: pluginViewService,
 	getEnablementContext: getHostEnablementContext,
 	registerMode: registerHostMode,
 };

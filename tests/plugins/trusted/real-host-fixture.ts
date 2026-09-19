@@ -1,14 +1,19 @@
 import type {
 	FormResultV0,
 	FormSchemaV0,
+	HttpRequestV0,
+	HttpResponseV0,
 	JsonValue,
 	NotifyParams,
 	PluginSelectionV0,
 } from "@amll-ttml-tool/plugin-api";
+import type { TrustedJsProjectInfoV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { CommandRegistry } from "$/kernel/commands";
 import { EditorDocumentService } from "$/kernel/editor";
 import { ExtensionRegistry } from "$/kernel/extensions";
 import { PluginDocumentGateway } from "$/plugins/adapters/plugin-document";
+import { createPluginNetworkPort } from "$/plugins/adapters/plugin-network";
+import { PluginViewService } from "$/plugins/ui/plugin-view-service";
 import {
 	createTrustedJsHost,
 	type TrustedJsHostPorts,
@@ -60,6 +65,12 @@ export interface RealTrustedHostOptions {
 	document?: TTMLLyric;
 	selection?: PluginSelectionV0;
 	onShowForm?: (schema: FormSchemaV0) => FormResultV0 | Promise<FormResultV0>;
+	/** Scripted network transport; absent = transport error (`network-unavailable`). */
+	onRequest?: (
+		request: HttpRequestV0,
+	) => HttpResponseV0 | Promise<HttpResponseV0>;
+	offline?: boolean;
+	project?: TrustedJsProjectInfoV0;
 	ports?: Partial<TrustedJsHostPorts>;
 }
 
@@ -87,6 +98,10 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		lineIds: [],
 		wordIds: [],
 	};
+	const selectionListeners = new Set<(selection: PluginSelectionV0) => void>();
+	let offline = options.offline ?? false;
+	const requests: HttpRequestV0[] = [];
+	const views = new PluginViewService(extensions.contributions);
 	let seedSequence = 0;
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
@@ -101,6 +116,12 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 				}),
 			),
 		getSelection: () => selection,
+		subscribeSelectionChanges: (listener) => {
+			selectionListeners.add(listener);
+			return () => selectionListeners.delete(listener);
+		},
+		getProjectInfo: () =>
+			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
 		showForm: async (schema) => {
 			shownForms.push(schema);
 			return (await options.onShowForm?.(schema)) ?? { submitted: false };
@@ -117,6 +138,23 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 				kv.set(pluginId, namespace);
 			},
 		},
+		network: createPluginNetworkPort({
+			isOffline: () => offline,
+			transport: async (request) => {
+				requests.push(request);
+				if (options.onRequest === undefined)
+					throw new Error("no transport scripted");
+				const response = await options.onRequest(request);
+				return {
+					ok: response.ok,
+					status: response.status,
+					statusText: response.statusText,
+					headers: Object.entries(response.headers),
+					text: async () => response.body,
+				};
+			},
+		}),
+		views,
 		getEnablementContext: () => ({
 			hasLineSelection: selection.lineIds.length > 0,
 			hasWordSelection: selection.wordIds.length > 0,
@@ -149,8 +187,14 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		notifications,
 		shownForms,
 		kv,
+		requests,
+		views,
+		setOffline: (next: boolean) => {
+			offline = next;
+		},
 		setSelection: (next: PluginSelectionV0) => {
 			selection = next;
+			for (const listener of [...selectionListeners]) listener(next);
 		},
 	};
 };

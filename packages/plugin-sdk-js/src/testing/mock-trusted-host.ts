@@ -2,6 +2,8 @@ import type {
 	DocumentOpV0,
 	FormResultV0,
 	FormSchemaV0,
+	HttpRequestV0,
+	HttpResponseV0,
 	JsonValue,
 	MenuItemContribution,
 	MenuLocation,
@@ -12,6 +14,7 @@ import type {
 } from "@amll-ttml-tool/plugin-api";
 import {
 	applyDocumentOpsV0,
+	parseHttpRequest,
 	TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
 } from "@amll-ttml-tool/plugin-api";
 import type {
@@ -22,6 +25,7 @@ import type {
 	TrustedJsFormatProviderV0,
 	TrustedJsHostV0,
 	TrustedJsModeV0,
+	TrustedJsProjectInfoV0,
 	TrustedJsTrustedViewV0,
 } from "../host";
 import { TRUSTED_JS_SDK_VERSION } from "../host";
@@ -30,8 +34,15 @@ export interface MockTrustedJsHostOptions {
 	pluginId: string;
 	document?: PluginDocumentV0;
 	selection?: PluginSelectionV0;
+	project?: TrustedJsProjectInfoV0;
 	onShowForm?: (schema: FormSchemaV0) => FormResultV0 | Promise<FormResultV0>;
 	onNotify?: (params: NotifyParams) => void;
+	/** Scripted transport for `network.request`; absent = every request fails as unavailable. */
+	onRequest?: (
+		request: HttpRequestV0,
+	) => HttpResponseV0 | Promise<HttpResponseV0>;
+	/** Starts the host with the offline switch on. */
+	offline?: boolean;
 }
 
 /** One committed `applyEdit` call, for asserting single-transaction behavior. */
@@ -109,6 +120,8 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 	readonly notifications: NotifyParams[] = [];
 	readonly shownForms: FormSchemaV0[] = [];
 	readonly edits: MockTrustedJsEditRecord[] = [];
+	/** Every request that passed validation, in order (offline ones included). */
+	readonly requests: HttpRequestV0[] = [];
 
 	private snapshot: PluginDocumentV0;
 	private selectionState: PluginSelectionV0;
@@ -131,6 +144,12 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		"Trusted view",
 	);
 	private readonly kvStore = new Map<string, JsonValue>();
+	private readonly selectionListeners = new Set<
+		(selection: PluginSelectionV0) => void
+	>();
+	private readonly openViewIds = new Set<string>();
+	private projectInfo: TrustedJsProjectInfoV0;
+	private offlineState: boolean;
 	private idSequence = 0;
 
 	constructor(private readonly options: MockTrustedJsHostOptions) {
@@ -139,6 +158,10 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.selectionState = clone(
 			options.selection ?? { lineIds: [], wordIds: [] },
 		);
+		this.projectInfo = clone(
+			options.project ?? { projectId: "mock-project", fileName: "lyric.ttml" },
+		);
+		this.offlineState = options.offline ?? false;
 	}
 
 	private requireOwnNamespace(id: string, what: string): void {
@@ -166,6 +189,14 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 
 	readonly selection: TrustedJsHostV0["selection"] = {
 		get: () => clone(this.selectionState),
+		onChanged: (listener) => {
+			this.selectionListeners.add(listener);
+			return { dispose: () => this.selectionListeners.delete(listener) };
+		},
+	};
+
+	readonly project: TrustedJsHostV0["project"] = {
+		getInfo: () => clone(this.projectInfo),
 	};
 
 	readonly commands: TrustedJsHostV0["commands"] = {
@@ -215,6 +246,18 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 			this.notifications.push(clone(params));
 			this.options.onNotify?.(params);
 		},
+		openView: (viewId) => {
+			this.requireOwnNamespace(viewId, "view");
+			const view = this.viewRegistry.get(viewId);
+			if (view === undefined || view.kind !== "dialog-view")
+				throw new Error(
+					`Plugin ${this.pluginId} has no dialog-view registered as ${viewId}`,
+				);
+			this.openViewIds.add(viewId);
+		},
+		closeView: (viewId) => {
+			this.openViewIds.delete(viewId);
+		},
 	};
 
 	readonly storage: TrustedJsHostV0["storage"] = {
@@ -227,6 +270,54 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 				this.kvStore.delete(key);
 			},
 			keys: async () => [...this.kvStore.keys()].sort(),
+		},
+	};
+
+	readonly network: TrustedJsHostV0["network"] = {
+		isOffline: () => this.offlineState,
+		request: async (request) => {
+			const parsed = parseHttpRequest(request);
+			if (!parsed.ok)
+				return {
+					ok: false,
+					error: {
+						code: "invalid-params",
+						message: parsed.issues
+							.map((issue) => `${issue.path || "/"}: ${issue.message}`)
+							.join("; "),
+					},
+				};
+			this.requests.push(clone(parsed.value));
+			if (this.offlineState)
+				return {
+					ok: false,
+					error: {
+						code: "network-unavailable",
+						message: "the host offline switch is on",
+					},
+				};
+			if (this.options.onRequest === undefined)
+				return {
+					ok: false,
+					error: {
+						code: "network-unavailable",
+						message: "no transport is scripted for this mock host",
+					},
+				};
+			try {
+				return {
+					ok: true,
+					value: clone(await this.options.onRequest(parsed.value)),
+				};
+			} catch (error) {
+				return {
+					ok: false,
+					error: {
+						code: "network-unavailable",
+						message: String(error instanceof Error ? error.message : error),
+					},
+				};
+			}
 		},
 	};
 
@@ -247,7 +338,15 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 
 	readonly views: TrustedJsHostV0["views"] = {
 		registerMode: (input) => this.modeRegistry.add(input.modeId, input),
-		registerView: (input) => this.viewRegistry.add(input.id, input),
+		registerView: (input) => {
+			const registration = this.viewRegistry.add(input.id, input);
+			return {
+				dispose: () => {
+					registration.dispose();
+					this.openViewIds.delete(input.id);
+				},
+			};
+		},
 	};
 
 	// ---- test-side surface -------------------------------------------------
@@ -285,12 +384,28 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		return this.viewRegistry.values();
 	}
 
+	/** Ids of dialog views currently open through `ui.openView`. */
+	getOpenViewIds(): string[] {
+		return [...this.openViewIds].sort();
+	}
+
 	getRevision(): number {
 		return this.snapshot.revision;
 	}
 
 	setSelection(selection: PluginSelectionV0): void {
 		this.selectionState = clone(selection);
+		for (const listener of [...this.selectionListeners])
+			listener(clone(this.selectionState));
+	}
+
+	setProjectInfo(info: TrustedJsProjectInfoV0): void {
+		this.projectInfo = clone(info);
+	}
+
+	/** Flips the host offline switch; requests fail fast while it is on. */
+	setOffline(offline: boolean): void {
+		this.offlineState = offline;
 	}
 
 	/** Reverts the last committed edit as one record (host undo semantics). */
@@ -316,7 +431,9 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.formatRegistry.clear();
 		this.modeRegistry.clear();
 		this.viewRegistry.clear();
+		this.openViewIds.clear();
 		this.changeListeners.clear();
+		this.selectionListeners.clear();
 	}
 
 	// ---- internals ---------------------------------------------------------

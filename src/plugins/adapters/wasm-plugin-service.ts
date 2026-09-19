@@ -14,6 +14,7 @@ import type {
 import {
 	FORM_ROUNDS_PER_INVOCATION_LIMIT_V0,
 	FORMAT_CONVERSION_TEXT_LIMIT_V0,
+	EXTISM_WASM_HOST_CAPABILITIES,
 	negotiateCapabilities,
 	parseCommandOutcome,
 	parseFormatConversionResult,
@@ -97,10 +98,7 @@ export interface WasmPluginServicePorts {
 		executeCommand: (commandId: string, args?: JsonValue) => Promise<unknown>,
 	): void;
 	subscribeDocumentEvents?(
-		listener: (
-			event: PluginEventV0,
-			meta: { sourcePluginId?: string },
-		) => void,
+		listener: (event: PluginEventV0, meta: { sourcePluginId?: string }) => void,
 	): () => void;
 	locale?: string;
 	hostVersion?: string;
@@ -233,7 +231,10 @@ export class WasmPluginService {
 			throw new Error(
 				`Plugin ${manifest.id} requires api version ${manifest.apiVersion}, host supports ${PLUGIN_API_VERSION}`,
 			);
-		const negotiation = negotiateCapabilities(manifest.capabilities);
+		const negotiation = negotiateCapabilities(
+			manifest.capabilities,
+			EXTISM_WASM_HOST_CAPABILITIES,
+		);
 		const existing = this.instances.get(manifest.id);
 		if (existing) await this.deactivate(existing);
 		const data: InstalledPluginData = {
@@ -295,6 +296,7 @@ export class WasmPluginService {
 		instance.data.wasm = wasm.slice();
 		instance.data.grantedCapabilities = negotiateCapabilities(
 			manifest.capabilities,
+			EXTISM_WASM_HOST_CAPABILITIES,
 		).granted;
 		instance.consecutiveCrashes = 0;
 		instance.lastError = undefined;
@@ -627,7 +629,9 @@ export class WasmPluginService {
 			let context = await this.buildContext(instance);
 			let turn = await runtime.runTurn(
 				PLUGIN_EXPORTS.executeCommand,
-				JSON.stringify(args === undefined ? { commandId } : { commandId, args }),
+				JSON.stringify(
+					args === undefined ? { commandId } : { commandId, args },
+				),
 				context,
 				{ limits: this.ports.limits, timeoutMs: this.ports.turnTimeoutMs },
 			);
@@ -794,8 +798,7 @@ export class WasmPluginService {
 				throw new PluginInvocationAborted(result.error.message);
 			}
 		}
-		if (effects.storage)
-			await this.ports.kv.apply(pluginId, effects.storage);
+		if (effects.storage) await this.ports.kv.apply(pluginId, effects.storage);
 		for (const notification of effects.notifications)
 			this.ports.notify(notification, { pluginId });
 	}
@@ -840,8 +843,7 @@ export class WasmPluginService {
 			instance.documentEventScheduled = false;
 			const pending = instance.pendingDocumentEvent;
 			instance.pendingDocumentEvent = null;
-			if (!pending || instance.status !== "active" || !instance.runtime)
-				return;
+			if (!pending || instance.status !== "active" || !instance.runtime) return;
 			try {
 				const context = await this.buildContext(instance);
 				const turn = await instance.runtime.runTurn(

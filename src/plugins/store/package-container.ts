@@ -12,6 +12,12 @@ import { unzipSync } from "fflate";
  * binary payloads) plus `assets/<name>` binary entries. The entry allowlist
  * is derived from the manifest, expanded sizes are capped before inflation,
  * and duplicate or path-escaping entries reject the whole container.
+ *
+ * Three package kinds share the layout, told apart by the manifest alone:
+ * theme (`kind: theme`), extism-wasm function (`kind: function`, entry is
+ * the wasm module) and trusted-js function (`kind: function` +
+ * `runtime: "trusted-js"`, entry is the JS module returned as UTF-8 source;
+ * never evaluated here).
  */
 
 export const PLUGIN_CONTAINER_LIMITS = {
@@ -146,10 +152,25 @@ const assembleTrustedJsPackage = (
 		return failed("trusted-js manifest is missing an entry file name");
 	const assetPath = `assets/${entry}`;
 	const source = files.get(assetPath);
-	if (source === undefined) return failed(`zip is missing the trusted-js entry ${assetPath}`);
-	const extras = [...files.keys()].filter((name) => name !== "manifest.json" && name !== assetPath);
-	if (extras.length > 0) return failed(`zip contains entries outside the fixed layout: ${extras.join(", ")}`);
-	return { ok: true, kind: "trusted-js", pkg: { ...descriptor, manifest, code: new TextDecoder().decode(source) } };
+	if (source === undefined)
+		return failed(`zip is missing the trusted-js entry ${assetPath}`);
+	const extras = [...files.keys()].filter(
+		(name) => name !== "manifest.json" && name !== assetPath,
+	);
+	if (extras.length > 0)
+		return failed(
+			`zip contains entries outside the fixed layout: ${extras.join(", ")}`,
+		);
+	try {
+		const code = new TextDecoder("utf-8", { fatal: true }).decode(source);
+		return {
+			ok: true,
+			kind: "trusted-js",
+			pkg: { ...descriptor, manifest, code },
+		};
+	} catch {
+		return failed("trusted-js entry is not valid UTF-8");
+	}
 };
 
 const assembleFunctionPackage = (
@@ -271,9 +292,14 @@ const unpackZipContainer = (bytes: Uint8Array): PluginContainerResult => {
 		if (error instanceof ContainerEntryError) return failed(error.message);
 		throw error;
 	}
-	if (descriptor.kind === "function" && descriptor.manifest.runtime === "trusted-js")
+	if (
+		descriptor.kind === "function" &&
+		descriptor.manifest.runtime === "trusted-js"
+	)
 		return assembleTrustedJsPackage(descriptor, fileMap);
-	return descriptor.kind === "function" ? assembleFunctionPackage(descriptor, fileMap) : assembleThemePackage(descriptor, fileMap);
+	return descriptor.kind === "function"
+		? assembleFunctionPackage(descriptor, fileMap)
+		: assembleThemePackage(descriptor, fileMap);
 };
 
 const unpackJsonContainer = (bytes: Uint8Array): PluginContainerResult => {
@@ -296,14 +322,21 @@ const unpackJsonContainer = (bytes: Uint8Array): PluginContainerResult => {
 		return failed(
 			`manifest kind must be "function" or "theme", got ${JSON.stringify(kind)}`,
 		);
-	return { ok: true, kind, pkg: parsed };
+	// Same discriminator as the zip path: a function manifest declaring the
+	// trusted-js runtime is a trusted-js package (`code`), never a wasm one.
+	const runtime = (manifest as Record<string, unknown>).runtime;
+	return {
+		ok: true,
+		kind: kind === "function" && runtime === "trusted-js" ? "trusted-js" : kind,
+		pkg: parsed,
+	};
 };
 
 /**
  * Peels a plugin artifact container (zip or JSON, decided by magic bytes)
  * into the package object expected by the semantic parse gates. Never
  * validates package semantics — callers must still run the result through
- * parseFunctionPluginPackage / parseThemePackage.
+ * parseFunctionPluginPackage / parseTrustedJsPackage / parseThemePackage.
  */
 export const unpackPluginContainer = (
 	bytes: Uint8Array,

@@ -45,8 +45,9 @@ src/plugins/ui/       插件管理、菜单、表单等宿主 UI
 | 功能插件 | `extism-wasm` | 独立 Worker 中的不受信任 WASM | 支持 |
 | 主题插件 | `none` | 声明式 token 与受限 CSS，不执行代码 | 支持 |
 
-`trusted-js` 只作为未来 manifest 能力保留。MVP 拒绝普通第三方插件使用它；受信任 React view 只能由
-`builtin` 插件注册。
+`trusted-js` 自 2026-08-27 信任模型再校准起对第三方开放（诚实 consent + 来源展示，桌面端默认关闭）。其 manifest
+`runtime: "trusted-js"` 的入口必须是 `.js`/`.mjs` 模块；载入后为应用全权，可注册受信任 React view、模式与格式 provider，
+宿主 API 由 `@amll-ttml-tool/plugin-sdk-js` 的 `TrustedJsHostV0` 定义。
 
 阶段 4 已落地 owner-scoped command/contribution registry：第三方 manifest 目前只映射命令、菜单、
 纯文本通知和声明式表单；toolbar/sidebar 与 React view 对普通第三方保持关闭。内置

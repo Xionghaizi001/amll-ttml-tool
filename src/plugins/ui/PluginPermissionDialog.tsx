@@ -5,33 +5,39 @@ import { useCallback, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { pluginPermissionService } from "./plugin-install-service";
 
-const CAPABILITY_DESCRIPTIONS: Record<string, { key: string; fallback: string }> =
-	{
-		"lyrics.core": {
-			key: "plugins.capability.lyricsCore",
-			fallback: "读取并修改歌词文档（修改可撤销）",
-		},
-		"lyrics.ruby": {
-			key: "plugins.capability.lyricsRuby",
-			fallback: "读取并修改注音（Ruby）分段",
-		},
-		"lyrics.format": {
-			key: "plugins.capability.lyricsFormat",
-			fallback: "提供歌词格式的导入/导出转换",
-		},
-		"ui.notify": {
-			key: "plugins.capability.uiNotify",
-			fallback: "显示纯文本通知",
-		},
-		"ui.form": {
-			key: "plugins.capability.uiForm",
-			fallback: "打开声明式表单对话框",
-		},
-		"storage.kv": {
-			key: "plugins.capability.storageKv",
-			fallback: "使用按插件隔离的键值存储",
-		},
-	};
+const CAPABILITY_DESCRIPTIONS: Record<
+	string,
+	{ key: string; fallback: string }
+> = {
+	"lyrics.core": {
+		key: "plugins.capability.lyricsCore",
+		fallback: "读取并修改歌词文档（修改可撤销）",
+	},
+	"lyrics.ruby": {
+		key: "plugins.capability.lyricsRuby",
+		fallback: "读取并修改注音（Ruby）分段",
+	},
+	"lyrics.format": {
+		key: "plugins.capability.lyricsFormat",
+		fallback: "提供歌词格式的导入/导出转换",
+	},
+	"ui.notify": {
+		key: "plugins.capability.uiNotify",
+		fallback: "显示纯文本通知",
+	},
+	"ui.form": {
+		key: "plugins.capability.uiForm",
+		fallback: "打开声明式表单对话框",
+	},
+	"storage.kv": {
+		key: "plugins.capability.storageKv",
+		fallback: "使用按插件隔离的键值存储",
+	},
+	"network.http": {
+		key: "plugins.capability.networkHttp",
+		fallback: "以匿名身份发起 HTTPS 请求（不携带你的登录凭据，受离线模式约束）",
+	},
+};
 
 const describeCapability = (
 	capability: Capability,
@@ -92,9 +98,7 @@ export const PluginPermissionDialog = () => {
 					<Text size="1" color="gray">
 						{manifest.id}
 					</Text>
-					{manifest.description && (
-						<Text size="2">{manifest.description}</Text>
-					)}
+					{manifest.description && <Text size="2">{manifest.description}</Text>}
 					<Flex direction="column" gap="1" mt="2">
 						<Text size="2" weight="bold">
 							{t("plugins.permission.capabilities", "请求的能力")}

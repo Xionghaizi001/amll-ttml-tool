@@ -13,7 +13,7 @@
 | 功能插件 | `function` | `builtin` 或 `extism-wasm` | 命令、歌词处理、通知、表单、隔离存储 |
 | 主题插件 | `theme` | `none` | 声明式视觉 token 和受限 CSS |
 
-`trusted-js` 仅保留在类型联合中，MVP 的 manifest 校验会拒绝它。普通第三方插件不能注入 React、HTML、DOM、网络、文件系统、Tauri、音频 PCM 或频谱数据。
+`trusted-js` 是第三档运行方式（2026-08-27 信任模型再校准后开放）：manifest `runtime: "trusted-js"` 的入口必须是 `.js`/`.mjs` 模块，经 consent + 来源展示后以应用全权运行，宿主 API 见 `@amll-ttml-tool/plugin-sdk-js`。普通 WASM 第三方插件不能注入 React、HTML、DOM、网络、文件系统、Tauri、音频 PCM 或频谱数据。
 
 当前已经可以直接复用的部分：
 
@@ -25,6 +25,25 @@
 命令 registry、contribution 菜单渲染、声明式表单宿主和 owner-scoped 卸载清理已经接入；
 `builtin.time-shift` 是首个完整示例。Worker/Extism 权限执行、隔离 KV 和插件管理 UI 仍在后续阶段接入。
 不要把“协议中有类型”误解为“宿主已经开放了所有运行入口”。
+
+### 2026-09-19：内置功能迁移使用的 trusted-js 接口
+
+本轮先适配接口，不复制源码到独立仓库；完整业务迁移清单见 `goal.md` 的本轮接口适配记录。
+
+| 需求 | SDK 入口 | 生命周期/约束 |
+| --- | --- | --- |
+| 项目身份与当前保存名 | `host.project.getInfo()` | 只读，不暴露宿主 atom |
+| 行/词选择变化 | `host.selection.get/onChanged` | 返回 disposable；卸载时清理 |
+| 元数据、Ruby、分词写回 | `host.document.readSnapshot/applyEdit` | DocumentOpV0 批次为单事务；跨 await 使用 expectedRevision |
+| React 工具对话框 | `host.views.registerView({ kind: "dialog-view", ... })` + `host.ui.openView/closeView` | id 属于插件命名空间且实际 owner 匹配；贡献销毁即关闭 |
+| 可选设置页 | `host.views.registerView({ kind: "settings-view", ... })` | 自动出现在宿主设置标签中；不取代权限/恢复入口 |
+| 匿名 HTTP | `host.network.request/isOffline` | HTTPS 或本机 HTTP；无凭据、无重定向；超时/卸载取消 |
+
+HTTP 请求体最多 1 MiB（UTF-8），响应流最多 8 MiB；非 2xx HTTP 状态仍返回成功的传输结果，其 `value.ok` 为 false。离线和传输错误返回 `network-unavailable`，超限响应返回 `payload-too-large`。设置中的插件网络开关只控制经此端口发起的新请求，不能阻止拥有应用全权的 trusted-js 自行访问网络，也不覆盖未迁移的宿主服务。WASM 当前不支持 `network.http`，会在能力协商时拒绝。
+
+`MockTrustedJsHost` 提供项目、选择、视图和脚本化网络端口；真实宿主测试另验证卸载和传输取消。已有 `builtin.time-shift` 保持 SDK-only。元数据/Ruby/分词等原 UI 尚未转换为独立插件，不能据此假设禁用某个插件已经移除这些旧入口。
+
+trusted-js 包的 zip/JSON 解包均返回 `kind: "trusted-js"`；商店管线校验摘要、包语义和目录身份后交给安装端口。真实宿主尚未实现本地 JS 持久化/执行端口；无端口时拒绝安装，不绕过 consent 或改用 eval。工厂版和现有同源 catalog 模块仍走既有加载器。
 
 ## 2. 安装和导入
 

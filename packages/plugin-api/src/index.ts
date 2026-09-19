@@ -3,6 +3,7 @@ export * from "./document-ops";
 export * from "./enablement";
 export * from "./function-package";
 export * from "./manifest";
+export * from "./network";
 export * from "./parsers";
 export * from "./permissions";
 export * from "./remote-catalog";

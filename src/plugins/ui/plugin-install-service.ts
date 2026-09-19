@@ -4,6 +4,7 @@ import type {
 } from "@amll-ttml-tool/plugin-api";
 import {
 	decodeFunctionPluginWasm,
+	EXTISM_WASM_HOST_CAPABILITIES,
 	negotiateCapabilities,
 	parseFunctionPluginPackage,
 } from "@amll-ttml-tool/plugin-api";
@@ -86,7 +87,10 @@ export async function installPluginPackage(
 				.join("\n"),
 		};
 	const manifest = parsed.value.manifest;
-	const negotiation = negotiateCapabilities(manifest.capabilities);
+	const negotiation = negotiateCapabilities(
+		manifest.capabilities,
+		EXTISM_WASM_HOST_CAPABILITIES,
+	);
 	const approved = await pluginPermissionService.request({
 		manifest,
 		granted: negotiation.granted,

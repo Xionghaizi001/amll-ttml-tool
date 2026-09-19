@@ -279,6 +279,23 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 
 每个功能在复制到独立 `Plugins/<plugin-name>` 仓库前，必须完成：SDK-only 或声明的 wasm capability 边界检查；宿主旧入口和重复实现删除；禁用/卸载后 contribution、监听器、worker 与存储命名空间全清理；重新启用和重启后状态恢复；工厂副本与商店 artifact 使用同一 sha256；宿主只保留锁定版本与加载适配，不再保留该插件的源码真相。
 
+#### 接口与功能映射
+
+| 功能 | 本轮可用的框架接口 | 业务迁移状态 |
+| --- | --- | --- |
+| 时间平移 | 既有 SDK commands/menus/form/document-ops | 已 SDK-only，继续作为工厂插件模板 |
+| 元数据编辑 | document 投影/metadata ops + 新增只读 `project.getInfo()` | 接口就绪，现有 MetadataEditor 业务实现尚未改写为独立插件 |
+| Ruby、罗马音、分词与词级工具 | 既有 ruby/document-ops + 新增 `selection.onChanged`、dialog view 宿主 | 接口就绪，算法与旧工具入口仍在宿主；依赖声明与完整业务迁移另行验收 |
+| 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
+| 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
+| 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | core.formats/core.modes/内置主题仍保留宿主身份，未复制源码 |
+
+实现约束：新增接口不暴露 Jotai、内部 TTMLLyric 或凭据；选择订阅在 host handle dispose 时清理；dialog 按实际 owner 检查，注册消失后自动关闭。网络请求禁携带宿主授权头/cookie，仅允许 HTTPS 和本机 HTTP 开发地址；请求体上限按 UTF-8 字节计算，响应流限制 8 MiB，超时与卸载中断请求，拒绝重定向。离线开关仅拦截经插件端口发起的新请求，不宣称覆盖尚未迁移的宿主网络调用或 trusted-js 自行调用 fetch。WASM 暂无 HTTP bridge，能力协商明确拒绝 `network.http`。
+
+验证结果：应用 `tsc -b`、plugin-api 与 plugin-sdk-js 独立编译、协议文档生成一致性、架构边界检查、catalog 构建与 Vite 生产构建通过。完整 Vitest 套件 59 个文件、341 项通过，新增测试涵盖安装容器、项目/选择接口、视图所有权与卸载、HTTP 策略/离线/超时/取消/流大小。变更文件 Biome lint 通过。生产构建仍提示既有 WASM worker 动态/静态导入及大 chunk 警告；本轮未执行浏览器交互冒烟与 Tauri 真机测试。
+
+后续仍须逐项迁移上表业务消费者，删除旧入口，验证禁用/重启恢复，再确定 API 规范和 React 共享方案，最后复制源码至独立仓库；不得据“接口就绪”勾选阶段 8 全部迁移验收条件。
+
 ## 信任模型决策记录
 
 ### 审阅功能的受信任插件分发（2026-08-26，部分条款已被再校准取代）

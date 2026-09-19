@@ -3,10 +3,12 @@ import {
 	DocumentAdd24Regular,
 	FolderOpen24Regular,
 	PlugConnected24Regular,
+	PlugDisconnected24Regular,
 	PuzzlePiece24Regular,
 } from "@fluentui/react-icons";
 import { Badge, Button, Flex, Switch, Text } from "@radix-ui/themes";
 import { parseManifest } from "@amll-ttml-tool/plugin-api";
+import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -27,11 +29,44 @@ import {
 	installSamplePlugin,
 	type PluginInstallResult,
 } from "$/plugins/ui/plugin-install-service";
+import { pluginNetworkOfflineAtom } from "$/states/plugins";
 import { SettingsGroup, SettingsRow } from "./SettingsGroup";
+
+/**
+ * Offline master switch for plugin network access (goal.md stage 8 item 5).
+ * Flipping it refuses every plugin `network.http` request at the shared host
+ * port; host-owned features keep their own network access.
+ */
+const PluginNetworkSection = () => {
+	const { t } = useTranslation();
+	const [offline, setOffline] = useAtom(pluginNetworkOfflineAtom);
+	return (
+		<SettingsGroup title={t("plugins.network.title", "插件网络")}>
+			<SettingsRow
+				icon={<PlugDisconnected24Regular />}
+				title={t("plugins.network.offline", "离线模式")}
+				description={t(
+					"plugins.network.offlineHint",
+					"开启后所有插件的网络请求都会被宿主拒绝；插件无法读取你的登录凭据，宿主自身功能不受影响。",
+				)}
+				action={
+					<Switch
+						checked={offline}
+						onCheckedChange={(checked) => setOffline(checked)}
+					/>
+				}
+			/>
+		</SettingsGroup>
+	);
+};
 
 const STATUS_BADGES: Record<
 	WasmPluginStatus,
-	{ color: "green" | "blue" | "red" | "gray" | "amber"; key: string; fallback: string }
+	{
+		color: "green" | "blue" | "red" | "gray" | "amber";
+		key: string;
+		fallback: string;
+	}
 > = {
 	active: { color: "green", key: "plugins.status.active", fallback: "运行中" },
 	activating: {
@@ -39,9 +74,17 @@ const STATUS_BADGES: Record<
 		key: "plugins.status.activating",
 		fallback: "启动中",
 	},
-	inactive: { color: "gray", key: "plugins.status.inactive", fallback: "未启动" },
+	inactive: {
+		color: "gray",
+		key: "plugins.status.inactive",
+		fallback: "未启动",
+	},
 	failed: { color: "red", key: "plugins.status.failed", fallback: "启动失败" },
-	disabled: { color: "gray", key: "plugins.status.disabled", fallback: "已禁用" },
+	disabled: {
+		color: "gray",
+		key: "plugins.status.disabled",
+		fallback: "已禁用",
+	},
 	"crash-disabled": {
 		color: "red",
 		key: "plugins.status.crashDisabled",
@@ -65,8 +108,7 @@ const reportInstallResult = (
 	result: PluginInstallResult,
 	t: (key: string, fallback: string) => string,
 ): void => {
-	if (result.ok)
-		toast.success(t("plugins.installSuccess", "插件已安装并启用"));
+	if (result.ok) toast.success(t("plugins.installSuccess", "插件已安装并启用"));
 	else if (!result.cancelled)
 		toast.error(
 			`${t("plugins.installFailed", "插件安装失败")}\n${result.message}`,
@@ -243,7 +285,11 @@ const DevPluginSection = () => {
 					"选择包含 manifest.json 与入口 wasm 的目录。开发插件不持久化，仅在当前会话有效。",
 				)}
 				action={
-					<Button size="1" variant="soft" onClick={() => void onPickDirectory()}>
+					<Button
+						size="1"
+						variant="soft"
+						onClick={() => void onPickDirectory()}
+					>
 						{t("plugins.dev.pick", "选择目录")}
 					</Button>
 				}
@@ -358,6 +404,7 @@ export const SettingsPluginsTab = () => {
 					}
 				/>
 			</SettingsGroup>
+			<PluginNetworkSection />
 			<DevPluginSection />
 			<input
 				ref={fileInputRef}

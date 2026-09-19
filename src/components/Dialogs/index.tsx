@@ -12,6 +12,7 @@ import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/Ad
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
 import { SettingsDialog } from "$/modules/settings/modals/index.tsx";
 import { DeclarativeFormHost } from "$/plugins/ui/DeclarativeFormHost";
+import { PluginDialogViewHost } from "$/plugins/ui/PluginDialogViewHost";
 import { ConfirmationDialog } from "./confirmation.tsx";
 import { TtmlErrorDialog } from "./TtmlErrorDialog.tsx";
 
@@ -31,6 +32,7 @@ export const Dialogs = () => {
 			<HistoryRestoreDialog />
 			<AdvancedSegmentationDialog />
 			<DeclarativeFormHost />
+			<PluginDialogViewHost />
 			<SyllableSmoothingDialog />
 			<DistributeRomanizationDialog />
 			<TtmlErrorDialog />

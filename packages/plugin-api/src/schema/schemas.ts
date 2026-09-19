@@ -729,6 +729,7 @@ const pluginError = {
 				"payload-too-large",
 				"limit-exceeded",
 				"plugin-crashed",
+				"network-unavailable",
 				"internal",
 			],
 		},
@@ -1003,7 +1004,11 @@ export const FORM_RESULT_SCHEMA = {
 					type: "object",
 					maxProperties: 64,
 					additionalProperties: {
-						anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+						anyOf: [
+							{ type: "string" },
+							{ type: "number" },
+							{ type: "boolean" },
+						],
 					},
 				},
 			},
@@ -1047,6 +1052,31 @@ export const TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA = {
 		packageVersion: { const: 0 },
 		manifest: { type: "object" },
 		code: { type: "string", minLength: 1, maxLength: 16 * 1024 * 1024 },
+	},
+	additionalProperties: false,
+} satisfies JsonSchema;
+
+/** Request bodies are capped so a plugin cannot push megabytes through the host. */
+export const HTTP_REQUEST_MAX_BODY_BYTES_V0 = 1024 * 1024;
+
+/**
+ * `network.http` request envelope. Absolute https URLs only (the host may
+ * additionally allow http://localhost); text bodies; a bounded header set so
+ * a plugin cannot smuggle credentials or hop-by-hop headers past the host.
+ */
+export const HTTP_REQUEST_SCHEMA = {
+	type: "object",
+	required: ["url"],
+	properties: {
+		url: { type: "string", minLength: 1, maxLength: 2048 },
+		method: { enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+		headers: {
+			type: "object",
+			maxProperties: 32,
+			additionalProperties: { type: "string", maxLength: 4096 },
+		},
+		body: { type: "string", maxLength: HTTP_REQUEST_MAX_BODY_BYTES_V0 },
+		timeoutMs: { type: "integer", minimum: 1, maximum: 120_000 },
 	},
 	additionalProperties: false,
 } satisfies JsonSchema;
@@ -1110,6 +1140,8 @@ export const SCHEMA_CATALOG = {
 	formatConversionResult: FORMAT_CONVERSION_RESULT_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
 	functionPluginPackage: FUNCTION_PLUGIN_PACKAGE_SCHEMA,
+	trustedJsPluginPackage: TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA,
+	httpRequest: HTTP_REQUEST_SCHEMA,
 	remotePluginCatalog: REMOTE_PLUGIN_CATALOG_SCHEMA,
 	themeTokens: THEME_TOKENS_SCHEMA,
 	themePackage: THEME_PACKAGE_SCHEMA,

@@ -6,6 +6,8 @@ import type {
 	FormResultV0,
 	FormSchemaV0,
 	HostResult,
+	HttpRequestV0,
+	HttpResponseV0,
 	JsonValue,
 	LocalizedText,
 	MenuItemContribution,
@@ -74,6 +76,20 @@ export interface TrustedJsDocumentV0 {
 export interface TrustedJsSelectionV0 {
 	/** Currently selected line and word ids. */
 	get(): PluginSelectionV0;
+	/** Fires after every selection change with the new selection. */
+	onChanged(listener: (selection: PluginSelectionV0) => void): DisposableV0;
+}
+
+/** Read-only identity of the open project (host-owned; plugins cannot set it). */
+export interface TrustedJsProjectInfoV0 {
+	/** Stable id for this editing session's project (history/autosave key). */
+	projectId: string;
+	/** File name the host would save to right now, extension included. */
+	fileName: string;
+}
+
+export interface TrustedJsProjectV0 {
+	getInfo(): TrustedJsProjectInfoV0;
 }
 
 export interface TrustedJsCommandRegistrationV0 {
@@ -104,6 +120,27 @@ export interface TrustedJsUiV0 {
 	/** Renders a declarative form and resolves with the sanitized result. */
 	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
 	notify(params: NotifyParams): void;
+	/**
+	 * Opens one of this plugin's registered `dialog-view` trusted views as a
+	 * host-owned modal. Throws for ids outside the plugin namespace or views
+	 * the plugin has not registered; opening an already open view is a no-op.
+	 */
+	openView(viewId: string): void;
+	/** Closes a view opened with `openView`; unknown or closed ids are ignored. */
+	closeView(viewId: string): void;
+}
+
+/**
+ * Outbound HTTP (`network.http`). The host validates every request with
+ * `parseHttpRequest` (https-only URL policy, reserved headers, body cap),
+ * attaches no credentials, and refuses everything while the user's offline
+ * switch is on (`network-unavailable`). Transport failures map to the same
+ * code; HTTP error statuses come back as a normal response with `ok: false`.
+ */
+export interface TrustedJsNetworkV0 {
+	request(request: HttpRequestV0): Promise<HostResult<HttpResponseV0>>;
+	/** True while the host offline switch is on; requests fail fast then. */
+	isOffline(): boolean;
 }
 
 /** Per-plugin isolated key-value store (the `amll-plugin-kv` namespace). */
@@ -204,11 +241,13 @@ export interface TrustedJsHostV0 {
 	readonly sdkVersion: typeof TRUSTED_JS_SDK_VERSION;
 	document: TrustedJsDocumentV0;
 	selection: TrustedJsSelectionV0;
+	project: TrustedJsProjectV0;
 	commands: TrustedJsCommandsV0;
 	menus: TrustedJsMenusV0;
 	titleBarActions: TrustedJsTitleBarActionsV0;
 	ui: TrustedJsUiV0;
 	storage: TrustedJsStorageV0;
+	network: TrustedJsNetworkV0;
 	formats: TrustedJsFormatsV0;
 	views: TrustedJsViewsV0;
 }

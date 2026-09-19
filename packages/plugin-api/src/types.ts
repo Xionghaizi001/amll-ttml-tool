@@ -14,7 +14,14 @@ export type CoreCapability =
 	| "lyrics.format"
 	| "ui.notify"
 	| "ui.form"
-	| "storage.kv";
+	| "storage.kv"
+	/**
+	 * Outbound HTTP through the host network port. Subject to the host's
+	 * offline master switch; credentials never leave the host. Declared in the
+	 * protocol so every tier names the same capability, but the extism-wasm
+	 * host does not grant it (WASM has no network by design).
+	 */
+	| "network.http";
 export type ExtensionCapability = `extensions.${string}`;
 export type Capability = CoreCapability | ExtensionCapability;
 
@@ -248,6 +255,8 @@ export type PluginErrorCode =
 	| "payload-too-large"
 	| "limit-exceeded"
 	| "plugin-crashed"
+	/** The host network port refused the call: offline switch on, or transport failure. */
+	| "network-unavailable"
 	| "internal";
 
 export interface PluginError {
@@ -259,6 +268,32 @@ export interface PluginError {
 export type HostResult<T> =
 	| { ok: true; value: T }
 	| { ok: false; error: PluginError };
+
+export type HttpMethodV0 = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+/**
+ * Outbound HTTP request a plugin hands to the host network port
+ * (`network.http`). Text bodies only in v0; the host adds no credentials and
+ * the plugin cannot read any — signed-in identities stay behind host ports.
+ */
+export interface HttpRequestV0 {
+	/** Absolute `https:` URL (the host may also accept `http://localhost`). */
+	url: string;
+	method?: HttpMethodV0;
+	headers?: Record<string, string>;
+	body?: string;
+	/** Upper bound for the whole request, clamped by the host. */
+	timeoutMs?: number;
+}
+
+export interface HttpResponseV0 {
+	ok: boolean;
+	status: number;
+	statusText: string;
+	headers: Record<string, string>;
+	/** Response body decoded as UTF-8 text. */
+	body: string;
+}
 
 export interface ActivateParams {
 	pluginId: string;

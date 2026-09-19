@@ -225,10 +225,13 @@ export function parseManifestSchema(
 			});
 	}
 	if (manifest.kind === "function") {
-		if (manifest.runtime === "trusted-js")
+		// trusted-js opened to third parties with the 2026-08-27 trust-model
+		// recalibration (consent + provenance display instead of an MVP ban).
+		// Its entry is the JS module the zip container carries under assets/.
+		if (manifest.runtime === "trusted-js" && !/\.(m?js)$/.test(manifest.entry))
 			issues.push({
-				path: "/runtime",
-				message: "trusted-js is not available in the MVP",
+				path: "/entry",
+				message: "trusted-js entry must be a .js or .mjs module",
 			});
 		if (
 			manifest.runtime === "builtin" &&

@@ -2,6 +2,9 @@ import type {
 	EnablementContext,
 	FormResultV0,
 	FormSchemaV0,
+	HostResult,
+	HttpRequestV0,
+	HttpResponseV0,
 	JsonValue,
 	NotifyParams,
 	PluginSelectionV0,
@@ -14,6 +17,7 @@ import type {
 	DocumentChangedEventV0,
 	TrustedJsHostV0,
 	TrustedJsModeV0,
+	TrustedJsProjectInfoV0,
 } from "@amll-ttml-tool/plugin-sdk-js";
 import { TRUSTED_JS_SDK_VERSION } from "@amll-ttml-tool/plugin-sdk-js";
 import type { Disposable } from "$/kernel/commands";
@@ -33,6 +37,22 @@ export interface TrustedJsKvPort {
 	): Promise<void>;
 }
 
+/** Outbound HTTP port (`network.http`); see `createPluginNetworkPort`. */
+export interface TrustedJsNetworkPort {
+	request(
+		request: HttpRequestV0,
+		meta: { pluginId: string; signal?: AbortSignal },
+	): Promise<HostResult<HttpResponseV0>>;
+	isOffline(): boolean;
+}
+
+/** Open-state of plugin dialog views; see `PluginViewService`. */
+export interface TrustedJsViewPort {
+	open(pluginId: string, viewId: string): void;
+	close(viewId: string, pluginId?: string): void;
+	closeAllOf(pluginId: string): void;
+}
+
 /**
  * Host services the trusted-js host is assembled from. Pure ports, so the
  * real host (EditorDocumentService + PluginDocumentGateway + ExtensionRegistry)
@@ -45,10 +65,17 @@ export interface TrustedJsHostPorts {
 		listener: (event: DocumentChangedEventV0) => void,
 	): () => void;
 	getSelection(): PluginSelectionV0;
+	subscribeSelectionChanges(
+		listener: (selection: PluginSelectionV0) => void,
+	): () => void;
+	/** Read-only project identity (id + current save file name). */
+	getProjectInfo(): TrustedJsProjectInfoV0;
 	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
 	notify(params: NotifyParams, meta: { pluginId: string }): void;
 	/** The `amll-plugin-kv` namespace store, keyed by plugin id like the WASM tier. */
 	kv: TrustedJsKvPort;
+	network: TrustedJsNetworkPort;
+	views: TrustedJsViewPort;
 	getEnablementContext(): EnablementContext;
 	/**
 	 * Mode registration entry. The application host passes the same
@@ -62,7 +89,7 @@ export interface TrustedJsHostPorts {
 
 export interface TrustedJsHostHandle {
 	host: TrustedJsHostV0;
-	/** Drops host-owned subscriptions (document listeners); scope disposal is separate. */
+	/** Drops host-owned subscriptions (document/selection listeners) and closes the plugin's open dialogs; scope disposal is separate. */
 	dispose(): void;
 }
 
@@ -86,6 +113,15 @@ export const createTrustedJsHost = (
 ): TrustedJsHostHandle => {
 	const nextSeed = ports.createEditSeed ?? defaultEditSeed;
 	const unsubscribers = new Set<() => void>();
+	const networkController = new AbortController();
+	const track = (unsubscribe: () => void) => {
+		unsubscribers.add(unsubscribe);
+		return {
+			dispose: () => {
+				if (unsubscribers.delete(unsubscribe)) unsubscribe();
+			},
+		};
+	};
 
 	const host: TrustedJsHostV0 = {
 		sdkVersion: TRUSTED_JS_SDK_VERSION,
@@ -102,18 +138,14 @@ export const createTrustedJsHost = (
 					ops: [...ops],
 					idSeed: nextSeed(pluginId),
 				}),
-			onChanged: (listener) => {
-				const unsubscribe = ports.subscribeDocumentChanges(listener);
-				unsubscribers.add(unsubscribe);
-				return {
-					dispose: () => {
-						if (unsubscribers.delete(unsubscribe)) unsubscribe();
-					},
-				};
-			},
+			onChanged: (listener) => track(ports.subscribeDocumentChanges(listener)),
 		},
 		selection: {
 			get: () => ports.getSelection(),
+			onChanged: (listener) => track(ports.subscribeSelectionChanges(listener)),
+		},
+		project: {
+			getInfo: () => ports.getProjectInfo(),
 		},
 		commands: {
 			register: (input) => {
@@ -147,6 +179,20 @@ export const createTrustedJsHost = (
 		ui: {
 			showForm: (schema) => ports.showForm(schema),
 			notify: (params) => ports.notify(params, { pluginId }),
+			openView: (viewId) => ports.views.open(pluginId, viewId),
+			closeView: (viewId) => {
+				// A plugin may only close its own dialogs; foreign ids are ignored.
+				if (viewId.startsWith(`${pluginId}.`))
+					ports.views.close(viewId, pluginId);
+			},
+		},
+		network: {
+			request: (request) =>
+				ports.network.request(request, {
+					pluginId,
+					signal: networkController.signal,
+				}),
+			isOffline: () => ports.network.isOffline(),
 		},
 		storage: {
 			kv: {
@@ -198,8 +244,10 @@ export const createTrustedJsHost = (
 	return {
 		host,
 		dispose: () => {
+			networkController.abort();
 			for (const unsubscribe of [...unsubscribers]) unsubscribe();
 			unsubscribers.clear();
+			ports.views.closeAllOf(pluginId);
 		},
 	};
 };

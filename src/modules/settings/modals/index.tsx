@@ -8,8 +8,11 @@ import {
 import { Box, Dialog, Heading, Text } from "@radix-ui/themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
-import { memo, useMemo, useState } from "react";
+import type { ComponentType } from "react";
+import { memo, useMemo, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { extensionRegistry } from "$/plugins/adapters/extension-host";
+import { localizeText } from "$/plugins/ui/localize";
 import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs.ts";
 import { SettingsAboutTab } from "./about";
 import { SettingsCommonTab } from "./common";
@@ -19,6 +22,26 @@ import { SettingsPluginsTab } from "./plugins";
 import styles from "./SettingsDialog.module.css";
 
 type SettingsSubpage = "customBackground" | "customPalette";
+
+const subscribeContributions = (listener: () => void) => {
+	const disposable = extensionRegistry.contributions.subscribe(listener);
+	return () => disposable.dispose();
+};
+
+/**
+ * Plugin `settings-view` trusted views appear as extra tabs after the host
+ * tabs. The settings shell, plugin manager, permissions and recovery entries
+ * stay host-owned (goal.md stage 8 "帮助、设置和更新扩展"); a plugin only gets
+ * a body slot, scoped with `data-amll-plugin-scope` for theme scoping.
+ */
+const usePluginSettingsViews = () => {
+	useSyncExternalStore(
+		subscribeContributions,
+		() => extensionRegistry.contributions.getRevision(),
+		() => 0,
+	);
+	return extensionRegistry.contributions.getTrustedViews("settings-view");
+};
 
 const contentTransition = {
 	duration: 0.25,
@@ -33,13 +56,25 @@ const contentVariants = {
 export const SettingsDialog = memo(() => {
 	const [settingsDialogOpen, setSettingsDialogOpen] =
 		useAtom(settingsDialogAtom);
-	const [activeTab, setActiveTab] = useAtom(settingsTabAtom);
+	const [requestedTab, setActiveTab] = useAtom(settingsTabAtom);
 	const [activeSubpage, setActiveSubpage] = useState<SettingsSubpage | null>(
 		null,
 	);
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const pluginViews = usePluginSettingsViews();
 
-	const tabConfig = useMemo(
+	const pluginTabs = useMemo(
+		() =>
+			pluginViews.map((view) => ({
+				value: view.id,
+				icon: PuzzlePiece24Regular,
+				label: localizeText(view.title, i18n.language),
+				view,
+			})),
+		[pluginViews, i18n.language],
+	);
+
+	const hostTabConfig = useMemo(
 		() => [
 			{
 				value: "common",
@@ -69,6 +104,17 @@ export const SettingsDialog = memo(() => {
 		],
 		[t],
 	);
+	const tabConfig = useMemo(
+		() => [...hostTabConfig, ...pluginTabs],
+		[hostTabConfig, pluginTabs],
+	);
+	const activeTab = tabConfig.some((tab) => tab.value === requestedTab)
+		? requestedTab
+		: "common";
+	const activePluginTab = pluginTabs.find((tab) => tab.value === activeTab);
+	const ActivePluginView = activePluginTab?.view.view as
+		| ComponentType
+		| undefined;
 
 	const activeTabConfig =
 		tabConfig.find((tab) => tab.value === activeTab) ?? tabConfig[0];
@@ -165,6 +211,17 @@ export const SettingsDialog = memo(() => {
 								)}
 								{activeTab === "plugins" && <SettingsPluginsTab />}
 								{activeTab === "about" && <SettingsAboutTab />}
+								{activePluginTab && ActivePluginView && (
+									<div
+										data-amll-plugin-scope={
+											activePluginTab.view.owner.kind === "plugin"
+												? activePluginTab.view.owner.pluginId
+												: activePluginTab.view.owner.id
+										}
+									>
+										<ActivePluginView />
+									</div>
+								)}
 							</motion.div>
 						</AnimatePresence>
 					</Box>

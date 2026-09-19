@@ -1,13 +1,22 @@
 import type { RemotePluginCatalogEntryV0 } from "@amll-ttml-tool/plugin-api";
+import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
 import semverGt from "semver/functions/gt";
 import semverValid from "semver/functions/valid";
-import { unpackPluginContainer } from "./package-container";
+import {
+	type PluginContainerKind,
+	unpackPluginContainer,
+} from "./package-container";
 
 /**
- * Store artifact install pipeline for the byte-shaped shelves (extism-wasm
- * and theme): fetch → content-hash verification → container stripping →
- * the existing semantic install gate. trusted-js entries never come through
- * here — they are ES modules loaded by TrustedJsPluginService.
+ * Store artifact install pipeline: fetch → content-hash verification →
+ * container stripping → the existing semantic install gate of the matching
+ * tier. All three channels are byte-shaped here: extism-wasm and theme zips
+ * as before, and trusted-js zips (manifest.json + assets/<entry>.js) whose
+ * source is handed — unevaluated — to the injected `installTrustedJsPackage`
+ * port, which must run `parseTrustedJsPackage`, consent and persistence
+ * before the single `TrustedJsPluginService.load()` gate. Same-origin
+ * catalog entries that point at a bare ES module keep using the loader's
+ * import path (`applyTrustedJsUpdate`), not this pipeline.
  */
 
 export type StoreInstallOutcome =
@@ -22,24 +31,39 @@ export interface StoreArtifactInstallPorts {
 	installFunctionPackage(pkg: unknown): Promise<StoreInstallOutcome>;
 	/** The single theme package install gate (themeService.importThemePackage). */
 	installThemePackage(pkg: unknown): Promise<StoreInstallOutcome>;
-	/** Persists and activates a trusted-js package through the same loader gate. */
+	/**
+	 * Persists and activates a trusted-js package through the same loader
+	 * gate. Optional until the host wires local trusted-js execution
+	 * (goal.md milestone-4 prerequisite 3); without it trusted-js artifacts
+	 * are refused before any download.
+	 */
 	installTrustedJsPackage?(pkg: unknown): Promise<StoreInstallOutcome>;
 }
+
+const CHANNEL_CONTAINER_KIND: Record<
+	RemotePluginCatalogEntryV0["channel"],
+	PluginContainerKind
+> = {
+	"extism-wasm": "function",
+	theme: "theme",
+	"trusted-js": "trusted-js",
+};
 
 export const installStoreArtifact = async (
 	entry: RemotePluginCatalogEntryV0,
 	ports: StoreArtifactInstallPorts,
 ): Promise<StoreInstallOutcome> => {
-	if (entry.channel === "trusted-js" && ports.installTrustedJsPackage) {
-		// Trusted-js artifacts are parsed and persisted locally before execution.
-		// The host's installTrustedJsPackage must call parseTrustedJsPackage and
-		// then hand the resulting entry to TrustedJsPluginService.load().
-	} else if (entry.channel === "trusted-js") {
-		return { ok: false, message: "trusted-js installation is unavailable" };
-	} else if (entry.channel !== "extism-wasm" && entry.channel !== "theme")
+	const expectedKind = CHANNEL_CONTAINER_KIND[entry.channel];
+	if (expectedKind === undefined)
 		return {
 			ok: false,
 			message: `channel ${entry.channel} is not installed through artifacts`,
+		};
+	const installTrustedJs = ports.installTrustedJsPackage;
+	if (expectedKind === "trusted-js" && installTrustedJs === undefined)
+		return {
+			ok: false,
+			message: "trusted-js installation is unavailable on this host",
 		};
 	let bytes: Uint8Array;
 	try {
@@ -64,17 +88,36 @@ export const installStoreArtifact = async (
 	}
 	const unpacked = unpackPluginContainer(bytes);
 	if (!unpacked.ok) return { ok: false, message: unpacked.message };
-	const expectedKind = entry.channel === "extism-wasm" ? "function" : entry.channel === "theme" ? "theme" : "trusted-js";
 	if (unpacked.kind !== expectedKind)
 		return {
 			ok: false,
 			message: `artifact is a ${unpacked.kind} package but the catalog entry is ${entry.channel}`,
 		};
-	return unpacked.kind === "trusted-js"
-		? ports.installTrustedJsPackage!(unpacked.pkg)
-		: unpacked.kind === "function"
-		? ports.installFunctionPackage(unpacked.pkg)
-		: ports.installThemePackage(unpacked.pkg);
+	switch (unpacked.kind) {
+		case "trusted-js":
+			{
+				const parsed = parseTrustedJsPackage(unpacked.pkg);
+				if (!parsed.ok)
+					return { ok: false, message: "invalid trusted-js package" };
+				if (
+					parsed.value.manifest.id !== entry.id ||
+					parsed.value.manifest.version !== entry.version ||
+					parsed.value.manifest.apiVersion !== entry.apiVersion
+				)
+					return {
+						ok: false,
+						message:
+							"trusted-js manifest does not match catalog identity/version",
+					};
+			}
+			return (installTrustedJs as NonNullable<typeof installTrustedJs>)(
+				unpacked.pkg,
+			);
+		case "function":
+			return ports.installFunctionPackage(unpacked.pkg);
+		default:
+			return ports.installThemePackage(unpacked.pkg);
+	}
 };
 
 /** True when the catalog version is strictly newer than the installed one. */
