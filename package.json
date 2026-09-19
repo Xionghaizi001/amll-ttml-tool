@@ -13,9 +13,9 @@
 		"locale:gen": "i18next-cli extract"
 	},
 	"dependencies": {
-		"@applemusic-like-lyrics/core": "0.5.2",
-		"@applemusic-like-lyrics/lyric": "1.0.2",
-		"@applemusic-like-lyrics/react": "0.5.2",
+		"@applemusic-like-lyrics/core": "0.6.0",
+		"@applemusic-like-lyrics/lyric": "1.1.0",
+		"@applemusic-like-lyrics/react": "0.6.0",
 		"@radix-ui/themes": "^3.3.0",
 		"@sentry/react": "^10.66.0",
 		"@tauri-apps/api": "^2.11.1",
