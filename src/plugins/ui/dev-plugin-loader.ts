@@ -3,6 +3,7 @@ import { parseManifest } from "@amll-ttml-tool/plugin-api";
 export interface DevPluginSource {
 	manifest: unknown;
 	wasm: Uint8Array;
+	code?: string;
 }
 
 interface DirectoryPickerWindow {
@@ -58,6 +59,7 @@ export async function readDevPluginDirectory(
 	return {
 		manifest: manifestRaw,
 		wasm: new Uint8Array(await wasmFile.arrayBuffer()),
+		...(manifest.value.runtime === "trusted-js" ? { code: await wasmFile.text() } : {}),
 	};
 }
 

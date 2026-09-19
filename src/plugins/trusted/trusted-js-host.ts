@@ -1,5 +1,9 @@
 import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { toast } from "react-toastify";
+import semverGt from "semver/functions/gt";
+import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
+import { IndexedDbTrustedJsStorage } from "$/platform/storage/IndexedDbTrustedJsStorage";
+import { InstalledTrustedJsService } from "./installed-trusted-js";
 import { getHostEnablementContext } from "$/plugins/adapters/enablement-context";
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import {
@@ -158,6 +162,29 @@ export const trustedJsPluginService =
 const currentPlatform = (): "web" | "desktop" =>
 	isDesktop() ? "desktop" : "web";
 
+export const installedTrustedJsService = new InstalledTrustedJsService(
+	new IndexedDbTrustedJsStorage(), trustedJsPluginService, id => pluginKvStorage.clear(id),
+);
+
+export async function installTrustedJsPackage(input: unknown, source: "user" | "dev" | "store" = "user") {
+	const parsed = parseTrustedJsPackage(input);
+	if (parsed.ok) {
+		const factory = FACTORY_TRUSTED_JS_PLUGINS.find(p => p.id === parsed.value.manifest.id);
+		if (factory && !semverGt(parsed.value.manifest.version, factory.version))
+			return { ok: false as const, message: "安装版本必须高于同名出厂插件版本" };
+	}
+	const result = await installedTrustedJsService.install(input, source);
+	if (result.ok) setPinnedToFactory(result.pluginId, false);
+	return result;
+}
+
+export async function uninstallTrustedJsPackage(id: string) {
+	await installedTrustedJsService.uninstall(id);
+	setPinnedToFactory(id, true);
+	const factory = FACTORY_TRUSTED_JS_PLUGINS.find(p => p.id === id);
+	if (factory) await trustedJsPluginService.load(factory);
+}
+
 const FACTORY_PIN_STORAGE_KEY = "amll-trusted-js-factory-pins-v0";
 
 const readFactoryPins = (): string[] => {
@@ -198,6 +225,10 @@ const resolveCurrentLoadPlan = async (options?: {
 	return resolveTrustedJsLoadPlan({
 		factory: FACTORY_TRUSTED_JS_PLUGINS,
 		catalog: catalog?.plugins ?? [],
+		installed: installedTrustedJsService.list().flatMap(record => {
+			const entry = installedTrustedJsService.entry(record.id);
+			return entry ? [entry] : [];
+		}),
 		platform: currentPlatform(),
 		desktopRemoteAllowed: isDesktopTrustedJsEnabled(),
 		isPinnedToFactory,
@@ -234,6 +265,8 @@ const loadPlanItem = async (item: TrustedJsLoadPlanItem): Promise<void> => {
  * UI, not at startup.
  */
 export async function initializeTrustedJsPlugins(): Promise<void> {
+	try { await installedTrustedJsService.restore(); }
+	catch (error) { console.warn("Installed JS restore failed", error); }
 	for (const entry of FACTORY_TRUSTED_JS_PLUGINS) {
 		const result = await trustedJsPluginService.load(entry);
 		if (!result.ok)

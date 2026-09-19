@@ -28,6 +28,10 @@ export interface TrustedJsPluginEntry {
 	 * must not lose its factory plugins. Crash accounting still applies.
 	 */
 	loadModule?: () => Promise<unknown>;
+	/** Host-created installed source; still subject to desktop and consent gates. */
+	moduleBlob?: Blob;
+	consentKey?: string;
+	beforeImport?: () => Promise<void>;
 }
 
 /**
@@ -58,6 +62,7 @@ export interface TrustedJsPluginModule<THost> {
 /** Persisted per-plugin loader state (consent, crash accounting). */
 export interface TrustedJsPluginStateRecord {
 	consented?: boolean;
+	consentKey?: string;
 	crashes: number;
 	/**
 	 * Crash marker (theme-system pattern): set before plugin code runs,
@@ -144,6 +149,7 @@ interface LoadedInstance<THost> {
 	hostHandle: TrustedJsHostHandle<THost>;
 	abort: AbortController;
 	cleanup: TrustedJsCleanup | null;
+	objectUrl: string | null;
 }
 
 const rejected = (
@@ -204,6 +210,10 @@ export class TrustedJsPluginService<THost> {
 		return this.instances.has(pluginId);
 	}
 
+	getEntry(pluginId: string): TrustedJsPluginEntry | undefined {
+		return this.instances.get(pluginId)?.entry;
+	}
+
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
@@ -223,8 +233,8 @@ export class TrustedJsPluginService<THost> {
 		const bundled = typeof entry.loadModule === "function";
 		let url: string | null = null;
 		if (!bundled) {
-			url = this.resolveSameOriginUrl(entry.entry);
-			if (url === null)
+			url = entry.moduleBlob ? null : this.resolveSameOriginUrl(entry.entry);
+			if (url === null && !entry.moduleBlob)
 				return rejected(
 					"cross-origin",
 					`Plugin ${entry.id} entry does not resolve inside the application origin`,
@@ -232,7 +242,7 @@ export class TrustedJsPluginService<THost> {
 			if (this.ports.isDesktop() && !this.ports.isDesktopTrustEnabled())
 				return rejected(
 					"desktop-disabled",
-					"Trusted JS plugins are disabled on the desktop app until explicitly enabled",
+					"请在插件商店 → 桌面端开启“允许加载远程 JS 插件”后重试本地安装",
 				);
 		}
 
@@ -257,7 +267,7 @@ export class TrustedJsPluginService<THost> {
 				`Plugin ${entry.id} was disabled after ${state.crashes} consecutive failures`,
 			);
 
-		if (entry.firstParty !== true && state.consented !== true) {
+		if (entry.firstParty !== true && (state.consented !== true || state.consentKey !== entry.consentKey)) {
 			const approved = await this.ports.requestConsent({
 				pluginId: entry.id,
 				name: entry.name,
@@ -273,6 +283,7 @@ export class TrustedJsPluginService<THost> {
 					`Consent for plugin ${entry.id} was declined`,
 				);
 			state.consented = true;
+			state.consentKey = entry.consentKey;
 			this.ports.state.set(entry.id, state);
 		}
 
@@ -283,7 +294,13 @@ export class TrustedJsPluginService<THost> {
 		let scope: ExtensionScope | null = null;
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
 		const abort = new AbortController();
+		let objectUrl: string | null = null;
 		try {
+			await entry.beforeImport?.();
+			if (entry.moduleBlob) {
+				objectUrl = URL.createObjectURL(entry.moduleBlob);
+				url = objectUrl;
+			}
 			const moduleExports = bundled
 				? await entry.loadModule?.()
 				: await this.ports.importModule(url as string);
@@ -309,6 +326,7 @@ export class TrustedJsPluginService<THost> {
 				hostHandle,
 				abort,
 				cleanup: typeof cleanup === "function" ? cleanup : null,
+				objectUrl,
 			});
 			state.crashes = 0;
 			// Before the host declares startup stable, the marker stays down so
@@ -322,6 +340,7 @@ export class TrustedJsPluginService<THost> {
 			// A failed activation is a disable: in-flight async work stops, then
 			// host subscriptions and registry contributions go.
 			abort.abort();
+			if (objectUrl) URL.revokeObjectURL(objectUrl);
 			hostHandle?.dispose();
 			scope?.dispose();
 			state.pending = false;
@@ -376,6 +395,7 @@ export class TrustedJsPluginService<THost> {
 		}
 		instance.hostHandle.dispose();
 		instance.scope.dispose();
+		if (instance.objectUrl) URL.revokeObjectURL(instance.objectUrl);
 		const state = this.ports.state.get(pluginId);
 		if (state?.pending)
 			this.ports.state.set(pluginId, { ...state, pending: false });

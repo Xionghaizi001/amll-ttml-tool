@@ -33,6 +33,7 @@ export interface TrustedJsFactoryUpdateState {
 export interface TrustedJsLoadPlanInput {
 	factory: readonly TrustedJsPluginEntry[];
 	catalog: readonly RemotePluginCatalogEntryV0[];
+	installed?: readonly TrustedJsPluginEntry[];
 	platform: "web" | "desktop";
 	/** On desktop: the runtime consent gate for remote trusted-js modules. */
 	desktopRemoteAllowed: boolean;
@@ -82,11 +83,17 @@ export const resolveTrustedJsLoadPlan = (
 	}
 
 	const plan: TrustedJsLoadPlanItem[] = [];
+	const executableById = new Map([...remoteById].filter(([, entry]) => !/\.(zip|json)$/i.test(entry.entry)));
+	for (const entry of input.installed ?? []) {
+		const other = executableById.get(entry.id);
+		if (!other || !isNewerVersion(other.version, entry.version)) executableById.set(entry.id, entry);
+	}
 	const updates: TrustedJsFactoryUpdateState[] = [];
 	const factoryIds = new Set<string>();
 	for (const factory of input.factory) {
 		factoryIds.add(factory.id);
 		const remote = remoteById.get(factory.id);
+		const executable = executableById.get(factory.id);
 		const pinned = input.isPinnedToFactory(factory.id);
 		const updateAvailable =
 			remote !== undefined && isNewerVersion(remote.version, factory.version);
@@ -97,13 +104,13 @@ export const resolveTrustedJsLoadPlan = (
 			updateAvailable,
 			pinnedToFactory: pinned,
 		});
-		if (remote !== undefined && updateAvailable && !pinned && remoteAllowed)
-			plan.push({ entry: remote, origin: "remote", fallback: factory });
+		if (executable !== undefined && isNewerVersion(executable.version, factory.version) && !pinned && remoteAllowed)
+			plan.push({ entry: executable, origin: "remote", fallback: factory });
 		else plan.push({ entry: factory, origin: "factory" });
 	}
 
 	if (remoteAllowed) {
-		for (const [id, remote] of remoteById) {
+		for (const [id, remote] of executableById) {
 			if (factoryIds.has(id)) continue;
 			plan.push({ entry: remote, origin: "remote" });
 		}

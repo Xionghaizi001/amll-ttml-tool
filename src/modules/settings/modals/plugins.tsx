@@ -1,3 +1,5 @@
+import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
+import { installTrustedJsPackage } from "$/plugins/trusted/trusted-js-host";
 import {
 	ArrowClockwise24Regular,
 	DocumentAdd24Regular,
@@ -226,7 +228,10 @@ const DevPluginSection = () => {
 				const manifest = parseManifest(source.manifest);
 				if (!manifest.ok || manifest.value.kind !== "function")
 					throw new Error("manifest failed validation");
-				await wasmPluginService.reload(pluginId, manifest.value, source.wasm);
+				if (source.code !== undefined) {
+                    const result = await installTrustedJsPackage({ packageVersion: 0, manifest: source.manifest, code: source.code }, "dev");
+                    if (!result.ok) throw new Error(result.message);
+                } else await wasmPluginService.reload(pluginId, manifest.value, source.wasm);
 				toast.info(t("plugins.dev.reloaded", "开发插件已热重载"));
 			} catch (error) {
 				toast.error(
@@ -256,10 +261,9 @@ const DevPluginSection = () => {
 		if (!directory) return;
 		try {
 			const source = await readDevPluginDirectory(directory);
-			const result = await installPluginPackage(
-				assemblePluginPackage(source.manifest, source.wasm),
-				"dev",
-			);
+			const result = source.code !== undefined
+                ? await installTrustedJsPackage({ packageVersion: 0, manifest: source.manifest, code: source.code }, "dev")
+                : await installPluginPackage(assemblePluginPackage(source.manifest, source.wasm), "dev");
 			reportInstallResult(result, t);
 			if (result.ok) {
 				directoryRef.current = directory;
@@ -282,7 +286,7 @@ const DevPluginSection = () => {
 				title={t("plugins.dev.loadDirectory", "从目录加载插件")}
 				description={t(
 					"plugins.dev.loadDirectoryHint",
-					"选择包含 manifest.json 与入口 wasm 的目录。开发插件不持久化，仅在当前会话有效。",
+					"选择包含 manifest.json 与入口 JS / wasm 的目录。开发插件不持久化，仅在当前会话有效。",
 				)}
 				action={
 					<Button
@@ -335,10 +339,7 @@ export const SettingsPluginsTab = () => {
 	const onImportFile = useCallback(
 		async (file: File) => {
 			try {
-				const result = await installPluginPackage(
-					JSON.parse(await file.text()),
-					"user",
-				);
+				const result = await installLocalPluginFile(file);
 				reportInstallResult(result, t);
 			} catch (error) {
 				toast.error(

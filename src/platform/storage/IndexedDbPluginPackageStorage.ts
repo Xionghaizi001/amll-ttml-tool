@@ -1,6 +1,6 @@
-import { type IDBPDatabase, openDB } from "idb";
+import { type IDBPDatabase } from "idb";
+import { openPluginDatabase } from "./plugin-database";
 
-const DATABASE = "amll-plugins";
 const STORE = "packages";
 
 export interface StoredPluginPackageRecord {
@@ -54,15 +54,7 @@ export class IndexedDbPluginPackageStorage {
 	}
 
 	private getDatabase(): Promise<IDBPDatabase> {
-		this.database ??= openDB(DATABASE, 1, {
-			upgrade(database) {
-				if (!database.objectStoreNames.contains(STORE))
-					database.createObjectStore(STORE, { keyPath: "id" });
-			},
-			terminated: () => {
-				this.database = undefined;
-			},
-		}).catch((error) => {
+		this.database ??= openPluginDatabase().catch((error) => {
 			this.database = undefined;
 			throw error;
 		});
