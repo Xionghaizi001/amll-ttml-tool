@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，以及里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点；阶段 3 的遗留 UI/业务拆分仍未完成。
 - SDK 已落地：公开 trusted-js SDK、time-shift 的 SDK-only 适配、宿主核心保留边界；项目只读信息、选择订阅、dialog/settings view 与匿名 HTTP 端口已接入，业务消费者尚未批量迁移。
 - 安装链路部分完成：trusted-js 包解析、zip/JSON 解包、商店安装端口已实现；真实宿主未装配本地安装端口，持久化、执行来源与安装 UI 尚未完成。
-- 当前优先项：收口 SDK 产物检查与 React 共享方案，完成本地安装链路，建立工具链和 time-shift 外置模板；随后按阶段 8 逐项迁移。
+- 当前优先项：完成本地安装链路，建立工具链和 time-shift 外置模板（SDK 产物检查与 React 共享方案已收口）；随后按阶段 8 逐项迁移。
 - 尚未落地：工具链/插件独立仓库、插件依赖/主题作用域/局部覆盖、多商店提供者、QuickJS、阶段 8/9 完整业务迁移、阶段 10 后端。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -15,7 +15,7 @@
 
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
-| 1 | 迁移准备 + 里程碑 4 前置第 2 项 | 按待迁功能拆分遗留业务边界；先落实 SDK 构建约束、React 共享与产物依赖检查 |
+| 1 | 迁移准备 + 里程碑 4 前置第 2 项 | SDK 构建约束、React 共享与产物依赖检查已完成；继续按待迁消费者拆分遗留业务边界 |
 | 2 | 里程碑 4 前置第 3 项：trusted-js 本地安装 | 先确定 Blob / Service Worker 执行来源，再接持久化、consent、宿主安装端口、UI 与重启恢复 |
 | 3 | 工具链 → time-shift 外置模板 | API/SDK 可被独立项目消费 → toolkit pack/test/serve → 静态源发布 → 锁定出厂副本；安装验收依赖第 2 步 |
 | 4（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
@@ -61,7 +61,7 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 
 ## 里程碑 4 前置：trusted-js SDK 固化与开发者体验（2026-09-13 规划）
 
-执行顺序：第 1 项已完成；先收口第 2 项的构建边界与 React 共享方案，再完成第 3 项本地安装链路。工具链开发可同步推进，但独立插件模板的安装验收依赖第 3 项接入真实宿主。QuickJS 与开发文档已单列为后续并行项，不阻塞首批 trusted-js 迁移。
+执行顺序：第 1 项已完成；第 2 项的构建边界与 React 共享方案已收口，接下来完成第 3 项本地安装链路。工具链开发可同步推进，但独立插件模板的安装验收依赖第 3 项接入真实宿主。QuickJS 与开发文档已单列为后续并行项，不阻塞首批 trusted-js 迁移。
 
 ### 1. 封装 trusted-js API
 
@@ -81,15 +81,15 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 - 合同测试入口：`runHostContractTests` 由 MockPluginHost、WASM 真实宿主、MockTrustedJsHost、真实 trusted-js 宿主共用；`createTrustedJsHostUnderTest` 把 HostCallV0 映射为 SDK 调用，不做能力检查（trusted 档全权）。
 - 边界脚本：`src/plugins/builtin/<plugin>/**`（formats/modes/themes 三个宿主核心目录除外）与 `examples/` 只允许 plugin-api、SDK、React；SDK 包只允许 plugin-api 与 type-only React；`tests/` 纳入遍历，`tests/plugin-api`、`tests/plugin-sdk-js` 仅限对应包 + vitest，其余测试不受层规则约束。
 - time-shift 提前迁至 SDK（本属第 2 项，被新边界规则强制）：算法改为生成 updateLine/updateWord（含 ruby）op 批，一次 `applyEdit` 即一次事务；`$/application/time-shift` 删除；版本升至 1.1.0；通知与 WASM 档一致附插件 id。
-- 已知取舍：SDK 已提供 document 与 selection 变更订阅；`storage.kv.get/keys` 以读取整个命名空间实现（v0 数据量小）；catalog 构建脚本尚未对产物断言"无 `$/` 残留"（第 2 项）。
+- 已知取舍：SDK 已提供 document 与 selection 变更订阅；`storage.kv.get/keys` 以读取整个命名空间实现（v0 数据量小）。
 
 ### 2. 内置插件改用 SDK
 
 - [x] `builtin.time-shift`：移除对宿主内部路径的全部导入，只依赖 SDK；`shiftLyricTimes` 纯算法随插件打包（或由 SDK utils 提供），商店 artifact 不再隐式依赖宿主内部。
 - [x] 划定不迁 SDK 的宿主核心：`core.modes`（fail-safe Edit）、`core.formats`（hostNative TTML）、内置主题。它们保持 builtin 直接注册；provider/mode 注册已与 SDK 的 `formats.register`/`views.registerMode` 共用 registry 入口。
-- [ ] catalog 构建脚本对 trusted-js 产物断言：无 `$/` 别名残留、外部依赖只允许 SDK 与 React；React 采用宿主 import map 外置，插件构建时将 `react`/`react-dom` 标记为 external，确保插件与宿主共享同一 React 实例（避免 hooks、Context 和 renderer 不一致）。宿主统一固定 React 版本与映射，插件不得覆盖 import map；产物仍需保留 `import React from "react"` 等 bare import，并由构建校验确认不存在其他外部依赖。
+- [x] catalog 构建脚本对 trusted-js 最终 ESM 产物校验：拒绝 `$/` 残留、非白名单静态/动态导入、不可静态确定的动态导入、运行时 require 和内嵌 React。SDK/API 随插件打包；React、React DOM 及 JSX/compiler runtime 的受支持入口保留 bare import，由宿主生成 import map，映射到同一次构建的共享模块（开发模式复用 Vite 依赖图）。宿主固定 React/React DOM 19.2.7，插件不得覆盖映射；构建约定见开发者手册。
 - [ ] 里程碑 4 迁出的每个插件都以 SDK 为唯一依赖，本项作为其模板。
-- 验收：边界脚本对插件目录的新规则通过；time-shift 商店 artifact 与工厂版行为一致（现有 Playwright 冒烟脚本复跑）。
+- 验收：边界检查通过；产物拒绝用例、开发映射及生产相对/根/子路径映射验证通过，React hooks/Context 与 renderer 共享已验证；time-shift 工厂版与构建 artifact 共用真实宿主的命令 → 表单 → 单事务 → 撤销测试。浏览器 UI 冒烟仍待复跑（原 Playwright 脚本未入库，本机 Chrome 无头进程启动失败）；上述自动化验证不替代 UI 验收。
 
 ### 3. 插件加载器接受 trusted-js 来源安装
 

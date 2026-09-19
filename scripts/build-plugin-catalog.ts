@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { strToU8, zipSync } from "fflate";
 import { build, createServer } from "vite";
+import {
+	isSharedReactImport,
+	trustedJsArtifactGuard,
+} from "./trusted-js-build.ts";
 
 /**
  * Store thin slice generator (goal.md milestone 2): builds the first-party
@@ -37,6 +41,7 @@ await build({
 	configFile: false,
 	root,
 	logLevel: "warn",
+	plugins: [trustedJsArtifactGuard()],
 	resolve: {
 		alias: {
 			"@amll-ttml-tool/plugin-api": resolve(
@@ -47,10 +52,10 @@ await build({
 				root,
 				"packages/plugin-sdk-js/src/index.ts",
 			),
-			$: resolve(root, "src"),
 		},
 	},
 	build: {
+		rolldownOptions: { external: isSharedReactImport },
 		lib: {
 			entry: resolve(root, "src/plugins/builtin/time-shift/plugin.ts"),
 			formats: ["es"],

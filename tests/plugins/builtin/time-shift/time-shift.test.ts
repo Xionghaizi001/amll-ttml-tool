@@ -1,9 +1,15 @@
+import { resolve } from "node:path";
+import { build } from "vite";
+import {
+	isSharedReactImport,
+	trustedJsArtifactGuard,
+} from "../../../../scripts/trusted-js-build";
 import {
 	parseFormSchema,
 	type PluginDocumentV0,
 } from "@amll-ttml-tool/plugin-api";
 import { MockTrustedJsHost } from "@amll-ttml-tool/plugin-sdk-js/testing";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
 	buildTimeShiftOps,
 	createTimeShiftForm,
@@ -215,101 +221,133 @@ describe("time shift plugin on the mock trusted host (Node)", () => {
 	});
 });
 
-describe("time shift plugin on the real trusted host", () => {
-	it("commits the same plugin source as one editor transaction and undoes it once", async () => {
-		const fixture = createRealTrustedHost({
-			pluginId: TIME_SHIFT_PLUGIN_ID,
-			selection: { lineIds: ["line-1"], wordIds: [] },
-			onShowForm: submitShift({ scope: "selected-following" }),
-		});
-		await activate({
-			pluginId: TIME_SHIFT_PLUGIN_ID,
-			host: fixture.host,
-			signal: new AbortController().signal,
-		});
-		expect(
-			fixture.extensions.contributions.getMenus("menu.edit")[0]?.commandId,
-		).toBe(TIME_SHIFT_COMMAND_ID);
-
-		await fixture.commands.execute(TIME_SHIFT_COMMAND_ID);
-		const snapshot = fixture.service.readSnapshot();
-		expect(fixture.service.getRevision()).toBe(1);
-		expect(snapshot.lyricLines[0].startTime).toBe(150);
-		expect(snapshot.lyricLines[0].words[0].ruby?.[0].startTime).toBe(150);
-		expect(snapshot.lyricLines[0].words[0].obscene).toBe(false);
-		expect(snapshot.lyricLines[1].startTime).toBe(1050);
-		expect(fixture.notifications).toEqual([
-			expect.objectContaining({
-				level: "success",
-				detail: "2 line(s) updated",
-			}),
-		]);
-
-		fixture.service.undo();
-		expect(fixture.service.readSnapshot()).toEqual(realHostFixture());
-		expect(fixture.service.canUndo()).toBe(false);
-
-		fixture.scope.dispose();
-		expect(fixture.commands.get(TIME_SHIFT_COMMAND_ID)).toBeUndefined();
-		expect(fixture.extensions.contributions.getMenus("menu.edit")).toHaveLength(
-			0,
-		);
-	});
-
-	it("computes the shift against the document as it stands after the form closes", async () => {
-		const fixture = createRealTrustedHost({
-			pluginId: TIME_SHIFT_PLUGIN_ID,
-			onShowForm: () => {
-				// A concurrent edit while the form is open must neither be lost nor
-				// make the shift stale: the plugin re-reads the snapshot afterwards
-				// and commits against that revision.
-				fixture.service.transact(
-					{ source: "user", label: "Concurrent edit" },
-					(draft) => {
-						draft.lyricLines[0].translatedLyric = "new";
+describe.each(["factory", "artifact"])(
+	"time shift %s on the real trusted host",
+	(kind) => {
+		let activatePlugin = activate;
+		beforeAll(async () => {
+			if (kind === "factory") return;
+			const root = resolve(import.meta.dirname, "../../../..");
+			const output = await build({
+				configFile: false,
+				root,
+				logLevel: "silent",
+				plugins: [trustedJsArtifactGuard()],
+				build: {
+					write: false,
+					lib: {
+						entry: resolve(root, "src/plugins/builtin/time-shift/plugin.ts"),
+						formats: ["es"],
 					},
-				);
-				return submitShift({ scope: "all" })();
-			},
+					rolldownOptions: { external: isSharedReactImport },
+				},
+			});
+			const bundle = Array.isArray(output) ? output[0] : output;
+			if (!("output" in bundle))
+				throw new Error("Expected plugin build output");
+			const chunk = bundle.output.find((item) => item.type === "chunk");
+			if (chunk?.type !== "chunk") throw new Error("Missing plugin chunk");
+			activatePlugin = (
+				await import(
+					/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(chunk.code).toString("base64")}`
+				)
+			).activate;
 		});
-		await activate({
-			pluginId: TIME_SHIFT_PLUGIN_ID,
-			host: fixture.host,
-			signal: new AbortController().signal,
-		});
-		await fixture.commands.execute(TIME_SHIFT_COMMAND_ID);
-		expect(fixture.service.getRevision()).toBe(2);
-		const snapshot = fixture.service.readSnapshot();
-		expect(snapshot.lyricLines[0].translatedLyric).toBe("new");
-		expect(snapshot.lyricLines[0].startTime).toBe(150);
-		expect(fixture.notifications).toEqual([
-			expect.objectContaining({
-				level: "success",
-				detail: "2 line(s) updated",
-			}),
-		]);
-		fixture.service.undo();
-		expect(fixture.service.readSnapshot().lyricLines[0]).toMatchObject({
-			translatedLyric: "new",
-			startTime: 100,
-		});
-	});
+		it("commits the same plugin source as one editor transaction and undoes it once", async () => {
+			const fixture = createRealTrustedHost({
+				pluginId: TIME_SHIFT_PLUGIN_ID,
+				selection: { lineIds: ["line-1"], wordIds: [] },
+				onShowForm: submitShift({ scope: "selected-following" }),
+			});
+			await activatePlugin({
+				pluginId: TIME_SHIFT_PLUGIN_ID,
+				host: fixture.host,
+				signal: new AbortController().signal,
+			});
+			expect(
+				fixture.extensions.contributions.getMenus("menu.edit")[0]?.commandId,
+			).toBe(TIME_SHIFT_COMMAND_ID);
 
-	it("reports a revision conflict instead of applying a stale shift", () => {
-		const fixture = createRealTrustedHost({ pluginId: TIME_SHIFT_PLUGIN_ID });
-		const stale = fixture.host.document.readSnapshot();
-		fixture.service.transact(
-			{ source: "user", label: "Concurrent edit" },
-			(draft) => {
-				draft.lyricLines[0].translatedLyric = "new";
-			},
-		);
-		const { ops } = buildTimeShiftOps(stale, { offsetMs: 100 });
-		expect(
-			fixture.host.document.applyEdit(ops, "Shift lyric timing", {
-				expectedRevision: stale.revision,
-			}),
-		).toMatchObject({ ok: false, error: { code: "revision-conflict" } });
-		expect(fixture.service.readSnapshot().lyricLines[0].startTime).toBe(100);
-	});
-});
+			await fixture.commands.execute(TIME_SHIFT_COMMAND_ID);
+			const snapshot = fixture.service.readSnapshot();
+			expect(fixture.service.getRevision()).toBe(1);
+			expect(snapshot.lyricLines[0].startTime).toBe(150);
+			expect(snapshot.lyricLines[0].words[0].ruby?.[0].startTime).toBe(150);
+			expect(snapshot.lyricLines[0].words[0].obscene).toBe(false);
+			expect(snapshot.lyricLines[1].startTime).toBe(1050);
+			expect(fixture.notifications).toEqual([
+				expect.objectContaining({
+					level: "success",
+					detail: "2 line(s) updated",
+				}),
+			]);
+
+			fixture.service.undo();
+			expect(fixture.service.readSnapshot()).toEqual(realHostFixture());
+			expect(fixture.service.canUndo()).toBe(false);
+
+			fixture.scope.dispose();
+			expect(fixture.commands.get(TIME_SHIFT_COMMAND_ID)).toBeUndefined();
+			expect(
+				fixture.extensions.contributions.getMenus("menu.edit"),
+			).toHaveLength(0);
+		});
+
+		it("computes the shift against the document as it stands after the form closes", async () => {
+			const fixture = createRealTrustedHost({
+				pluginId: TIME_SHIFT_PLUGIN_ID,
+				onShowForm: () => {
+					// A concurrent edit while the form is open must neither be lost nor
+					// make the shift stale: the plugin re-reads the snapshot afterwards
+					// and commits against that revision.
+					fixture.service.transact(
+						{ source: "user", label: "Concurrent edit" },
+						(draft) => {
+							draft.lyricLines[0].translatedLyric = "new";
+						},
+					);
+					return submitShift({ scope: "all" })();
+				},
+			});
+			await activatePlugin({
+				pluginId: TIME_SHIFT_PLUGIN_ID,
+				host: fixture.host,
+				signal: new AbortController().signal,
+			});
+			await fixture.commands.execute(TIME_SHIFT_COMMAND_ID);
+			expect(fixture.service.getRevision()).toBe(2);
+			const snapshot = fixture.service.readSnapshot();
+			expect(snapshot.lyricLines[0].translatedLyric).toBe("new");
+			expect(snapshot.lyricLines[0].startTime).toBe(150);
+			expect(fixture.notifications).toEqual([
+				expect.objectContaining({
+					level: "success",
+					detail: "2 line(s) updated",
+				}),
+			]);
+			fixture.service.undo();
+			expect(fixture.service.readSnapshot().lyricLines[0]).toMatchObject({
+				translatedLyric: "new",
+				startTime: 100,
+			});
+		});
+
+		it("reports a revision conflict instead of applying a stale shift", () => {
+			const fixture = createRealTrustedHost({ pluginId: TIME_SHIFT_PLUGIN_ID });
+			const stale = fixture.host.document.readSnapshot();
+			fixture.service.transact(
+				{ source: "user", label: "Concurrent edit" },
+				(draft) => {
+					draft.lyricLines[0].translatedLyric = "new";
+				},
+			);
+			const { ops } = buildTimeShiftOps(stale, { offsetMs: 100 });
+			expect(
+				fixture.host.document.applyEdit(ops, "Shift lyric timing", {
+					expectedRevision: stale.revision,
+				}),
+			).toMatchObject({ ok: false, error: { code: "revision-conflict" } });
+			expect(fixture.service.readSnapshot().lyricLines[0].startTime).toBe(100);
+		});
+	},
+);

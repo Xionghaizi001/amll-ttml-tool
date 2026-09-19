@@ -7,6 +7,7 @@ import jotaiReactRefresh from "jotai-babel/plugin-react-refresh";
 import { defineConfig, type PluginOption } from "vite";
 import i18nextLoader from "vite-plugin-i18next-loader";
 import { VitePWA } from "vite-plugin-pwa";
+import { sharedReact } from "./scripts/shared-react";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -23,6 +24,7 @@ const packageAlias = (name: string, directory: string) => [
 ];
 
 const plugins: PluginOption = [
+	sharedReact(),
 	react(),
 	babel({
 		presets: [reactCompilerPreset()],
@@ -177,6 +179,7 @@ export default defineConfig({
 		},
 	},
 	resolve: {
+		dedupe: ["react", "react-dom"],
 		alias: [
 			...packageAlias("@amll-ttml-tool/plugin-api", "packages/plugin-api/src"),
 			...packageAlias(

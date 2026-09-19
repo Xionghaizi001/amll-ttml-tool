@@ -45,6 +45,22 @@ HTTP 请求体最多 1 MiB（UTF-8），响应流最多 8 MiB；非 2xx HTTP 状
 
 trusted-js 包的 zip/JSON 解包均返回 `kind: "trusted-js"`；商店管线校验摘要、包语义和目录身份后交给安装端口。真实宿主尚未实现本地 JS 持久化/执行端口；无端口时拒绝安装，不绕过 consent 或改用 eval。工厂版和现有同源 catalog 模块仍走既有加载器。
 
+### trusted-js 构建与 React 共享
+
+插件输出单个 ESM；SDK/API 的运行时辅助函数随产物打包，类型导入擦除，不依赖宿主源码或 `$/` alias。React/React DOM 由宿主固定为 19.2.7，以下入口必须 external：
+
+```ts
+const external = (id: string) => [
+  "react", "react/jsx-runtime", "react/jsx-dev-runtime", "react/compiler-runtime",
+  "react-dom", "react-dom/client",
+].includes(id);
+// Vite: build.rolldownOptions.external = external
+```
+
+最终产物保留这些 bare import，不把 React 打进插件，不引用 CDN、宿主 chunk 文件名或其他包子路径。宿主在入口模块之前生成 import map：生产映射到同一次构建的 ESM 导出模块，开发模式复用 Vite 预构建依赖，因此 hooks、Context 和 renderer 与宿主一致。映射随宿主发布并纳入 PWA 缓存；插件不得添加或覆盖 import map。这是 trusted-js 的兼容性约定，不是对全权插件的安全隔离。
+
+仓库内以 `scripts/build-plugin-catalog.ts` 为构建模板，复用 `scripts/trusted-js-build.ts` 的 external 白名单与产物检查。`pnpm plugin:catalog:build` 在发布 catalog 前拒绝宿主 alias、非白名单依赖、不可静态确定的动态 import、运行时 require、额外资源和内嵌 React；独立工具链应沿用同一约束。
+
 ## 2. 安装和导入
 
 仓库内开发直接使用 workspace 路径：
