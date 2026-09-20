@@ -1,369 +1,98 @@
-# ADR 0002：Plugin 协议 v0 契约草案
-
-- 状态：已接受（experimental v0，可破坏性变更）
-- 日期：2026-08-19
-- 关联：[ADR 0001](./0001-plugin-architecture.md)
-
-本文件是 `packages/plugin-api` 的**权威签名清单**。内核、运行时与内置插件必须使用这里的名称，
-不得各自发明同义命名。协议正文文档（`docs/plugin-protocol-v0.md`）由 schema 自动生成。
-
-## 1. 版本与能力
-
-```ts
-export const PLUGIN_API_VERSION = 0;
-export const THEME_API_VERSION = 0;
-
-export type Capability =
-	| "lyrics.core"   // 读取文档、行/单词/元数据的增删改
-	| "lyrics.ruby"   // 读写 ruby（注音）分段
-	| "ui.notify"     // 通知与进度
-	| "ui.form"       // 声明式表单
-	| "storage.kv";   // 插件隔离的键值存储
-
-export const ALL_CAPABILITIES: readonly Capability[];
-```
-
-`negotiateCapabilities(requested, hostSupported)` 返回 `{ granted, rejected }`；宿主拒绝任何未知
-capability，不做前缀通配。
-
-## 2. Manifest
-
-```ts
-export interface PluginManifestBase {
-	id: string;          // 反向域名，^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$
-	name: string;
-	version: string;     // semver
-	description?: string;
-	author?: string;
-	homepage?: string;   // 仅 https:
-	license?: string;
-	extensions?: Record<string, unknown>; // 定制版预留，宿主不解释
-}
-
-export type FunctionPluginRuntime = "builtin" | "extism-wasm" | "trusted-js";
-
-export interface FunctionPluginManifest extends PluginManifestBase {
-	kind: "function";
-	apiVersion: number;               // 必须等于 PLUGIN_API_VERSION
-	runtime: FunctionPluginRuntime;   // trusted-js 在 MVP 一律拒绝加载
-	entry: string;                    // builtin: 内部标识；extism-wasm: 包内相对路径
-	capabilities: Capability[];
-	contributes?: FunctionContributions;
-	activationEvents?: ActivationEvent[];
-}
-
-export interface ThemePluginManifest extends PluginManifestBase {
-	kind: "theme";
-	themeApiVersion: number;          // 必须等于 THEME_API_VERSION
-	runtime: "none";
-	appearance: "light" | "dark" | "both";
-	tokens: string;                   // 包内相对路径，指向 token JSON
-	styles?: string[];                // 包内相对路径，受限 CSS
-}
-
-export type PluginManifest = FunctionPluginManifest | ThemePluginManifest;
-export type ActivationEvent = "onStartup" | `onCommand:${string}` | "onDocumentChanged";
-```
-
-判别键为 `kind`。`parseManifest(input: unknown): ParseResult<PluginManifest>` 先用 JSON Schema 校验，
-再做跨字段校验（`kind` 与 `runtime` 一致性、`apiVersion` 匹配、capability 已知、contribution id 前缀）。
-
-## 3. Contribution
-
-```ts
-export type LocalizedText = string | ({ default: string } & Record<string, string>);
-
-export type MenuLocation =
-	| "menu.file" | "menu.edit" | "menu.tool" | "menu.help"
-	| "toolbar.edit" | "toolbar.sync"
-	| "context.lyricLine" | "context.lyricWord"
-	| "sidebar.panel";
-
-/** 受限布尔表达式，语法见 §7 */
-export type EnablementExpr = string;
-
-export interface CommandContribution {
-	id: string;              // 必须以 "<pluginId>." 开头
-	title: LocalizedText;
-	category?: LocalizedText;
-	enablement?: EnablementExpr;
-	defaultKeys?: string[];  // 与现有 keybinding registry 同格式，如 ["Control", "KeyT"]
-}
-
-export interface MenuItemContribution {
-	command: string;         // 只引用 command id，禁止内联回调
-	menu: MenuLocation;
-	group?: string;
-	order?: number;
-	when?: EnablementExpr;
-}
-
-export interface SettingsPageContribution {
-	id: string;
-	title: LocalizedText;
-	form: FormSchemaV0;
-}
-
-export interface FunctionContributions {
-	commands?: CommandContribution[];
-	menus?: MenuItemContribution[];
-	settings?: SettingsPageContribution[];
-}
-```
-
-## 4. 文档投影（PluginDocumentV0）
-
-字段名**故意**与宿主内部 `TTMLLyric` 不同，以防内部结构泄漏成事实协议。
-
-```ts
-export interface PluginRubySegmentV0 { text: string; startTime: number; endTime: number }
-
-export interface PluginWordV0 {
-	id: string;
-	text: string;
-	startTime: number;
-	endTime: number;
-	emptyBeat: number;
-	romanText: string;
-	ruby?: PluginRubySegmentV0[];   // 需要 lyrics.ruby
-}
-
-export interface PluginLineV0 {
-	id: string;
-	words: PluginWordV0[];
-	translation: string;
-	romanization: string;
-	isBackground: boolean;
-	isDuet: boolean;
-	startTime: number;
-	endTime: number;
-	ignoreSync: boolean;
-}
-
-export interface PluginMetadataEntryV0 { key: string; values: string[] }
-
-export interface PluginDocumentV0 {
-	revision: number;
-	lines: PluginLineV0[];
-	metadata: PluginMetadataEntryV0[];
-}
-
-export interface PluginSelectionV0 { lineIds: string[]; wordIds: string[] }
-```
-
-写回时按 `id` 合并；投影中不存在的内部字段（`obscene`、`romanWarning`、`endTimeLink`、
-定制版扩展字段等）必须原样保留。新建行/单词的 id 由宿主分配，插件用 `NewLineV0` / `NewWordV0`
-（不含 `id`）描述。
-
-## 5. 编辑操作与宿主调用
-
-```ts
-export type DocumentOpV0 =
-	| { op: "updateLine"; lineId: string; patch: PluginLinePatchV0 }
-	| { op: "updateWord"; wordId: string; patch: PluginWordPatchV0 }
-	| { op: "insertLine"; afterLineId: string | null; line: NewLineV0 }
-	| { op: "removeLine"; lineId: string }
-	| { op: "moveLine"; lineId: string; afterLineId: string | null }
-	| { op: "insertWord"; lineId: string; afterWordId: string | null; word: NewWordV0 }
-	| { op: "removeWord"; wordId: string }
-	| { op: "setMetadata"; entries: PluginMetadataEntryV0[] }
-	| { op: "replaceDocument"; lines: NewLineV0[]; metadata: PluginMetadataEntryV0[] };
-
-export interface LyricsApplyEditParams {
-	expectedRevision: number;   // -1 表示"不检查"，仅允许同步命令使用
-	label: string;              // 撤销记录标题
-	ops: DocumentOpV0[];
-}
-
-export type EditSource = "user" | "plugin" | "host" | "import";
-
-export interface ApplyEditResult { revision: number; appliedOps: number }
-```
-
-宿主方法表（`method` → 所需 capability）：
-
-| method               | capability                         | params → result                                 |
-| -------------------- | ---------------------------------- | ----------------------------------------------- |
-| `lyrics.getDocument` | `lyrics.core`                      | `{}` → `PluginDocumentV0`                       |
-| `lyrics.getSelection`| `lyrics.core`                      | `{}` → `PluginSelectionV0`                      |
-| `lyrics.applyEdit`   | `lyrics.core`（含 ruby 时另需 `lyrics.ruby`） | `LyricsApplyEditParams` → `ApplyEditResult` |
-| `ui.notify`          | `ui.notify`                        | `NotifyParams` → `{}`                           |
-| `ui.showForm`        | `ui.form`                          | `{ schema: FormSchemaV0 }` → `FormResultV0`     |
-| `storage.get`        | `storage.kv`                       | `{ key }` → `{ value: JsonValue \| null }`      |
-| `storage.set`        | `storage.kv`                       | `{ key, value }` → `{}`                         |
-| `storage.delete`     | `storage.kv`                       | `{ key }` → `{}`                                |
-| `storage.keys`       | `storage.kv`                       | `{}` → `{ keys: string[] }`                     |
-
-```ts
-export interface NotifyParams {
-	level: "info" | "success" | "warning" | "error";
-	message: string;         // 纯文本，宿主不渲染 HTML
-	detail?: string;
-	timeoutMs?: number;
-}
-
-export type HostResult<T> =
-	| { ok: true; value: T }
-	| { ok: false; error: PluginError };
-
-export type PluginErrorCode =
-	| "revision-conflict" | "permission-denied" | "invalid-params" | "not-found"
-	| "unsupported-api-version" | "timeout" | "cancelled"
-	| "payload-too-large" | "plugin-crashed" | "internal";
-
-export interface PluginError { code: PluginErrorCode; message: string; data?: JsonValue }
-```
-
-## 6. 生命周期与事件
-
-```ts
-/** 插件（guest）需要导出的函数名 */
-export const PLUGIN_EXPORTS = {
-	activate: "plugin_activate",
-	deactivate: "plugin_deactivate",
-	executeCommand: "plugin_execute_command",
-	handleEvent: "plugin_handle_event",
-} as const;
-
-export interface ActivateParams {
-	pluginId: string;
-	apiVersion: number;
-	grantedCapabilities: Capability[];
-	locale: string;
-	hostVersion: string;
-}
-
-export interface ExecuteCommandParams { commandId: string; args?: JsonValue }
-
-export type PluginEventV0 =
-	| { type: "document.changed"; revision: number; source: EditSource;
-	    changedLineIds: string[]; changedWordIds: string[] }
-	| { type: "document.undo"; revision: number }
-	| { type: "document.redo"; revision: number }
-	| { type: "selection.changed"; selection: PluginSelectionV0 };
-```
-
-`plugin_activate` 与 `plugin_deactivate` 必需；其余按导出存在与否决定是否派发。
-插件自身发起的修改不会回灌成 `document.changed`（`source === "plugin"` 且 `pluginId` 相同时跳过）。
-
-## 7. enablement 表达式
-
-受限 DSL，只有以下 token，由 `parseEnablement` 解析成 AST 供宿主求值：
-
-```
-expr    := or
-or      := and ("||" and)*
-and     := unary ("&&" unary)*
-unary   := "!" unary | "(" expr ")" | comparison | ident
-comparison := ident ("==" | "!=") literal
-ident   := [a-zA-Z][a-zA-Z0-9.]*
-literal := "'" [^']* "'" | true | false | number
-```
-
-宿主上下文键（MVP）：`mode`（`edit`/`sync`/`preview`）、`hasSelection`、`hasLineSelection`、
-`hasWordSelection`、`documentEmpty`、`audioLoaded`、`canUndo`、`canRedo`。
-未知标识符求值为 `undefined` 并使整个表达式为 `false`，同时上报一次诊断日志。
-
-## 8. 声明式表单
-
-```ts
-export type FormFieldV0 =
-	| { kind: "text"; key: string; label: LocalizedText; default?: string;
-	    placeholder?: string; required?: boolean; maxLength?: number; multiline?: boolean;
-	    visibleWhen?: FormConditionV0; labelPlacement?: "top" | "hidden";
-	    width?: "full" | "compact"; controlSize?: "small" | "medium"; icon?: FormIconV0 }
-	| { kind: "number"; key: string; label: LocalizedText; default?: number;
-	    min?: number; max?: number; step?: number; required?: boolean;
-	    control?: "input" | "stepper"; visibleWhen?: FormConditionV0;
-	    decrementIcon?: FormIconV0; incrementIcon?: FormIconV0 }
-	| { kind: "boolean"; key: string; label: LocalizedText; default?: boolean }
-	| { kind: "select" | "radio"; key: string; label: LocalizedText;
-	    options: { value: string; label: LocalizedText; disabled?: boolean; icon?: FormIconV0 }[];
-	    default?: string; orientation?: "vertical" | "horizontal" }
-	| { kind: "note"; text: LocalizedText; tone?: "default" | "muted";
-	    visibleWhen?: FormConditionV0; icon?: FormIconV0 }
-	| { kind: "group"; id: string; label?: LocalizedText;
-	    direction?: "row" | "column"; align?: "start" | "center" | "end";
-	    gap?: "small" | "medium" | "large"; indent?: boolean;
-	    visibleWhen?: FormConditionV0; icon?: FormIconV0; fields: FormFieldV0[] };
-
-export interface FormIconV0 {
-	source: "@fluentui/react-icons";
-	name: FormFluentIconNameV0; // FORM_FLUENT_ICON_NAMES_V0 白名单
-}
-
-export interface FormConditionV0 {
-	field: string;
-	equals: string | number | boolean;
-}
-
-export interface FormActionV0 {
-	id: string;
-	label: LocalizedText;
-	role?: "submit" | "cancel";           // 默认 "submit"
-	tone?: "primary" | "danger" | "neutral"; // 默认: submit → primary, cancel → neutral
-	icon?: FormIconV0;
-}
-
-export interface FormSchemaV0 {
-	title: LocalizedText;
-	description?: LocalizedText;
-	fields: FormFieldV0[];
-	size?: "small" | "medium" | "large";
-	icon?: FormIconV0;
-	submitLabel?: LocalizedText;
-	cancelLabel?: LocalizedText;
-	submitIcon?: FormIconV0;
-	cancelIcon?: FormIconV0;
-	actions?: FormActionV0[];             // 1..4 个，声明后整体替换默认取消/应用页脚
-}
-
-export type FormValueV0 = string | number | boolean;
-export type FormResultV0 =
-	| { submitted: true; action?: string; values: Record<string, FormValueV0> }
-	| { submitted: false; action?: string };
-```
-
-`key` 与 group `id` 在整个 schema 中分别唯一且匹配 `^[a-zA-Z][a-zA-Z0-9_]*$`；group 最大嵌套
-4 层。`visibleWhen` 只能引用同一表单内的字段并进行同类型等值比较。宿主渲染时不解释 HTML，
-所有布局、步进器、禁用态、条件显示和 Fluent 图标都由固定宿主组件实现。图标引用只能使用
-`FORM_FLUENT_ICON_NAMES_V0` 中的预编译名称，不能提供 SVG、URL、React 组件或动态 import。
-
-`actions` 中的 `id` 在表单内唯一且匹配 `^[a-zA-Z][a-zA-Z0-9_]*$`。`role: "submit"` 的动作受表单
-校验门控，点击后返回 `{ submitted: true, action, values }`；`role: "cancel"` 返回
-`{ submitted: false, action }`。用户按 ESC 或关闭对话框仍返回 `{ submitted: false }`（不带
-`action`）。未声明 `actions` 时保持旧行为：默认取消/应用两个按钮，结果不带 `action` 字段。
-
-## 9. 主题 token
-
-```ts
-export interface ThemeTokensV0 {
-	tokenVersion: number;             // 必须等于 THEME_TOKEN_VERSION
-	color?: Record<string, string>;   // 值必须是安全颜色字面量
-	font?: { family?: string; monoFamily?: string; scale?: number };
-	spacing?: { scale?: number; radius?: string };
-	lyrics?: Record<string, string>;
-	spectrogram?: Record<string, string>;
-	background?: { kind: "solid" | "gradient" | "none"; value?: string };
-}
-export const THEME_TOKEN_VERSION = 0;
-```
-
-token 值走白名单校验：颜色只允许 `#rgb`/`#rrggbb`/`#rrggbbaa`/`rgb()`/`rgba()`/`hsl()`/`hsla()`/
-`oklch()`/`color-mix()` 与命名色；长度只允许 `px`/`rem`/`em`/`%`；一律禁止 `url()`、`var(--...)`
-以外的函数、`@import`、`expression(`、以及任何远程引用。
-
-## 10. Schema 与代码生成
-
-- 每个上表结构都有一份 JSON Schema（`packages/plugin-api/src/schema/*.ts`），
-  使用自带的 JSON Schema 子集校验器 `validate(schema, value)`，不引入第三方依赖。
-- 支持的关键字子集：`type`、`enum`、`const`、`properties`、`required`、`additionalProperties`、
-  `items`、`minItems`、`maxItems`、`pattern`、`minLength`、`maxLength`、`minimum`、`maximum`、
-  `oneOf`、`anyOf`、`allOf`、`not`、`$ref`（仅限本文档内 `#/$defs/*`）、`nullable`。
-- `scripts/gen-plugin-docs.ts` 从 schema 生成 `docs/plugin-protocol-v0.md`。
-
-## 11. 契约测试
-
-`packages/plugin-api/tests/contract/*` 提供一套与宿主实现无关的契约测试套件，导出
-`runHostContractTests(createHost: () => PluginHostUnderTest)`。上游版与定制版各自提供
-`createHost` 实现并跑同一套断言；两边全绿是冻结 v1 的前置条件。
+# ADR 0002：Plugin Protocol v0 当前契约
+
+状态：Accepted，按当前实现重写
+
+日期：2026-09-21
+
+协议状态：experimental v0
+
+## 背景
+
+插件跨越 JSON、Worker、WASM、动态 ESM、IndexedDB 和静态 catalog。仅靠 TypeScript 类型不能保护这些边界；同时 WASM 与 trusted-js 应共享文档、表单、错误和 contribution 语义。
+
+## 决策
+
+### 1. 权威合同由类型、Schema 和 parser 共同组成
+
+`packages/plugin-api/src/types.ts` 定义公开数据；`schema/schemas.ts` 验证结构；parser 和专用校验器执行跨字段、命名空间、CSS、token、网络和包语义检查。任何外部输入必须走对应 parser，不能只做类型断言。
+
+`docs/plugin-protocol-v0.md` 由 `scripts/gen-plugin-docs.ts` 生成，不能手工修改。
+
+### 2. 协议保持 JSON 可表达
+
+`plugin-api` 不包含 React、DOM、Worker、Tauri 或宿主内部类型。核心版本常量为：
+
+- `PLUGIN_API_VERSION = 0`
+- `THEME_API_VERSION = 0`
+- `THEME_TOKEN_VERSION = 0`
+- `REMOTE_PLUGIN_CATALOG_VERSION = 0`
+
+v0 允许破坏性变更；变更必须同步类型、Schema、parser、合同测试、生成文档、SDK 和宿主。
+
+### 3. Manifest 使用判别联合
+
+功能插件使用 `kind: "function"`，声明 `apiVersion`、runtime、entry、capabilities、contributions 和 activation events。主题使用 `kind: "theme"`、`runtime: "none"`、theme API、appearance、tokens 与 styles。两个形态互斥。
+
+功能 runtime 为 `builtin | extism-wasm | trusted-js`。第三方分发使用 extism-wasm 或 trusted-js；builtin 由宿主注册。
+
+### 4. Capability 精确匹配
+
+核心 capability 为：
+
+- `lyrics.core`
+- `lyrics.ruby`
+- `lyrics.format`
+- `ui.notify`
+- `ui.form`
+- `storage.kv`
+- `network.http`
+
+扩展 capability 使用 `extensions.<反向域名>.<名称>`。不支持通配符。WASM host 明确不授予 `network.http`；trusted-js 的 capability/API 约束是治理与兼容边界，不是代码隔离。
+
+### 5. 文档写入是原子事务
+
+`PluginDocumentV0` 暴露 revision、稳定 ID、歌词公开字段和受 capability 控制的 extensions。写入使用 `DocumentOpV0[]`，支持行/词更新、插入、删除、移动、metadata 替换和整文档替换。
+
+一批 op 要么全部成功，要么全部失败，并产生一个 revision 和一个撤销记录。跨异步边界使用 `expectedRevision`；冲突返回 `revision-conflict`。来源和 pluginId 由宿主注入，guest 不能伪造。
+
+### 6. WASM 使用回合协议
+
+生命周期导出名由 `PLUGIN_EXPORTS` 固定。guest 通过 `amll_host_call` 发送 `HostCallV0`，返回 `PluginReturnV0`。每个回合使用开始时的文档、选择和 KV 快照；编辑与 KV 效果在成功返回后提交。
+
+同步 WASM 不能等待用户表单，因此命令返回 `PluginCommandOutcomeV0`。宿主显示表单后调用 `plugin_resume_form`，最多 8 轮。格式转换使用 `plugin_convert_format`，conversion turn 不能写文档。
+
+### 7. trusted-js 使用独立强类型 facade
+
+`@amll-ttml-tool/plugin-sdk-js` 的入口模块提供 `activate({ pluginId, host, signal })`。host 包含文档、选择、项目、命令、菜单、标题栏、表单/通知、KV、网络、格式、模式和受信视图。
+
+所有注册受插件命名空间约束并返回 disposable。宿主卸载时 abort signal，运行插件 cleanup，再释放 host handle 与 extension scope。trusted-js 可以使用 React Component，但 React/React DOM 必须由宿主共享，不能打包第二份 renderer。
+
+### 8. Contribution 是受控声明
+
+Manifest 可声明 commands、menus、settings、titleBarActions 和 formats。WASM 使用静态 contribution；trusted-js 可以通过 SDK 动态注册，并可额外注册 mode 与 trusted view。
+
+enablement/when 使用受限表达式并失败关闭。声明式表单只支持协议控件、布局、动作、动画预设和 Fluent 图标白名单，不接受 HTML、CSS、SVG、React callback 或任意表达式。
+
+### 9. 包和 catalog 都有版本化结构
+
+自包含 package 为：
+
+- `FunctionPluginPackageV0`：manifest + base64 WASM
+- `TrustedJsPluginPackageV0`：manifest + UTF-8 ESM source
+- `ThemePackageV0`：manifest + tokens + styles/assets
+
+`RemotePluginCatalogV0` 使用同源相对 entry，channel 为 trusted-js、extism-wasm 或 theme，并可声明 SHA-256、平台、最低应用版本和 first-party。容器支持固定布局 ZIP 或 package JSON；trusted-js catalog entry 也可指向同源裸 ESM，由统一加载闸门处理。
+
+### 10. 错误稳定且可序列化
+
+跨边界错误使用 `PluginErrorCode` 与 `HostResult<T>`。权限、参数、revision、取消、超时、payload、limit、crash、网络和内部错误必须可区分。HTTP 非 2xx 是成功传输的 `HttpResponseV0`，不是 RPC 失败；离线或传输失败返回 `network-unavailable`。
+
+## 验证要求
+
+- TypeScript 与 JSON Schema 对同一有效/无效样例得出一致结论。
+- parser 覆盖命名空间、跨字段、包载荷与恶意值。
+- mock host 与真实 host 运行同一合同测试。
+- 生成器 check 在提交中无漂移：`pnpm plugin:api:check`。
+- 协议行为测试覆盖原子性、冲突、权限、限额、取消和卸载。
+
+完整字段索引见 [Plugin Protocol v0](../plugin-protocol-v0.md)。

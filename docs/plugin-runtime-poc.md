@@ -1,112 +1,100 @@
-# 阶段 1：插件运行时 PoC 与验收清单
+# 插件运行时验证
 
-对应 `goal.md` 阶段 1。目的：**在大规模重构之前**确认 Extism 能覆盖目标平台，否则更换运行时方案。
+状态：当前可重复验证清单
 
-## 为什么这份清单必须由人在真机上跑一遍
+最后核对：2026-09-21
 
-宿主把 Extism 放进独立 Worker，并使用 SDK 的 `runInWorker: false` 模式；因此浏览器主线程不执行 WASM，
-也不强制依赖 `SharedArrayBuffer`。Extism 自带的二级 Worker 模式仍需要 COOP/COEP，所以本 PoC 不使用它。
-当前项目优先验收浏览器和 Tauri Windows：
+本文验证已经投入使用的 WASM runtime，不再作为 PoC 阶段计划。自动化覆盖协议和生命周期，人工检查用于确认浏览器、WebView、Worker、WASI 与内存行为。
 
-| 目标                 | WebView 内核        | 风险                                        |
-| -------------------- | ------------------- | ------------------------------------------- |
-| 浏览器（Chromium）   | Blink               | 低                                          |
-| Tauri Windows        | WebView2 (Blink)    | 低，但 COOP/COEP 头由自定义协议提供         |
+## 1. 准备
 
-macOS 与 Linux 暂不作为当前项目的优先支持目标；对应平台用户可以自行执行诊断页，验证本地
-WebView 的可用性。CI 与本仓库的自动化测试都跑在 Node 上，因此本文件是一份需要人工执行并回填
-结果的清单。
-
-## 如何跑
-
-1. 运行 `pnpm plugin:build:example`，构建 `examples/plugins/echo/` 并生成 `public/plugins/echo.wasm`。
-2. 运行 `pnpm dev`，打开 `/?plugin-runtime=1` 进入诊断页（仅 `import.meta.env.DEV` 可见）。
-3. 也可以在诊断页拖入其它 Extism `.wasm` 插件；示例插件需要 Rust 工具链和 `wasm32-unknown-unknown` target。
-4. 依次执行下方每一项，把结果回填进表格。
-5. 在 Tauri Windows 上重复：`pnpm tauri dev`。
-
-### PDK 示例构建
-
-Rust PDK 和 C# PDK 示例可通过以下命令构建：
-
-```powershell
-# Rust: extism-pdk 1.4.1；要求 wasm32-unknown-unknown
-# C#: .NET 8 SDK、wasi-experimental workload，以及 x86_64 WASI SDK
-$env:WASI_SDK_PATH = "C:\path\to\wasi-sdk-24.0-x86_64-windows"
-pnpm plugin:build:pdk
+```sh
+pnpm install
+pnpm dev
 ```
 
-`WASI_SDK_PATH` 必须指向 x86_64 Windows WASI SDK，不能使用 ARM 版本。构建产物为
-`public/plugins/rust-pdk-echo.wasm` 和 `public/plugins/csharp-pdk-echo.wasm`。
-诊断页中的“加载 Rust PDK”和“加载 C# PDK（WASI）”按钮会自动加载对应产物；C# 插件需要显式
-启用 WASI，普通插件默认不启用 WASI。
+仓库已包含诊断所需的预构建样例。需要从源码重建 Rust 与 C# echo 样例时，另行执行 `pnpm plugin:build:pdk`；该命令要求 Rust `wasm32-unknown-unknown` target、.NET 8、`wasi-experimental` workload，并通过 `WASI_SDK_PATH` 指向 x86_64 WASI SDK。缺少任一工具链时应直接使用预构建样例。
 
-诊断页额外提供四个性能/恢复按钮：
+打开开发服务器的 `/?plugin-runtime=1` 进入“插件运行时诊断”。诊断页可加载：
 
-- `显式终止`：终止当前 Worker；随后点击 `JSON roundtrip`，应自动重建 Worker 并成功调用。
-- `空调用 ×1000`：先预热 10 次，再执行 1000 次空输入 `echo_json`，输出 p50、p95、平均和最大延迟。
-- `1 MiB JSON 往返`：生成恰好 1 MiB 的 JSON，测量 JSON 序列化、Worker 往返和解析的总耗时。
-- `10 Runtime 内存`：创建 10 个独立 Runtime 并加载插件；若 WebView 提供 `performance.memory`，输出
-  JS heap 增量和每插件平均值。该数值不包含 Worker 原生内存，无法替代任务管理器观察。
+- `echo.wasm`：无 PDK 的最小模块
+- `rust-pdk-echo.wasm`：Rust Extism PDK
+- `csharp-pdk-echo.wasm`：C# WASI
+- 本地 `.wasm` 文件
 
-## 验收项
+WASI 模式可以自动检测、强制关闭或强制启用。当前 runtime 使用外层 Worker，Extism 配置 `runInWorker: false`，不要求 `SharedArrayBuffer` 或 `crossOriginIsolated`。
 
-| #   | 检查项                                        | 通过标准                                       |
-| --- | --------------------------------------------- | ---------------------------------------------- |
-| 1   | 最小插件：接收 JSON，返回 JSON                | `echo_json` 往返数据一致                       |
-| 2   | 浏览器 Worker 中加载                          | `extism.worker` 加载且主线程无阻塞              |
-| 3   | Tauri Windows 加载                            | 同上                                           |
-| 4   | 插件终止（`terminate()`）                     | Worker 真的退出，内存回落                      |
-| 5   | 调用超时                                      | 到达 `timeoutMs` 返回 `timeout` 且 Worker 被杀 |
-| 6   | 重复加载同一插件 20 次                        | 无句柄泄漏，内存回到基线 ±10%                  |
-| 7   | 大 payload（1 MiB / 8 MiB 文档）              | 超过 1 MiB 干净返回 `payload-too-large`        |
-| 8   | 插件主动崩溃（unreachable / panic）           | 宿主收到 `plugin-crashed`，编辑器不受影响      |
-| 9   | 语言 PDK：Rust                                | `extism-pdk` 构建并通过 `echo_json`            |
-| 10  | 语言 PDK：C#                                   | `Extism.Pdk` + WASI 构建并通过 `echo_json`      |
-| 11  | Extism 未泄漏到业务模块                       | `boundary.test.ts` 与 grep 断言均为空           |
+## 2. 自动化验证
 
-### 第 11 项的自动化断言
-
-```bash
-# 只允许 src/plugins/runtime/** 出现 extism
-grep -rl "extism" src --include=*.ts --include=*.tsx | grep -v "^src/plugins/runtime/"
-# 期望输出为空
-```
-这条断言已写进 `tests/plugins/runtime/boundary.test.ts`，CI 会守住。
-
-## 当前自动验证结果
-
-- 已验证：Rust 示例插件编译、Node Extism JSON roundtrip、WASM trap 映射、Worker 协议单测、超时后的
-  Worker 终止与重启、payload 上限、重复加载指标、生产构建和 Extism import boundary。
-- 需要真机回填：Chromium 页面、Tauri Windows 的启动与内存数据。
-- macOS/Linux 不在当前优先验收范围内，平台用户可自行回填可用性数据。
-- 已验证：Rust `extism-pdk` 1.4.1 构建和 Node Extism roundtrip；C# `Extism.Pdk` 1.1.1 在
-  .NET 8 + `wasi-experimental` + x86_64 WASI SDK 下构建，并通过启用 WASI 的 Node Extism roundtrip。
-- C# PDK 产物约 22.6 MiB，明显大于 Rust PDK；其 WASI host imports 中 HTTP 能力在当前宿主中保持关闭。
-- JS PDK 尚未加入依赖锁定；如需 JS PDK，先确认目标 PDK 的构建工具与版本，再把生成的 WASM 放入同一诊断页验证。
-
-自动化验证：
-
-```powershell
-pnpm test
+```sh
+pnpm vitest run tests/plugins/runtime
+pnpm vitest run tests/plugins/adapters/wasm-plugin-service.test.ts
+pnpm vitest run tests/plugins/adapters/host-contract.test.ts
+pnpm vitest run tests/plugins/adapters/format-commands.test.ts
+pnpm lint:boundaries
 ```
 
-其中包括 Worker 超时/崩溃后的自动恢复、payload 上限、真实 Rust WASM 往返，以及基准辅助函数的
-分位数和精确 1 MiB JSON 测试。
+这些测试应覆盖：Worker 请求关联、加载/调用超时、终止恢复、WASI 检测、payload 限制、串行回合、能力拒绝、表单续体、事务合并、revision 冲突、KV 提交、格式转换和崩溃状态。
 
-## 性能记录模板
+确认 Extism 没有越过 runtime 边界：
 
-在每个平台上记录，作为后续回归基线：
+```sh
+rg -n "@extism/extism|createPlugin" src -g "*.ts" -g "*.tsx" -g "!src/plugins/runtime/**"
+```
 
-| 指标                          | 浏览器 | Tauri Win |
-| ----------------------------- | ------ | --------- |
-| 冷启动（首次 load 到 ready）  |load 42.4 ms, input=974 B, output=0 B | load 44.7 ms, input=974 B, output=0 B|
-| 热启动（第 2 次 load）        |  load 4.3 ms, input=974 B, output=0 B      |load 10.5 ms, input=974 B, output=0 B|
-| 空调用往返延迟（p50 / p95）   |p50=0.11 ms，p95=0.16 ms，avg=0.12 ms，max=3.75 ms|p50=0.14 ms，p95=0.21 ms，avg=0.15 ms，max=3.00 ms|
-| 1 MiB 文档序列化 + 往返       |1048576 B，95.86 ms|1048576 B，97.70 ms|
-| 插件包体（wasm 大小）（测试包）         |974 bytes|974 bytes|
-| 常驻内存增量（每插件）        |JS heap 增量 -3.55 MiB，平均 -0.36 MiB / 插件；不含 Worker 原生内存|JS heap 增量 -2.89 MiB，平均 -0.29 MiB / 插件；不含 Worker 原生内存|
+期望无输出。
 
-macOS/Linux 的 WASM 与 WebView 兼容性由对应平台用户自行测试；如需在这些平台正式支持，应在目标
-平台完成独立验收后再决定是否调整运行时方案。相关改动仍应被 `PluginRuntime` 接口挡住，只影响
-`src/plugins/runtime/`。
+## 3. 诊断页检查
+
+对无 WASI 与 WASI 样例分别执行：
+
+| 操作 | 预期 |
+| --- | --- |
+| JSON roundtrip | 输出与输入一致，并记录 load/call metric |
+| 超时/终止 | 500 ms 左右终止调用，UI 不冻结 |
+| 终止后再次调用 | runtime 自动重新加载已保存模块并成功 |
+| 插件崩溃 | 返回 `plugin-crashed` 或对应 runtime 错误，宿主保持可用 |
+| 8 MiB payload | 在进入 guest 前以 `payload-too-large` 拒绝 |
+| 重复加载 20 次 | 全部完成，旧 Worker 被释放 |
+| 空调用 1000 次 | 完成并输出 p50、p95、平均与最大值 |
+| 1 MiB JSON 往返 | 内容一致，输出耗时与字节数 |
+| 10 Runtime 内存 | 支持 `performance.memory` 时输出近似 JS heap 增量 |
+
+性能数值是环境记录，不设跨设备固定阈值。回归判断应使用同一浏览器/WebView、同一构建模式和相同硬件比较。`performance.memory` 不包含 Worker 原生内存，不可用时记录为“不支持”。
+
+## 4. 业务插件检查
+
+在设置 → 插件安装官方 `sample-tools`，验证：
+
+1. 安装前出现 capability 授权，拒绝后不持久化或激活。
+2. 接受后命令和菜单出现，声明式表单可多轮提交。
+3. 一次命令中的多批编辑只产生一个撤销记录。
+4. 表单打开期间修改文档，续体提交以 revision conflict 拒绝。
+5. KV 在成功回合后保留；超时、trap 或取消的回合不提交暂存值。
+6. 禁用后贡献点消失，再启用后恢复。
+7. 连续制造 3 次崩溃类失败后状态变为 `crash-disabled`，手动重试可清零。
+8. 卸载后 runtime、贡献点、包、授权状态和插件 KV 被清理。
+
+格式插件还需验证导入/导出只做文本与公开文档投影转换；文件选择、dirty 确认、项目名和最终导入事务由宿主负责，conversion turn 不能直接调用 `lyrics.applyEdit`。
+
+## 5. 平台矩阵
+
+至少在以下环境各跑一次诊断页与 sample-tools 主流程：
+
+| 平台 | 关注点 |
+| --- | --- |
+| Chromium Web | Worker、IndexedDB、File System Access API、PWA 缓存 |
+| Firefox/Safari Web | Worker/Extism 兼容性；开发目录入口可能不可用 |
+| Tauri Windows | WebView2、WASI、挂起/恢复、窗口关闭清理 |
+| Tauri macOS | WKWebView、WASI 与模块加载 |
+| Tauri Linux | WebKitGTK、WASI 与包安装 |
+
+记录应用提交、构建模式、OS/WebView 版本、样例 SHA-256、每项结果和错误日志。某个平台未验证时应明确写为“未验证”，不能从浏览器测试推断桌面端结论。
+
+## 6. 通过标准
+
+- 崩溃、超时、超限和无效返回都不能冻结或破坏编辑器。
+- Worker 终止、禁用和卸载后不再接收调用，资源可释放。
+- capability、事务、KV 与表单续体行为与协议合同一致。
+- WASM 没有 DOM、网络、文件、Tauri 或凭据访问路径。
+- 自动化测试通过，并完成目标发布平台的人工冒烟。

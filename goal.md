@@ -4,7 +4,7 @@
 
 ## 进度总览（2026-09-20）
 
-- 已落地：阶段 0–7 的基础架构与运行能力，以及里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点；阶段 3 的遗留 UI/业务拆分仍未完成。
+- 已落地：阶段 0–7 的基础架构与运行能力，以及里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点。
 - SDK 已落地：公开 trusted-js SDK、time-shift 的 SDK-only 适配、宿主核心保留边界；项目只读信息、选择订阅、dialog/settings view 与匿名 HTTP 端口已接入，业务消费者尚未批量迁移。
 - 本地安装已接通：trusted-js ZIP/JSON → consent → IndexedDB Blob → 同一加载闸门；导入、开发目录、启停、恢复、卸载与来源摘要已接入。Chrome 开发/生产预览生命周期验收通过。
 - 当前优先项：工具链与 time-shift 独立模板、SDK tarball、锁定出厂 artifact 已落地；补齐远端仓库/静态源发布配置与桌面真机验收后，按阶段 8 逐项迁移。
@@ -15,7 +15,7 @@
 
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
-| 1 | 迁移准备 + 里程碑 4 前置第 2 项 | SDK 构建约束、React 共享与产物依赖检查已完成；继续按待迁消费者拆分遗留业务边界 |
+| 1 | 里程碑 4 前置第 2 项：SDK 构建边界 | SDK 构建约束、React 共享与产物依赖检查已完成；后续插件沿用同一约束 |
 | 2 | 里程碑 4 前置第 3 项：trusted-js 本地安装 | 已接通 Blob、持久化、consent、UI 与恢复；桌面原生 WebView 实测待补 |
 | 3 | 工具链 → time-shift 外置模板 | 本地独立项目、API/SDK tarball、pack/test/serve 与锁定副本已完成；远端静态源发布待配置 |
 | 4（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
@@ -46,18 +46,10 @@ src/plugins/
   ui/                         # 插件管理器、菜单、表单
 tests/                        # 全部测试，镜像 src/ 与 packages/ 路径
 
-仓库外（2026-09-13 规划，名称待定）：
+仓库外（工具链与 time-shift 独立项目已落地）：
 amll-ttml-plugin-toolkit/     # 插件工具链：脚手架、zip 打包、合同测试 CLI、本地静态 catalog 服务
 amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zip artifact 仅发布到自有商店源；出厂副本由宿主构建时从商店源按锁定版本拉取
 ```
-
-## 迁移准备：收口遗留业务边界
-
-阶段 3 遗留项，按阶段 8/9 即将迁移的消费者逐步完成；不要求先拆完全部宿主模块才开始独立插件模板。
-
-- [ ] 将 Jotai、React、Tauri、DOM 和 Worker 依赖收敛到 adapters/ui/runtime；业务层不得反向导入这些实现。
-  - [x] `kernel`、`application`、`plugin-api` 层已禁止反向导入并由 lint 检查。
-  - [ ] 继续拆分 `src/modules` 中混合 UI/业务的遗留模块，优先级依次为：`sync-keybinding.tsx`（整套打轴判定/智能首末词/空拍状态机，建议抽出 `SyncTimingService`）、`lyric-line-view.tsx`（endTimeLink 联动规则）、`lyric-word-menu.tsx`（词拆分/合并/增删事务构造）、`useLyricListDrag.ts`（指针几何/自动滚动）、`useTopMenuActions.ts` 的 `onSyncLineTimestamps` 与 `buildRubySegments`、`lyric-line-menu.tsx` 的行合并时间重排；`ttml-processor/index.ts` 直接读取 `globalStore` 取生成配置，建议改为注入。
 
 ## 里程碑 4 前置：trusted-js SDK 固化与开发者体验（2026-09-13 规划）
 
@@ -171,7 +163,7 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 - [ ] 文件与格式支持。
 - [ ] 网络服务（先迁移 LRCLIB 等业务消费者，并接入网络端口与离线总开关）；GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
 
-每迁移一个功能，都要求旧入口删除、插件禁用后功能消失、重新启用后状态恢复。按 2026-08-28 调序，本阶段即"里程碑 4"，其前置条件见"里程碑 4 前置"。迁出的插件以"插件工具链与内置插件外置"第 2 项的模板落地；存在插件间依赖的功能（如元数据 / Ruby / 分词之间的共享）以"插件间关系"第 1 项的依赖声明表达，不得退回宿主内部直接耦合。
+每迁移一个功能，都要求旧入口删除、插件禁用后功能消失、重新启用后状态恢复。按 2026-08-28 调序，本阶段即"里程碑 4"，其前置条件见"里程碑 4 前置"。迁出的插件沿用“插件工具链与 time-shift 外置”的独立项目模板；存在插件间依赖的功能（如元数据 / Ruby / 分词之间的共享）以"插件间关系"第 1 项的依赖声明表达，不得退回宿主内部直接耦合。
 
 ### 本轮迁移范围划定（2026-09-15）
 
@@ -179,11 +171,11 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 #### 纳入迁移的功能
 
-下列功能属于业务能力或可替换 provider，目标是按 trusted-js（需要 React/完整交互）或 extism-wasm（纯逻辑、格式转换）适配为插件；迁移完成后才复制到 `Plugins/<plugin-name>`，每个目录独立初始化 git 仓库。
+下列功能属于业务能力或可替换 provider，目标是按 trusted-js（需要 React/完整交互）或 extism-wasm（纯逻辑、格式转换）适配为插件，在同级 `amll-ttml-plugin-<name>/` 独立仓库交付。按消费者需要补充公开端口，业务逻辑归插件；宿主核心的内部重构不作为迁移前置。
 
 | 功能组 | 当前代码线索 | 目标插件边界 |
 | --- | --- | --- |
-| 时间平移 | `builtin.time-shift`（已完成 SDK 适配，作为模板） | 保留 command、表单和单事务文档编辑；后续按外置模板迁出 |
+| 时间平移 | `amll-ttml-plugin-time-shift/`（已外置，作为模板） | command、表单和单事务文档编辑已走 SDK；宿主消费锁定 artifact |
 | 元数据编辑 | `src/modules/project/modals/MetadataEditor.tsx`、`src/modules/project/logic` | 元数据读取/编辑、文件名推导；通过 document/project API，不持有宿主 atom |
 | Ruby/罗马音 | `src/modules/lyric-editor/tools/RubyEditor.tsx`、`src/modules/segmentation/utils/Transliteration` | Ruby 生成、分配与批量应用；与分词的共享通过插件依赖声明表达 |
 | 分词与词级编辑辅助 | `src/modules/segmentation`、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法走 wasm；需要交互的编辑器走 trusted-js；统一使用 document-ops |
@@ -194,7 +186,7 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 #### 明确保留在宿主的功能
 
-以下能力是应用稳定性、恢复入口、信任边界或宿主原生实现的一部分，本路线不复制到 `Plugins`，也不以插件禁用为其生命周期条件：
+以下能力是应用稳定性、恢复入口、信任边界或宿主原生实现的一部分，保留在宿主，不以插件禁用为其生命周期条件：
 
 - `core.modes`（包括 fail-safe Edit）、编辑器主视图与行/词渲染、选择/撤销/历史恢复等宿主交互骨架。
 - `core.formats` 中的 `hostNative` TTML provider；阶段 7 已登记的 provider registry 入口保留，但 TTML 仍由宿主原生实现。
@@ -205,19 +197,19 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 #### 暂缓或跳过迁移
 
-- Review 独立模式及其页面壳、FLIP/WAAPI 动画、标题栏动作组留到阶段 9；其中可抽出的 report/filter/operation-log 纯逻辑仍按 application service 先拆边界。
+- Review 独立模式及其页面壳、FLIP/WAAPI 动画、标题栏动作组留到阶段 9；report/filter/operation-log 纯逻辑随审阅插件迁出。
 - QuickJS guest SDK、插件间依赖/主题作用域、商店后端与自托管属于路线图中的前置或并行工作项；在相应协议完成前不创建依赖它们的外置插件。
 - 任何无法通过 SDK 表达、需要直接访问 Jotai/Tauri/DOM/内部 `TTMLLyric` 的代码，先留在宿主并拆出端口，不以“复制源码”方式绕过边界。
 
 #### 迁出后的统一收尾条件
 
-每个功能在复制到独立 `Plugins/<plugin-name>` 仓库前，必须完成：SDK-only 或声明的 wasm capability 边界检查；宿主旧入口和重复实现删除；禁用/卸载后 contribution、监听器、worker 与存储命名空间全清理；重新启用和重启后状态恢复；工厂副本与商店 artifact 使用同一 sha256；宿主只保留锁定版本与加载适配，不再保留该插件的源码真相。
+每个功能在独立仓库交付前，必须完成：SDK-only 或声明的 wasm capability 边界检查；宿主旧入口和重复实现删除；禁用/卸载后 contribution、监听器、worker 与存储命名空间全清理；重新启用和重启后状态恢复；工厂副本与商店 artifact 使用同一 sha256；宿主只保留锁定版本与加载适配，不再保留该插件的源码真相。
 
 #### 接口与功能映射
 
 | 功能 | 本轮可用的框架接口 | 业务迁移状态 |
 | --- | --- | --- |
-| 时间平移 | 既有 SDK commands/menus/form/document-ops | 已 SDK-only，继续作为工厂插件模板 |
+| 时间平移 | 既有 SDK commands/menus/form/document-ops | 已 SDK-only 并外置，宿主消费锁定 artifact |
 | 元数据编辑 | document 投影/metadata ops + 新增只读 `project.getInfo()` | 接口就绪，现有 MetadataEditor 业务实现尚未改写为独立插件 |
 | Ruby、罗马音、分词与词级工具 | 既有 ruby/document-ops + 新增 `selection.onChanged`、dialog view 宿主 | 接口就绪，算法与旧工具入口仍在宿主；依赖声明与完整业务迁移另行验收 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
@@ -228,7 +220,7 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 待补验收：接口适配尚未完成浏览器交互冒烟与 Tauri 真机测试；业务迁移后仍须逐项验证禁用、卸载与重启恢复。
 
-后续先收口 SDK 构建边界、React 共享方案、本地安装与外置模板，再逐项迁移上表业务消费者并删除旧入口；通过禁用/重启恢复验收后在独立仓库交付。不得据“接口就绪”勾选阶段 8 全部迁移验收条件。
+SDK 构建边界、React 共享、本地安装与外置模板已落地；余下远端发布与桌面验收见对应章节。后续逐项迁移上表业务消费者并删除旧入口，通过禁用/重启恢复验收后在独立仓库交付。不得据“接口就绪”勾选阶段 8 全部迁移验收条件。
 
 ## 并行项：QuickJS guest SDK 适配
 
@@ -266,7 +258,7 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 执行边界：功能开发可与阶段 10 并行；审阅插件正式上架必须等待后端资格过滤、kill switch 与审计就绪。API v1 冻结与分支退役放在最终收口。
 
-- [ ] 拆分审阅功能：页面壳、FLIP/WAAPI 动画与标题栏动作组留在受信任视图，report/filter/operation-log 格式化等纯逻辑抽为 application service。
+- [ ] 迁出审阅功能：页面壳、FLIP/WAAPI 动画与标题栏动作组由插件的受信任视图承接，report/filter/operation-log 格式化等纯逻辑归审阅插件，通过公开 SDK 接入宿主。
 - [ ] 将插件事务接入 review operation log（以审阅插件内的 operation log 形态实现，不再依赖定制版宿主）。
 - [ ] 为 agents、vocalTags、多语言和 songPart 增加 capability：不作为原生能力提供，而是作为插件接入现有体系，对应修改插件系统的作用范围。
 - [ ] 通知中心、设置页扩展和复杂对话框按 trusted-js 插件 contribution 形态承接。
@@ -320,7 +312,6 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 - [x] 从干净的上游 main 创建独立 worktree 和功能分支，避免当前未跟踪的定制目录混入提交。
 - [x] 编写 ADR，明确内核保留编辑、时轴、预览、频谱和音频能力。
 - [x] 明确三类运行方式：builtin、extism-wasm、theme/none。
-- [x] 将 trusted-js 标记为未来能力，MVP 不开放给普通第三方插件。（2026-08-27 再校准后已放宽，见"信任模型再校准"。）
 - [x] 规定主题包与功能包互斥，需要组合时使用两个插件包。
 - [x] 将插件 API 标记为 experimental/v0，在全部原定制功能插件通过合同测试前不冻结 v1。
 - [x] 重写 PLUGIN.md，先记录架构和协议，不急于保留现有函数原型。
@@ -354,8 +345,6 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 
 - [x] 创建独立的 packages/plugin-api，不得依赖 React、Jotai、Tauri 或内部 TTMLLyric（tsconfig `lib: ["ESNext"]` + `types: []` 编译期强制）。
 - [x] 固定 UI 与业务的分层边界：业务逻辑只能依赖 kernel、platform 接口和 plugin-api；UI 只能通过 adapter、application service 或 command 调用业务。
-
-遗留模块拆分见“迁移准备：收口遗留业务边界”；基础 API 已就绪不代表全部旧 UI/业务模块已拆分。
 
 - [x] 为文档、导入导出、分词、时间处理等可复用业务建立 host-agnostic application service（TimeShift、PlainTextImport、LyricExport、LyricTimeline/Mutation、TtmlFormat、LyricNavigation、LrcLibImport、Metadata、Segmentation、Romanization、项目历史/快照、SubmitToAmll 编排与 `HttpClientPort`）；React hook 只负责状态绑定、交互和错误展示。
 - [x] 以时间平移完成 UI → command/application service → EditorDocumentService 的首个完整闭环迁移，并删除旧直写入口。
@@ -508,24 +497,11 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 
 ## 信任模型决策记录
 
-### 审阅功能的受信任插件分发（2026-08-26，部分条款已被再校准取代）
+### 审阅功能采用受信任插件的原因
 
 审阅功能是测量驱动的命令式 React UI（FLIP 卡片、DOMRect/WAAPI 动画、标题栏动作组、独立审阅模式），无法在声明式/WASM 档表达，只能以受信任插件承载；其代码已在公开分支上，因此远程分发的收益是发布解耦、包体卫生与权限门控，而非藏代码。该决策是 trusted-js 档的第一个实例。
 
-信任模型（分发方式 / 信任等级 / 使用资格三维正交）：
-
-- 信任锚是代码完整性而非登录态：认证只决定是否下载，完整性决定是否执行。
-- Web 端远程分发实现为同源 ES module 动态 import。TLS + 同源 + 服务端鉴权已提供与主应用等同的信道完整性，MVP 不建签名/撤销/包缓存基础设施；CSP 维持 `script-src 'self'`，禁止 fetch+eval。
-- 一旦载入即为应用全权（可读全部 atom、PAT、调用宿主能力），与 builtin 无隔离差异；所有防护均作用于"载入之前"，加载闸门必须唯一且可测试。
-- 桌面端原定"MVP 禁止 + 编译期物理剔除"，2026-08-27 再校准改为"默认关闭 + 运行时 consent 闸门"（已实现），编译期剔除降级为可选构建选项（未做）。
-
-工作项：
-
-- [x] 远程受信任插件加载器：同源动态 import → 注册进 trusted 等级 scope，scope dispose 全量清理。资格/认证清单接口属"后端实化"里程碑，当前为同源静态清单薄片。
-- [x] 单一加载入口 `TrustedJsPluginService.load()`（同源校验 → apiVersion 协商 → 桌面 consent 闸门 → 诚实 consent → 崩溃标记护卫的 import/activate），不存在第二条路径。
-- [x] 加载器只接受自身 origin 的模块 URL；清单协议在 schema 层无法表达带 scheme/绝对路径/点段的 entry。
-- [x] 故障回退：复用主题系统崩溃标记模式，连续 3 次自动禁用；apiVersion 不匹配直接拒绝。
-审阅功能拆分的未完成工作统一列于阶段 9，不强行下沉 WASM。
+当前准入规则见下文“信任模型再校准”；同源远程加载、本地 Blob 安装与 activation 合同分别见里程碑 1 和里程碑 4 前置。审阅功能迁移统一列于阶段 9。
 
 ### 信任模型再校准（2026-08-27 定稿）
 
@@ -540,7 +516,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
   1. WASM 插件 / 主题：随便装，坏插件最多自己崩溃，碰不到你的账号和系统。
   2. JS 插件（浏览器）：可在本应用内以你的身份行事（读改数据、使用你的登录），但碰不到你的电脑。
   3. JS 插件（桌面）：在 2 之外还可能危害你的系统，请像"安装一个软件"一样对待。
-- 缓建清单（插件生态数量证明需求后再评审）：第三方 iframe/webview UI 沙箱面、桌面签名流水线。QuickJS guest SDK 原在此清单，2026-09-13 提前为里程碑 4 前置工作项；路线结论不变：与 PDK 共享同一信任档与协议，属 SDK 增量而非架构变更（方案 A：插件自带解释器，宿主零改动）。
+- 缓建清单（插件生态数量证明需求后再评审）：第三方 iframe/webview UI 沙箱面、桌面签名流水线。QuickJS guest SDK 按文首顺序作为按需并行项推进：与 PDK 共享同一信任档与协议，属 SDK 增量而非架构变更（方案 A：插件自带解释器，宿主零改动）。
 - 两条不随规模松动的红线：
   1. 凭据（PAT/登录态）由宿主持有，不进插件可读存储、不进文档投影；trusted-js 的 consent 文案必须如实包含"该插件可读取你的登录凭据、可以你的身份操作"。
   2. 业务 API 鉴权在服务端、不信任客户端。
@@ -553,7 +529,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 1. 远程受信任插件加载器（已完成）。
 2. 商店薄片：同源静态清单 + 内容寻址 zip artifact + 商店页面（已完成）。
 3. 试点迁移：`builtin.time-shift` 走全链路（已完成）。
-4. 批量迁移非核心内置功能（阶段 8 顺序沿用）与定制功能插件化。前置：trusted-js SDK 固化（2026-09-13 新增，见下）。
+4. 批量迁移非核心内置功能（阶段 8 顺序沿用）与定制功能插件化。当前前置条件见文首“后续实现顺序”。
 5. 后端实化（账号资格、kill switch、审计）安排在审阅插件上架前完成。
 
 三条设计修正：
@@ -568,7 +544,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 
 - 协议：`RemotePluginCatalogV0` 三档共用，entry 字段在 schema 层只能表达相对路径（禁 scheme/绝对路径/`//`/反斜杠），parser 再拒点段与重复插件 id；含 apiVersion、sha256、platforms（运营过滤，非安全依据）、minAppVersion 与 firstParty。`parseRemotePluginCatalog` 为单一解析入口。
 - 内核：`ContributionOwner` 的 trusted-js plugin owner 可 `trusted: true`（仅由加载闸门授予），可注册 mode、trusted view、toolbar/sidebar，同时保留 plugin 身份供来源展示与命名空间强制；extism-wasm owner 恒为 trusted: false。
-- 加载器（`src/plugins/trusted/trusted-js-service.ts`，纯逻辑、端口注入）：`load()` 顺序执行 already-loaded/apiVersion/同源解析/桌面闸门/崩溃门/consent 后才 import；`activate(context)` 收 `{ pluginId, entry, scope, host }`，可返回 cleanup；unload = cleanup + scope.dispose。崩溃标记：import 前落 pending，宿主 mount 稳定 5s 后清除并归零；上一会话遗留 pending 计一次崩溃，连续 3 次自动禁用。consent 每插件一次并持久化，拒绝不持久化；firstParty 免 consent。桌面默认拒绝所有远程 trusted-js，须显式打开 `amll-trusted-js-desktop-enabled`。
+- 加载器（`src/plugins/trusted/trusted-js-service.ts`，纯逻辑、端口注入）：`load()` 顺序执行 already-loaded/apiVersion/同源解析/桌面闸门/崩溃门/consent 后才 import；activation 与卸载合同见里程碑 4 前置第 1 项。崩溃标记：import 前落 pending，宿主 mount 稳定 5s 后清除并归零；上一会话遗留 pending 计一次崩溃，连续 3 次自动禁用。consent 每插件一次并持久化，拒绝不持久化；firstParty 免 consent。桌面默认拒绝所有远程 trusted-js，须显式打开 `amll-trusted-js-desktop-enabled`。
 - 宿主装配（`trusted-js-host.ts`）：`import(/* @vite-ignore */ url)` 同源动态导入；loader 状态存 localStorage（异常护栏，配额失效只降级崩溃记账、不降级信任检查）；启动时 fetch 同源 `plugins/catalog.json`（no-store），缺失/不可达/校验失败静默跳过。
 - Consent UI：portal 到 body + `data-amll-protected`，措辞按三档如实定价，展示作者与主页。
 - 已知取舍：桌面闸门同样拦截 firstParty 远程条目（桌面第一方随包插件走编译内置）；minAppVersion 客户端未强制（静态薄片由 CI 保证，后端实化时启用）；trusted-js ES module 的 sha256 未在 import 时校验（动态 import 无字节钩子，后端实化时以内容寻址 URL 解决），wasm/theme artifact 已在客户端强制校验。
@@ -576,7 +552,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 ## 里程碑 2 + 3：商店薄片与试点迁移完成记录（2026-08-28）
 
 - 容器格式（`src/plugins/store/package-container.ts`，fflate）：magic bytes 识别（`PK\x03\x04` vs `{`，不看扩展名）；zip 固定布局 = 根下 manifest.json + assets/<name>；entry 名单由 manifest 派生，解压前按声明尺寸拦截 zip bomb（单 entry ≤33MiB、总量 ≤64MiB、≤64 个 entry），拒绝重复 entry、反斜杠、绝对路径与点段；容器层不做语义校验，剥离后汇入唯一的 `parseFunctionPluginPackage` / `parseThemePackage`。
-- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容寻址红线客户端强制） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js channel 已补充容器解析与可注入安装端口，但真实宿主已接线（见里程碑 4 前置第 3 项）。
+- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容寻址红线客户端强制） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js 容器解析、安装端口与真实宿主均已接线（见里程碑 4 前置第 3 项）。
 - Catalog 生成（`scripts/build-plugin-catalog.ts`，已并入 `pnpm build`）：按 lock 收集 time-shift ZIP、fflate 打包预编译 sample-tools zip（固定 mtime，字节级可复现）；产物写入 `public/plugins/store/<sha256>.<ext>` 与 `public/plugins/catalog.json`，均 gitignore。
 - 试点迁移（time-shift → trusted-js 工厂插件）：`TrustedJsPluginEntry.loadModule` 为 bundled 工厂模块加载器，与主包同信任根，跳过同源解析与桌面闸门（桌面构建不丢失出厂功能），崩溃记账不变；`factory-plugins.ts` 从锁定 ZIP 生成目录导入，商店与出厂共用同一 artifact；旧 `BuiltinPluginHost` 已删除。shadow 决策（`trusted-js-load-plan.ts`）：catalog 同 id + trusted-js + 平台匹配 + semver 严格更高 + 未 pin → 远程 shadow 出厂版并附 fallback；桌面闸门关闭时计划层直接丢弃远程候选。启动顺序：工厂插件先加载 → catalog 到达后按计划换装；远程加载失败自动回退出厂版。pin 持久化在 `amll-trusted-js-factory-pins-v0`。
 - 商店页（`PluginStoreDialog.tsx`，独立 modal，"工具"菜单入口，`tool.openPluginStore` 命令，Content 标记 `data-amll-protected`）：目录列表（三档徽章 + 第一方 + 作者来源）、安装/更新/回退出厂版、JS 插件启停、桌面远程 JS 插件 consent 开关、商店不可用提示。catalog fetch 收敛为共享缓存客户端 `catalog-client.ts`。

@@ -1,119 +1,71 @@
-# ADR 0001：插件架构、信任边界与 MVP 范围
+# ADR 0001：插件架构与信任边界
 
-- 状态：已接受（experimental）
-- 日期：2026-08-19
-- 关联：`goal.md`、[ADR 0002](./0002-protocol-v0-contract.md)、`PLUGIN.md`
+状态：Accepted，按当前实现重写
+
+日期：2026-09-21
+
+协议状态：experimental v0
 
 ## 背景
 
-AMLL TTML Tool 的功能持续增长，编辑器、时轴、频谱、音频、分词、音译、元数据、文件导入导出等能力
-全部堆在同一层，UI 组件直接读写全局 `lyricLinesAtom`。这带来三个问题：
-
-1. 任何功能都可能绕过撤销重做语义，静默破坏用户数据。
-2. 定制版（下游 fork）与上游主线难以共存，每次同步都要处理大范围冲突。
-3. 无法在不臃肿主程序的前提下满足歌词制作者的长尾定制需求。
-
-因此需要先划定内核边界，再引入插件系统。
+AMLL TTML Tool 同时需要安全运行第三方歌词处理逻辑、承载需要 React/浏览器能力的第一方或受信代码，并允许用户定制视觉。三类需求的信任程度和生命周期不同，不能用一个不透明“插件”加载器处理。
 
 ## 决策
 
-### D1：内核保留的能力
+### 1. 内核保留实时核心
 
-以下能力**不**插件化，永久属于内核（kernel）：
+歌词文档、事务/revision、撤销重做、时间轴、打轴交互、预览渲染、频谱/波形、音频解码与播放属于宿主核心。插件通过公开端口使用这些能力，不能直接持有内部 atom、`TTMLLyric` 或平台对象。
 
-- 歌词文档模型、事务、revision、撤销重做（`src/kernel/editor`）
-- 时间轴与打轴交互
-- 预览（AMLL 渲染）
-- 频谱图与波形
-- 音频引擎、解码、播放、渲染
+所有文档写入最终进入 `EditorDocumentService` 的事务路径。插件只看到 `PluginDocumentV0` 投影，并使用稳定行/词 ID 提交 `DocumentOpV0[]`。
 
-理由：这些能力对延迟、内存和渲染同步有硬要求，跨 WASM 边界传输代价过高，且是产品的核心身份。
+### 2. 类型、运行档、来源和交付方式相互独立
 
-### D2：三类插件运行方式
+- 类型：`function` 或 `theme`。
+- 运行档：`builtin`、`extism-wasm`、`trusted-js`；主题固定为 `none`。
+- 来源：user、dev、store、sample、builtin/factory 等运行档特定来源。
+- 交付：factory bundle、catalog artifact、裸 ESM、本地 ZIP/JSON 或开发目录。
 
-| kind          | 载体                    | 信任级别 | MVP |
-| ------------- | ----------------------- | -------- | --- |
-| `builtin`     | 随主程序打包的 TS/React | 受信任   | 是  |
-| `extism-wasm` | 独立 Worker 中的 WASM   | 不受信任 | 是  |
-| `theme`       | 声明式 token + 受限 CSS | 不执行   | 是  |
+不能用单个枚举混合这些维度。尤其 factory 是交付/来源策略，trusted-js 是执行方式；builtin 是宿主核心运行档，不等于 factory。
 
-`theme` 类插件不含可执行代码，因此运行方式记为 `none`。
+### 3. extism-wasm 是不可信代码档
 
-### D3：`trusted-js` 是未来能力
+每个插件在独立 Worker 中使用 Extism。宿主只暴露同步 `amll_host_call`，按 capability 校验每次调用，并实施超时、payload/调用次数配额、串行回合和崩溃禁用。
 
-不在 MVP 中对普通第三方插件开放任意 JS/React 注入。`trusted-js` 作为保留的 manifest 取值存在，
-但宿主在 MVP 阶段一律拒绝加载，只有 `builtin` 可以注册受信任的 React view contribution。
+WASM 不获得 DOM、网络、文件系统、Tauri、凭据、音频 PCM 或频谱数据。WASI 仅用于兼容需要 `wasi_snapshot_preview1` import 的模块，宿主不提供预打开目录或 socket。
 
-理由：一旦开放任意 JS，权限系统、主题安全区域和崩溃隔离全部失效。
+### 4. trusted-js 是全权准入档
 
-### D4：主题包与功能包互斥
+trusted-js 已对 factory、本地包、开发目录和同源商店路径开放。它在应用 JS 上下文执行，不是沙箱。加载前必须完成 API/来源检查、桌面总开关、禁用/崩溃 gate 和内容 consent；factory 与明确 `firstParty` 的同信任根内容可跳过用户 consent。
 
-一个插件包只能是 `FunctionPluginManifest` 或 `ThemePluginManifest` 之一。需要"带主题的功能插件"时，
-发布两个插件包。
+`TrustedJsHostV0` 负责稳定 API、命名空间、取消和资源回收，但不能阻止插件直接使用浏览器能力。因此安全说明必须把 trusted-js 当作安装应用代码，而不是“权限受限脚本”。
 
-理由：主题只需要读取 token 与注入受限 CSS，不需要任何文档权限；混合会迫使主题包获得过大权限，
-也让"损坏的主题不能隐藏安全 UI"这一保证无法审计。
+### 5. 主题是无代码声明包
 
-### D5：API 为 experimental v0，不冻结
+主题只能包含 manifest、token、受限 CSS 和内联资源。所有值在注入前校验；远程 URL、任意代码和越界选择器被拒绝。权限、插件管理、consent 与错误恢复 UI 是受保护区域，主题不能覆盖。
 
-`apiVersion` 从 `0` 开始，允许破坏性变更。只有在上游版与定制版都通过同一份协议契约测试之后，
-才发布 v1 并冻结。宿主对未知 `apiVersion` 一律拒绝加载而不是尽力兼容。
+主题与功能包互斥；同时提供功能和视觉时发布两个包。
 
-### D6：目标目录结构
+### 6. 资源按 owner scope 管理
 
-```
-packages/plugin-api/     # 稳定、与宿主实现无关的公开协议（无 React/Jotai/Tauri/TTMLLyric 依赖）
-src/kernel/
-  editor/                # 文档事务、revision、撤销重做
-  commands/              # 命令注册与执行
-  extensions/            # contribution、事件、生命周期
-  platform/              # 文件、剪贴板、存储、URL 等能力
-  theme/                 # 主题解析、校验、应用
-src/plugins/
-  runtime/               # Extism、Worker、权限和隔离
-  builtin/               # 官方 TypeScript/React 插件
-  adapters/              # 上游版和定制版宿主适配
-  ui/                    # 插件管理器、菜单、表单
-```
+每个运行实例拥有 `ExtensionScope`。命令、菜单、设置页、标题栏操作、格式、模式、视图与事件订阅都登记 owner，并返回 disposable。停用/崩溃/卸载会释放整个 scope，避免遗留贡献点。
 
-`packages/plugin-api` 通过 `tsconfig` paths 与 Vite alias 引入（`@amll-ttml-tool/plugin-api`），
-暂不注册为 pnpm workspace 成员，以免强制重建现有 `node_modules`；这一步可在任意时机单独完成。
+禁用保留安装数据与 KV；卸载还删除 package、授权/consent、状态和该插件 KV。
 
-### D7：插件只看到公开文档投影
+### 7. 安装与加载只有受控信任链
 
-插件永远不会拿到宿主内部的 `TTMLLyric`。宿主在 adapter 层把内部文档投影成 `PluginDocumentV0`，
-写回时按 ID 合并，**保留投影中不存在的内部字段**（如 `endTimeLink`、`obscene`、`romanWarning`
-以及定制版的 `agents`、`vocalTags`、`songPart` 等）。
+ZIP/JSON 来源复用：容器识别 → 安全解包 → package parser → 授权/consent → 持久化 → 加载。ZIP 解包必须限制大小、数量与路径；商店 artifact 还校验同源 entry、可选 SHA-256 和 catalog/package 身份。catalog 中的 trusted-js 裸 ESM 不经过容器，但必须通过 catalog parser、同源解析和统一加载闸门。
 
-行与单词使用已有的稳定 `id`。协议中的事件、选区和补丁一律以 ID 定位，不使用数组索引。
+SHA-256 用于内容寻址、完整性和 consent key，不代表发布者身份或代码安全。
 
-### D8：事务层是唯一写入路径
+### 8. factory 副本保证离线与回退
 
-`lyricLinesAtom` 降级为内核内部实现细节。所有写入（用户操作与插件操作）必须经由
-`EditorDocumentService.transact()`。一次插件调用只产生一个撤销记录。异步写入必须携带
-`expectedRevision`，冲突时拒绝而不是覆盖用户的新修改。
-
-通过 import boundary 约束（`biome` + 目录约定）阻止新增代码直接引用 `lyricLinesAtom`。
-
-### D9：MVP capability 清单
-
-`lyrics.core`、`lyrics.ruby`、`ui.notify`、`ui.form`、`storage.kv`。
-
-为定制版预留 `extensions` 命名空间与可协商 capability，但不允许无约束覆盖内部对象。
-
-## 非目标（MVP 不做）
-
-- 插件市场、远程安装、自动更新、评分
-- 插件注入任意 HTML / React / CSS 选择器
-- 插件直接访问 DOM、网络、文件系统或 Tauri API
-- 插件访问音频 PCM、频谱数据、渲染管线
-- 冻结 v1 协议
+随应用交付的外置功能使用 lock 固定 id、version、SHA-256 和 artifact。更高 semver 的安装/远程版本可遮蔽 factory；更新卸载或加载失败时可以 pin/回退 factory，不能让更新失败移除应用基线功能。
 
 ## 后果
 
-- 迁移期成本集中在阶段 2：38 个文件、100+ 处直写点需要改为事务调用。
-- 收益：撤销重做语义统一可测；插件与定制版共用同一条写入路径；协议可在不启动 React 的
-  Mock Host 中做契约测试。
-- 风险：Extism 在 Tauri WebKit（Linux/macOS）上的可用性尚未在真机验证，见
-  `docs/plugin-runtime-poc.md` 的验收清单。若不可用，需在大规模迁移前更换运行时方案，
-  而 `PluginRuntime` 接口的存在正是为了让替换只影响 `src/plugins/runtime`。
+- 不可信功能需要适配 JSON/回合协议，不能获得任意 UI。
+- 需要 React/模式/浏览器能力的插件必须接受 trusted-js 的全权风险提示。
+- 三套运行档目前有不同的持久化和状态服务；UI 需要聚合它们，未来可引入统一 installation 模型。
+- Web/Tauri 的真实隔离仍依赖浏览器、WebView、Extism 与 Tauri 配置，发布前需要跨平台验证。
+
+实现全景和剩余风险见 [插件系统模型](../plugin-system-model.md)。

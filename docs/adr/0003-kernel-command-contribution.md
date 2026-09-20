@@ -1,161 +1,74 @@
 # ADR 0003：内核命令、Contribution 与宿主能力层
 
-- 状态：已接受（experimental v0）
-- 日期：2026-08-19
-- 关联：[ADR 0001](./0001-plugin-architecture.md)、[ADR 0002](./0002-protocol-v0-contract.md)
+状态：Accepted，按当前实现重写
 
-本文件固定 `src/kernel/commands`、`src/kernel/extensions`、`src/kernel/platform`、`src/plugins/*`
-的模块边界与签名，避免并行开发中出现同义异名。
+日期：2026-09-21
 
-## 1. 为什么不直接复用现有 keyboard registry
+## 背景
 
-`src/modules/keyboard/registry.ts` 的 `registerCommand(id, defaultKeys, description, category)`
-只登记了"快捷键 + i18n 描述"，回调由各个组件用 `useCommand(cmd, cb)` 就地绑定。这带来两个问题：
-菜单项直接持有回调（无法被插件贡献），以及命令没有 enablement 与来源信息，卸载插件时无法清理。
+插件需要把命令、菜单、设置页、标题栏操作、格式、模式与视图接入现有编辑器。直接操作旧 keyboard registry、React 页面或 Jotai 状态会造成生命周期泄漏、ID 冲突和插件对宿主内部结构的依赖。
 
-**决策**：新增 `src/kernel/commands` 作为唯一的命令真相源；keyboard registry 降级为
-"快捷键存储"，由内核桥接。
+## 决策
 
-### 1.1 不改动既有 keybinding 存储键
+### 1. 内核 registry 与旧键盘配置分工
 
-`atomWithKeybindingStorage(id, ...)` 用 `id` 作为 localStorage 键。现有命令 id 是裸名
-（`newFile`、`syncStart`…）。**绝不重命名这些 id**，否则用户自定义的快捷键会全部丢失。
+`src/kernel/commands/CommandRegistry.ts` 是插件与核心命令的统一执行/查询入口，负责 owner、ID、enablement、冲突和释放。`src/modules/keyboard` 继续负责用户快捷键持久化、按键匹配与模式快捷键 UI。
 
-因此阶段 4 直接保留既有命令 ID，并让 keyboard registry 把同一 ID 的代理 handler 注册进内核：
+Manifest 的 `defaultKeys` 只是命令默认值，不直接写用户配置。命令可由菜单、标题栏、快捷键或宿主代码调用，执行入口必须相同。
 
-```ts
-registerCommand("newFile", ["Control", "KeyN"], ...);
-bindCommandHandler("newFile", onNewFile);
-```
+### 2. ContributionRegistry 管理声明式扩展
 
-新菜单命令与插件命令使用命名空间 ID；插件 ID 仍必须以 manifest plugin id 为前缀。
+`src/kernel/extensions/ContributionRegistry.ts` 管理菜单、设置页、标题栏操作及其 owner。注册返回 disposable；相同 ID 或不合法命名空间拒绝注册。UI 从 registry 快照渲染，不让插件直接修改宿主组件树。
 
-## 2. src/kernel/commands（阶段 4 实现）
+格式使用 `FormatProviderRegistry`，主题使用 `ThemeService`，模式/受信视图使用对应宿主 service；它们遵守相同的 owner 生命周期原则。
 
-```ts
-export type CommandSource =
-	| { kind: "builtin"; id: string }
-	| { kind: "plugin"; pluginId: string };
+### 3. ExtensionScope 是资源所有权单位
 
-export interface CommandRegistration {
-	id: string;
-	title?: LocalizedText;
-	category?: LocalizedText;
-	handler: (args?: unknown) => unknown | Promise<unknown>;
-	enablement?: () => boolean;
-	source: CommandSource;
-}
+每次插件加载创建 scope。静态 manifest contribution、动态 SDK 注册与事件监听都进入该 scope。scope 按注册逆序 dispose，插件停用、崩溃或卸载时不需要逐项猜测资源。
 
-export class CommandRegistry {
-	register(def: CommandRegistration): Disposable;
-	get(id: string): RegisteredCommand | undefined;
-	getAll(): RegisteredCommand[];
-	isEnabled(id: string): boolean;
-	execute(id: string, args?: unknown): Promise<unknown>;
-	subscribe(listener: () => void): Disposable;
-	notifyEnablementChanged(): void;
-}
-```
+trusted-js 的 cleanup 先运行，再释放 host handle 与 scope；WASM 先停止新调用/事件并取消在途回合，再释放贡献点和 Worker。重复 dispose 必须安全。
 
-`Disposable = { dispose(): void }`。重复 ID 直接拒绝；未注册、disabled 或 handler 错误会让
-`execute` 的 Promise reject，由菜单/快捷键 adapter 统一记录。对 WASM 暴露时再由 HostFacade 转成
-`HostResult`，内核不复制一套协议错误类型。
+### 4. Adapter 隔离宿主模型
 
-现有 keyboard registry 不改 storage key。每个静态快捷键命令注册一个稳定代理 handler；React
-adapter 只负责在组件生命周期内 bind/unbind 实际 handler。无快捷键的菜单命令也走同一 registry，
-但不出现在快捷键设置页。
+`src/plugins/adapters` 将公开协议连接到内核与应用服务：
 
-## 3. src/kernel/extensions（阶段 4 实现）
+- plugin document adapter 在内部歌词与 `PluginDocumentV0` 间转换。
+- host services 提供文档、选择、通知、表单与 KV 端口。
+- manifest adapter 注册静态 contribution。
+- format/file-flow adapter 保证转换与最终文件导入事务分离。
+- enablement context 只暴露稳定键，不暴露 atom。
 
-```ts
-export interface ExtensionScope extends Disposable {
-	registerCommand(...): Disposable;
-	registerMenu(item: MenuItemContribution): Disposable;
-	registerToolbar(...): Disposable;
-	registerDeclarativeForm(...): Disposable;
-	registerTrustedView(...): Disposable;
-	addEventListener(event: string, listener: (payload: unknown) => void): Disposable;
-}
-```
+Adapter 不定义新的公开合同，也不能绕过 parser、事务或权限检查。
 
-`ExtensionRegistry.createScope(owner)` 创建 owner-scoped facade。排序规则：先按 `group`（字典序，
-未指定视为 `"zzz"`），再按 `order`（升序，未指定视为 `1000`），最后按 contribution id，保证稳定。
+### 5. Contribution 分档开放
 
-`getMenuItems` 只做结构排序；`when` / `enablement` 的求值在 React 渲染层用当前
-`EnablementContext` 完成（因为它随选区实时变化）。
+extism-wasm 通过 manifest 声明 commands、menus、settings、titleBarActions 和 formats；运行时只处理命令、事件、表单续体和格式转换。它不能注入 React/HTML。
 
-### 3.1 生命周期
+trusted-js 除静态声明外可动态注册命令、菜单、标题栏、格式、mode 和 trusted view。view kind 限定为 sidebar、settings-view、dialog-view、titlebar-group；所有 ID 和实际 owner 必须匹配插件命名空间。
 
-```ts
-export interface PluginLifecycleHost {
-	load(pkg: LoadedPluginPackage): Promise<LoadResult>;
-	activate(pluginId: string): Promise<void>;
-	deactivate(pluginId: string): Promise<void>;
-	unload(pluginId: string): Promise<void>;
-	getState(pluginId: string): PluginState;
-	list(): PluginRecord[];
-}
+主题不注册功能 contribution，只向 ThemeService 提供声明式视觉包。
 
-export type PluginState =
-	| "installed" | "activating" | "active"
-	| "deactivating" | "disabled" | "crashed" | "incompatible";
-```
+### 6. Enablement 与 UI 输入失败关闭
 
-阶段 4 的 unload 边界是 scope dispose：它按逆序清理命令、菜单、工具栏、侧栏、设置页、对话框和
-事件监听。runtime 停止、KV 句柄关闭与完整 PluginLifecycleHost 状态机在阶段 6 接入，但不能绕过 scope。
-合同测试已断言卸载后 command/contribution/listener 均不可再观察或执行。
+`enablement`/`when` 只使用公开上下文和受限语法。解析失败、未知键或类型不匹配时不显示/不启用，不能执行任意代码。
 
-### 3.2 事件派发
+表单、图标、动画、标题栏和菜单均由宿主渲染。第三方数据只能选择白名单枚举、文本和有限布局参数；恢复入口使用 `data-amll-protected`，不受插件主题覆盖。
 
-阶段 4 先提供 owner-scoped 事件订阅与同步派发，并验证卸载清理。把 `DocumentChangeEvent` 投影为
-`PluginEventV0`、同源过滤、每插件超时与 Worker 隔离属于阶段 6 runtime host 工作。
+### 7. 格式插件只负责纯转换
 
-## 4. src/kernel/platform
+格式 provider 负责文本与公开歌词投影互转。文件选择、dirty 确认、项目身份、文件名推导、保存下载与导入事务由宿主 file flow 负责。WASM conversion turn 禁止 `lyrics.applyEdit`；trusted-js importer 返回 `NewLineV0[]` 与 metadata，由宿主分配稳定 ID 并一次提交。
 
-阶段 4 新增通用 `ManagedResource<T>`，通过 `ResourceStoragePort<T>` 与 `ResourceUrlPort<T>` 管理
-持久资源读取、替换、清空和本地 URL revoke。自定义背景的 IndexedDB、legacy localStorage/data URL
-迁移、fetch、Blob URL 已全部落到 `src/platform/storage` 与 `src/platform/resources`；阶段 5 的主题
-包资源复用同一生命周期。通知 adapter 当前基于纯文本 `react-toastify`，隔离 KV、clipboard/files/urls
-的完整 HostMethod 实现仍按阶段 6/7 推进。
+### 8. 平台能力通过端口注入
 
-## 5. src/plugins
+网络、文件选择、IndexedDB、Blob URL、DOM style、音频等环境能力位于 `src/platform` 或明确 adapter。插件服务依赖小型端口，测试使用 mock；不把 Tauri/Web API 散落进协议和内核。
 
-```
-src/plugins/
-  runtime/     PluginRuntime 抽象、Extism/Worker 实现、权限校验、Mock 运行时
-  builtin/     官方 TS 插件（首个：time-shift）
-  adapters/    EditorHostAdapter：内部 TTMLLyric ⇄ PluginDocumentV0 投影与写回
-  ui/          DeclarativeFormHost、ContributionMenuItems、runtime diagnostics
-```
+当前 trusted-js 网络端口只发送匿名文本 HTTP，请求不带凭据并受离线开关、URL、header、超时与大小限制。WASM 不提供网络端口。
 
-### 5.1 EditorHostAdapter
+## 后果
 
-```ts
-export interface EditorHostAdapter {
-	projectDocument(snapshot: DocumentSnapshot): PluginDocumentV0;
-	applyOps(params: LyricsApplyEditParams, source: ContributionSource):
-		Promise<HostResult<ApplyEditResult>>;
-	projectSelection(): PluginSelectionV0;
-}
-```
+- 贡献点在插件卸载后可确定性移除，命令不依赖具体 UI。
+- 新增 contribution 必须同时实现合同、registry/owner、adapter、渲染和卸载测试。
+- 旧 keyboard registry 与 kernel command registry 暂时并存；新增插件行为应接入 kernel，不应扩大旧 registry 的职责。
+- trusted-js 视图拥有应用级代码权限，因此 UI registry 不是安全沙箱。
 
-`applyOps` 把 `DocumentOpV0[]` 翻译成**一次** `editorDocument.transact()`，用
-`kernel/editor/field-preservation.ts` 的按 id 合并保留内部字段（ADR 0001 D7）。
-这是上游版与定制版唯一需要各自实现的接缝。
-
-### 5.2 内置插件形态
-
-```ts
-const scope = extensionRegistry.createScope({
-	kind: "builtin",
-	id: "builtin.time-shift",
-	trusted: true,
-});
-activateTimeShiftBuiltin(scope, { document, showForm, notify, getSelectedLineIds });
-// deactivate / unload
-scope.dispose();
-```
-
-`builtin.time-shift` 是首个完整实现：菜单 contribution 只引用 command ID，command 请求声明式表单，
-再调用 `TimeShiftService` 产生单一文档事务并发送纯文本通知。scope dispose 后命令、菜单和监听器一起
-消失。WASM 插件在阶段 6 通过同一 scope/manifest adapter 接入，只增加序列化、权限与 Worker 边界。
+实现索引与当前断层见 [插件系统模型](../plugin-system-model.md)。
