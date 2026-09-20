@@ -4,10 +4,21 @@
 		"allowImportingTsExtensions": false,
 		"noEmit": false,
 		"declaration": true,
-		"declarationMap": true,
-		"emitDeclarationOnly": true,
+		"declarationMap": false,
+		"emitDeclarationOnly": false,
 		"rootDir": "src",
-		"outDir": "dist"
+		"outDir": "lib",
+		"noEmitOnError": true,
+		"paths": {
+			"@amll-ttml-tool/plugin-api": [
+				"../plugin-api/lib/index.d.ts"
+			],
+			"@amll-ttml-tool/plugin-api/*": [
+				"../plugin-api/lib/*"
+			]
+		}
 	},
-	"include": ["src/**/*.ts"]
+	"include": [
+		"src/**/*.ts"
+	]
 }

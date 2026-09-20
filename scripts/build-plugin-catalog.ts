@@ -1,13 +1,9 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import { strToU8, zipSync } from "fflate";
-import { build, createServer } from "vite";
-import {
-	isSharedReactImport,
-	trustedJsArtifactGuard,
-} from "./trusted-js-build.ts";
+import { createServer } from "vite";
+import { collectFactoryPlugins } from "./collect-factory-plugins.ts";
 
 /**
  * Store thin slice generator (goal.md milestone 2): builds the first-party
@@ -27,7 +23,6 @@ const root = resolve(import.meta.dirname, "..");
 const publicPluginsDir = resolve(root, "public/plugins");
 const storeDir = resolve(publicPluginsDir, "store");
 const catalogPath = resolve(publicPluginsDir, "catalog.json");
-const buildOutDir = resolve(root, "node_modules/.cache/plugin-catalog");
 
 const sha256 = (bytes: Uint8Array): string =>
 	createHash("sha256").update(bytes).digest("hex");
@@ -36,44 +31,7 @@ await rm(storeDir, { recursive: true, force: true });
 await rm(catalogPath, { force: true });
 await mkdir(storeDir, { recursive: true });
 
-// --- trusted-js artifact: the time-shift plugin as a standalone ES module ---
-await build({
-	configFile: false,
-	root,
-	logLevel: "warn",
-	plugins: [trustedJsArtifactGuard()],
-	resolve: {
-		alias: {
-			"@amll-ttml-tool/plugin-api": resolve(
-				root,
-				"packages/plugin-api/src/index.ts",
-			),
-			"@amll-ttml-tool/plugin-sdk-js": resolve(
-				root,
-				"packages/plugin-sdk-js/src/index.ts",
-			),
-		},
-	},
-	build: {
-		rolldownOptions: { external: isSharedReactImport },
-		lib: {
-			entry: resolve(root, "src/plugins/builtin/time-shift/plugin.ts"),
-			formats: ["es"],
-			fileName: () => "time-shift.mjs",
-		},
-		outDir: buildOutDir,
-		emptyOutDir: true,
-		sourcemap: false,
-		target: "es2022",
-	},
-});
-const timeShiftBytes = await readFile(resolve(buildOutDir, "time-shift.mjs"));
-const timeShiftHash = sha256(timeShiftBytes);
-const timeShiftFile = `${timeShiftHash}.mjs`;
-await writeFile(resolve(storeDir, timeShiftFile), timeShiftBytes);
-const timeShiftModule = (await import(
-	pathToFileURL(resolve(storeDir, timeShiftFile)).href
-)) as { TIME_SHIFT_PLUGIN_VERSION: string };
+const factoryEntries = await collectFactoryPlugins(root);
 
 // --- extism-wasm artifact: the sample plugin as a fixed-layout zip ---
 const sampleManifestBytes = await readFile(
@@ -131,18 +89,7 @@ try {
 const catalog = {
 	catalogVersion: 0,
 	plugins: [
-		{
-			id: "builtin.time-shift",
-			name: "Time Shift",
-			version: timeShiftModule.TIME_SHIFT_PLUGIN_VERSION,
-			description: "Shift lyric line and word timing by a fixed offset",
-			channel: "trusted-js",
-			apiVersion: pluginApi.PLUGIN_API_VERSION,
-			entry: `plugins/store/${timeShiftFile}`,
-			sha256: timeShiftHash,
-			platforms: ["web", "desktop"],
-			firstParty: true,
-		},
+		...factoryEntries,
 		{
 			id: sampleManifest.id,
 			name: sampleManifest.name,
@@ -174,9 +121,7 @@ await writeFile(
 console.log(
 	`Generated public/plugins/catalog.json (${catalog.plugins.length} entries)`,
 );
-console.log(
-	`- trusted-js builtin.time-shift -> plugins/store/${timeShiftFile}`,
-);
+console.log(`- ${factoryEntries.length} locked factory artifacts collected`);
 console.log(
 	`- extism-wasm ${sampleManifest.id} -> plugins/store/${sampleFile}`,
 );

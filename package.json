@@ -4,8 +4,8 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build:tsc": "tsc -b && node scripts/build-plugin-catalog.ts && vite build",
+		"dev": "node scripts/build-plugin-catalog.ts && vite",
+		"build:tsc": "node scripts/build-plugin-catalog.ts && tsc -b && vite build",
 		"build": "node scripts/build-plugin-catalog.ts && vite build",
 		"lint": "pnpm lint:boundaries && biome lint",
 		"lint:boundaries": "node scripts/check-editor-boundary.mjs",
@@ -17,12 +17,13 @@
 		"plugin:build:pdk": "node scripts/build-plugin-pdk.mjs",
 		"plugin:build:sample": "node scripts/build-plugin-sample.mjs",
 		"plugin:catalog:build": "node scripts/build-plugin-catalog.ts",
-		"plugin:api:build": "tsc -p packages/plugin-api/tsconfig.build.json && node scripts/gen-plugin-docs.ts",
+		"plugin:api:build": "node scripts/build-plugin-packages.mjs && node scripts/gen-plugin-docs.ts",
 		"plugin:api:check": "tsc -p packages/plugin-api/tsconfig.json && node scripts/gen-plugin-docs.ts --check",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"plugin:sdk:build": "tsc -p packages/plugin-sdk-js/tsconfig.build.json",
-		"plugin:sdk:check": "tsc -p packages/plugin-sdk-js/tsconfig.json"
+		"plugin:sdk:build": "node scripts/build-plugin-packages.mjs",
+		"plugin:sdk:check": "tsc -p packages/plugin-sdk-js/tsconfig.json",
+		"plugin:packages:build": "node scripts/build-plugin-packages.mjs"
 	},
 	"dependencies": {
 		"@applemusic-like-lyrics/core": "0.5.2",

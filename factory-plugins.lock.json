@@ -1,0 +1,11 @@
+{
+  "lockVersion": 0,
+  "plugins": [
+    {
+      "id": "builtin.time-shift",
+      "version": "1.1.0",
+      "sha256": "62266aa75fc15aaad1c291bd68255a236ab4b552d718351a477686e4cc018398",
+      "source": "vendor/plugin-store/62266aa75fc15aaad1c291bd68255a236ab4b552d718351a477686e4cc018398.zip"
+    }
+  ]
+}
