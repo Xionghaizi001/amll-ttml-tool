@@ -2,13 +2,13 @@
 
 当前执行入口是“后续实现顺序”，详细清单按前置依赖展开；并行项单独标明，原阶段编号保留以便追溯。已落地阶段的记录放在文末，只保留仍约束后续工作的决策、不变量与已知取舍。历史测试数量、lint/构建通过快照不再保留，验证数据以 CI 与专项验收记录为准；未完成的验收与平台覆盖缺口继续列出。
 
-## 进度总览（2026-09-19）
+## 进度总览（2026-09-20）
 
 - 已落地：阶段 0–7 的基础架构与运行能力，以及里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点；阶段 3 的遗留 UI/业务拆分仍未完成。
 - SDK 已落地：公开 trusted-js SDK、time-shift 的 SDK-only 适配、宿主核心保留边界；项目只读信息、选择订阅、dialog/settings view 与匿名 HTTP 端口已接入，业务消费者尚未批量迁移。
-- 安装链路部分完成：trusted-js 包解析、zip/JSON 解包、商店安装端口已实现；真实宿主未装配本地安装端口，持久化、执行来源与安装 UI 尚未完成。
-- 当前优先项：完成本地安装链路，建立工具链和 time-shift 外置模板（SDK 产物检查与 React 共享方案已收口）；随后按阶段 8 逐项迁移。
-- 尚未落地：工具链/插件独立仓库、插件依赖/主题作用域/局部覆盖、多商店提供者、QuickJS、阶段 8/9 完整业务迁移、阶段 10 后端。
+- 本地安装已接通：trusted-js ZIP/JSON → consent → IndexedDB Blob → 同一加载闸门；导入、开发目录、启停、恢复、卸载与来源摘要已接入。Chrome 开发/生产预览生命周期验收通过。
+- 当前优先项：工具链与 time-shift 独立模板、SDK tarball、锁定出厂 artifact 已落地；补齐远端仓库/静态源发布配置与桌面真机验收后，按阶段 8 逐项迁移。
+- 尚未落地：工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、QuickJS、阶段 8/9 完整业务迁移、阶段 10 后端。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
 ## 后续实现顺序
@@ -16,8 +16,8 @@
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
 | 1 | 迁移准备 + 里程碑 4 前置第 2 项 | SDK 构建约束、React 共享与产物依赖检查已完成；继续按待迁消费者拆分遗留业务边界 |
-| 2 | 里程碑 4 前置第 3 项：trusted-js 本地安装 | 先确定 Blob / Service Worker 执行来源，再接持久化、consent、宿主安装端口、UI 与重启恢复 |
-| 3 | 工具链 → time-shift 外置模板 | API/SDK 可被独立项目消费 → toolkit pack/test/serve → 静态源发布 → 锁定出厂副本；安装验收依赖第 2 步 |
+| 2 | 里程碑 4 前置第 3 项：trusted-js 本地安装 | 已接通 Blob、持久化、consent、UI 与恢复；桌面原生 WebView 实测待补 |
+| 3 | 工具链 → time-shift 外置模板 | 本地独立项目、API/SDK tarball、pack/test/serve 与锁定副本已完成；远端静态源发布待配置 |
 | 4（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
 | 5 | 阶段 8：批量迁移 | 第 1–3 步收口后，按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移 |
 | 6（按需并行） | QuickJS guest SDK | 设计可先做；壳体实现等待 wasm 合同与 toolkit 首版，不作为 trusted-js 迁移前置 |
@@ -61,7 +61,7 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 
 ## 里程碑 4 前置：trusted-js SDK 固化与开发者体验（2026-09-13 规划）
 
-执行顺序：第 1 项已完成；第 2 项的构建边界与 React 共享方案已收口，接下来完成第 3 项本地安装链路。工具链开发可同步推进，但独立插件模板的安装验收依赖第 3 项接入真实宿主。QuickJS 与开发文档已单列为后续并行项，不阻塞首批 trusted-js 迁移。
+第 1 项与第 2 项构建边界已完成，第 3 项本地安装及外置模板已接通并完成 Chrome 验收。余下平台/发布缺口见各节；QuickJS 不阻塞首批 trusted-js 迁移。
 
 ### 1. 封装 trusted-js API
 
@@ -89,40 +89,31 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 - [x] 划定不迁 SDK 的宿主核心：`core.modes`（fail-safe Edit）、`core.formats`（hostNative TTML）、内置主题。它们保持 builtin 直接注册；provider/mode 注册已与 SDK 的 `formats.register`/`views.registerMode` 共用 registry 入口。
 - [x] catalog 构建脚本对 trusted-js 最终 ESM 产物校验：拒绝 `$/` 残留、非白名单静态/动态导入、不可静态确定的动态导入、运行时 require 和内嵌 React。SDK/API 随插件打包；React、React DOM 及 JSX/compiler runtime 的受支持入口保留 bare import，由宿主生成 import map，映射到同一次构建的共享模块（开发模式复用 Vite 依赖图）。宿主固定 React/React DOM 19.2.7，插件不得覆盖映射；构建约定见开发者手册。
 - [ ] 里程碑 4 迁出的每个插件都以 SDK 为唯一依赖，本项作为其模板。
-- 验收：边界检查通过；产物拒绝用例、开发映射及生产相对/根/子路径映射验证通过，React hooks/Context 与 renderer 共享已验证；time-shift 工厂版与构建 artifact 共用真实宿主的命令 → 表单 → 单事务 → 撤销测试。浏览器 UI 冒烟仍待复跑（原 Playwright 脚本未入库，本机 Chrome 无头进程启动失败）；上述自动化验证不替代 UI 验收。
+- 验收：边界检查通过；产物拒绝用例、开发映射及生产相对/根/子路径映射验证通过，React hooks/Context 与 renderer 共享已验证；time-shift 工厂版与构建 artifact 共用真实宿主的命令 → 表单 → 单事务 → 撤销测试。真实 Chrome 开发/生产预览安装生命周期已验证；time-shift artifact 的表单 → 单事务 → 撤销由真实宿主合同测试覆盖。
 
 ### 3. 插件加载器接受 trusted-js 来源安装
 
-现状：`parseTrustedJsPackage`、zip/JSON 容器解包与 `store-install.ts` 的 trusted-js 安装端口已实现；`store-host.ts` 尚未装配 `installTrustedJsPackage`，真实宿主仍拒绝本地 JS artifact 安装。现有执行来源仍为工厂模块与同源 catalog 模块；持久化、本地执行来源、导入 UI 与开发目录加载待接入。
+- [x] ZIP/JSON 使用 `parseTrustedJsPackage` 单一语义入口；本地、商店与开发目录都经过 `TrustedJsPluginService.load()`。
+- [x] 执行来源：IndexedDB `amll-plugins` v2 的 `trusted-js` store 保存 Blob；同库 WASM 连接使用统一升级入口。consent 后持久化、再创建 Object URL；卸载或加载失败撤销 URL。
+- [x] 宿主接线：商店安装端口、设置页/商店页导入、开发目录加载、启动恢复、禁用/启用/卸载、崩溃记账、semver shadow/pin 均已接入。开发目录仅会话有效。
+- [x] 来源展示：user/dev/store 与客户端包内容 SHA-256；摘要仅供识别，不作为安全依据。同 id 内容变化重新 consent；失败恢复旧包与旧授权。
+- [x] 验收：真实 Chrome 开发与生产预览完成 ZIP → consent → 菜单命令 → 禁用/刷新 → 启用/刷新 → 卸载/刷新；错误授权、写盘失败、恢复损坏与桌面默认关闭由自动化测试覆盖。
+- [ ] 平台收口：桌面原生 WebView 的 Blob/共享 React 实测；当前 HTML CSP 原已允许 blob，本轮未把全应用 CSP 收紧为仅 `script-src 'self' blob:`（既有 inline/eval 等需求需独立梳理）。
 
-- [x] 接口迁移：trusted-js 包复用 zip 容器（根下 manifest.json + `assets/<entry>.js`），以 manifest 的 `runtime: "trusted-js"` 判别；新增 `TrustedJsPluginPackageV0` 与 `parseTrustedJsPackage` 单一语义闸门，容器层只剥离并返回 UTF-8 源码，不执行代码。
-- [ ] 模块执行来源决策：安装的 JS 源以 Blob 存 IndexedDB `amll-plugins`，运行时用 `blob:` Object URL import，CSP 放宽为 `script-src 'self' blob:`。
-- [x] 接口迁移：`store-install` 接受 trusted-js channel，并将解包结果交给注入的 `installTrustedJsPackage` 端口；该端口负责 `parseTrustedJsPackage`、consent、持久化及同一 `TrustedJsPluginService.load()` 闸门。此处仅完成端口合同，尚未在真实宿主装配。
-- [ ] 宿主接线：实现并向 `store-host.ts` 注入 `installTrustedJsPackage`，接通 consent、IndexedDB Blob 持久化、启动恢复、导入 UI 与开发目录加载；执行统一经过 `TrustedJsPluginService.load()`。
-- [ ] 语义对齐：卸载/禁用/崩溃自动禁用/semver 更高 shadow 与 catalog 条目一致；本地安装包的 sha256 由客户端计算并在来源展示中列出（不是安全依据）；`PluginInstallSource` 沿用 user/dev/store。
-- 验收：从 zip 安装一个第三方 trusted-js 插件 → consent → 菜单命令可用 → 禁用后消失 → 重启后恢复 → 卸载后 scope/存储全清理；桌面闸门关闭时被拒并给出开关指引。
+## 插件工具链与 time-shift 外置（2026-09-20）
 
-## 插件工具链与内置插件外置（2026-09-13 规划）
+本地独立仓库位于同级 `amll-ttml-plugin-toolkit/`、`amll-ttml-plugin-time-shift/`，均未配置 remote。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。
 
-动机：里程碑 4 会产出十余个 SDK-only 插件。若它们继续以 `src/plugins/builtin/<plugin>` 形态住在宿主仓库，插件的发布节奏、测试与 CI 都与宿主强耦合，商店"更新通道"的意义被架空，第三方作者也没有可照抄的独立项目样板。因此在批量迁移开始前先把工具链与首个插件（time-shift）外置，形成模板；此后阶段 8 的每个插件按模板"生而外置"。前置：里程碑 4 前置第 1 项（已完成）与第 2 项中 time-shift 的 SDK-only 化（已完成）。两项顺序为 1 → 2，均可与"插件间关系"并行。第 1 项的端到端安装验收依赖 trusted-js 本地安装链路；第 2 项须先有静态商店源与 artifact 发布通道，不必等待阶段 10 的动态后端。
+- [x] API/SDK 版本 0.1.0，exports 指向 ESM/声明产物，保留 testing 子路径与 private。`plugin:packages:build` 生成 tarball；tag `plugin-sdk-v*` 的 Release 附件 workflow 已提供。外部依赖采用 Release tarball，不采用 git prepare。
+- [x] toolkit：create（trusted-js / Rust Extism WASM / theme）、build、test、可复现 ZIP pack、静态 catalog serve；共享 React external/产物导入检查；开发期轻量 mock 与权威 SDK Mock 分开。JS/WASM 生成项目通过同一协议合同，主题包通过 schema 与静态服务字节一致性检查。
+- [x] time-shift：源码与单元测试外置，仅依赖公开 SDK/API；已生成唯一 ZIP。独立项目 vendored tarball 可脱离宿主源码安装。CI 包含测试、重复打包摘要一致性、tag 版本检查与可选静态 Pages 发布。
+- [x] 宿主：`factory-plugins.lock.json` 锁定 id/version/sha256/source；收集器支持本地镜像或 HTTPS，验证后生成静态模块，catalog 引用同一 ZIP。宿主已删除 time-shift 源码与插件单元测试，保留 artifact 的真实宿主事务验收。sample WASM 仍以已编译资源打 ZIP，catalog 不编译插件源码。
+- [x] 本地静态源：toolkit serve 的 catalog/内容寻址 artifact 可用；首个出厂 artifact 放在 `vendor/plugin-store/` 作离线镜像，构建与商店分发字节一致。
+- [x] Chrome 夹具：toolkit `tests/chrome-smoke.mjs` 使用真实已安装 Chrome 与独立 profile；通过 HOST_URL 接入宿主生产预览，覆盖完整安装生命周期。
+- [ ] 远端交付：创建/绑定两个远端仓库，发布 SDK/工具链 Release 附件与 time-shift 静态商店，随后把 lock source 指向正式 HTTPS 地址。当前本地镜像不等于远端已发布；发布后宿主升版才可做到仅改 lock。
+- [ ] 平台补测：桌面 WebView 与跨平台 ZIP 可复现性。阶段 8 新插件直接沿用外置模板；有依赖关系的迁移须等待依赖协议。
 
-### 1. 插件工具链外置项目
-
-- [ ] 让 `packages/plugin-api` 与 `packages/plugin-sdk-js` 可被仓库外项目消费：真实 semver（0.x，与 API v0 同步）、`exports` 指向构建产物而非源文件（当前 `import` 条件指向 `src/index.ts`，只在宿主 alias 下可用）、CI 在打 tag 时构建并附产物到 GitHub Release。外部项目以 git tag 引用消费（`github:<owner>/<repo>#<tag>` 依赖加 `prepare` 构建，或引用 Release 附件 tarball，二选一定稿），保持 `private: true`。两个包的源码真相源仍在宿主仓库：协议在 v0 期间与宿主同步演进，分离仓库会制造双向发布依赖。
-- [ ] Mock 宿主两处并存（2026-09-13 复核定稿）：宿主仓库内的 `MockPluginHost`、`MockTrustedJsHost`、`runHostContractTests` 与 `document-ops` 保持以 `testing` 子路径随包发布，是真实载入前合同测试的权威实现；toolkit 另持一份面向开发阶段的 mock 宿主，作为插件开发工作流中的自动化测试工具（快速迭代、无需宿主构建产物）。漂移控制：toolkit 的 mock 宿主只能基于已发布的 plugin-api 包类型与 schema 构造，不复制宿主内部逻辑；插件发布前必须在宿主自带的 mock 宿主与真实宿主上通过合同测试，toolkit 测试通过不作为上架依据。
-- [ ] 新建空项目 `amll-ttml-plugin-toolkit`（名称待定），承载与宿主实现无关的开发工具：`create` 脚手架（首版 trusted-js / wasm / theme 模板，quickjs 模板待壳体可用后补齐）、`test`（在 Node 中以 Mock 宿主跑合同测试）、`pack`（zip 容器打包，逐字节可复现，从 `scripts/build-plugin-catalog.ts` 抽出与宿主无关的打包部分）、`serve`（本地静态 catalog 服务，产出与商店同布局的 `catalog.json` + 内容寻址 artifact，供开发与自托管）、e2e 夹具（拉起真实宿主构建产物 + 待测插件的 Playwright 冒烟）。
-- [ ] 宿主仓库的 `scripts/build-plugin-catalog.ts` 收缩为"收集已固定版本的 artifact + 生成 catalog"，不再编译插件源码（见本节第 2 项）。
-- 验收：在不克隆宿主仓库的机器上，用 toolkit 脚手架生成一个 trusted-js 插件与一个 wasm 插件，`test` 通过同一份合同测试，`pack` 产物可被宿主"导入插件包"直接安装。
-
-### 2. 内置插件外置
-
-- [ ] 范围：`src/plugins/builtin/<plugin>` 中 SDK-only 的功能插件（当前为 time-shift，阶段 8 产出随后跟进）。宿主核心目录 `core.modes`、`core.formats`、内置主题不外置（里程碑 4 前置第 2 项已划定）。
-- [ ] 每个外置插件为独立仓库（命名约定待定，如 `amll-ttml-plugin-<name>`），只依赖 plugin-api、SDK 与 React 类型；每个 tag 由 CI 产出唯一产物 zip artifact，逐字节可复现，只发布到自有商店源，不进入任何公共包注册中心。
-- [ ] 宿主侧：新增锁定文件 `factory-plugins.lock.json`（每个出厂插件的 id、版本、sha256、商店源 artifact 路径）；宿主构建脚本按锁定文件从商店源拉取 zip artifact、校验 sha256 后解包到生成目录（gitignore），`factory-plugins.ts` 从生成目录静态导入 trusted-js 工厂模块，wasm / theme 出厂包则作为资源打包并经同一容器剥离路径加载；catalog 直接引用同一 artifact（sha256 必须一致，CI 断言）。外置完成后删除仓库内对应源码与测试，边界脚本的插件目录规则随之收缩。
-- [ ] v0 期间的版本耦合政策：宿主锁定精确插件版本；插件仓库 CI 以其声明的 SDK 版本范围跑合同测试；SDK 破坏性变更走协调发布（SDK 打 tag → 各插件更新并发布到商店源 → 宿主更新锁定文件），变更按批合并以减少轮次。接受这一成本，换取插件独立迭代与真实的更新通道。
-- [ ] 出厂副本原则不变：出厂版 = 锁定文件所指的商店源 artifact 版本，与商店分发的是同一份字节；catalog 中 semver 更高者按既有 shadow/pin 规则换装；商店不可用不缺功能。
-- [ ] 与阶段 8 的关系：time-shift 模板验证通过后，阶段 8 新迁出的插件直接以外置形态落地；此前已在仓库内落地的 SDK-only 插件在里程碑 4 收口前完成外置。外置插件的测试随插件仓库迁移，各仓库沿用"根目录 `tests/` 镜像源码"约定。
-- 验收：宿主仓库不再含 time-shift 源码；宿主按锁定文件从商店源拉取出厂副本构建、现有 Playwright 冒烟通过；商店 artifact 与出厂版为同一 sha256；插件仓库单独发版后，宿主升版 PR 只改锁定文件。
+v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确插件版本，升级、回退与离线出厂副本原则不变。操作手册见 `docs/plugin-development-guide.md`，本轮验收见 `docs/plugin-local-install-validation.md`。
 
 ## 商店提供者抽象与自托管（2026-09-13 规划，阶段 10 前置）
 
@@ -585,8 +576,8 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 ## 里程碑 2 + 3：商店薄片与试点迁移完成记录（2026-08-28）
 
 - 容器格式（`src/plugins/store/package-container.ts`，fflate）：magic bytes 识别（`PK\x03\x04` vs `{`，不看扩展名）；zip 固定布局 = 根下 manifest.json + assets/<name>；entry 名单由 manifest 派生，解压前按声明尺寸拦截 zip bomb（单 entry ≤33MiB、总量 ≤64MiB、≤64 个 entry），拒绝重复 entry、反斜杠、绝对路径与点段；容器层不做语义校验，剥离后汇入唯一的 `parseFunctionPluginPackage` / `parseThemePackage`。
-- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容寻址红线客户端强制） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js channel 已补充容器解析与可注入安装端口，但真实宿主尚未接线（见里程碑 4 前置第 3 项）。
-- Catalog 生成（`scripts/build-plugin-catalog.ts`，已并入 `pnpm build`）：Vite lib 构建 time-shift trusted-js ES module、fflate 打包 sample-tools zip（固定 mtime，字节级可复现）；产物写入 `public/plugins/store/<sha256>.<ext>` 与 `public/plugins/catalog.json`，均 gitignore。
-- 试点迁移（time-shift → trusted-js 工厂插件）：`TrustedJsPluginEntry.loadModule` 为 bundled 工厂模块加载器，与主包同信任根，跳过同源解析与桌面闸门（桌面构建不丢失出厂功能），崩溃记账不变；`factory-plugins.ts` 工厂注册表与商店 artifact 构建共用同一插件源文件；旧 `BuiltinPluginHost` 已删除。shadow 决策（`trusted-js-load-plan.ts`）：catalog 同 id + trusted-js + 平台匹配 + semver 严格更高 + 未 pin → 远程 shadow 出厂版并附 fallback；桌面闸门关闭时计划层直接丢弃远程候选。启动顺序：工厂插件先加载 → catalog 到达后按计划换装；远程加载失败自动回退出厂版。pin 持久化在 `amll-trusted-js-factory-pins-v0`。
+- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容寻址红线客户端强制） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js channel 已补充容器解析与可注入安装端口，但真实宿主已接线（见里程碑 4 前置第 3 项）。
+- Catalog 生成（`scripts/build-plugin-catalog.ts`，已并入 `pnpm build`）：按 lock 收集 time-shift ZIP、fflate 打包预编译 sample-tools zip（固定 mtime，字节级可复现）；产物写入 `public/plugins/store/<sha256>.<ext>` 与 `public/plugins/catalog.json`，均 gitignore。
+- 试点迁移（time-shift → trusted-js 工厂插件）：`TrustedJsPluginEntry.loadModule` 为 bundled 工厂模块加载器，与主包同信任根，跳过同源解析与桌面闸门（桌面构建不丢失出厂功能），崩溃记账不变；`factory-plugins.ts` 从锁定 ZIP 生成目录导入，商店与出厂共用同一 artifact；旧 `BuiltinPluginHost` 已删除。shadow 决策（`trusted-js-load-plan.ts`）：catalog 同 id + trusted-js + 平台匹配 + semver 严格更高 + 未 pin → 远程 shadow 出厂版并附 fallback；桌面闸门关闭时计划层直接丢弃远程候选。启动顺序：工厂插件先加载 → catalog 到达后按计划换装；远程加载失败自动回退出厂版。pin 持久化在 `amll-trusted-js-factory-pins-v0`。
 - 商店页（`PluginStoreDialog.tsx`，独立 modal，"工具"菜单入口，`tool.openPluginStore` 命令，Content 标记 `data-amll-protected`）：目录列表（三档徽章 + 第一方 + 作者来源）、安装/更新/回退出厂版、JS 插件启停、桌面远程 JS 插件 consent 开关、商店不可用提示。catalog fetch 收敛为共享缓存客户端 `catalog-client.ts`。
 - 已知取舍：商店 wasm 条目每次更新走完整能力授权弹窗（无差量授权）；theme 货架 zip 路径已实现但 CI catalog 暂未发布主题条目；设置 → 插件页与商店页并存（前者管 WASM 安装/开发模式，后者管分发与 trusted-js），合并留待批量迁移时整理。

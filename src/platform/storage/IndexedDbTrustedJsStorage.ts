@@ -14,17 +14,26 @@ export interface StoredTrustedJsRecord {
 export class IndexedDbTrustedJsStorage {
 	async loadAll(): Promise<StoredTrustedJsRecord[]> {
 		const db = await openPluginDatabase();
-		try { return await db.getAll("trusted-js"); }
-		finally { db.close(); }
+		try {
+			return await db.getAll("trusted-js");
+		} finally {
+			db.close();
+		}
 	}
 	async save(record: StoredTrustedJsRecord): Promise<void> {
 		const db = await openPluginDatabase();
-		try { await db.put("trusted-js", record); }
-		finally { db.close(); }
+		try {
+			await db.put("trusted-js", record);
+		} finally {
+			db.close();
+		}
 	}
 	async remove(id: string): Promise<void> {
 		const db = await openPluginDatabase();
-		try { await db.delete("trusted-js", id); }
-		finally { db.close(); }
+		try {
+			await db.delete("trusted-js", id);
+		} finally {
+			db.close();
+		}
 	}
 }

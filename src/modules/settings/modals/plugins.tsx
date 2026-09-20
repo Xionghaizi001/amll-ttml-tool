@@ -229,9 +229,13 @@ const DevPluginSection = () => {
 				if (!manifest.ok || manifest.value.kind !== "function")
 					throw new Error("manifest failed validation");
 				if (source.code !== undefined) {
-                    const result = await installTrustedJsPackage({ packageVersion: 0, manifest: source.manifest, code: source.code }, "dev");
-                    if (!result.ok) throw new Error(result.message);
-                } else await wasmPluginService.reload(pluginId, manifest.value, source.wasm);
+					const result = await installTrustedJsPackage(
+						{ packageVersion: 0, manifest: source.manifest, code: source.code },
+						"dev",
+					);
+					if (!result.ok) throw new Error(result.message);
+				} else
+					await wasmPluginService.reload(pluginId, manifest.value, source.wasm);
 				toast.info(t("plugins.dev.reloaded", "开发插件已热重载"));
 			} catch (error) {
 				toast.error(
@@ -261,9 +265,20 @@ const DevPluginSection = () => {
 		if (!directory) return;
 		try {
 			const source = await readDevPluginDirectory(directory);
-			const result = source.code !== undefined
-                ? await installTrustedJsPackage({ packageVersion: 0, manifest: source.manifest, code: source.code }, "dev")
-                : await installPluginPackage(assemblePluginPackage(source.manifest, source.wasm), "dev");
+			const result =
+				source.code !== undefined
+					? await installTrustedJsPackage(
+							{
+								packageVersion: 0,
+								manifest: source.manifest,
+								code: source.code,
+							},
+							"dev",
+						)
+					: await installPluginPackage(
+							assemblePluginPackage(source.manifest, source.wasm),
+							"dev",
+						);
 			reportInstallResult(result, t);
 			if (result.ok) {
 				directoryRef.current = directory;

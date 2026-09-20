@@ -214,6 +214,20 @@ export class TrustedJsPluginService<THost> {
 		return this.instances.get(pluginId)?.entry;
 	}
 
+	getConsent(
+		pluginId: string,
+	): Pick<TrustedJsPluginStateRecord, "consented" | "consentKey"> {
+		const state = this.ports.state.get(pluginId);
+		return { consented: state?.consented, consentKey: state?.consentKey };
+	}
+	restoreConsent(
+		pluginId: string,
+		consent: Pick<TrustedJsPluginStateRecord, "consented" | "consentKey">,
+	): void {
+		const state = this.ports.state.get(pluginId);
+		if (state) this.ports.state.set(pluginId, { ...state, ...consent });
+	}
+
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
@@ -267,7 +281,10 @@ export class TrustedJsPluginService<THost> {
 				`Plugin ${entry.id} was disabled after ${state.crashes} consecutive failures`,
 			);
 
-		if (entry.firstParty !== true && (state.consented !== true || state.consentKey !== entry.consentKey)) {
+		if (
+			entry.firstParty !== true &&
+			(state.consented !== true || state.consentKey !== entry.consentKey)
+		) {
 			const approved = await this.ports.requestConsent({
 				pluginId: entry.id,
 				name: entry.name,
@@ -419,6 +436,7 @@ export class TrustedJsPluginService<THost> {
 			...(enabled ? { crashes: 0 } : {}),
 		});
 		if (!enabled) await this.unload(pluginId);
+		this.emitChange();
 	}
 
 	/** Clears crash-disable so the next load may try again. */

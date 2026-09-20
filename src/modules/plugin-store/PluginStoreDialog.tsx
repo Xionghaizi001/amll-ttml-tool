@@ -1,5 +1,8 @@
 import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
-import { installedTrustedJsService, uninstallTrustedJsPackage } from "$/plugins/trusted/trusted-js-host";
+import {
+	installedTrustedJsService,
+	uninstallTrustedJsPackage,
+} from "$/plugins/trusted/trusted-js-host";
 import {
 	ArrowCounterclockwise24Regular,
 	ArrowSync24Regular,
@@ -177,7 +180,10 @@ const CatalogEntryRow = ({
 				</Badge>
 			);
 		}
-	} else if (entry.channel === "trusted-js") {
+	} else if (
+		entry.channel === "trusted-js" &&
+		!/\.(zip|json)$/i.test(entry.entry)
+	) {
 		// Remote-only trusted-js entry.
 		if (trustedLive !== undefined)
 			statusBadge = (
@@ -317,13 +323,23 @@ const TrustedJsManagementRow = ({
 			description={sourceInfo ?? id}
 			action={
 				<Flex gap="2" align="center">
-					{onUninstall && <Button size="1" variant="soft" disabled={busy} onClick={onUninstall}>卸载</Button>}
+					{onUninstall && (
+						<Button
+							size="1"
+							variant="soft"
+							disabled={busy}
+							onClick={onUninstall}
+						>
+							卸载
+						</Button>
+					)}
 					{crashDisabled && (
 						<Button size="1" variant="soft" disabled={busy} onClick={onRetry}>
 							{t("pluginStore.retry", "重试")}
 						</Button>
 					)}
 					<Switch
+						aria-label={`${name} 启用`}
 						checked={live}
 						disabled={busy}
 						onCheckedChange={(checked) => onToggle(checked)}
@@ -348,7 +364,13 @@ export const PluginStoreDialog = () => {
 	const wasmPlugins = useWasmPlugins();
 	const themes = useThemes();
 	const [installed, setInstalled] = useState(installedTrustedJsService.list);
-	useEffect(() => installedTrustedJsService.subscribe(() => setInstalled(installedTrustedJsService.list())), []);
+	useEffect(
+		() =>
+			installedTrustedJsService.subscribe(() =>
+				setInstalled(installedTrustedJsService.list()),
+			),
+		[],
+	);
 
 	const refresh = useCallback(async (force: boolean) => {
 		setCatalogLoading(true);
@@ -385,7 +407,10 @@ export const PluginStoreDialog = () => {
 		) => {
 			setBusyId(entry.id);
 			try {
-				if (entry.channel === "trusted-js" && (action === "revert" || !/\.(zip|json)$/i.test(entry.entry))) {
+				if (
+					entry.channel === "trusted-js" &&
+					(action === "revert" || !/\.(zip|json)$/i.test(entry.entry))
+				) {
 					if (action === "revert") await revertTrustedJsToFactory(entry.id);
 					else if (action === "update") await applyTrustedJsUpdate(entry.id);
 					else await reloadTrustedJsPlugin(entry.id);
@@ -442,7 +467,13 @@ export const PluginStoreDialog = () => {
 			});
 		}
 		for (const record of installed)
-			known.set(record.id, { id: record.id, name: record.manifest.name, version: record.manifest.version, bundled: false, live: false });
+			known.set(record.id, {
+				id: record.id,
+				name: record.manifest.name,
+				version: record.manifest.version,
+				bundled: false,
+				live: false,
+			});
 		for (const summary of trustedLoaded)
 			known.set(summary.id, {
 				id: summary.id,
@@ -507,22 +538,32 @@ export const PluginStoreDialog = () => {
 					</Button>
 				</Flex>
 				<Flex direction="column" gap="4">
-                    <label>导入插件包（ZIP / JSON）
-                        <input type="file" aria-label="导入插件包" accept=".zip,.json" disabled={busyId !== null}
-                            onChange={async event => {
-                                const file = event.currentTarget.files?.[0];
-                                event.currentTarget.value = "";
-                                if (!file) return;
-                                setBusyId("local-import");
-                                try {
-                                    const result = await installLocalPluginFile(file);
-                                    if (result.ok) toast.success("插件已安装");
-                                    else if (!("cancelled" in result && result.cancelled)) toast.error(result.message);
-                                    await refresh(false);
-                                } catch (error) { toast.error(String(error)); }
-                                finally { setBusyId(null); }
-                            }} />
-                    </label>
+					<label>
+						导入插件包（ZIP / JSON）
+						<input
+							type="file"
+							aria-label="导入插件包"
+							accept=".zip,.json"
+							disabled={busyId !== null}
+							onChange={async (event) => {
+								const file = event.currentTarget.files?.[0];
+								event.currentTarget.value = "";
+								if (!file) return;
+								setBusyId("local-import");
+								try {
+									const result = await installLocalPluginFile(file);
+									if (result.ok) toast.success("插件已安装");
+									else if (!("cancelled" in result && result.cancelled))
+										toast.error(result.message);
+									await refresh(false);
+								} catch (error) {
+									toast.error(String(error));
+								} finally {
+									setBusyId(null);
+								}
+							}}
+						/>
+					</label>
 					{catalog === null && !catalogLoading && (
 						<Text size="2" color="gray">
 							{t(
@@ -547,7 +588,8 @@ export const PluginStoreDialog = () => {
 										: entry.channel === "theme"
 											? (themes.find((theme) => theme.id === entry.id)
 													?.version ?? null)
-											: null;
+											: (installed.find((plugin) => plugin.id === entry.id)
+													?.manifest.version ?? null);
 								return (
 									<CatalogEntryRow
 										key={entry.id}
@@ -577,16 +619,27 @@ export const PluginStoreDialog = () => {
 										void onToggleTrusted(plugin.id, enabled)
 									}
 									onRetry={() => void onRetryTrusted(plugin.id)}
-                                    sourceInfo={(() => {
-                                        const record = installed.find(r => r.id === plugin.id);
-                                        return record ? `${plugin.id} · ${record.source} · SHA-256（包内容，仅供识别）: ${record.sha256}` : undefined;
-                                    })()}
-                                    onUninstall={installed.some(r => r.id === plugin.id) ? async () => {
-                                        setBusyId(plugin.id);
-                                        try { await uninstallTrustedJsPackage(plugin.id); await refresh(false); }
-                                        catch (error) { toast.error(String(error)); }
-                                        finally { setBusyId(null); }
-                                    } : undefined}
+									sourceInfo={(() => {
+										const record = installed.find((r) => r.id === plugin.id);
+										return record
+											? `${plugin.id} · ${record.source} · SHA-256（包内容，仅供识别）: ${record.sha256}`
+											: undefined;
+									})()}
+									onUninstall={
+										installed.some((r) => r.id === plugin.id)
+											? async () => {
+													setBusyId(plugin.id);
+													try {
+														await uninstallTrustedJsPackage(plugin.id);
+														await refresh(false);
+													} catch (error) {
+														toast.error(String(error));
+													} finally {
+														setBusyId(null);
+													}
+												}
+											: undefined
+									}
 								/>
 							))}
 						</SettingsGroup>

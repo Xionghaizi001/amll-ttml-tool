@@ -10,7 +10,7 @@ export const HomeMenu: FC = () => {
 	return (
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
-				<IconButton variant="soft">
+				<IconButton variant="soft" aria-label="主菜单">
 					<HomeRegular />
 				</IconButton>
 			</DropdownMenu.Trigger>

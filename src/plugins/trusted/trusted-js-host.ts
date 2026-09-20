@@ -163,15 +163,25 @@ const currentPlatform = (): "web" | "desktop" =>
 	isDesktop() ? "desktop" : "web";
 
 export const installedTrustedJsService = new InstalledTrustedJsService(
-	new IndexedDbTrustedJsStorage(), trustedJsPluginService, id => pluginKvStorage.clear(id),
+	new IndexedDbTrustedJsStorage(),
+	trustedJsPluginService,
+	(id) => pluginKvStorage.clear(id),
 );
 
-export async function installTrustedJsPackage(input: unknown, source: "user" | "dev" | "store" = "user") {
+export async function installTrustedJsPackage(
+	input: unknown,
+	source: "user" | "dev" | "store" = "user",
+) {
 	const parsed = parseTrustedJsPackage(input);
 	if (parsed.ok) {
-		const factory = FACTORY_TRUSTED_JS_PLUGINS.find(p => p.id === parsed.value.manifest.id);
+		const factory = FACTORY_TRUSTED_JS_PLUGINS.find(
+			(p) => p.id === parsed.value.manifest.id,
+		);
 		if (factory && !semverGt(parsed.value.manifest.version, factory.version))
-			return { ok: false as const, message: "安装版本必须高于同名出厂插件版本" };
+			return {
+				ok: false as const,
+				message: "安装版本必须高于同名出厂插件版本",
+			};
 	}
 	const result = await installedTrustedJsService.install(input, source);
 	if (result.ok) setPinnedToFactory(result.pluginId, false);
@@ -181,7 +191,7 @@ export async function installTrustedJsPackage(input: unknown, source: "user" | "
 export async function uninstallTrustedJsPackage(id: string) {
 	await installedTrustedJsService.uninstall(id);
 	setPinnedToFactory(id, true);
-	const factory = FACTORY_TRUSTED_JS_PLUGINS.find(p => p.id === id);
+	const factory = FACTORY_TRUSTED_JS_PLUGINS.find((p) => p.id === id);
 	if (factory) await trustedJsPluginService.load(factory);
 }
 
@@ -225,7 +235,7 @@ const resolveCurrentLoadPlan = async (options?: {
 	return resolveTrustedJsLoadPlan({
 		factory: FACTORY_TRUSTED_JS_PLUGINS,
 		catalog: catalog?.plugins ?? [],
-		installed: installedTrustedJsService.list().flatMap(record => {
+		installed: installedTrustedJsService.list().flatMap((record) => {
 			const entry = installedTrustedJsService.entry(record.id);
 			return entry ? [entry] : [];
 		}),
@@ -265,8 +275,11 @@ const loadPlanItem = async (item: TrustedJsLoadPlanItem): Promise<void> => {
  * UI, not at startup.
  */
 export async function initializeTrustedJsPlugins(): Promise<void> {
-	try { await installedTrustedJsService.restore(); }
-	catch (error) { console.warn("Installed JS restore failed", error); }
+	try {
+		await installedTrustedJsService.restore();
+	} catch (error) {
+		console.warn("Installed JS restore failed", error);
+	}
 	for (const entry of FACTORY_TRUSTED_JS_PLUGINS) {
 		const result = await trustedJsPluginService.load(entry);
 		if (!result.ok)

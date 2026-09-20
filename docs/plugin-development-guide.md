@@ -20,15 +20,15 @@
 - `packages/plugin-api` 的类型、版本常量、capability negotiation、manifest/调用/返回值解析。
 - JSON Schema 子集校验器和主题 token 校验器。
 - Mock Host 合同测试。
-- `TimeShiftService` 这样的无 UI application service（宿主内置插件示例）。
+- 外置 `amll-ttml-plugin-time-shift` 的 SDK-only 实现与合同测试。
 
 命令 registry、contribution 菜单渲染、声明式表单宿主和 owner-scoped 卸载清理已经接入；
-`builtin.time-shift` 是首个完整示例。Worker/Extism 权限执行、隔离 KV 和插件管理 UI 仍在后续阶段接入。
+`builtin.time-shift` 是首个完整示例。Worker/Extism 权限执行、隔离 KV 和插件管理 UI 已接入。
 不要把“协议中有类型”误解为“宿主已经开放了所有运行入口”。
 
 ### 2026-09-19：内置功能迁移使用的 trusted-js 接口
 
-本轮先适配接口，不复制源码到独立仓库；完整业务迁移清单见 `goal.md` 的本轮接口适配记录。
+time-shift 已迁到独立项目，其余业务迁移清单见 `goal.md`。
 
 | 需求 | SDK 入口 | 生命周期/约束 |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ HTTP 请求体最多 1 MiB（UTF-8），响应流最多 8 MiB；非 2xx HTTP 状
 
 `MockTrustedJsHost` 提供项目、选择、视图和脚本化网络端口；真实宿主测试另验证卸载和传输取消。已有 `builtin.time-shift` 保持 SDK-only。元数据/Ruby/分词等原 UI 尚未转换为独立插件，不能据此假设禁用某个插件已经移除这些旧入口。
 
-trusted-js 包的 zip/JSON 解包均返回 `kind: "trusted-js"`；商店管线校验摘要、包语义和目录身份后交给安装端口。真实宿主尚未实现本地 JS 持久化/执行端口；无端口时拒绝安装，不绕过 consent 或改用 eval。工厂版和现有同源 catalog 模块仍走既有加载器。
+trusted-js 包的 zip/JSON 解包均返回 `kind: "trusted-js"`；商店管线校验摘要、包语义和目录身份后交给安装端口。真实宿主已接通本地安装：授权后将 Blob 写入 IndexedDB，经同一加载闸门创建 Object URL import。内容变化重新授权；禁用和崩溃状态持久化，卸载清理 scope、包、授权和 KV。开发目录不持久化。桌面开关默认关闭，出厂副本不受影响。
 
 ### trusted-js 构建与 React 共享
 
@@ -59,11 +59,17 @@ const external = (id: string) => [
 
 最终产物保留这些 bare import，不把 React 打进插件，不引用 CDN、宿主 chunk 文件名或其他包子路径。宿主在入口模块之前生成 import map：生产映射到同一次构建的 ESM 导出模块，开发模式复用 Vite 预构建依赖，因此 hooks、Context 和 renderer 与宿主一致。映射随宿主发布并纳入 PWA 缓存；插件不得添加或覆盖 import map。这是 trusted-js 的兼容性约定，不是对全权插件的安全隔离。
 
-仓库内以 `scripts/build-plugin-catalog.ts` 为构建模板，复用 `scripts/trusted-js-build.ts` 的 external 白名单与产物检查。`pnpm plugin:catalog:build` 在发布 catalog 前拒绝宿主 alias、非白名单依赖、不可静态确定的动态 import、运行时 require、额外资源和内嵌 React；独立工具链应沿用同一约束。
+外置插件使用 toolkit build/pack，拒绝宿主 alias、非白名单依赖、不可静态确定的动态 import、运行时 require、额外资源和内嵌 React。宿主 `scripts/build-plugin-catalog.ts` 只收集和验证 lock 指定的 artifact，不再编译 time-shift 源码。
 
 ## 2. 安装和导入
 
-仓库内开发直接使用 workspace 路径：
+宿主 `pnpm plugin:packages:build` 生成 API/SDK 0.1.0 tarball，exports 指向 `lib/` ESM 与类型声明，testing 子路径一并交付。独立项目采用固定 Release 附件 tarball；首次发布前使用项目 `vendor/` 附带的相同产物，不依赖宿主源码。`plugin-sdk-v*` tag workflow 负责构建 Release 附件，当前尚未执行远端发布。
+
+独立 `amll-ttml-plugin-toolkit` 提供 create/build/test/pack/serve；生成 JS、Rust Extism WASM 或主题项目后安装依赖，执行 `pnpm test`、`pnpm run pack`。输出 `dist/plugins/catalog.json` 与 `dist/plugins/store/<sha256>.zip`；`pnpm serve` 本地服务可供测试/静态托管。WASM 需要 Rust 的 wasm32-unknown-unknown target。
+
+本地安装：工具 → 插件商店 → 导入插件包（ZIP/JSON），JS 明确 consent 后运行；管理行显示来源和内容 SHA-256（不是安全认证）。设置页导入也使用同一容器入口。开发目录包含 manifest.json 与入口 JS/WASM，仅当前会话有效。
+
+导入示例：
 
 ```ts
 import {

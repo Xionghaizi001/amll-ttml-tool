@@ -83,10 +83,13 @@ export const resolveTrustedJsLoadPlan = (
 	}
 
 	const plan: TrustedJsLoadPlanItem[] = [];
-	const executableById = new Map([...remoteById].filter(([, entry]) => !/\.(zip|json)$/i.test(entry.entry)));
+	const executableById = new Map(
+		[...remoteById].filter(([, entry]) => !/\.(zip|json)$/i.test(entry.entry)),
+	);
 	for (const entry of input.installed ?? []) {
 		const other = executableById.get(entry.id);
-		if (!other || !isNewerVersion(other.version, entry.version)) executableById.set(entry.id, entry);
+		if (!other || !isNewerVersion(other.version, entry.version))
+			executableById.set(entry.id, entry);
 	}
 	const updates: TrustedJsFactoryUpdateState[] = [];
 	const factoryIds = new Set<string>();
@@ -104,7 +107,12 @@ export const resolveTrustedJsLoadPlan = (
 			updateAvailable,
 			pinnedToFactory: pinned,
 		});
-		if (executable !== undefined && isNewerVersion(executable.version, factory.version) && !pinned && remoteAllowed)
+		if (
+			executable !== undefined &&
+			isNewerVersion(executable.version, factory.version) &&
+			!pinned &&
+			remoteAllowed
+		)
 			plan.push({ entry: executable, origin: "remote", fallback: factory });
 		else plan.push({ entry: factory, origin: "factory" });
 	}
