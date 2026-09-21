@@ -276,7 +276,22 @@ export interface TrustedJsPluginModuleV0 {
 	): TrustedJsActivateResultV0 | Promise<TrustedJsActivateResultV0>;
 }
 
+/** Single-file authoring shape. Toolkit reads the literal metadata at build time. */
+export interface TrustedJsPluginDefinitionV0 extends TrustedJsPluginModuleV0 {
+	id: string;
+	name: string;
+	version: string;
+	apiVersion?: number;
+	description?: string;
+	capabilities?: readonly string[];
+	contributes?: Record<string, unknown>;
+	/** Optional output entry name; defaults to index.js. */
+	entry?: string;
+}
+
 /** Identity helper giving plugin authors type checking on their module shape. */
-export const definePlugin = (
-	module: TrustedJsPluginModuleV0,
-): TrustedJsPluginModuleV0 => module;
+export function definePlugin(module: TrustedJsPluginDefinitionV0): TrustedJsPluginDefinitionV0;
+export function definePlugin(module: TrustedJsPluginModuleV0): TrustedJsPluginModuleV0;
+export function definePlugin(module: TrustedJsPluginModuleV0): TrustedJsPluginModuleV0 {
+	return module;
+}
