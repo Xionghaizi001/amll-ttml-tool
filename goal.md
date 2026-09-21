@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，以及里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点。
 - SDK 已落地：公开 trusted-js SDK、time-shift 的 SDK-only 适配、宿主核心保留边界；项目只读信息、选择订阅、dialog/settings view 与匿名 HTTP 端口已接入，业务消费者尚未批量迁移。
 - 本地安装已接通：trusted-js ZIP/JSON → consent → IndexedDB Blob → 同一加载闸门；导入、开发目录、启停、恢复、卸载与来源摘要已接入。Chrome 开发/生产预览生命周期验收通过。
-- 当前优先项：工具链与 time-shift 独立模板、SDK tarball、锁定出厂 artifact 已落地；补齐远端仓库/静态源发布配置与桌面真机验收后，按阶段 8 逐项迁移。
+- 当前优先项：工具链与 time-shift 独立模板、SDK tarball、锁定出厂 artifact 已落地；先补齐 trusted-js 单文件开发体验，再补远端仓库/静态源发布配置与桌面真机验收，之后按阶段 8 逐项迁移。
 - 尚未落地：工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、QuickJS、阶段 8/9 完整业务迁移、阶段 10 后端。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -18,13 +18,35 @@
 | 1 | 里程碑 4 前置第 2 项：SDK 构建边界 | SDK 构建约束、React 共享与产物依赖检查已完成；后续插件沿用同一约束 |
 | 2 | 里程碑 4 前置第 3 项：trusted-js 本地安装 | 已接通 Blob、持久化、consent、UI 与恢复；桌面原生 WebView 实测待补 |
 | 3 | 工具链 → time-shift 外置模板 | 本地独立项目、API/SDK tarball、pack/test/serve 与锁定副本已完成；远端静态源发布待配置 |
-| 4（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
-| 5 | 阶段 8：批量迁移 | 第 1–3 步收口后，按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移 |
-| 6（按需并行） | QuickJS guest SDK | 设计可先做；壳体实现等待 wasm 合同与 toolkit 首版，不作为 trusted-js 迁移前置 |
-| 7（贯穿） | 开发文档整理 | 随各项实现同步交付；QuickJS 教程随壳体交付，其余文档不等待 QuickJS |
-| 8 | 阶段 9：定制功能插件化 | SDK、外置模板与插件间关系三项就绪；审阅功能开发可与后端并行 |
-| 9 | 阶段 10：后端实化与发布 | 提供者合同先完成；资格过滤、kill switch、审计须在审阅插件上架前就绪 |
-| 10 | 最终收口 | 全部定制功能通过合同测试后冻结 API v1，完成插件交付后退役定制版分支 |
+| 4 | trusted-js 单文件开发体验 | SDK 从 `src/plugin.ts` 自动生成 manifest、入口 ESM 与包；开发模式监听源码并进行插件级热重载；不包含 WASM 工具链 |
+| 5（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
+| 6 | 阶段 8：批量迁移 | 第 1–4 步收口后，按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移 |
+| 7（按需并行） | QuickJS guest SDK | 设计可先做；壳体实现等待 wasm 合同与 toolkit 首版，不作为 trusted-js 迁移前置 |
+| 8（贯穿） | 开发文档整理 | 随各项实现同步交付；QuickJS 教程随壳体交付，其余文档不等待 QuickJS |
+| 9 | 阶段 9：定制功能插件化 | SDK、外置模板与插件间关系三项就绪；审阅功能开发可与后端并行 |
+| 10 | 阶段 10：后端实化与发布 | 提供者合同先完成；资格过滤、kill switch、审计须在审阅插件上架前就绪 |
+| 11 | 最终收口 | 全部定制功能通过合同测试后冻结 API v1，完成插件交付后退役定制版分支 |
+
+## 当前安全模型的冗余项与降级项（2026-09-21 复核）
+
+定位：用户对自己的操作负主要责任，程序只保证稳定性与平台内的基本安全性。trusted-js 按应用级代码处理，consent 负责告知与授权，不承诺代码沙箱；只有随应用构建的 factory 模块免 consent，所有远程 trusted-js（含第一方更新）均须用户授权。后续机制按以下职责评审。
+
+### 必须保留的稳定性与平台边界
+
+- WASM 的独立 Worker、超时、调用与存储限额、崩溃自动禁用和单事务编辑；capability 校验、无 DOM/文件系统/Tauri 直达、宿主网络代理与隔离 KV。网络能力仍按实现进度开放，当前未接通的 bridge 不视为已有能力。
+- manifest、协议、表单、主题 CSS、ZIP 路径和解压大小校验，避免损坏、卡死、资源耗尽与 UI 失控。
+- trusted-js 的 consent、来源与风险展示、scope 清理和崩溃恢复；SDK capability 声明只用于文档、兼容性及提示，不能宣称可隔离任意 trusted-js 代码。
+- 宿主凭据不进入插件存储、文档投影或公开 API，业务 API 在服务端鉴权。trusted-js 可借宿主能力操作用户数据及以当前登录身份调用 API；不向插件提供凭据原文是接口约束，不是同一 JS 环境内的强隔离承诺。
+
+### 降级为完整性、兼容性、恢复与运营措施
+
+- SHA-256、内容寻址与 artifact 字节一致性用于完整性、缓存、回退和可复现构建，不作为发布者身份认证或代码安全边界。
+- 同源脚本、CDN 反向代理、immutable 缓存和 catalog `no-store` 用于部署与更新一致性；同源不等于可信。
+- `firstParty` 是来源标识；factory/shadow/pin、`minAppVersion` 与平台过滤分别服务于出厂回退、版本兼容和运营策略，不替代用户授权或服务端鉴权。
+- crash marker、自动禁用与主题安全模式只负责恢复和可用性；依赖闭包、批次回滚和失败隔离只负责安装一致性与兼容性，不传递权限。
+- 资格过滤、kill switch 与必要操作记录用于运营和事故响应，发布溯源复用现有代码托管与 CI 记录。运营上可以不公开部分代码；代码公开后用户可修改源码自行运行，业务权限始终由服务端控制。
+
+本次复核删除的冗余规划已从后续任务与历史决策中移除，不保留延后待办。新增安全机制须说明它如何防止插件故障或平台越界；仅增加高级攻击者成本的治理机制不列入本路线图。
 
 ## 目标结构
 
@@ -92,6 +114,19 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 - [x] 验收：真实 Chrome 开发与生产预览完成 ZIP → consent → 菜单命令 → 禁用/刷新 → 启用/刷新 → 卸载/刷新；错误授权、写盘失败、恢复损坏与桌面默认关闭由自动化测试覆盖。
 - [ ] 平台收口：桌面原生 WebView 的 Blob/共享 React 实测；当前 HTML CSP 原已允许 blob，本轮未把全应用 CSP 收紧为仅 `script-src 'self' blob:`（既有 inline/eval 等需求需独立梳理）。
 
+### 4. 单文件 trusted-js 开发体验
+
+目标是让插件作者主要维护一个 `src/plugin.ts`（可包含 TypeScript、JSX 和同目录静态模块），由 toolkit 自动完成 manifest、入口 ESM、source map 与 ZIP 产物；插件作者不需要手工同步 manifest 的重复字段或编写宿主专用构建配置。该项只覆盖 trusted-js，WASM 工具链另行规划。
+
+- [ ] 入口约定：扩展 `definePlugin()` 支持从单一源码入口声明插件身份、版本、capability、静态 contribution 与 `activate()`；保留显式 `manifest.json` 覆盖机制，但默认模板不要求手写。
+- [ ] 自动构建：`amll-plugin build/pack` 从源码声明生成或校验 manifest，编译 TypeScript/JSX 为宿主兼容的 ESM，继续 externalize 宿主 React，保留可用 source map，并复用现有 artifact 校验与打包路径。
+- [ ] 开发服务：提供 `amll-plugin dev`，监听源码及声明变化，输出临时开发模块和 manifest；宿主开发目录加载器可接收构建结果，不把开发产物写入持久安装记录。
+- [ ] 插件级热重载：源码变化后按 abort → cleanup → host handle dispose → scope dispose → 重新 import → activate 的顺序重载；保留插件 KV、用户授权、启用状态和宿主文档，不保留旧模块的闭包、监听器或 UI 注册。
+- [ ] 失败处理：编译或激活失败时保留上一份可运行模块，开发面板显示错误并允许立即重试；热重载不得改变正式插件的 crash 计数和发布包状态。
+- [ ] 最小调试能力：开发服务提供 source map、模块构建日志和重载原因；宿主显示当前来源为 `dev`，避免把临时构建误认为已安装发布版本。
+- [ ] 安全取舍：trusted-js 继续按“用户对自己的操作负责”处理，保留 API/manifest 校验、来源展示、consent、scope 清理和崩溃恢复等必要机制。开发模式的权限与正式 trusted-js 一致，文案明确其可访问应用数据和登录态。
+- 验收：从只含 `src/plugin.ts` 的最小项目执行 `create → dev → 修改源码 → 自动重载 → test → pack` 全流程；React 组件、命令、表单、文档事务和 cleanup 在真实宿主中可用；连续修改不会累积旧命令、监听器、视图或窗口；构建失败时上一版本仍可运行；正式 ZIP 与开发模块使用同一 API/manifest 解析和 artifact 校验。
+
 ## 插件工具链与 time-shift 外置（2026-09-20）
 
 本地独立仓库位于同级 `amll-ttml-plugin-toolkit/`、`amll-ttml-plugin-time-shift/`，均未配置 remote。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。
@@ -112,8 +147,8 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 动机：允许用户或团队自托管插件后端，同时把阶段 10 官方后端约束为"提供者合同的一个实现"，避免后端接口与客户端各自生长。可在里程碑 4 前置第 3 项定稿后随时开始，与阶段 8 / 9 并行；须在阶段 10 立项前完成，作为后端的公开契约。
 
 - [ ] 提供者合同 `StoreProviderV0 { id, name, catalogUrl, official }`：提供者只需提供清单（沿用唯一的 `RemotePluginCatalogV0` schema）与 zip artifact 两类静态产物，artifact 相对路径按提供者 catalog 所在目录解析；`catalog-client.ts` 由单一同源地址改为多提供者聚合（逐提供者缓存与失败隔离，一个提供者不可达不影响其他货架）。最小自托管后端 = 任意静态文件托管上的 `catalog.json` + 内容寻址 artifact（toolkit 的 `serve`/`pack` 即产出此布局），因此自托管在阶段 10 动态后端出现之前即可用；阶段 10 的资格 / kill switch 等动态能力以提供者描述中的可选端点扩展合同，静态提供者只是缺少这些端点。
-- [ ] 信任规则：`firstParty` 仅对官方（同源）提供者生效，其他提供者的该字段强制为 false；非官方提供者不得 shadow 出厂插件 id；跨提供者同 id 且 sha256 相同视为镜像、可互相替代，同 id 字节不同视为冲突，官方优先且非官方条目标记为"冲突不可安装"。
-- [ ] 非官方提供者的安装路径（2026-09-13 复核定稿）：商店把 artifact 下载到本地后，一律经本地安装路径入库，三档统一为 fetch → sha256 校验 → 容器剥离 → 对应 `parse*Package` 闸门 → 授权 / consent → 持久化到 IndexedDB → 以本地来源加载；不复用远程 URL 直接执行。trusted-js 因此依赖里程碑 4 前置第 3 项落地本地执行来源（`blob:` 或 Service Worker 虚拟路径二选一），该项原备选"trusted-js 安装限于 catalog 内容寻址 URL"与本决策不相容、予以排除；其 consent 使用第三方措辞并标注提供者名，桌面 consent 闸门同样作用。官方同源提供者的 trusted-js 仍可走同源动态 import 与 shadow 路径。
+- [ ] 来源与覆盖规则：`firstParty` 仅对官方（同源）提供者生效，其他提供者的该字段强制为 false；非官方提供者不得 shadow 出厂插件 id；跨提供者同 id 且 sha256 相同视为镜像、可互相替代，同 id 字节不同视为冲突，官方优先且非官方条目标记为"冲突不可安装"。
+- [ ] 非官方提供者的安装路径（2026-09-13 复核定稿）：商店把 artifact 下载到本地后，一律经本地安装路径入库，三档统一为 fetch → sha256 校验 → 容器剥离 → 对应 `parse*Package` 闸门 → 授权 / consent → 持久化到 IndexedDB → 以本地来源加载；不复用远程 URL 直接执行。trusted-js 因此依赖里程碑 4 前置第 3 项落地本地执行来源（`blob:` 或 Service Worker 虚拟路径二选一），该项原备选"trusted-js 安装限于 catalog 内容寻址 URL"与本决策不相容、予以排除；其 consent 使用第三方措辞并标注提供者名，桌面 consent 闸门同样作用。官方同源提供者的 trusted-js 仍可走同源动态 import 与 shadow 路径，但同样须经用户 consent；`firstParty` 不豁免授权。
 - [ ] 网络与平台：自托管服务须返回 CORS 头；Tauri 端沿用 WebView fetch、同受 CORS 约束，不为此引入原生 http 插件。
 - [ ] 用户侧：商店页（受保护区域）提供添加 / 移除提供者，添加时按三档措辞给出警示并注明"该来源的 JS 插件一律按第三方处理"；提供者列表用户级持久化；移除提供者不卸载其插件，仅将它们标记为"来源已移除、不再更新"。
 - [ ] 可用性：任一提供者不可达只在其货架显示"不可用"，不进入错误循环；依赖闭包解析（"插件间关系"第 1 项）跨全部提供者求解。
@@ -268,28 +303,28 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 
 两条承重原则：
 
-- 商店的"不分发"不是访问控制：插件代码公开，任何资格用户可见 artifact URL。安全闸门必须在审阅等业务 API 自身的鉴权上；任何业务安全性不得依赖"用户看不到这个插件"。
-- trusted-js artifact 必须不可变、内容寻址、仅由 CI 发布、对所有用户字节一致，四个属性共同支撑"同源 = 与主应用等信任"的论证，缺一不可。
+- 商店的“不分发”包含出于资格或运营需求而不公开部分代码的安排；这是分发策略，不是业务访问控制。代码一旦公开，用户可修改源码自行运行插件；审阅等业务 API 必须自行鉴权，业务安全性不得依赖“用户看不到或不能运行这个插件”。
+- trusted-js artifact 保持不可变、内容寻址、CI 构建发布与同版本字节一致，以保证更新一致性、缓存、回退和可复现构建；这些措施及同源交付均不证明发布者身份或代码可信。
 
 - [ ] 身份与资格：复用歌词站账号体系（reviewPermission）；插件在商店侧声明所需资格，清单接口每会话重新校验；资格收回后下一次清单即不返回该插件（对接客户端"资格失效 → scope dispose"）；插件代码不内嵌任何秘密，运行时以用户自身凭据调业务 API。
-- [ ] 发布流水线：trusted-js 档只接受 CI 从源码构建发布（2026-09-13：以 PR 中的 commit 引用取代打 tag，见下文"托管形态与发布流水线"），记录 commit hash → artifact hash 溯源；版本不可覆盖重传，下架用 kill switch；发布操作走独立强认证（受限发布账号 + 2FA）并留审计日志；artifact 元数据 schema 预留签名字段。
+- [ ] 发布流水线：trusted-js 档只接受 CI 从源码构建发布（2026-09-13：以 PR 中的 commit 引用取代打 tag，见下文"托管形态与发布流水线"），记录 commit hash → artifact hash 溯源；版本不可覆盖重传，下架用 kill switch；发布记录复用代码托管平台的 review 与 CI 记录。
 - [ ] 同源交付：trusted-js artifact 从应用自身 origin 提供，CDN 只能藏在应用 origin 之后回源，不得成为独立脚本 origin；内容寻址 URL + immutable 长缓存；清单接口 no-store/秒级缓存，保证 kill switch 下次刷新即生效。
 - [ ] 清单与版本协商：入参 platform/appVersion/pluginApiVersion，按兼容矩阵过滤返回；对 platform=tauri 不返回 trusted-js 条目（运营性过滤，非安全依据）；支持灰度发版与按用户锁版本。
-- [ ] 运营控制：插件/版本级 kill switch；发布、资格授予/回收、kill 操作全量审计；客户端崩溃自动禁用机制可选上报，除此之外遥测最小化。
-- [ ] artifact 一致性红线：禁止服务端按用户个性化生成代码，同版本对所有用户字节一致；个性化一律走数据 API。
-- [ ] 分档差异：第三方 trusted-js 可上架，走 consent + 来源展示（2026-08-27 再校准）；签名档为未来桌面强化项。WASM/主题包货架以客户端校验为边界，后端做托管、元数据、账号实名与上传时复验客户端同款体积上限（主题包已迁 IndexedDB，上限重新定档后两端同步）；两个货架发布通道分离。
+- [ ] 运营控制：插件/版本级 kill switch；发布记录复用代码托管与 CI，资格授予/回收及 kill 操作保留必要的运营记录；客户端崩溃自动禁用机制可选上报，除此之外遥测最小化。
+- [ ] artifact 一致性约束：禁止服务端按用户个性化生成代码，同版本对所有用户字节一致；个性化一律走数据 API。
+- [ ] 分档差异：第三方 trusted-js 可上架，走 consent + 来源展示（2026-08-27 再校准）。WASM/主题包货架以客户端校验为边界，后端做托管、元数据、账号实名与上传时复验客户端同款体积上限（主题包已迁 IndexedDB，上限重新定档后两端同步）；两个货架发布通道分离。
 - [ ] 可用性：商店不可用不影响编辑器，清单请求失败 = 功能缺席，不进入错误循环。
 - [ ] 包容器格式（前端部分已在里程碑 2 实现）：本地手写导入用 base64-JSON（保留设置页粘贴导入体验，维持既有紧上限）；商店分发一律 zip（固定布局、加固解包）。两条路径只是容器剥离前端，汇入同一 `parse*Package` 信任边界；格式识别用 magic bytes；手写 JSON 上架由打包脚本一键转 zip；IndexedDB 落盘统一为 manifest JSON + 二进制 Blob，不存 base64。
 
 ### 托管形态与发布流水线（2026-09-13 定稿）
 
-参考过的三种模型：Obsidian 社区插件（[obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases)，Git JSON 索引 + 作者自托管 Releases，零服务端但无资格 / kill switch / 审计）、Zed 扩展（[zed-industries/extensions](https://github.com/zed-industries/extensions)，Git 索引 + 官方 CI 构建托管，与本项目红线最契合）、Open VSX（[eclipse-openvsx/openvsx](https://github.com/eclipse-openvsx/openvsx)，完整注册中心服务，对本项目规模过重）。最终采用 Zed 式主体加自有服务器动态层。
+参考过的三种模型：Obsidian 社区插件（[obsidianmd/obsidian-releases](https://github.com/obsidianmd/obsidian-releases)，Git JSON 索引 + 作者自托管 Releases，零服务端但无资格 / kill switch / 审计）、Zed 扩展（[zed-industries/extensions](https://github.com/zed-industries/extensions)，Git 索引 + 官方 CI 构建托管，与本项目发布约定最契合）、Open VSX（[eclipse-openvsx/openvsx](https://github.com/eclipse-openvsx/openvsx)，完整注册中心服务，对本项目规模过重）。最终采用 Zed 式主体加自有服务器动态层。
 
 - 托管：artifact 分发与数据库由自有服务器与域名托管。服务器对客户端的公开面即"商店提供者抽象"中的官方提供者（清单 + zip artifact）；trusted-js 产物经应用 origin 的反向代理路径下发，内容寻址 + immutable 长缓存，服务器不得成为独立脚本 origin。服务端语言与数据库选型随实现立项时确定，本文档不预设。
 - 投稿：以 commit 引用投稿（PR 中登记源码仓库 + commit hash），不接受存档文件。PR 阶段由无凭据 CI（fork 的 `pull_request` 工作流）跑 `parseManifest` / `parse*Package` 闸门、能力清单摘要与 toolkit 合同测试，结果以 bot 评论回帖；运营者依据校验结论审批。审批 = 分支保护 + CODEOWNERS + 必需 reviewer，GitHub review 记录即发布审计日志，不自建。
-- CI：GitHub Actions，两个 job 严格分离。构建 job 零 secrets，拉取指定 commit 构建，产出 artifact 与声明（插件 id、版本、sha256、commit hash、workflow run id）；发布 job 在受保护 Environment 下以 OIDC 短期令牌换取推送凭据，只下载并推送 artifact，永不执行投稿代码。
+- CI：GitHub Actions 拉取指定 commit 构建，产出并发布 artifact，记录插件 id、版本、sha256、commit hash 与 workflow run id；投稿代码构建不暴露宿主或业务凭据。
 - 构建与上架分离：推送成功的产物入库为"已入库未上架"状态，不进入清单；运营者在真实宿主上测试可用性与功能冲突后，经管理端点上架。构建成功不等于插件可用。
-- 服务器接收：校验 sha256 与 CI 声明一致、核对推送方 OIDC 声明（仓库 / 分支 / 工作流名）、拒绝同插件同版本换字节重传，不可变性由服务器强制而非约定。catalog 条目记录 commit hash 与 run id 供溯源，GitHub 构建来源证明为可选增强。
+- 服务器接收：校验 sha256 与 CI 产物记录一致，拒绝同插件同版本换字节重传，不可变性由服务器强制而非约定。catalog 条目记录 commit hash 与 run id 供溯源。
 - kill switch：由后端管理端点自主控制（插件级 / 版本级），与 CI 推送弱相关，分钟级生效；清单接口 no-store / 秒级缓存原则不变。
 - 资格过滤：不在本次范围，由歌词站账号 SDK 接入后补齐；清单接口预留按账号资格过滤与按用户锁版本的入口，审阅插件上架前必须就位。
 - GitHub 侧产物保留仅作备份（Actions artifact 最长 90 天且下载需鉴权，不可作分发节点）；如需公开镜像与回源兜底，用 Releases 附件。
@@ -510,15 +545,15 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 决策：
 
 - 已建成的 WASM 沙箱档原样保留，定位为"无脑安装"档：坏插件最多自己崩溃，碰不到账号与系统。
-- trusted-js 档提前并放宽向第三方开放：准入为"诚实 consent + 来源展示"（作者名/仓库链接，或轻量的社区已知作者名单），不建签名流水线。审阅插件的资格门控保留，定位为运营/资格控制。
+- trusted-js 档提前并放宽向第三方开放：准入为"诚实 consent + 来源展示"（作者名/仓库链接，或轻量的社区已知作者名单）。审阅插件的资格门控保留，定位为运营/资格控制。
 - 桌面端 trusted-js 由"MVP 禁止"改为 consent 门控：默认关闭，用户显式同意后启用。
 - 用户提示语按三档如实定价（浏览器保护的是系统、不是账号，措辞不得混淆）：
   1. WASM 插件 / 主题：随便装，坏插件最多自己崩溃，碰不到你的账号和系统。
   2. JS 插件（浏览器）：可在本应用内以你的身份行事（读改数据、使用你的登录），但碰不到你的电脑。
   3. JS 插件（桌面）：在 2 之外还可能危害你的系统，请像"安装一个软件"一样对待。
-- 缓建清单（插件生态数量证明需求后再评审）：第三方 iframe/webview UI 沙箱面、桌面签名流水线。QuickJS guest SDK 按文首顺序作为按需并行项推进：与 PDK 共享同一信任档与协议，属 SDK 增量而非架构变更（方案 A：插件自带解释器，宿主零改动）。
+- QuickJS guest SDK 按文首顺序作为按需并行项推进：与 PDK 共享同一信任档与协议，属 SDK 增量而非架构变更（方案 A：插件自带解释器，宿主零改动）。
 - 两条不随规模松动的红线：
-  1. 凭据（PAT/登录态）由宿主持有，不进插件可读存储、不进文档投影；trusted-js 的 consent 文案必须如实包含"该插件可读取你的登录凭据、可以你的身份操作"。
+  1. 凭据（PAT/登录态）由宿主持有，不进插件可读存储、不进文档投影；trusted-js 的 consent 文案说明“插件可通过宿主提供的应用能力读取或修改用户数据，并以当前登录身份调用业务 API”。宿主 API 不应提供凭据原文；trusted-js 与应用同处 JS 环境，这一接口约定不构成对任意 JS 的凭据隔离保证。
   2. 业务 API 鉴权在服务端、不信任客户端。
 - 风险自知：小社区信任集中且脆弱，一次"插件偷 token"事故的损害不按用户数摊薄；上述红线 + 诚实措辞即为此保留的最低纪律。
 
@@ -534,7 +569,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 
 三条设计修正：
 
-- 出厂副本原则：非核心内置功能迁移为插件后仍随应用打包（factory 版），商店只是更新与增量安装通道（Android 系统应用更新模型：清单版本更高时 shadow 出厂版，卸载更新回退出厂版）。商店不可用 = 没有更新，功能不缺席；桌面端与离线场景不受 trusted-js consent 门控影响；第一方随包插件与主包同信任根，免 consent。
+- 出厂副本原则：非核心内置功能迁移为插件后仍随应用打包（factory 版），商店只是更新与增量安装通道（Android 系统应用更新模型：清单版本更高时 shadow 出厂版，卸载更新回退出厂版）。商店不可用 = 没有更新，功能不缺席；桌面端与离线场景不影响随包 factory 插件可用；远程 trusted-js（包括第一方更新）仍须经过 consent。
 - 清单协议只有一份：trusted-js、WASM 与 theme 三档共用同一清单 schema（入参 platform/appVersion/pluginApiVersion 过滤）。
 - API v0 未冻结期间，远程分发插件由 CI 与应用版本联动发布，清单协商过滤不兼容版本。
 
@@ -544,7 +579,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 
 - 协议：`RemotePluginCatalogV0` 三档共用，entry 字段在 schema 层只能表达相对路径（禁 scheme/绝对路径/`//`/反斜杠），parser 再拒点段与重复插件 id；含 apiVersion、sha256、platforms（运营过滤，非安全依据）、minAppVersion 与 firstParty。`parseRemotePluginCatalog` 为单一解析入口。
 - 内核：`ContributionOwner` 的 trusted-js plugin owner 可 `trusted: true`（仅由加载闸门授予），可注册 mode、trusted view、toolbar/sidebar，同时保留 plugin 身份供来源展示与命名空间强制；extism-wasm owner 恒为 trusted: false。
-- 加载器（`src/plugins/trusted/trusted-js-service.ts`，纯逻辑、端口注入）：`load()` 顺序执行 already-loaded/apiVersion/同源解析/桌面闸门/崩溃门/consent 后才 import；activation 与卸载合同见里程碑 4 前置第 1 项。崩溃标记：import 前落 pending，宿主 mount 稳定 5s 后清除并归零；上一会话遗留 pending 计一次崩溃，连续 3 次自动禁用。consent 每插件一次并持久化，拒绝不持久化；firstParty 免 consent。桌面默认拒绝所有远程 trusted-js，须显式打开 `amll-trusted-js-desktop-enabled`。
+- 加载器（`src/plugins/trusted/trusted-js-service.ts`，纯逻辑、端口注入）：`load()` 顺序执行 already-loaded/apiVersion/同源解析/桌面闸门/崩溃门/consent 后才 import；activation 与卸载合同见里程碑 4 前置第 1 项。崩溃标记：import 前落 pending，宿主 mount 稳定 5s 后清除并归零；上一会话遗留 pending 计一次崩溃，连续 3 次自动禁用。consent 每插件一次并持久化，拒绝不持久化；只有随应用构建的 factory 模块免 consent，所有远程 trusted-js 均须经用户授权，`firstParty` 仅作来源标识。桌面默认拒绝所有远程 trusted-js，须显式打开 `amll-trusted-js-desktop-enabled`。
 - 宿主装配（`trusted-js-host.ts`）：`import(/* @vite-ignore */ url)` 同源动态导入；loader 状态存 localStorage（异常护栏，配额失效只降级崩溃记账、不降级信任检查）；启动时 fetch 同源 `plugins/catalog.json`（no-store），缺失/不可达/校验失败静默跳过。
 - Consent UI：portal 到 body + `data-amll-protected`，措辞按三档如实定价，展示作者与主页。
 - 已知取舍：桌面闸门同样拦截 firstParty 远程条目（桌面第一方随包插件走编译内置）；minAppVersion 客户端未强制（静态薄片由 CI 保证，后端实化时启用）；trusted-js ES module 的 sha256 未在 import 时校验（动态 import 无字节钩子，后端实化时以内容寻址 URL 解决），wasm/theme artifact 已在客户端强制校验。
@@ -552,7 +587,7 @@ MVP 应能安装一个主题插件和一个 WASM 功能插件；功能插件能�
 ## 里程碑 2 + 3：商店薄片与试点迁移完成记录（2026-08-28）
 
 - 容器格式（`src/plugins/store/package-container.ts`，fflate）：magic bytes 识别（`PK\x03\x04` vs `{`，不看扩展名）；zip 固定布局 = 根下 manifest.json + assets/<name>；entry 名单由 manifest 派生，解压前按声明尺寸拦截 zip bomb（单 entry ≤33MiB、总量 ≤64MiB、≤64 个 entry），拒绝重复 entry、反斜杠、绝对路径与点段；容器层不做语义校验，剥离后汇入唯一的 `parseFunctionPluginPackage` / `parseThemePackage`。
-- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容寻址红线客户端强制） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js 容器解析、安装端口与真实宿主均已接线（见里程碑 4 前置第 3 项）。
+- 安装管线（`store-install.ts` + `store-host.ts`）：fetch 同源 artifact → sha256 校验（crypto.subtle，内容完整性由客户端校验） → 容器剥离 → kind/channel 交叉校验 → 既有安装闸门。trusted-js 容器解析、安装端口与真实宿主均已接线（见里程碑 4 前置第 3 项）。
 - Catalog 生成（`scripts/build-plugin-catalog.ts`，已并入 `pnpm build`）：按 lock 收集 time-shift ZIP、fflate 打包预编译 sample-tools zip（固定 mtime，字节级可复现）；产物写入 `public/plugins/store/<sha256>.<ext>` 与 `public/plugins/catalog.json`，均 gitignore。
 - 试点迁移（time-shift → trusted-js 工厂插件）：`TrustedJsPluginEntry.loadModule` 为 bundled 工厂模块加载器，与主包同信任根，跳过同源解析与桌面闸门（桌面构建不丢失出厂功能），崩溃记账不变；`factory-plugins.ts` 从锁定 ZIP 生成目录导入，商店与出厂共用同一 artifact；旧 `BuiltinPluginHost` 已删除。shadow 决策（`trusted-js-load-plan.ts`）：catalog 同 id + trusted-js + 平台匹配 + semver 严格更高 + 未 pin → 远程 shadow 出厂版并附 fallback；桌面闸门关闭时计划层直接丢弃远程候选。启动顺序：工厂插件先加载 → catalog 到达后按计划换装；远程加载失败自动回退出厂版。pin 持久化在 `amll-trusted-js-factory-pins-v0`。
 - 商店页（`PluginStoreDialog.tsx`，独立 modal，"工具"菜单入口，`tool.openPluginStore` 命令，Content 标记 `data-amll-protected`）：目录列表（三档徽章 + 第一方 + 作者来源）、安装/更新/回退出厂版、JS 插件启停、桌面远程 JS 插件 consent 开关、商店不可用提示。catalog fetch 收敛为共享缓存客户端 `catalog-client.ts`。

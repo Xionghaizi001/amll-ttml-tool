@@ -9,8 +9,10 @@ import { trustedJsConsentService } from "$/plugins/trusted/trusted-consent-servi
  * and carries data-amll-protected, so no theme can cover or restyle it.
  *
  * The wording is the tier's contract and must stay honest: a trusted-js
- * plugin is NOT sandboxed — it acts as the user inside the app (data and
- * credentials), and on desktop it can additionally harm the system. Do not
+ * plugin is NOT sandboxed — it acts as the user inside the app (data and the
+ * current login session), and on desktop it can additionally harm the system.
+ * The host does not expose credential text as an API, but same-realm code may
+ * still reach browser-visible state. Do not
  * soften this text; it is what makes the consent meaningful.
  */
 export const TrustedJsConsentDialog = () => {
@@ -40,7 +42,7 @@ export const TrustedJsConsentDialog = () => {
 				<AlertDialog.Description size="2">
 					{t(
 						"plugins.trustedConsent.description",
-						"该插件不在沙箱中运行。它可以在本应用内以你的身份行事：读取和修改你的数据、读取你的登录凭据并以你的身份调用在线服务。",
+						"该插件不在沙箱中运行。它可以通过宿主提供的能力读取和修改你的数据，并以当前登录身份调用在线服务。宿主 API 不提供凭据原文，但同一运行环境中的代码不能保证隔离所有浏览器可见的登录状态。",
 					)}
 					{request.tier === "desktop" &&
 						` ${t(

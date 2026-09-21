@@ -17,7 +17,8 @@ export type CoreCapability =
 	| "storage.kv"
 	/**
 	 * Outbound HTTP through the host network port. Subject to the host's
-	 * offline master switch; credentials never leave the host. Declared in the
+	 * offline master switch; this host endpoint does not attach credentials.
+	 * Declared in the
 	 * protocol so every tier names the same capability, but the extism-wasm
 	 * host does not grant it (WASM has no network by design).
 	 */
@@ -449,7 +450,9 @@ export interface RemotePluginCatalogEntryV0 {
 	minAppVersion?: string;
 	/**
 	 * First-party artifact published by the app's own CI alongside the app.
-	 * Shares the app's trust root, so the consent prompt is skipped.
+	 * Identifies an official source for display and update policy. Remote
+	 * entries still require user consent; only modules bundled into the app
+	 * may skip the remote consent gate.
 	 */
 	firstParty?: boolean;
 }

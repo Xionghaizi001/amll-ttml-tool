@@ -8,9 +8,10 @@ export interface PendingTrustedJsConsent extends TrustedJsConsentRequest {
  * Queue of pending trusted-js consent prompts. The dialog rendering these
  * must portal to body and carry data-amll-protected — same anti-cover
  * guarantee as the WASM capability prompt — and its wording must honestly
- * state that the plugin can read the user's credentials and act as them
- * (plus system risk on desktop). Consent is the tier's admission control;
- * softening the text would void it.
+ * state that trusted-js runs in the application realm, can use host
+ * capabilities and the current login session, and may have desktop system
+ * impact. The host does not provide credential text as an API, but this is
+ * not a strong isolation boundary for arbitrary same-realm JavaScript.
  */
 export class TrustedJsConsentService {
 	private current: PendingTrustedJsConsent | null = null;

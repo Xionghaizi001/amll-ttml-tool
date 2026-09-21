@@ -13,15 +13,17 @@ interface FakeHost {
 }
 
 const createService = () => {
+	const importModule = vi.fn(async (_url: string) => ({
+		activate: vi.fn(),
+	}));
+	const requestConsent = vi.fn(async () => true);
 	const states = new Map<string, TrustedJsPluginStateRecord>();
 	const scopeDisposed: string[] = [];
 	const hostDisposed: string[] = [];
 	const createdHosts: { pluginId: string; signal: AbortSignal }[] = [];
 	const service = new TrustedJsPluginService<FakeHost>({
 		origin: "https://app.test",
-		importModule: async () => {
-			throw new Error("remote import is not exercised here");
-		},
+		importModule,
 		createScope: (pluginId) =>
 			({
 				dispose: () => scopeDisposed.push(pluginId),
@@ -33,7 +35,7 @@ const createService = () => {
 				dispose: () => hostDisposed.push(pluginId),
 			};
 		},
-		requestConsent: async () => true,
+		requestConsent,
 		state: {
 			get: (pluginId) => states.get(pluginId) ?? null,
 			set: (pluginId, record) => states.set(pluginId, record),
@@ -42,7 +44,15 @@ const createService = () => {
 		isDesktop: () => false,
 		isDesktopTrustEnabled: () => false,
 	});
-	return { service, states, scopeDisposed, hostDisposed, createdHosts };
+	return {
+		service,
+		states,
+		scopeDisposed,
+		hostDisposed,
+		createdHosts,
+		importModule,
+		requestConsent,
+	};
 };
 
 const bundledEntry = (
@@ -61,6 +71,93 @@ const bundledEntry = (
 });
 
 describe("TrustedJsPluginService activation contract", () => {
+	it("loads factory modules without consent regardless of first-party labeling", async () => {
+		const { service, requestConsent, importModule } = createService();
+		requestConsent.mockResolvedValue(false);
+		const activate = vi.fn();
+		expect(
+			await service.load({
+				...bundledEntry("factory", activate),
+				firstParty: false,
+			}),
+		).toEqual({ ok: true });
+		expect(activate).toHaveBeenCalledTimes(1);
+		expect(requestConsent).not.toHaveBeenCalled();
+		expect(importModule).not.toHaveBeenCalled();
+	});
+
+	it.each([true, false])(
+		"waits for consent before importing remote code (firstParty=%s)",
+		async (firstParty) => {
+			const { service, requestConsent, importModule } = createService();
+			let approve!: (approved: boolean) => void;
+			requestConsent.mockImplementation(
+				() =>
+					new Promise<boolean>((resolve) => {
+						approve = resolve;
+					}),
+			);
+			const loading = service.load({
+				id: "remote",
+				name: "Remote plugin",
+				version: "1.0.0",
+				apiVersion: PLUGIN_API_VERSION,
+				entry: "/plugins/remote.js",
+				firstParty,
+			});
+			expect(requestConsent).toHaveBeenCalledTimes(1);
+			expect(importModule).not.toHaveBeenCalled();
+			approve(true);
+			expect(await loading).toEqual({ ok: true });
+			expect(importModule).toHaveBeenCalledWith(
+				"https://app.test/plugins/remote.js",
+			);
+		},
+	);
+
+	it("does not import a first-party remote module when consent is declined", async () => {
+		const { service, requestConsent, importModule, createdHosts } =
+			createService();
+		requestConsent.mockResolvedValue(false);
+		expect(
+			await service.load({
+				id: "remote",
+				name: "Remote plugin",
+				version: "1.0.0",
+				apiVersion: PLUGIN_API_VERSION,
+				entry: "/plugins/remote.js",
+				firstParty: true,
+			}),
+		).toMatchObject({ ok: false, reason: "consent-declined" });
+		expect(importModule).not.toHaveBeenCalled();
+		expect(createdHosts).toEqual([]);
+	});
+
+	it("reuses remote consent only while the consent key remains unchanged", async () => {
+		const { service, requestConsent, importModule } = createService();
+		const entry: TrustedJsPluginEntry = {
+			id: "remote",
+			name: "Remote plugin",
+			version: "1.0.0",
+			apiVersion: PLUGIN_API_VERSION,
+			entry: "/plugins/remote.js",
+			firstParty: true,
+			consentKey: "artifact-v1",
+		};
+		expect(await service.load(entry)).toEqual({ ok: true });
+		await service.unload(entry.id);
+		expect(await service.load(entry)).toEqual({ ok: true });
+		expect(requestConsent).toHaveBeenCalledTimes(1);
+		expect(importModule).toHaveBeenCalledTimes(2);
+		await service.unload(entry.id);
+		requestConsent.mockResolvedValue(false);
+		expect(
+			await service.load({ ...entry, consentKey: "artifact-v2" }),
+		).toMatchObject({ ok: false, reason: "consent-declined" });
+		expect(requestConsent).toHaveBeenCalledTimes(2);
+		expect(importModule).toHaveBeenCalledTimes(2);
+	});
+
 	it("activates with { pluginId, host, signal } and aborts the signal before cleanup on unload", async () => {
 		const { service, scopeDisposed, hostDisposed, createdHosts } =
 			createService();

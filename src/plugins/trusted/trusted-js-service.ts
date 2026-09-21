@@ -19,13 +19,13 @@ export interface TrustedJsPluginEntry {
 	apiVersion: number;
 	/** Module URL, resolved against and required to stay on the app origin. */
 	entry: string;
-	/** First-party (published by the app's own CI): skips the consent prompt. */
+	/** First-party source label; remote entries still require user consent. */
 	firstParty?: boolean;
 	/**
 	 * Bundled (factory) module loader. When present the module is compiled
-	 * into the application bundle and shares its trust root, so same-origin
-	 * resolution and the desktop consent gate do not apply — a desktop build
-	 * must not lose its factory plugins. Crash accounting still applies.
+	 * into the application bundle. Factory modules are the only trusted-js
+	 * source that skips remote origin and consent gates; a desktop build must
+	 * not lose its factory plugins. Crash accounting still applies.
 	 */
 	loadModule?: () => Promise<unknown>;
 	/** Host-created installed source; still subject to desktop and consent gates. */
@@ -282,7 +282,7 @@ export class TrustedJsPluginService<THost> {
 			);
 
 		if (
-			entry.firstParty !== true &&
+			!bundled &&
 			(state.consented !== true || state.consentKey !== entry.consentKey)
 		) {
 			const approved = await this.ports.requestConsent({

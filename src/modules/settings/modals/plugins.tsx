@@ -49,7 +49,7 @@ const PluginNetworkSection = () => {
 				title={t("plugins.network.offline", "离线模式")}
 				description={t(
 					"plugins.network.offlineHint",
-					"开启后所有插件的网络请求都会被宿主拒绝；插件无法读取你的登录凭据，宿主自身功能不受影响。",
+					"开启后宿主会拒绝通过插件网络接口发起的请求，宿主自身功能不受影响。此开关不能阻止 JS 插件直接使用浏览器网络能力。",
 				)}
 				action={
 					<Switch

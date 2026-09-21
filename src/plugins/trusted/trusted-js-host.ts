@@ -133,10 +133,10 @@ export const setDesktopTrustedJsEnabled = (enabled: boolean): void => {
 
 /**
  * The shared trusted-js plugin host. Modules are imported straight off the
- * application origin — TLS + same-origin + the server publishing them is the
- * same channel integrity the main bundle already relies on, so admitted code
- * is builtin-grade and everything protective happens before import (consent,
- * origin check, crash gate) inside TrustedJsPluginService.
+ * application origin. Same-origin and artifact checks provide deployment
+ * consistency, not a sandbox or publisher authentication; admitted code runs
+ * with application-level power. Consent, origin checks and crash recovery
+ * still happen before and around import inside TrustedJsPluginService.
  */
 export const trustedJsPluginService =
 	new TrustedJsPluginService<TrustedJsHostV0>({
