@@ -212,6 +212,18 @@ const external = (id: string) => [
 - 工具 → 插件商店：导入 ZIP/JSON，浏览同源 catalog，管理 trusted-js 与更新。
 - 开发目录：`manifest.json` 加入口 JS/WASM，仅当前会话有效；浏览器需支持 File System Access API。
 
+### trusted-js 插件级热重载
+
+1. 在插件项目运行 `amll-plugin dev`（使用本工作区工具链时可运行 `node ../amll-ttml-plugin-toolkit/bin/cli.mjs dev`）。工具链监听 `src/` 与根目录 `manifest.json`，将成功构建的入口和 manifest 输出到 `dist/module/`；单文件项目的 manifest 从 `definePlugin()` 元数据生成。
+2. 在宿主“设置 → 插件 → 开发模式”选择 **`dist/module/`**，确认开发授权，保持“热重载”开启。桌面端仍需先启用 JS 插件开关。
+3. 修改源码并保存。宿主每 1.5 秒轮询一次，连续两次读到稳定文件后只替换该插件，无需刷新页面。关闭设置页后仍继续监听；重新打开可关闭热重载或点击“立即重载”。页面刷新后需重新选择目录。
+
+开发授权仅在当前应用会话内按插件 id 复用，包含后续源码修改；不覆盖正式 ZIP 的内容授权。修改 id 或 runtime 时需重新选择目录。同名出厂插件可用相同版本开发，不必人为递增版本；正式安装仍执行版本检查。禁用状态不被重载开启，卸载或换装正式包后目录变化不会重新安装开发副本。
+
+替换顺序为 `abort → cleanup → host dispose → scope dispose → import → activate`。每次导入使用新的 Blob URL，旧 URL 随卸载释放；命令、菜单、视图及宿主订阅随 scope/host 清理。插件自行创建的定时器、DOM 监听器等必须在返回的 cleanup 中释放，异步工作应响应 `signal`。KV、宿主文档和其他插件保留；组件局部状态与模块闭包重新创建。
+
+编译失败时工具链保留上次成功输出；导入或激活失败时宿主清理失败实例并尝试重新激活旧模块，通过通知显示错误，可修复后保存或立即重试。回退不会撤销失败插件已提交的文档事务或外部副作用，也不能保证有副作用的旧模块再次激活一定成功。开发失败不会累计到正式插件的 crash 计数，开发代码不写入 IndexedDB 安装包，factory pin 不变。专用开发面板、source map 和桌面真机完整验收尚未交付。
+
 商店 catalog 位于同源 `plugins/catalog.json`。artifact 下载后先按可选 `sha256` 校验，再解包和语义校验；trusted-js artifact 还会比对 catalog 与包内 id、version、apiVersion。catalog 也允许 trusted-js 条目直接指向同源裸 ESM，这一路径不经过容器安装，但仍经过 catalog 解析、同源限制和统一加载闸门。当前只有一个同源 catalog，没有多源聚合、评分或依赖解析。
 
 ## 9. 测试与发布检查

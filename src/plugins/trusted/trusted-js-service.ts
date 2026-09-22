@@ -32,6 +32,8 @@ export interface TrustedJsPluginEntry {
 	moduleBlob?: Blob;
 	consentKey?: string;
 	beforeImport?: () => Promise<void>;
+	/** Development consent and crash accounting stay in this session. */
+	development?: boolean;
 }
 
 /**
@@ -191,6 +193,10 @@ export class TrustedJsPluginService<THost> {
 	private readonly instances = new Map<string, LoadedInstance<THost>>();
 	private readonly listeners = new Set<() => void>();
 	private startupStable = false;
+	private readonly developmentStates = new Map<
+		string,
+		TrustedJsPluginStateRecord
+	>();
 
 	constructor(private readonly ports: TrustedJsLoaderPorts<THost>) {}
 
@@ -260,15 +266,28 @@ export class TrustedJsPluginService<THost> {
 				);
 		}
 
-		const state = this.ports.state.get(entry.id) ?? {
+		const statePort: TrustedJsStatePort = entry.development
+			? {
+					get: (id) => this.developmentStates.get(id) ?? null,
+					set: (id, value) => {
+						this.developmentStates.set(id, value);
+					},
+					remove: (id) => {
+						this.developmentStates.delete(id);
+					},
+				}
+			: this.ports.state;
+		if (entry.development && this.ports.state.get(entry.id)?.disabled)
+			return rejected("user-disabled", `Plugin ${entry.id} is disabled`);
+		const state = statePort.get(entry.id) ?? {
 			crashes: 0,
 			pending: false,
 		};
 		if (state.pending) {
 			// The previous session died while this plugin was live.
 			state.pending = false;
-			state.crashes += 1;
-			this.ports.state.set(entry.id, state);
+			if (!entry.development) state.crashes += 1;
+			statePort.set(entry.id, state);
 			this.ports.warn?.(
 				`[trusted-js] ${entry.id}: previous session ended abnormally (${state.crashes} consecutive failures)`,
 			);
@@ -289,7 +308,9 @@ export class TrustedJsPluginService<THost> {
 				pluginId: entry.id,
 				name: entry.name,
 				version: entry.version,
-				description: entry.description,
+				description: entry.development
+					? `${entry.description ?? ""}\n开发模式：授权后，本会话内同一插件的源码修改将自动执行，无需逐次确认。`
+					: entry.description,
 				author: entry.author,
 				homepage: entry.homepage,
 				tier: this.ports.isDesktop() ? "desktop" : "browser",
@@ -301,13 +322,13 @@ export class TrustedJsPluginService<THost> {
 				);
 			state.consented = true;
 			state.consentKey = entry.consentKey;
-			this.ports.state.set(entry.id, state);
+			statePort.set(entry.id, state);
 		}
 
 		// Marker down before any plugin code runs; a session-killing crash
 		// during import/activate is charged to this plugin on the next boot.
-		state.pending = true;
-		this.ports.state.set(entry.id, state);
+		state.pending = !entry.development;
+		statePort.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
 		const abort = new AbortController();
@@ -349,8 +370,8 @@ export class TrustedJsPluginService<THost> {
 			// Before the host declares startup stable, the marker stays down so
 			// a plugin that activates fine but wedges the session still gets
 			// charged; afterwards a successful activation is proof enough.
-			state.pending = !this.startupStable;
-			this.ports.state.set(entry.id, state);
+			state.pending = !entry.development && !this.startupStable;
+			statePort.set(entry.id, state);
 			this.emitChange();
 			return { ok: true };
 		} catch (error) {
@@ -361,8 +382,8 @@ export class TrustedJsPluginService<THost> {
 			hostHandle?.dispose();
 			scope?.dispose();
 			state.pending = false;
-			state.crashes += 1;
-			this.ports.state.set(entry.id, state);
+			if (!entry.development) state.crashes += 1;
+			statePort.set(entry.id, state);
 			const message = String(error instanceof Error ? error.message : error);
 			this.ports.warn?.(`[trusted-js] ${entry.id} failed to load: ${message}`);
 			if (state.crashes >= TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD)
@@ -385,7 +406,8 @@ export class TrustedJsPluginService<THost> {
 	 */
 	confirmStartupStable(): void {
 		this.startupStable = true;
-		for (const pluginId of this.instances.keys()) {
+		for (const [pluginId, instance] of this.instances) {
+			if (instance.entry.development) continue;
 			const state = this.ports.state.get(pluginId);
 			if (!state || (!state.pending && state.crashes === 0)) continue;
 			this.ports.state.set(pluginId, {
@@ -414,7 +436,7 @@ export class TrustedJsPluginService<THost> {
 		instance.scope.dispose();
 		if (instance.objectUrl) URL.revokeObjectURL(instance.objectUrl);
 		const state = this.ports.state.get(pluginId);
-		if (state?.pending)
+		if (!instance.entry.development && state?.pending)
 			this.ports.state.set(pluginId, { ...state, pending: false });
 		this.emitChange();
 	}
@@ -448,6 +470,7 @@ export class TrustedJsPluginService<THost> {
 
 	/** Forgets consent and failure history (uninstall semantics). */
 	forget(pluginId: string): void {
+		this.developmentStates.delete(pluginId);
 		this.ports.state.remove(pluginId);
 	}
 

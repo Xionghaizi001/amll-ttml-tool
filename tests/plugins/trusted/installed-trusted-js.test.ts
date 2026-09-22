@@ -95,6 +95,57 @@ function fixture(
 }
 
 describe("installed trusted-js lifecycle", () => {
+	it("hot reload preserves release state, reuses session consent and rolls back failed code", async () => {
+		const f = fixture();
+		f.importModule.mockImplementation(async () => ({
+			activate: () => f.cleanup,
+		}));
+		const releaseState = {
+			consented: true,
+			consentKey: "release",
+			crashes: 2,
+			pending: false,
+		};
+		f.states.set("test.local", { ...releaseState });
+		expect((await f.installed.install(pkg(), "dev")).ok).toBe(true);
+		const firstUrl = f.importModule.mock.calls[0][0];
+		expect(
+			(
+				await f.installed.install(
+					pkg("export function activate() { /* edit */ }"),
+					"dev",
+				)
+			).ok,
+		).toBe(true);
+		expect(f.importModule.mock.calls[1][0]).not.toBe(firstUrl);
+		expect(f.cleanup).toHaveBeenCalledOnce();
+		expect(f.consent).toHaveBeenCalledOnce();
+		const previous = f.installed.entry("test.local")?.moduleBlob;
+		f.importModule.mockImplementationOnce(async () => {
+			throw new Error("broken module");
+		});
+		expect(
+			(
+				await f.installed.install(
+					pkg("export function activate() { /* bad */ }"),
+					"dev",
+				)
+			).ok,
+		).toBe(false);
+		expect(f.runtime.isLoaded("test.local")).toBe(true);
+		expect(f.installed.entry("test.local")?.moduleBlob).toBe(previous);
+		f.runtime.confirmStartupStable();
+		expect(f.states.get("test.local")).toEqual(releaseState);
+		expect(f.records.size).toBe(0);
+		expect(f.clearKv).not.toHaveBeenCalled();
+		await f.runtime.setEnabled("test.local", false);
+		expect((await f.installed.install(pkg(), "dev")).ok).toBe(false);
+		expect(f.runtime.isLoaded("test.local")).toBe(false);
+		f.installed.discardDevelopment("test.local");
+		expect(f.installed.entry("test.local")).toBeUndefined();
+		expect(f.states.get("test.local")?.disabled).toBe(true);
+		expect(f.clearKv).not.toHaveBeenCalled();
+	});
 	it("persists only after consent, restores, respects disable, and fully uninstalls", async () => {
 		const f = fixture();
 		expect(await f.installed.install(pkg())).toEqual({

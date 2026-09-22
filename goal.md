@@ -15,7 +15,7 @@
 
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
-| 1 | trusted-js 单文件开发体验 | 已完成 `definePlugin()` 元数据读取、manifest 自动生成、TypeScript/JSX ESM 构建、可复现 pack 与 `dev` 监听；插件级热重载、开发面板和来源标记仍待补齐 |
+| 1 | trusted-js 单文件开发体验 | 已完成 `definePlugin()` 元数据读取、manifest 自动生成、TypeScript/JSX ESM 构建、可复现 pack、`dev` 监听与插件级热重载；开发面板和完整来源标记仍待补齐 |
 | 2（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
 | 3 | 阶段 8：批量迁移 | 第 1 项收口后，按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移 |
 | 4（按需并行） | QuickJS guest SDK | 设计可先做；壳体实现等待 wasm 合同与 toolkit 首版，不作为 trusted-js 迁移前置 |
@@ -117,10 +117,12 @@ amll-ttml-plugin-<name>/      # 外置插件，各自独立仓库，CI 产出 zi
 
 - [ ] 入口约定：扩展 `definePlugin()` 支持从单一源码入口声明插件身份、版本、capability、静态 contribution 与 `activate()`；保留显式 `manifest.json` 覆盖机制，但默认模板不要求手写。
 - [ ] 自动构建：`amll-plugin build/pack` 从源码声明生成或校验 manifest，编译 TypeScript/JSX 为宿主兼容的 ESM，继续 externalize 宿主 React，保留可用 source map，并复用现有 artifact 校验与打包路径。
-- [ ] 开发服务：提供 `amll-plugin dev`，监听源码及声明变化，输出临时开发模块和 manifest；宿主开发目录加载器可接收构建结果，不把开发产物写入持久安装记录。
-- [ ] 插件级热重载：源码变化后按 abort → cleanup → host handle dispose → scope dispose → 重新 import → activate 的顺序重载；保留插件 KV、用户授权、启用状态和宿主文档，不保留旧模块的闭包、监听器或 UI 注册。
+- [x] 开发服务：提供 `amll-plugin dev`，监听源码及声明变化，输出临时开发模块和 manifest；宿主开发目录加载器可接收构建结果，不把开发产物写入持久安装记录。
+- [x] 插件级热重载：源码变化后按 abort → cleanup → host handle dispose → scope dispose → 重新 import → activate 的顺序重载；保留插件 KV、用户授权、启用状态和宿主文档，不保留旧模块的闭包、监听器或 UI 注册。
 - [ ] 失败处理：编译或激活失败时保留上一份可运行模块，开发面板显示错误并允许立即重试；热重载不得改变正式插件的 crash 计数和发布包状态。
 - [ ] 最小调试能力：开发服务提供 source map、模块构建日志和重载原因；宿主显示当前来源为 `dev`，避免把临时构建误认为已安装发布版本。
+
+2026-09-22 热重载适配：工具链成功构建后发布 `dist/module/manifest.json` 与入口模块，编译失败保留上次输出；宿主监听归应用会话所有，关闭设置页继续轮询，连续保存与手动重载串行处理。开发 consent 按同 id 的当前会话复用，与正式包的内容授权、崩溃计数分开；同版本开发副本可替换出厂实例且不改 factory pin。激活失败清理新实例并重新激活旧模块，KV 和文档不清空（不会撤销插件已经提交的文档事务）。错误目前以通知呈现，开发面板、source map 与真实浏览器/桌面端完整验收仍待完成。操作说明见 `docs/plugin-development-guide.md`。
 - [ ] 安全取舍：trusted-js 继续按“用户对自己的操作负责”处理，保留 API/manifest 校验、来源展示、consent、scope 清理和崩溃恢复等必要机制。开发模式的权限与正式 trusted-js 一致，文案明确其可访问应用数据和登录态。
 - 验收：从只含 `src/plugin.ts` 的最小项目执行 `create → dev → 修改源码 → 自动重载 → test → pack` 全流程；React 组件、命令、表单、文档事务和 cleanup 在真实宿主中可用；连续修改不会累积旧命令、监听器、视图或窗口；构建失败时上一版本仍可运行；正式 ZIP 与开发模块使用同一 API/manifest 解析和 artifact 校验。
 

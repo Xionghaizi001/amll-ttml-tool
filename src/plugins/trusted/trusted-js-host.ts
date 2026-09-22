@@ -177,14 +177,18 @@ export async function installTrustedJsPackage(
 		const factory = FACTORY_TRUSTED_JS_PLUGINS.find(
 			(p) => p.id === parsed.value.manifest.id,
 		);
-		if (factory && !semverGt(parsed.value.manifest.version, factory.version))
+		if (
+			source !== "dev" &&
+			factory &&
+			!semverGt(parsed.value.manifest.version, factory.version)
+		)
 			return {
 				ok: false as const,
 				message: "安装版本必须高于同名出厂插件版本",
 			};
 	}
 	const result = await installedTrustedJsService.install(input, source);
-	if (result.ok) setPinnedToFactory(result.pluginId, false);
+	if (result.ok && source !== "dev") setPinnedToFactory(result.pluginId, false);
 	return result;
 }
 
@@ -306,6 +310,7 @@ export async function getTrustedJsUpdateStates(options?: {
 
 /** Store page action: clear the factory pin and load the newer remote copy. */
 export async function applyTrustedJsUpdate(pluginId: string): Promise<void> {
+	installedTrustedJsService.discardDevelopment(pluginId);
 	setPinnedToFactory(pluginId, false);
 	await reloadTrustedJsPlugin(pluginId);
 }
@@ -317,6 +322,7 @@ export async function applyTrustedJsUpdate(pluginId: string): Promise<void> {
 export async function revertTrustedJsToFactory(
 	pluginId: string,
 ): Promise<void> {
+	installedTrustedJsService.discardDevelopment(pluginId);
 	setPinnedToFactory(pluginId, true);
 	await reloadTrustedJsPlugin(pluginId);
 }
@@ -327,6 +333,15 @@ export async function revertTrustedJsToFactory(
  * re-enabling a disabled plugin.
  */
 export async function reloadTrustedJsPlugin(pluginId: string): Promise<void> {
+	const development = installedTrustedJsService
+		.list()
+		.find((record) => record.id === pluginId && record.source === "dev");
+	if (development) {
+		const entry = installedTrustedJsService.entry(pluginId);
+		await trustedJsPluginService.unload(pluginId);
+		if (entry) await trustedJsPluginService.load(entry);
+		return;
+	}
 	const { plan } = await resolveCurrentLoadPlan();
 	const item = plan.find((candidate) => candidate.entry.id === pluginId);
 	if (trustedJsPluginService.isLoaded(pluginId))

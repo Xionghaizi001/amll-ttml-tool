@@ -32,6 +32,12 @@ export class InstalledTrustedJsService<THost> {
 		private readonly clearKv: (id: string) => Promise<void>,
 	) {}
 	list = () => [...this.records.values()];
+	/** End a temporary override without deleting the persisted release or KV. */
+	discardDevelopment(id: string): void {
+		if (this.records.get(id)?.source !== "dev") return;
+		this.records.delete(id);
+		this.emit();
+	}
 	subscribe = (listener: () => void) => {
 		this.listeners.add(listener);
 		return () => {
@@ -49,7 +55,8 @@ export class InstalledTrustedJsService<THost> {
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,
-			consentKey: record.sha256,
+			consentKey: record.source === "dev" ? `dev:${record.id}` : record.sha256,
+			development: record.source === "dev",
 		};
 	}
 	async restore() {
@@ -110,7 +117,8 @@ export class InstalledTrustedJsService<THost> {
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,
-			consentKey: record.sha256,
+			consentKey: record.source === "dev" ? `dev:${record.id}` : record.sha256,
+			development: record.source === "dev",
 			beforeImport: async () => {
 				if (source !== "dev") {
 					await this.storage.save(record);
@@ -122,7 +130,8 @@ export class InstalledTrustedJsService<THost> {
 		await this.runtime.unload(manifest.id);
 		const result = await this.runtime.load(entry);
 		if (!result.ok) {
-			this.runtime.restoreConsent(manifest.id, oldConsent);
+			if (source !== "dev")
+				this.runtime.restoreConsent(manifest.id, oldConsent);
 			if (persisted) {
 				if (previous && previous.source !== "dev")
 					await this.storage.save(previous);

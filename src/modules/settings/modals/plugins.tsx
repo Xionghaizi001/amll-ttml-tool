@@ -1,5 +1,8 @@
 import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
-import { installTrustedJsPackage } from "$/plugins/trusted/trusted-js-host";
+import {
+	installTrustedJsPackage,
+	installedTrustedJsService,
+} from "$/plugins/trusted/trusted-js-host";
 import {
 	ArrowClockwise24Regular,
 	DocumentAdd24Regular,
@@ -205,43 +208,80 @@ const PluginRow = ({ plugin }: { plugin: WasmPluginSummary }) => {
 	);
 };
 
+// The directory watcher belongs to the application session, not the settings tab.
+const devSession = {
+	pluginId: null as string | null,
+	runtime: "" as string,
+	hotReload: true,
+	directory: { current: null as FileSystemDirectoryHandle | null },
+	watcher: { current: null as DevPluginWatcher | null },
+	queue: Promise.resolve(),
+};
+
 const DevPluginSection = () => {
 	const { t } = useTranslation();
-	const [devPluginId, setDevPluginId] = useState<string | null>(null);
-	const [hotReload, setHotReload] = useState(true);
-	const directoryRef = useRef<FileSystemDirectoryHandle | null>(null);
-	const watcherRef = useRef<DevPluginWatcher | null>(null);
+	const [devPluginId, setDevPluginId] = useState(devSession.pluginId);
+	const [hotReload, setHotReload] = useState(devSession.hotReload);
+	const directoryRef = devSession.directory;
+	const watcherRef = devSession.watcher;
 
 	const stopWatcher = useCallback(() => {
 		watcherRef.current?.stop();
 		watcherRef.current = null;
 	}, []);
 
-	useEffect(() => stopWatcher, [stopWatcher]);
-
 	const reloadFromDirectory = useCallback(
-		async (pluginId: string) => {
+		(pluginId: string) => {
 			const directory = directoryRef.current;
-			if (!directory) return;
-			try {
-				const source = await readDevPluginDirectory(directory);
-				const manifest = parseManifest(source.manifest);
-				if (!manifest.ok || manifest.value.kind !== "function")
-					throw new Error("manifest failed validation");
-				if (source.code !== undefined) {
-					const result = await installTrustedJsPackage(
-						{ packageVersion: 0, manifest: source.manifest, code: source.code },
-						"dev",
+			const operation = devSession.queue.then(async () => {
+				if (
+					!directory ||
+					directory !== directoryRef.current ||
+					pluginId !== devSession.pluginId
+				)
+					return;
+				if (
+					devSession.runtime === "trusted-js" &&
+					!installedTrustedJsService
+						.list()
+						.some((record) => record.id === pluginId && record.source === "dev")
+				)
+					return;
+				try {
+					const source = await readDevPluginDirectory(directory);
+					const manifest = parseManifest(source.manifest);
+					if (!manifest.ok || manifest.value.kind !== "function")
+						throw new Error("manifest failed validation");
+					if (
+						manifest.value.id !== pluginId ||
+						manifest.value.runtime !== devSession.runtime
+					)
+						throw new Error("插件 id 或 runtime 已改变，请重新选择开发目录");
+					if (source.code !== undefined) {
+						const result = await installTrustedJsPackage(
+							{
+								packageVersion: 0,
+								manifest: source.manifest,
+								code: source.code,
+							},
+							"dev",
+						);
+						if (!result.ok) throw new Error(result.message);
+					} else
+						await wasmPluginService.reload(
+							pluginId,
+							manifest.value,
+							source.wasm,
+						);
+					toast.info(t("plugins.dev.reloaded", "开发插件已热重载"));
+				} catch (error) {
+					toast.error(
+						`${t("plugins.dev.reloadFailed", "热重载失败")}\n${String(error)}`,
 					);
-					if (!result.ok) throw new Error(result.message);
-				} else
-					await wasmPluginService.reload(pluginId, manifest.value, source.wasm);
-				toast.info(t("plugins.dev.reloaded", "开发插件已热重载"));
-			} catch (error) {
-				toast.error(
-					`${t("plugins.dev.reloadFailed", "热重载失败")}\n${String(error)}`,
-				);
-			}
+				}
+			});
+			devSession.queue = operation.catch(() => undefined);
+			return operation;
 		},
 		[t],
 	);
@@ -251,9 +291,9 @@ const DevPluginSection = () => {
 			stopWatcher();
 			const directory = directoryRef.current;
 			if (!directory) return;
-			const watcher = new DevPluginWatcher(directory, () => {
-				void reloadFromDirectory(pluginId);
-			});
+			const watcher = new DevPluginWatcher(directory, () =>
+				reloadFromDirectory(pluginId),
+			);
 			watcher.start();
 			watcherRef.current = watcher;
 		},
@@ -263,6 +303,8 @@ const DevPluginSection = () => {
 	const onPickDirectory = useCallback(async () => {
 		const directory = await pickDevPluginDirectory();
 		if (!directory) return;
+		stopWatcher();
+		await devSession.queue;
 		try {
 			const source = await readDevPluginDirectory(directory);
 			const result =
@@ -282,15 +324,18 @@ const DevPluginSection = () => {
 			reportInstallResult(result, t);
 			if (result.ok) {
 				directoryRef.current = directory;
+				devSession.pluginId = result.pluginId;
+				devSession.runtime =
+					source.code !== undefined ? "trusted-js" : "extism-wasm";
 				setDevPluginId(result.pluginId);
-				if (hotReload) startWatcher(result.pluginId);
 			}
 		} catch (error) {
 			toast.error(
 				`${t("plugins.dev.loadFailed", "开发插件加载失败")}\n${String(error)}`,
 			);
 		}
-	}, [hotReload, startWatcher, t]);
+		if (hotReload && devSession.pluginId) startWatcher(devSession.pluginId);
+	}, [hotReload, startWatcher, stopWatcher, t]);
 
 	if (!isDevPluginLoadingSupported()) return null;
 
@@ -327,6 +372,7 @@ const DevPluginSection = () => {
 								checked={hotReload}
 								onCheckedChange={(checked) => {
 									setHotReload(checked);
+									devSession.hotReload = checked;
 									if (checked) startWatcher(devPluginId);
 									else stopWatcher();
 								}}

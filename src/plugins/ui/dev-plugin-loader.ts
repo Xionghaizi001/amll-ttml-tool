@@ -59,7 +59,9 @@ export async function readDevPluginDirectory(
 	return {
 		manifest: manifestRaw,
 		wasm: new Uint8Array(await wasmFile.arrayBuffer()),
-		...(manifest.value.runtime === "trusted-js" ? { code: await wasmFile.text() } : {}),
+		...(manifest.value.runtime === "trusted-js"
+			? { code: await wasmFile.text() }
+			: {}),
 	};
 }
 
@@ -71,35 +73,51 @@ export async function readDevPluginDirectory(
 export class DevPluginWatcher {
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private lastStamp = "";
+	private polling = false;
+	private generation = 0;
+	private candidateStamp = "";
 
 	constructor(
 		private readonly directory: FileSystemDirectoryHandle,
-		private readonly onChange: () => void,
+		private readonly onChange: () => void | Promise<void>,
 		private readonly intervalMs = 1500,
 	) {}
 
 	start(): void {
 		if (this.timer !== null) return;
-		void this.computeStamp().then((stamp) => {
-			this.lastStamp = stamp;
-		});
+		this.generation++;
+		void this.poll();
 		this.timer = setInterval(() => {
 			void this.poll();
 		}, this.intervalMs);
 	}
 
 	stop(): void {
+		this.generation++;
 		if (this.timer !== null) clearInterval(this.timer);
 		this.timer = null;
 	}
 
 	private async poll(): Promise<void> {
+		if (this.polling) return;
+		this.polling = true;
+		const generation = this.generation;
 		try {
 			const stamp = await this.computeStamp();
-			if (this.lastStamp !== "" && stamp !== this.lastStamp) this.onChange();
+			if (generation !== this.generation) return;
+			// Require a stable pair of files across two polls during a rebuild.
+			if (this.lastStamp !== "" && stamp !== this.candidateStamp) {
+				this.candidateStamp = stamp;
+				return;
+			}
+			this.candidateStamp = stamp;
+			if (this.lastStamp !== "" && stamp !== this.lastStamp)
+				await this.onChange();
 			this.lastStamp = stamp;
 		} catch {
 			// Directory temporarily unavailable (e.g. mid-rebuild); retry later.
+		} finally {
+			this.polling = false;
 		}
 	}
 
