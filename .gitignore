@@ -39,3 +39,6 @@ public/plugins/catalog.json
 /release/
 
 /src/plugins/generated/
+
+# Generated protocol reference (pnpm plugin:api:build)
+docs/plugin-protocol-v0.md

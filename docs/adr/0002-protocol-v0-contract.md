@@ -16,7 +16,7 @@
 
 `packages/plugin-api/src/types.ts` 定义公开数据；`schema/schemas.ts` 验证结构；parser 和专用校验器执行跨字段、命名空间、CSS、token、网络和包语义检查。任何外部输入必须走对应 parser，不能只做类型断言。
 
-`docs/plugin-protocol-v0.md` 由 `scripts/gen-plugin-docs.ts` 生成，不能手工修改。
+`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库，不能手工修改。
 
 ### 2. 协议保持 JSON 可表达
 
@@ -95,4 +95,4 @@ enablement/when 使用受限表达式并失败关闭。声明式表单只支持�
 - 生成器 check 在提交中无漂移：`pnpm plugin:api:check`。
 - 协议行为测试覆盖原子性、冲突、权限、限额、取消和卸载。
 
-完整字段索引见 [Plugin Protocol v0](../plugin-protocol-v0.md)。
+完整字段索引运行 `pnpm plugin:api:build` 后见 `docs/plugin-protocol-v0.md`。

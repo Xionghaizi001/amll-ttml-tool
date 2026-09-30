@@ -14,9 +14,9 @@
 2. `packages/plugin-api/src/parsers.ts`、`permissions.ts`、`capabilities.ts`
 3. `packages/plugin-sdk-js/src/host.ts`
 4. `src/plugins`、`src/kernel`、`src/platform` 的实现与测试
-5. [插件系统模型](./plugin-system-model.md)、本指南和开发指南
+5. 仓库根目录 `PLUGIN.md`、本指南和开发指南
 
-`plugin-protocol-v0.md` 由 `scripts/gen-plugin-docs.ts` 生成，不能手改。当前协议为 experimental v0，但破坏性变更仍必须同时更新类型、Schema、parser、合同测试、生成文档和调用方。
+`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库，不能手改。当前协议为 experimental v0，但破坏性变更仍必须同时更新类型、Schema、parser、合同测试、生成文档和调用方。
 
 ## 2. 分层边界
 
@@ -129,7 +129,7 @@ pnpm build
 - 主题：`tests/kernel/theme/**`、`tests/plugins/builtin/themes/**`
 - contribution/UI model：`tests/kernel/extensions/**`、`tests/plugins/ui/**`
 
-涉及 WebView、Worker、文件选择、IndexedDB、PWA 或 Tauri 时，自动化测试不能替代真机冒烟。运行时检查见 [运行时验证](./plugin-runtime-poc.md)，安装检查见 [安装与更新验证](./plugin-local-install-validation.md)。
+涉及 WebView、Worker、文件选择、IndexedDB、PWA 或 Tauri 时，自动化测试不能替代真机冒烟。验收步骤见 [插件验收清单](./plugin-acceptance-checklist.md)。
 
 ## 7. 交付说明
 

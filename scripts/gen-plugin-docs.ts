@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createServer } from "vite";
 
@@ -66,20 +66,5 @@ the form \`extensions.<reverse-domain>.<name>\`; no wildcard matching is perform
 ${sections}
 `;
 
-if (process.argv.includes("--check")) {
-	let current = "";
-	try {
-		current = await readFile(outputPath, "utf8");
-	} catch {
-		// The comparison below reports the missing generated document.
-	}
-	if (current.replaceAll("\r\n", "\n") !== output) {
-		console.error(
-			"docs/plugin-protocol-v0.md is out of date; run pnpm plugin:api:build",
-		);
-		process.exitCode = 1;
-	}
-} else {
-	await writeFile(outputPath, output, "utf8");
-	console.log("Generated docs/plugin-protocol-v0.md");
-}
+await writeFile(outputPath, output, "utf8");
+console.log("Generated docs/plugin-protocol-v0.md (gitignored)");

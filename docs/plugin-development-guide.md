@@ -6,7 +6,7 @@
 
 最后核对：2026-09-21
 
-本文面向插件作者，说明当前可用的插件档位、开发入口、包格式和发布检查。完整类型以 `packages/plugin-api/src` 与 `packages/plugin-sdk-js/src` 为准；自动生成的字段索引见 [Plugin Protocol v0](./plugin-protocol-v0.md)，宿主内部结构见 [插件系统模型](./plugin-system-model.md)。v0 允许破坏性变更。
+本文面向插件作者，说明当前可用的插件档位、开发入口、包格式和发布检查。完整类型以 `packages/plugin-api/src` 与 `packages/plugin-sdk-js/src` 为准；自动生成的字段索引运行 `pnpm plugin:api:build` 后见 `docs/plugin-protocol-v0.md`，宿主内部结构见仓库根目录 `PLUGIN.md`。v0 允许破坏性变更。
 
 ## 1. 选择插件档位
 
@@ -22,7 +22,7 @@ WASM 不能访问 DOM、网络、文件系统、Tauri、音频 PCM 或频谱数�
 
 ## 2. 推荐工具链
 
-独立插件优先使用同级仓库 `amll-ttml-plugin-toolkit` 创建、构建、测试和打包。宿主仓库也提供：
+独立插件优先使用同级仓库 `amll-ttml-tool-plugin-toolkit` 创建、构建、测试和打包。宿主仓库也提供：
 
 ```sh
 pnpm plugin:packages:build   # 构建 plugin-api 与 plugin-sdk-js
@@ -214,7 +214,7 @@ const external = (id: string) => [
 
 ### trusted-js 插件级热重载
 
-1. 在插件项目运行 `amll-plugin dev`（使用本工作区工具链时可运行 `node ../amll-ttml-plugin-toolkit/bin/cli.mjs dev`）。工具链监听 `src/` 与根目录 `manifest.json`，将成功构建的入口和 manifest 输出到 `dist/module/`；单文件项目的 manifest 从 `definePlugin()` 元数据生成。
+1. 在插件项目运行 `amll-plugin dev`（使用本工作区工具链时可运行 `node ../amll-ttml-tool-plugin-toolkit/bin/cli.mjs dev`）。工具链监听 `src/` 与根目录 `manifest.json`，将成功构建的入口和 manifest 输出到 `dist/module/`；单文件项目的 manifest 从 `definePlugin()` 元数据生成。
 2. 在宿主“设置 → 插件 → 开发模式”选择 **`dist/module/`**，确认开发授权，保持“热重载”开启。桌面端仍需先启用 JS 插件开关。
 3. 修改源码并保存。宿主每 1.5 秒轮询一次，连续两次读到稳定文件后只替换该插件，无需刷新页面。关闭设置页后仍继续监听；重新打开可关闭热重载或点击“立即重载”。页面刷新后需重新选择目录。
 
@@ -240,4 +240,4 @@ pnpm test
 pnpm build
 ```
 
-协议变化时先修改 `packages/plugin-api` 的类型、Schema、parser 和合同测试，再生成 `docs/plugin-protocol-v0.md`，最后更新 SDK、宿主和本指南。不要手工编辑生成的协议文档。
+协议变化时先修改 `packages/plugin-api` 的类型、Schema、parser 和合同测试，再运行 `pnpm plugin:api:build` 重新生成协议索引，最后更新 SDK、宿主和本指南。生成文件不入库，不要手工编辑。

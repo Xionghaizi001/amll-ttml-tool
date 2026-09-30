@@ -68,4 +68,4 @@ SHA-256 用于内容寻址、完整性和 consent key，不代表发布者身份
 - 三套运行档目前有不同的持久化和状态服务；UI 需要聚合它们，未来可引入统一 installation 模型。
 - Web/Tauri 的真实隔离仍依赖浏览器、WebView、Extism 与 Tauri 配置，发布前需要跨平台验证。
 
-实现全景和剩余风险见 [插件系统模型](../plugin-system-model.md)。
+实现全景和剩余风险见仓库根目录 `PLUGIN.md`。

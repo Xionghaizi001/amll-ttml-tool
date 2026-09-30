@@ -71,4 +71,4 @@ trusted-js 除静态声明外可动态注册命令、菜单、标题栏、格式
 - 旧 keyboard registry 与 kernel command registry 暂时并存；新增插件行为应接入 kernel，不应扩大旧 registry 的职责。
 - trusted-js 视图拥有应用级代码权限，因此 UI registry 不是安全沙箱。
 
-实现索引与当前断层见 [插件系统模型](../plugin-system-model.md)。
+实现索引见仓库根目录 `PLUGIN.md`，当前断层见 `goal.md`“架构调整点”。
