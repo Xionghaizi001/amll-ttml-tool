@@ -1,7 +1,6 @@
 # AMLL TTML Tool 插件系统架构
 
 状态：当前实现快照，唯一的架构参考  
-基线日期：2026-09-30  
 协议状态：experimental v0
 
 本文描述插件系统已经存在的代码、边界和运行路径，是架构、信任模型与协议入口的唯一权威说明。决策理由见 `docs/adr/`；插件作者阅读 `docs/plugin-development-guide.md`；维护者阅读 `docs/plugin-agent-guide.md`；验收步骤见 `docs/plugin-acceptance-checklist.md`；未完成事项与架构调整点只记在 `goal.md`。v0 允许破坏性变更，在全部原定制功能插件通过合同测试前不冻结 v1。
@@ -67,7 +66,7 @@ flowchart LR
 | 安装来源 `source` | `user`、`dev`、`store`，主题为 `builtin/installed`，trusted-js 另有 factory 概念 | 持久化、展示、更新与回退策略 |
 | 交付方式 | factory bundle、catalog artifact、catalog 裸模块、本地 ZIP/JSON、开发目录 | artifact 如何到达语义解析闸门 |
 
-这四个维度目前没有一个统一的 `PluginInstallation` 模型。各服务各自保存相近但不同的记录，因此“插件列表中的一行”实际上是 UI 对三套服务状态的聚合视图。
+这四个维度目前没有一个统一的 `PluginInstallation` 模型。功能插件与主题服务各自保存相近但不同的记录，因此“插件列表中的一行”实际上是 UI 对两类服务状态的聚合视图。
 
 ## 4. 核心领域对象
 
@@ -77,7 +76,7 @@ flowchart LR
 | Package | 已解包且可语义校验的载荷；分别为 trusted-js 代码或主题数据 | `TrustedJsPluginPackageV0`、`ThemePackageV0` |
 | Artifact | 传输单元，当前支持固定布局 ZIP 和 JSON | `src/plugins/store/package-container.ts` |
 | `RemotePluginCatalogEntryV0` | 商店货架条目，描述 artifact 身份、通道、摘要和平台 | `packages/plugin-api/src/remote-catalog.ts` |
-| Installation | 某个插件在本机的 manifest、载荷、来源、授权和启用状态 | 目前由三套 service/storage 分别表达 |
+| Installation | 某个插件在本机的 manifest、载荷、来源、授权和启用状态 | 目前由功能插件与主题各自的 service/storage 表达 |
 | Runtime instance | 一次已加载执行实例及其临时资源 | `PluginInstance`、`LoadedInstance` |
 | `ExtensionScope` | 某个 owner 注册到宿主的全部命令、贡献点和事件监听的生命周期容器 | `src/kernel/extensions/ContributionRegistry.ts` |
 | Contribution | 插件向宿主声明或动态注册的扩展项 | command、menu、settings、titlebar action、format、trusted view、mode 等 |
@@ -568,7 +567,7 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 
 ### 13.2 格式插件的粒度
 
-插件化的单位是“provider 注册”，不是“实现打包”。TTML 由自有 ttml-processor wasm 承担，ESLRC/QRC/YRC/LYS/ASS 来自上游 `@applemusic-like-lyrics/lyric` 单一 wasm 包，LRC 为 TS。这些 wasm-bindgen 包是主线程内部库，由单一 builtin scope `core.formats` 注册多个 provider。TTML 注册为不可卸载 hostNative provider；其余 provider 可禁用，禁用后对应导入/导出命令随 scope 消失。第三方格式插件经 trusted-js `formats.register` 接入同一 registry 与同一文件流程。
+插件化的单位是“provider 注册”，不是“实现打包”。TTML 由自有 ttml-processor 承担，ESLRC/QRC/YRC/LYS/ASS 来自上游 `@applemusic-like-lyrics/lyric` 包，LRC 为 TS。这些实现属于主线程内部库，由单一 builtin scope `core.formats` 注册多个 provider。TTML 注册为不可卸载 hostNative provider；其余 provider 可禁用，禁用后对应导入/导出命令随 scope 消失。第三方格式插件经 trusted-js `formats.register` 接入同一 registry 与同一文件流程。
 
 ### 13.3 两档用户提示语与两条红线
 
@@ -604,7 +603,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 | --- | --- |
 | 公共类型 | `packages/plugin-api/src/types.ts` |
 | Schema 与 parser | `packages/plugin-api/src/schema/schemas.ts`、`packages/plugin-api/src/parsers.ts` |
-| Capability | `packages/plugin-api/src/capabilities.ts`、`packages/plugin-api/src/permissions.ts` |
+| Capability | `packages/plugin-api/src/capabilities.ts` |
 | 匿名网络策略 | `packages/plugin-api/src/network.ts`、`src/plugins/adapters/plugin-network.ts` |
 | trusted-js SDK | `packages/plugin-sdk-js/src/host.ts` |
 | Contribution/owner scope | `src/kernel/extensions/ContributionRegistry.ts` |

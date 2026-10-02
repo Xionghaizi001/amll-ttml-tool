@@ -4,8 +4,6 @@
 
 适用版本：当前仓库
 
-最后核对：2026-09-21
-
 本文面向插件作者，说明当前可用的插件档位、开发入口、包格式和发布检查。完整类型以 `packages/plugin-api/src` 与 `packages/plugin-sdk-js/src` 为准；自动生成的字段索引运行 `pnpm plugin:api:build` 后见 `docs/plugin-protocol-v0.md`，宿主内部结构见仓库根目录 `PLUGIN.md`。v0 允许破坏性变更。
 
 ## 1. 选择插件档位
@@ -102,7 +100,7 @@ Manifest 规则包括：
 
 一批操作由宿主原子提交，生成一个 revision 和一个撤销记录。跨 `await` 计算的修改应携带读取时的 `expectedRevision`；冲突时重新读取并决定是否重试，不能静默覆盖。宿主按稳定 ID 合并，投影中没有的内部字段保持不变。
 
-## 6. trusted-js 插件
+## 5. trusted-js 插件
 
 入口是单文件 ESM，默认导出或模块命名空间必须提供 `activate`：
 
@@ -153,7 +151,7 @@ const external = (id: string) => [
 
 非 factory 包在 import 前经过 API 版本、来源、桌面总开关、用户禁用、崩溃状态与 consent 检查。内容 SHA-256 用于识别变更并触发重新授权，不是签名或安全认证。factory 副本随应用交付；严格更高版本可以遮蔽它，卸载更新后可 pin 回 factory。
 
-## 7. 主题插件
+## 6. 主题插件
 
 主题 manifest 示例：
 
@@ -173,7 +171,7 @@ const external = (id: string) => [
 
 `ThemePackageV0` 包含 manifest、tokens、可选 styles 和内联 assets。宿主校验 token 版本、颜色、长度、选择器范围和资源引用；禁止远程 URL、任意代码和危险 CSS。资源通过 `asset:<name>` 引用并转换为本地 Object URL。权限、插件管理和错误恢复 UI 位于受保护区域，不受主题 CSS 控制。
 
-## 8. 打包、安装与更新
+## 7. 打包、安装与更新
 
 宿主按 magic bytes 识别 JSON 或 ZIP，不依赖文件扩展名：
 
@@ -201,7 +199,7 @@ const external = (id: string) => [
 
 商店 catalog 位于同源 `plugins/catalog.json`。artifact 下载后先按可选 `sha256` 校验，再解包和语义校验；trusted-js artifact 还会比对 catalog 与包内 id、version、apiVersion。catalog 也允许 trusted-js 条目直接指向同源裸 ESM，这一路径不经过容器安装，但仍经过 catalog 解析、同源限制和统一加载闸门。当前只有一个同源 catalog，没有多源聚合、评分或依赖解析。
 
-## 9. 测试与发布检查
+## 8. 测试与发布检查
 
 插件至少覆盖 manifest/包解析、能力拒绝、revision 冲突、原子编辑、卸载清理、取消/超时和恶意输入。trusted-js 使用 `MockTrustedJsHost`；宿主实现与 mock 应运行同一合同测试。
 
