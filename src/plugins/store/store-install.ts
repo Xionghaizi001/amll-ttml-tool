@@ -10,9 +10,7 @@ import {
 /**
  * Store artifact install pipeline: fetch → content-hash verification →
  * container stripping → the existing semantic install gate of the matching
- * tier. All three channels are byte-shaped here: extism-wasm and theme zips
- * as before, and trusted-js zips (manifest.json + assets/<entry>.js) whose
- * source is handed — unevaluated — to the injected `installTrustedJsPackage`
+ * tier. Trusted-js source is handed — unevaluated — to the injected `installTrustedJsPackage`
  * port, which must run `parseTrustedJsPackage`, consent and persistence
  * before the single `TrustedJsPluginService.load()` gate. Same-origin
  * catalog entries that point at a bare ES module keep using the loader's
@@ -27,8 +25,6 @@ export interface StoreArtifactInstallPorts {
 	/** Fetches a same-origin catalog-relative artifact path. */
 	fetchArtifact(path: string): Promise<Uint8Array>;
 	digestSha256(bytes: Uint8Array): Promise<string>;
-	/** The single WASM package install gate (installPluginPackage). */
-	installFunctionPackage(pkg: unknown): Promise<StoreInstallOutcome>;
 	/** The single theme package install gate (themeService.importThemePackage). */
 	installThemePackage(pkg: unknown): Promise<StoreInstallOutcome>;
 	/**
@@ -44,7 +40,6 @@ const CHANNEL_CONTAINER_KIND: Record<
 	RemotePluginCatalogEntryV0["channel"],
 	PluginContainerKind
 > = {
-	"extism-wasm": "function",
 	theme: "theme",
 	"trusted-js": "trusted-js",
 };
@@ -113,8 +108,6 @@ export const installStoreArtifact = async (
 			return (installTrustedJs as NonNullable<typeof installTrustedJs>)(
 				unpacked.pkg,
 			);
-		case "function":
-			return ports.installFunctionPackage(unpacked.pkg);
 		default:
 			return ports.installThemePackage(unpacked.pkg);
 	}

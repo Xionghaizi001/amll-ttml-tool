@@ -103,7 +103,7 @@ describe("format command reconciler", () => {
 		const plugin = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.formats",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		plugin.registerFormatProvider({

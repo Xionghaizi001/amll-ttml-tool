@@ -60,10 +60,8 @@ import { ensureFormatCommandsRegistered } from "./plugins/adapters/format-comman
 import { lyricFileFlow } from "./plugins/adapters/lyric-file-flow-host.ts";
 import { ensureBuiltinFormatsRegistered } from "./plugins/builtin/formats/index.ts";
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
-import PluginRuntimeDiagnostics from "./plugins/ui/PluginRuntimeDiagnostics.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
 import { TrustedJsHost } from "./plugins/ui/TrustedJsHost.tsx";
-import { WasmPluginHost } from "./plugins/ui/WasmPluginHost.tsx";
 import { useActiveMode } from "./plugins/ui/mode-host.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
 import {
@@ -325,7 +323,6 @@ function EditorApp() {
 				)}
 				<div className={styles.appContent} data-slot="app-root">
 					<ThemeHost />
-					<WasmPluginHost />
 					<TrustedJsHost />
 					<AutosaveManager />
 					<GlobalDragOverlay />
@@ -389,13 +386,6 @@ function App() {
 		})();
 	}, []);
 
-	const showPluginRuntimeDiagnostics =
-		import.meta.env.DEV &&
-		new URLSearchParams(window.location.search).get("plugin-runtime") === "1";
-
-	if (showPluginRuntimeDiagnostics) {
-		return <PluginRuntimeDiagnostics />;
-	}
 
 	return <EditorApp />;
 }

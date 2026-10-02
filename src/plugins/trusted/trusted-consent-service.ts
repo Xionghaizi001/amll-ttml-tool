@@ -6,8 +6,7 @@ export interface PendingTrustedJsConsent extends TrustedJsConsentRequest {
 
 /**
  * Queue of pending trusted-js consent prompts. The dialog rendering these
- * must portal to body and carry data-amll-protected — same anti-cover
- * guarantee as the WASM capability prompt — and its wording must honestly
+ * must portal to body and carry data-amll-protected. Its wording must honestly
  * state that trusted-js runs in the application realm, can use host
  * capabilities and the current login session, and may have desktop system
  * impact. The host does not provide credential text as an API, but this is

@@ -20,9 +20,6 @@ importers:
       '@applemusic-like-lyrics/react':
         specifier: 0.5.2
         version: 0.5.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@extism/extism':
-        specifier: 1.0.3
-        version: 1.0.3
       '@radix-ui/themes':
         specifier: ^3.3.0
         version: 3.3.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -863,9 +860,6 @@ packages:
 
   '@emotion/hash@0.9.2':
     resolution: {integrity: sha512-MyqliTZGuOm3+5ZRSaaBGP3USLw6+EGykkwZns2EPC5g8jJ4z9OrdZY9apkl3+UP9+sdz76YYkwCKP5gh8iY3g==}
-
-  '@extism/extism@1.0.3':
-    resolution: {integrity: sha512-kHwJwNP19c2q6tN2VYez/Bvv/mvx5J+UEyVbHJKAQ8+l9Z+MJ7TTjBw/GwDQcieXlLtPDNphugeH8ChKKfVtQg==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -5342,8 +5336,6 @@ snapshots:
     optional: true
 
   '@emotion/hash@0.9.2': {}
-
-  '@extism/extism@1.0.3': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:

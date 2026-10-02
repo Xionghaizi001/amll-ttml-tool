@@ -39,7 +39,6 @@ describe("declarativeFormService", () => {
 					id: "remove",
 					label: "删除",
 					tone: "danger",
-					icon: { source: "@fluentui/react-icons", name: "DeleteRegular" },
 				},
 				{ id: "confirm", label: "确认" },
 			],

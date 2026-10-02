@@ -10,8 +10,8 @@ const manifest: FunctionPluginManifest = {
 	version: "0.1.0",
 	kind: "function",
 	apiVersion: 0,
-	runtime: "extism-wasm",
-	entry: "plugin.wasm",
+	runtime: "trusted-js",
+	entry: "plugin.js",
 	capabilities: ["ui.notify", "ui.form"],
 	contributes: {
 		commands: [
@@ -47,7 +47,7 @@ describe("registerManifestContributions", () => {
 		const scope = extensions.createScope({
 			kind: "plugin",
 			pluginId: manifest.id,
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const executeCommand = vi.fn();
@@ -76,7 +76,7 @@ describe("registerManifestContributions", () => {
 		const scope = extensions.createScope({
 			kind: "plugin",
 			pluginId: manifest.id,
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		expect(() =>
@@ -98,7 +98,7 @@ describe("registerManifestContributions", () => {
 		const scope = extensions.createScope({
 			kind: "plugin",
 			pluginId: manifest.id,
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const withModes = {

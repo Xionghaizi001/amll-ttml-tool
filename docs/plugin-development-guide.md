@@ -12,13 +12,12 @@
 
 | 目标 | `kind` | `runtime` | 运行边界 |
 | --- | --- | --- | --- |
-| 不可信的歌词处理、命令、表单、格式转换 | `function` | `extism-wasm` | 独立 Worker + Extism，仅能调用已授权宿主方法 |
-| 需要 React 视图、模式或完整 JS 能力 | `function` | `trusted-js` | 经准入后与应用同权，不提供安全隔离 |
+| 歌词处理、命令、表单、格式转换及 React 视图 | `function` | `trusted-js` | 经准入后与应用同权，不提供安全隔离 |
 | 颜色、排版、表面背景和受限 CSS | `theme` | `none` | 纯声明式数据，不执行代码 |
 
 `builtin` 只供宿主内置功能使用，不是第三方分发入口。主题和功能不能放在同一个包中。
 
-WASM 不能访问 DOM、网络、文件系统、Tauri、音频 PCM 或频谱数据。trusted-js 可以绕过 SDK 直接使用浏览器能力，因此应像安装桌面软件一样审查其来源；`TrustedJsHostV0` 是兼容性与资源生命周期边界，不是沙箱。
+trusted-js 可以绕过 SDK 直接使用浏览器能力，因此应像安装桌面软件一样审查其来源；`TrustedJsHostV0` 是兼容性与资源生命周期边界，不是沙箱。
 
 ## 2. 推荐工具链
 
@@ -27,7 +26,6 @@ WASM 不能访问 DOM、网络、文件系统、Tauri、音频 PCM 或频谱数�
 ```sh
 pnpm plugin:packages:build   # 构建 plugin-api 与 plugin-sdk-js
 pnpm plugin:api:check        # 类型检查并确认协议文档没有漂移
-pnpm plugin:build:sample     # 构建 Rust sample-tools
 pnpm plugin:catalog:build    # 生成同源 catalog 与内容寻址 artifact
 ```
 
@@ -61,8 +59,8 @@ import {
   "name": "Word Tools",
   "version": "0.1.0",
   "apiVersion": 0,
-  "runtime": "extism-wasm",
-  "entry": "plugin.wasm",
+  "runtime": "trusted-js",
+  "entry": "index.js",
   "capabilities": ["lyrics.core", "ui.notify"],
   "activationEvents": ["onStartup"]
 }
@@ -70,17 +68,17 @@ import {
 
 当前核心 capability：
 
-| Capability | 用途 | WASM |
-| --- | --- | --- |
-| `lyrics.core` | 读取公开文档和选择、提交文档操作 | 支持 |
-| `lyrics.ruby` | 读取和修改 ruby 分段 | 支持 |
-| `lyrics.format` | 注册歌词格式转换 | 支持 |
-| `ui.notify` | 纯文本通知 | 支持 |
-| `ui.form` | 声明式表单 | 支持 |
-| `storage.kv` | 插件隔离 JSON KV | 支持 |
-| `network.http` | 宿主代理的匿名 HTTP | 不授予，仅 trusted-js 宿主提供 |
+| Capability | 用途 |
+| --- | --- |
+| `lyrics.core` | 读取公开文档和选择、提交文档操作 |
+| `lyrics.ruby` | 读取和修改 ruby 分段 |
+| `lyrics.format` | 注册歌词格式转换 |
+| `ui.notify` | 纯文本通知 |
+| `ui.form` | 声明式表单 |
+| `storage.kv` | 插件隔离 JSON KV |
+| `network.http` | 宿主代理的匿名 HTTP |
 
-能力精确匹配，不支持 `lyrics.*`。定制能力必须使用 `extensions.<反向域名>.<名称>`。WASM 安装时展示请求、授予与拒绝项；执行期仍逐次校验。
+能力精确匹配，不支持 `lyrics.*`。定制能力必须使用 `extensions.<反向域名>.<名称>`。capability 仅作展示与文档声明，不限制 trusted-js 的实际权限。
 
 Manifest 规则包括：
 
@@ -103,29 +101,6 @@ Manifest 规则包括：
 - `setMetadata`、`replaceDocument`
 
 一批操作由宿主原子提交，生成一个 revision 和一个撤销记录。跨 `await` 计算的修改应携带读取时的 `expectedRevision`；冲突时重新读取并决定是否重试，不能静默覆盖。宿主按稳定 ID 合并，投影中没有的内部字段保持不变。
-
-## 5. extism-wasm 插件
-
-WASM guest 导出名称由 `PLUGIN_EXPORTS` 固定：
-
-- `plugin_activate`
-- `plugin_deactivate`
-- `plugin_execute_command`
-- `plugin_handle_event`
-- `plugin_resume_form`
-- `plugin_convert_format`
-
-guest 使用 `extism:host/user` 模块中的同步函数 `amll_host_call` 发送 `HostCallV0` JSON。每次导出返回 `PluginReturnV0`。当前宿主方法为文档/选择读取、文档编辑、通知和隔离 KV；`ui.showForm` 不能在同步桥上等待。
-
-### 回合模型
-
-每次导出调用是一个回合。宿主在回合开始快照文档、选择和 KV；回合内的所有 `lyrics.applyEdit` 在返回后合并为一个事务，KV 也只在回合成功后提交。用户在执行期间修改文档会导致整批编辑以 `revision-conflict` 拒绝。
-
-交互表单通过续体完成：命令返回 `{ kind: "showForm", schema, state? }`，宿主显示表单后调用 `plugin_resume_form`，guest 最终返回 `{ kind: "done", value? }`。单次 invocation 最多 8 轮。
-
-默认限制见 `DEFAULT_WASM_TURN_LIMITS`：10 秒超时、每回合最多 128 次宿主调用、1 MiB 单次 payload、16 个通知、16 批编辑、128 个 KV key、32 KiB 单值和 1 MiB 命名空间。模块最大 32 MiB。超时、trap 或协议错误会终止 runtime；连续 3 次崩溃类失败进入 `crash-disabled`。
-
-参考实现位于 `examples/plugins/sample-tools`。底层 echo、Rust PDK 和 C# WASI 样例仅用于运行时诊断，不是业务插件模板。
 
 ## 6. trusted-js 插件
 
@@ -202,15 +177,15 @@ const external = (id: string) => [
 
 宿主按 magic bytes 识别 JSON 或 ZIP，不依赖文件扩展名：
 
-- JSON 是完整的 `FunctionPluginPackageV0`、`TrustedJsPluginPackageV0` 或 `ThemePackageV0`。
+- JSON 是完整的 `TrustedJsPluginPackageV0` 或 `ThemePackageV0`。
 - ZIP 根目录必须有 `manifest.json` 描述符，载荷位于 `assets/<entry>`；主题样式和资源同样必须被声明。
 - 容器最多 48 MiB，解包总量最多 64 MiB，最多 64 个文件；拒绝绝对路径、反斜杠、dot segment、重复项和未声明文件。
 
 用户入口：
 
-- 设置 → 插件：导入 JSON 格式的 WASM 包、安装示例、管理 WASM、从目录加载开发插件。
+- 设置 → 插件：插件网络设置、从目录加载 trusted-js 开发插件。
 - 工具 → 插件商店：导入 ZIP/JSON，浏览同源 catalog，管理 trusted-js 与更新。
-- 开发目录：`manifest.json` 加入口 JS/WASM，仅当前会话有效；浏览器需支持 File System Access API。
+- 开发目录：`manifest.json` 加入口 JS，仅当前会话有效；浏览器需支持 File System Access API。
 
 ### trusted-js 插件级热重载
 

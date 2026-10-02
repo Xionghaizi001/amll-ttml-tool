@@ -9,7 +9,7 @@ describe("ExtensionRegistry", () => {
 		const scope = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.shift",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const listener = vi.fn();
@@ -40,7 +40,7 @@ describe("ExtensionRegistry", () => {
 		const scope = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.shift",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		expect(() =>
@@ -68,13 +68,13 @@ describe("ExtensionRegistry", () => {
 		const first = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.crashy",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const second = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.stable",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const survivor = vi.fn();
@@ -90,12 +90,12 @@ describe("ExtensionRegistry", () => {
 		consoleError.mockRestore();
 	});
 
-	it("keeps third-party plugins declarative and reserves React-like views for builtins", () => {
+	it("keeps unadmitted plugin scopes declarative and allows trusted views", () => {
 		const registry = new ExtensionRegistry<object>(new CommandRegistry());
 		const thirdParty = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.external",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		expect(() =>
@@ -171,7 +171,7 @@ describe("ExtensionRegistry", () => {
 		const thirdParty = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.external",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		expect(() =>
@@ -280,8 +280,18 @@ describe("ExtensionRegistry", () => {
 			order: 300,
 			mainView: {},
 		});
-		core.registerMode({ modeId: "edit", title: "Edit", order: 100, mainView: {} });
-		core.registerMode({ modeId: "sync", title: "Sync", order: 200, mainView: {} });
+		core.registerMode({
+			modeId: "edit",
+			title: "Edit",
+			order: 100,
+			mainView: {},
+		});
+		core.registerMode({
+			modeId: "sync",
+			title: "Sync",
+			order: 200,
+			mainView: {},
+		});
 		expect(
 			registry.contributions.getModes().map((mode) => mode.modeId),
 		).toEqual(["edit", "sync", "preview"]);
@@ -292,7 +302,7 @@ describe("ExtensionRegistry", () => {
 		const scope = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.actions",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		const icon = {
@@ -329,7 +339,7 @@ describe("ExtensionRegistry", () => {
 		const thirdParty = registry.createScope({
 			kind: "plugin",
 			pluginId: "example.external",
-			runtime: "extism-wasm",
+			runtime: "trusted-js",
 			trusted: false,
 		});
 		expect(() =>

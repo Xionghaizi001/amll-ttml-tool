@@ -10,16 +10,6 @@ export const ALL_CAPABILITIES = [
 	"network.http",
 ] as const satisfies readonly CoreCapability[];
 
-/**
- * Capabilities the extism-wasm host actually serves. `network.http` is a
- * protocol capability every tier names identically, but the WASM turn host
- * has no network bridge by design, so negotiation for that tier must use
- * this narrower set and reject the request instead of silently granting it.
- */
-export const EXTISM_WASM_HOST_CAPABILITIES = ALL_CAPABILITIES.filter(
-	(capability) => capability !== "network.http",
-) as readonly Exclude<(typeof ALL_CAPABILITIES)[number], "network.http">[];
-
 const capabilitySet = new Set<string>(ALL_CAPABILITIES);
 const extensionCapabilityPattern =
 	/^extensions\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.[a-z][a-z0-9-]*$/;

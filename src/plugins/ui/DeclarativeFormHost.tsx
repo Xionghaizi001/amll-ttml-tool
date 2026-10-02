@@ -1,5 +1,4 @@
 import type {
-	FormAnimationV0,
 	FormFieldV0,
 	FormResultV0,
 	FormValueV0,
@@ -10,21 +9,16 @@ import {
 	Checkbox,
 	Dialog,
 	Flex,
-	IconButton,
 	RadioGroup,
 	Select,
 	Text,
 	TextArea,
 	TextField,
 } from "@radix-ui/themes";
-import type { CSSProperties } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import styles from "./DeclarativeFormHost.module.css";
 import { declarativeFormService } from "./declarative-form-service";
-import { FluentFormIcon } from "./fluent-form-icons";
 import {
-	clampFormNumber,
 	collectFormDefaultValues,
 	isFormValid,
 	matchesFormCondition,
@@ -37,37 +31,6 @@ const localize = (text: LocalizedText, locale: string): string => {
 };
 
 const formWidths = { small: "450px", medium: "560px", large: "720px" } as const;
-const formGaps = { small: "2", medium: "3", large: "4" } as const;
-
-const animationDurations = {
-	fast: "120ms",
-	normal: "200ms",
-	slow: "320ms",
-} as const;
-const animationClassNames = {
-	fade: styles.fade,
-	"slide-up": styles.slideUp,
-	"scale-in": styles.scaleIn,
-} as const;
-
-/**
- * Host implementation of the enum-only animation contract: the schema names
- * a preset + speed tier, this maps it onto fixed CSS keyframes that respect
- * `prefers-reduced-motion`. No plugin CSS is ever injected.
- */
-const animationProps = (
-	animation: FormAnimationV0 | undefined,
-): { className?: string; style?: CSSProperties } =>
-	animation
-		? {
-				className: `${styles.animated} ${animationClassNames[animation.preset]}`,
-				style: {
-					"--form-anim-duration":
-						animationDurations[animation.speed ?? "normal"],
-				} as CSSProperties,
-			}
-		: {};
-
 export const DeclarativeFormHost = () => {
 	const { i18n, t } = useTranslation();
 	const request = useSyncExternalStore(
@@ -89,18 +52,15 @@ export const DeclarativeFormHost = () => {
 		fields.map((field, fieldIndex) => {
 			if (!matchesFormCondition(field.visibleWhen, values)) return null;
 			if (field.kind === "group") {
-				const groupAnimation = animationProps(field.animation);
 				return (
 					<Flex
 						key={field.id}
+						data-part="form-group"
 						direction="column"
 						gap="1"
-						className={groupAnimation.className}
-						style={groupAnimation.style}
 					>
-						{(field.label || field.icon) && (
+						{field.label && (
 							<Flex align="center" gap="1">
-								<FluentFormIcon icon={field.icon} />
 								{field.label && (
 									<Text size="2" weight="bold">
 										{localize(field.label, i18n.language)}
@@ -108,31 +68,18 @@ export const DeclarativeFormHost = () => {
 								)}
 							</Flex>
 						)}
-						<Flex
-							ml={field.indent ? "4" : undefined}
-							direction={field.direction ?? "column"}
-							align={field.align}
-							gap={formGaps[field.gap ?? "small"]}
-						>
+						<Flex direction="column" gap="2">
 							{renderFields(field.fields)}
 						</Flex>
 					</Flex>
 				);
 			}
 			if (field.kind === "note") {
-				const noteAnimation = animationProps(field.animation);
 				// The schema is immutable for the lifetime of a form request, so
 				// positional note keys are stable.
 				const noteKey = `note-${fieldIndex}`;
 				return (
-					<Flex
-						key={noteKey}
-						align="center"
-						gap="1"
-						className={noteAnimation.className}
-						style={noteAnimation.style}
-					>
-						<FluentFormIcon icon={field.icon} />
+					<Flex key={noteKey} data-part="form-note" align="center" gap="1">
 						<Text
 							size="2"
 							color={field.tone === "default" ? undefined : "gray"}
@@ -145,24 +92,10 @@ export const DeclarativeFormHost = () => {
 			const label = localize(field.label, i18n.language);
 			const value = values[field.key];
 			const controlSize = field.controlSize === "small" ? "1" : "2";
-			const fieldAnimation = animationProps(field.animation);
-			const fieldStyle: CSSProperties = {
-				...(field.width === "compact"
-					? { width: "60px", flexShrink: 0 }
-					: { flexGrow: 1 }),
-				...fieldAnimation.style,
-			};
 			return (
-				<Flex
-					key={field.key}
-					direction="column"
-					gap="1"
-					className={fieldAnimation.className}
-					style={fieldStyle}
-				>
+				<Flex key={field.key} direction="column" gap="1" data-part="form-field">
 					{field.labelPlacement !== "hidden" && (
 						<Flex align="center" gap="1">
-							<FluentFormIcon icon={field.icon} />
 							<Text size="2" weight="bold">
 								{label}
 							</Text>
@@ -170,6 +103,7 @@ export const DeclarativeFormHost = () => {
 					)}
 					{field.kind === "text" && field.multiline && (
 						<TextArea
+							aria-label={label}
 							size={controlSize}
 							value={String(value ?? "")}
 							placeholder={field.placeholder}
@@ -180,6 +114,7 @@ export const DeclarativeFormHost = () => {
 					)}
 					{field.kind === "text" && !field.multiline && (
 						<TextField.Root
+							aria-label={label}
 							size={controlSize}
 							value={String(value ?? "")}
 							placeholder={field.placeholder}
@@ -188,8 +123,9 @@ export const DeclarativeFormHost = () => {
 							onChange={(event) => setValue(field.key, event.target.value)}
 						/>
 					)}
-					{field.kind === "number" && field.control !== "stepper" && (
+					{field.kind === "number" && (
 						<TextField.Root
+							aria-label={label}
 							size={controlSize}
 							type="number"
 							min={field.min}
@@ -202,73 +138,9 @@ export const DeclarativeFormHost = () => {
 							}
 						/>
 					)}
-					{field.kind === "number" && field.control === "stepper" && (
-						<Flex gap="2" align="center">
-							<IconButton
-								size={controlSize}
-								variant="soft"
-								title={`- ${field.step ?? 1}`}
-								onClick={() =>
-									setValue(
-										field.key,
-										clampFormNumber(
-											Number(value ?? 0) - (field.step ?? 1),
-											field.min,
-											field.max,
-										),
-									)
-								}
-							>
-								<FluentFormIcon
-									icon={
-										field.decrementIcon ?? {
-											source: "@fluentui/react-icons",
-											name: "ArrowLeftRegular",
-										}
-									}
-								/>
-							</IconButton>
-							<TextField.Root
-								size={controlSize}
-								type="number"
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								required={field.required}
-								value={String(value ?? 0)}
-								style={{ flexGrow: 1 }}
-								onChange={(event) =>
-									setValue(field.key, Number(event.target.value))
-								}
-							/>
-							<IconButton
-								size={controlSize}
-								variant="soft"
-								title={`+ ${field.step ?? 1}`}
-								onClick={() =>
-									setValue(
-										field.key,
-										clampFormNumber(
-											Number(value ?? 0) + (field.step ?? 1),
-											field.min,
-											field.max,
-										),
-									)
-								}
-							>
-								<FluentFormIcon
-									icon={
-										field.incrementIcon ?? {
-											source: "@fluentui/react-icons",
-											name: "ArrowRightRegular",
-										}
-									}
-								/>
-							</IconButton>
-						</Flex>
-					)}
 					{field.kind === "boolean" && (
 						<Checkbox
+							aria-label={label}
 							checked={Boolean(value)}
 							onCheckedChange={(checked) =>
 								setValue(field.key, checked === true)
@@ -280,7 +152,7 @@ export const DeclarativeFormHost = () => {
 							value={String(value ?? "")}
 							onValueChange={(next) => setValue(field.key, next)}
 						>
-							<Select.Trigger />
+							<Select.Trigger aria-label={label} />
 							<Select.Content>
 								{field.options.map((option) => (
 									<Select.Item
@@ -289,7 +161,6 @@ export const DeclarativeFormHost = () => {
 										disabled={option.disabled}
 									>
 										<Flex align="center" gap="1">
-											<FluentFormIcon icon={option.icon} />
 											{localize(option.label, i18n.language)}
 										</Flex>
 									</Select.Item>
@@ -299,6 +170,7 @@ export const DeclarativeFormHost = () => {
 					)}
 					{field.kind === "radio" && (
 						<RadioGroup.Root
+							aria-label={label}
 							value={String(value ?? "")}
 							onValueChange={(next) => setValue(field.key, next)}
 							style={
@@ -314,7 +186,6 @@ export const DeclarativeFormHost = () => {
 									disabled={option.disabled}
 								>
 									<Flex align="center" gap="1">
-										<FluentFormIcon icon={option.icon} />
 										{localize(option.label, i18n.language)}
 									</Flex>
 								</RadioGroup.Item>
@@ -331,14 +202,12 @@ export const DeclarativeFormHost = () => {
 		id: action.id as string | undefined,
 		role: action.role ?? ("submit" as const),
 		tone: action.tone ?? (action.role === "cancel" ? "neutral" : "primary"),
-		icon: action.icon,
 		label: localize(action.label, i18n.language),
 	})) ?? [
 		{
 			id: undefined,
 			role: "cancel" as const,
 			tone: "neutral" as const,
-			icon: schema.cancelIcon,
 			label: schema.cancelLabel
 				? localize(schema.cancelLabel, i18n.language)
 				: t("common.cancel", "取消"),
@@ -347,14 +216,11 @@ export const DeclarativeFormHost = () => {
 			id: undefined,
 			role: "submit" as const,
 			tone: "primary" as const,
-			icon: schema.submitIcon,
 			label: schema.submitLabel
 				? localize(schema.submitLabel, i18n.language)
 				: t("common.apply", "应用"),
 		},
 	];
-
-	const schemaAnimation = animationProps(schema.animation);
 	return (
 		<Dialog.Root
 			open
@@ -363,13 +229,12 @@ export const DeclarativeFormHost = () => {
 			}}
 		>
 			<Dialog.Content
+				data-amll-modal-size={schema.size ?? "medium"}
+				data-slot="plugin-form"
 				maxWidth={formWidths[schema.size ?? "medium"]}
-				className={schemaAnimation.className}
-				style={schemaAnimation.style}
 			>
 				<Dialog.Title>
 					<Flex align="center" gap="2">
-						<FluentFormIcon icon={schema.icon} />
 						{localize(schema.title, i18n.language)}
 					</Flex>
 				</Dialog.Title>
@@ -381,7 +246,7 @@ export const DeclarativeFormHost = () => {
 				<Flex direction="column" gap="4" mt="4">
 					{renderFields(schema.fields)}
 				</Flex>
-				<Flex gap="3" mt="5" justify="end">
+				<Flex gap="3" mt="5" justify="end" data-part="form-footer">
 					{footerActions.map((action, actionIndex) => (
 						<Button
 							key={action.id ?? `${action.role}-${actionIndex}`}
@@ -411,7 +276,6 @@ export const DeclarativeFormHost = () => {
 								declarativeFormService.complete(request.id, result);
 							}}
 						>
-							<FluentFormIcon icon={action.icon} />
 							{action.label}
 						</Button>
 					))}

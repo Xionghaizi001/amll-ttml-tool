@@ -2,8 +2,7 @@ import { parseManifest } from "@amll-ttml-tool/plugin-api";
 
 export interface DevPluginSource {
 	manifest: unknown;
-	wasm: Uint8Array;
-	code?: string;
+	code: string;
 }
 
 interface DirectoryPickerWindow {
@@ -41,11 +40,7 @@ const getFileAtPath = async (
 	return handle.getFile();
 };
 
-/**
- * Reads manifest.json + the manifest's entry wasm from a local directory.
- * The result still goes through the single installPluginPackage parse gate;
- * this loader never bypasses validation or the permission prompt.
- */
+/** Reads a trusted-js directory; installation still applies validation and consent. */
 export async function readDevPluginDirectory(
 	directory: FileSystemDirectoryHandle,
 ): Promise<DevPluginSource> {
@@ -53,15 +48,15 @@ export async function readDevPluginDirectory(
 	const manifestRaw: unknown = JSON.parse(await manifestFile.text());
 	const manifest = parseManifest(manifestRaw);
 	if (!manifest.ok) throw new Error(`manifest.json: ${manifest.error.message}`);
-	if (manifest.value.kind !== "function")
-		throw new Error("dev loading currently supports function plugins only");
-	const wasmFile = await getFileAtPath(directory, manifest.value.entry);
+	if (
+		manifest.value.kind !== "function" ||
+		manifest.value.runtime !== "trusted-js"
+	)
+		throw new Error("dev loading requires a trusted-js function plugin");
+	const entryFile = await getFileAtPath(directory, manifest.value.entry);
 	return {
 		manifest: manifestRaw,
-		wasm: new Uint8Array(await wasmFile.arrayBuffer()),
-		...(manifest.value.runtime === "trusted-js"
-			? { code: await wasmFile.text() }
-			: {}),
+		code: await entryFile.text(),
 	};
 }
 
@@ -125,9 +120,13 @@ export class DevPluginWatcher {
 		const manifestFile = await getFileAtPath(this.directory, "manifest.json");
 		const manifestRaw: unknown = JSON.parse(await manifestFile.text());
 		const manifest = parseManifest(manifestRaw);
-		if (!manifest.ok || manifest.value.kind !== "function")
+		if (
+			!manifest.ok ||
+			manifest.value.kind !== "function" ||
+			manifest.value.runtime !== "trusted-js"
+		)
 			return `invalid-${manifestFile.lastModified}`;
-		const wasmFile = await getFileAtPath(this.directory, manifest.value.entry);
-		return `${manifestFile.lastModified}-${wasmFile.lastModified}-${wasmFile.size}`;
+		const entryFile = await getFileAtPath(this.directory, manifest.value.entry);
+		return `${manifestFile.lastModified}-${entryFile.lastModified}-${entryFile.size}`;
 	}
 }

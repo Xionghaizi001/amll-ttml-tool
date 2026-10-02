@@ -32,7 +32,7 @@ const fixture = (): PluginDocumentV0 => ({
 	metadata: [{ key: "title", values: ["Contract"] }],
 });
 
-/** The SDK mock host under the protocol contract, via the HostCallV0 adapter. */
+/** The SDK mock runs the same document contract as the real trusted host. */
 runHostContractTests(() => {
 	const host = new MockTrustedJsHost({
 		pluginId: "contract.mock",

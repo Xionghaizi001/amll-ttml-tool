@@ -24,7 +24,7 @@ import type { ComponentType } from "react";
 /**
  * Trusted-js runtime SDK (v0). A trusted-js plugin is application-grade code
  * by admission, but everything it touches goes through this surface: the
- * document is the same `PluginDocumentV0` projection the WASM tier sees,
+ * document uses the public `PluginDocumentV0` projection,
  * edits are `DocumentOpV0` batches committed as one host transaction, and
  * every registration is namespaced under the plugin id and disposed with the
  * plugin. Nothing here names a host-internal type: the SDK compiles without
@@ -290,8 +290,14 @@ export interface TrustedJsPluginDefinitionV0 extends TrustedJsPluginModuleV0 {
 }
 
 /** Identity helper giving plugin authors type checking on their module shape. */
-export function definePlugin(module: TrustedJsPluginDefinitionV0): TrustedJsPluginDefinitionV0;
-export function definePlugin(module: TrustedJsPluginModuleV0): TrustedJsPluginModuleV0;
-export function definePlugin(module: TrustedJsPluginModuleV0): TrustedJsPluginModuleV0 {
+export function definePlugin(
+	module: TrustedJsPluginDefinitionV0,
+): TrustedJsPluginDefinitionV0;
+export function definePlugin(
+	module: TrustedJsPluginModuleV0,
+): TrustedJsPluginModuleV0;
+export function definePlugin(
+	module: TrustedJsPluginModuleV0,
+): TrustedJsPluginModuleV0 {
 	return module;
 }

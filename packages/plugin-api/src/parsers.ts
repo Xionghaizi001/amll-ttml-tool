@@ -2,32 +2,20 @@ import { isCapability } from "./capabilities";
 import {
 	FORM_RESULT_SCHEMA,
 	FORM_SCHEMA_V0,
-	FORMAT_CONVERSION_RESULT_SCHEMA,
-	HOST_CALL_ENVELOPE_SCHEMA,
-	HOST_PARAM_SCHEMAS,
-	HOST_RESPONSE_SCHEMA,
-	PLUGIN_COMMAND_OUTCOME_SCHEMA,
 	PLUGIN_DOCUMENT_SCHEMA,
 	PLUGIN_EVENT_SCHEMA,
 	PLUGIN_MANIFEST_SCHEMA,
-	PLUGIN_RETURN_SCHEMA,
 	THEME_TOKENS_SCHEMA,
 } from "./schema/schemas";
 import { validate } from "./schema/validator";
 import type {
 	FormResultV0,
 	FormSchemaV0,
-	FormatConversionResultV0,
-	HostCallV0,
-	HostMethod,
-	HostResponseV0,
 	ParseIssue,
 	ParseResult,
-	PluginCommandOutcomeV0,
 	PluginDocumentV0,
 	PluginEventV0,
 	PluginManifest,
-	PluginReturnV0,
 	ThemeTokensV0,
 } from "./types";
 
@@ -295,14 +283,6 @@ export function parseManifestSchema(
 					message: `must start with ${prefix}`,
 				});
 		});
-		if (
-			(manifest.contributes?.formats?.length ?? 0) > 0 &&
-			!manifest.capabilities.includes("lyrics.format")
-		)
-			issues.push({
-				path: "$/contributes/formats",
-				message: "format contributions require the lyrics.format capability",
-			});
 		const formatIds = new Set<string>();
 		manifest.contributes?.formats?.forEach((format, index) => {
 			if (!format.id.startsWith(prefix))
@@ -370,87 +350,8 @@ export function parseFormSchema(input: unknown): ParseResult<FormSchemaV0> {
 	return issues.length === 0 ? parsed : fail(issues);
 }
 
-export function parseHostCall(input: unknown): ParseResult<HostCallV0> {
-	const envelope = validate<HostCallV0>(HOST_CALL_ENVELOPE_SCHEMA, input);
-	if (!envelope.ok) return envelope;
-	const method = envelope.value.method as HostMethod;
-	const params = validate(HOST_PARAM_SCHEMAS[method], envelope.value.params);
-	if (!params.ok)
-		return fail(
-			params.issues.map((issue) => ({
-				...issue,
-				path: `/params${issue.path}`,
-			})),
-		);
-	if (method === "ui.showForm") {
-		// Structural validation alone still admits duplicate keys, dangling
-		// visibleWhen references and invalid defaults; run the same semantic
-		// pass that manifest settings forms get.
-		const semanticIssues = validateFormSemantics(
-			(envelope.value.params as { schema: FormSchemaV0 }).schema,
-			"/params/schema",
-		);
-		if (semanticIssues.length > 0) return fail(semanticIssues);
-	}
-	return envelope;
-}
-
-export const parseHostResponse = (
-	input: unknown,
-): ParseResult<HostResponseV0> =>
-	validate<HostResponseV0>(HOST_RESPONSE_SCHEMA, input);
-
-export const parsePluginReturn = (
-	input: unknown,
-): ParseResult<PluginReturnV0> =>
-	validate<PluginReturnV0>(PLUGIN_RETURN_SCHEMA, input);
-
-/**
- * Validates the value a guest returned from `plugin_execute_command` or
- * `plugin_resume_form`. showForm outcomes run the same semantic form pass as
- * every other form entering the host renderer.
- */
-export function parseCommandOutcome(
-	input: unknown,
-): ParseResult<PluginCommandOutcomeV0> {
-	const parsed = validate<PluginCommandOutcomeV0>(
-		PLUGIN_COMMAND_OUTCOME_SCHEMA,
-		input,
-	);
-	if (!parsed.ok) return parsed;
-	if (parsed.value.kind === "showForm") {
-		const issues = validateFormSemantics(parsed.value.schema, "/schema");
-		if (issues.length > 0) return fail(issues);
-	}
-	return parsed;
-}
-
 export const parseFormResult = (input: unknown): ParseResult<FormResultV0> =>
 	validate<FormResultV0>(FORM_RESULT_SCHEMA, input);
-
-/**
- * Validates the value a guest returned from `plugin_convert_format` and that
- * its kind matches the direction the host requested.
- */
-export function parseFormatConversionResult(
-	input: unknown,
-	direction: "import" | "export",
-): ParseResult<FormatConversionResultV0> {
-	const parsed = validate<FormatConversionResultV0>(
-		FORMAT_CONVERSION_RESULT_SCHEMA,
-		input,
-	);
-	if (!parsed.ok) return parsed;
-	const expected = direction === "import" ? "imported" : "exported";
-	if (parsed.value.kind !== expected)
-		return fail([
-			{
-				path: "/kind",
-				message: `expected ${expected} for a ${direction} conversion`,
-			},
-		]);
-	return parsed;
-}
 
 export const parsePluginEvent = (input: unknown): ParseResult<PluginEventV0> =>
 	validate<PluginEventV0>(PLUGIN_EVENT_SCHEMA, input);

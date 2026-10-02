@@ -9,7 +9,6 @@ import {
 	CloudArrowDown24Regular,
 	Javascript24Regular,
 	PaintBrush24Regular,
-	PuzzlePiece24Regular,
 	ShieldTask24Regular,
 	StoreMicrosoft24Regular,
 } from "@fluentui/react-icons";
@@ -29,7 +28,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import { themeService } from "$/plugins/adapters/theme-host";
-import { wasmPluginService } from "$/plugins/adapters/wasm-plugin-host";
 import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
 import { installStoreEntry } from "$/plugins/store/store-host";
 import { isStoreUpdateAvailable } from "$/plugins/store/store-install";
@@ -63,11 +61,6 @@ const CHANNEL_BADGES: Record<
 		key: "pluginStore.channel.trustedJs",
 		fallback: "JS 插件",
 	},
-	"extism-wasm": {
-		color: "blue",
-		key: "pluginStore.channel.wasm",
-		fallback: "WASM 沙箱",
-	},
 	theme: {
 		color: "purple",
 		key: "pluginStore.channel.theme",
@@ -78,7 +71,6 @@ const CHANNEL_BADGES: Record<
 const CHANNEL_ICONS: Record<RemotePluginCatalogEntryV0["channel"], ReactNode> =
 	{
 		"trusted-js": <Javascript24Regular />,
-		"extism-wasm": <PuzzlePiece24Regular />,
 		theme: <PaintBrush24Regular />,
 	};
 
@@ -92,16 +84,6 @@ const useTrustedJsLoaded = () => {
 		return trustedJsPluginService.subscribe(refresh);
 	}, []);
 	return loaded;
-};
-
-const useWasmPlugins = () => {
-	const [plugins, setPlugins] = useState(() => wasmPluginService.getPlugins());
-	useEffect(() => {
-		const refresh = () => setPlugins(wasmPluginService.getPlugins());
-		refresh();
-		return wasmPluginService.subscribe(refresh);
-	}, []);
-	return plugins;
 };
 
 const useThemes = () => {
@@ -361,7 +343,6 @@ export const PluginStoreDialog = () => {
 	const [busyId, setBusyId] = useState<string | null>(null);
 	const [desktopTrust, setDesktopTrust] = useState(isDesktopTrustedJsEnabled);
 	const trustedLoaded = useTrustedJsLoaded();
-	const wasmPlugins = useWasmPlugins();
 	const themes = useThemes();
 	const [installed, setInstalled] = useState(installedTrustedJsService.list);
 	useEffect(
@@ -582,14 +563,11 @@ export const PluginStoreDialog = () => {
 									(summary) => summary.id === entry.id,
 								);
 								const installedVersion =
-									entry.channel === "extism-wasm"
-										? (wasmPlugins.find((plugin) => plugin.id === entry.id)
-												?.version ?? null)
-										: entry.channel === "theme"
-											? (themes.find((theme) => theme.id === entry.id)
-													?.version ?? null)
-											: (installed.find((plugin) => plugin.id === entry.id)
-													?.manifest.version ?? null);
+									entry.channel === "theme"
+										? (themes.find((theme) => theme.id === entry.id)?.version ??
+											null)
+										: (installed.find((plugin) => plugin.id === entry.id)
+												?.manifest.version ?? null);
 								return (
 									<CatalogEntryRow
 										key={entry.id}

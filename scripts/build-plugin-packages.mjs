@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
+import { readdir, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -22,6 +22,10 @@ async function fixImports(directory) {
 }
 await mkdir(resolve(root, "release"), { recursive: true });
 for (const name of ["plugin-api", "plugin-sdk-js"]) {
+	await rm(resolve(root, "packages", name, "lib"), {
+		recursive: true,
+		force: true,
+	});
 	execFileSync(
 		process.execPath,
 		[

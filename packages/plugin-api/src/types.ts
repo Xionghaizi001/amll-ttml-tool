@@ -18,9 +18,6 @@ export type CoreCapability =
 	/**
 	 * Outbound HTTP through the host network port. Subject to the host's
 	 * offline master switch; this host endpoint does not attach credentials.
-	 * Declared in the
-	 * protocol so every tier names the same capability, but the extism-wasm
-	 * host does not grant it (WASM has no network by design).
 	 */
 	| "network.http";
 export type ExtensionCapability = `extensions.${string}`;
@@ -79,7 +76,7 @@ export const TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0 = 3;
 export interface TitleBarActionContribution {
 	id?: string;
 	command: string;
-	icon: FormIconV0;
+	icon: ActionIconV0;
 	tooltip: LocalizedText;
 	order?: number;
 	when?: EnablementExpr;
@@ -89,10 +86,10 @@ export interface TitleBarActionContribution {
 export const FORMATS_PER_PLUGIN_LIMIT_V0 = 8;
 
 /**
- * A declared lyric format provider (requires the `lyrics.format` capability).
+ * A declared lyric format provider; capabilities are descriptive metadata.
  * The plugin only converts text ↔ document structure; file picking, dirty
  * confirmation, project id, filename and the import transaction stay in the
- * host file flow, and the conversion turn cannot apply document edits.
+ * host file flow, and providers return conversion data.
  */
 export interface FormatContribution {
 	/** Format id, prefixed with the plugin id (`<pluginId>.<name>`). */
@@ -100,7 +97,7 @@ export interface FormatContribution {
 	title: LocalizedText;
 	/** Lowercase extensions without the dot; the first is the export extension. */
 	extensions: string[];
-	/** Enables importing files of this format via `plugin_convert_format`. */
+	/** Enables importing files of this format via the trusted-js format provider. */
 	import?: boolean;
 	/** Enables exporting the document to this format. */
 	export?: boolean;
@@ -125,7 +122,7 @@ export interface PluginManifestBase {
 	extensions?: Record<string, JsonValue>;
 }
 
-export type FunctionPluginRuntime = "builtin" | "extism-wasm" | "trusted-js";
+export type FunctionPluginRuntime = "builtin" | "trusted-js";
 export type ActivationEvent =
 	| "onStartup"
 	| `onCommand:${string}`
@@ -189,7 +186,7 @@ export interface PluginDocumentV0 {
 	revision: number;
 	lines: PluginLineV0[];
 	metadata: PluginMetadataEntryV0[];
-	/** Host-defined, capability-gated, read-only namespaces. */
+	/** Host-defined read-only namespaces. */
 	extensions?: Record<string, JsonValue>;
 }
 
@@ -296,19 +293,6 @@ export interface HttpResponseV0 {
 	body: string;
 }
 
-export interface ActivateParams {
-	pluginId: string;
-	apiVersion: number;
-	grantedCapabilities: Capability[];
-	locale: string;
-	hostVersion: string;
-}
-
-export interface ExecuteCommandParams {
-	commandId: string;
-	args?: JsonValue;
-}
-
 export type PluginEventV0 =
 	| {
 			type: "document.changed";
@@ -321,95 +305,11 @@ export type PluginEventV0 =
 	| { type: "document.redo"; revision: number }
 	| { type: "selection.changed"; selection: PluginSelectionV0 };
 
-export const PLUGIN_EXPORTS = {
-	activate: "plugin_activate",
-	deactivate: "plugin_deactivate",
-	executeCommand: "plugin_execute_command",
-	handleEvent: "plugin_handle_event",
-	resumeForm: "plugin_resume_form",
-	convertFormat: "plugin_convert_format",
-} as const;
-
 /**
  * Upper bound on the text payload of one format conversion, in UTF-16 units.
- * Matches the runtime's 1 MiB turn payload cap so oversized files fail with
- * one consistent error before a worker round-trip.
+ * Oversized files fail before conversion.
  */
 export const FORMAT_CONVERSION_TEXT_LIMIT_V0 = 1024 * 1024;
-
-/**
- * Params passed to the guest's `plugin_convert_format` export. Conversion
- * turns are pure: `lyrics.applyEdit` is rejected inside them — an import is
- * committed by the host file flow as one import transaction afterwards.
- */
-export type ConvertFormatParamsV0 =
-	| { formatId: string; direction: "import"; text: string }
-	| {
-			formatId: string;
-			direction: "export";
-			document: { lines: PluginLineV0[]; metadata: PluginMetadataEntryV0[] };
-	  };
-
-/**
- * Value shape a guest returns from `plugin_convert_format` (wrapped in a
- * successful PluginReturnV0). The kind must match the requested direction.
- */
-export type FormatConversionResultV0 =
-	| { kind: "imported"; lines: NewLineV0[]; metadata: PluginMetadataEntryV0[] }
-	| { kind: "exported"; text: string };
-
-/**
- * Import namespace and function name of the single synchronous host bridge a
- * WASM guest may call. The guest passes one HostCallV0 JSON string and gets
- * one HostResponseV0 JSON string back. `ui.showForm` is NOT available on this
- * bridge (WASM execution cannot suspend for user input); interactive forms go
- * through the command outcome protocol below instead.
- */
-export const WASM_HOST_MODULE = "extism:host/user";
-export const WASM_HOST_CALL_FUNCTION = "amll_host_call";
-
-/**
- * Upper bound on showForm outcome rounds inside one command invocation. The
- * host aborts the invocation when a guest keeps requesting forms past it.
- */
-export const FORM_ROUNDS_PER_INVOCATION_LIMIT_V0 = 8;
-
-/**
- * Value shape a WASM guest returns from `plugin_execute_command` and
- * `plugin_resume_form` (wrapped in a successful PluginReturnV0). Because a
- * synchronous WASM export cannot block on user input, a form request ends the
- * current turn: the host renders the schema and then calls
- * `plugin_resume_form` with the sanitized result plus the guest's opaque
- * `state` echoed back verbatim.
- */
-export type PluginCommandOutcomeV0 =
-	| { kind: "done"; value?: JsonValue }
-	| { kind: "showForm"; schema: FormSchemaV0; state?: JsonValue };
-
-/** Params passed to the guest's `plugin_resume_form` export. */
-export interface ResumeFormParamsV0 {
-	commandId: string;
-	/** Opaque continuation state from the guest's showForm outcome. */
-	state?: JsonValue;
-	result: FormResultV0;
-}
-
-/** Params passed to the guest's `plugin_handle_event` export. */
-export interface HandleEventParamsV0 {
-	event: PluginEventV0;
-}
-
-/**
- * Self-contained, importable WASM function plugin package: manifest plus the
- * base64-encoded module for `manifest.entry`. Like theme packages this is a
- * single trust-boundary format — the host never fetches remote code for it.
- */
-export interface FunctionPluginPackageV0 {
-	packageVersion: 0;
-	manifest: FunctionPluginManifest;
-	/** base64 without data: prefix; decodes to the wasm module bytes. */
-	wasm: string;
-}
 
 /** Trusted-js package carried by the store zip container. */
 export interface TrustedJsPluginPackageV0 {
@@ -421,12 +321,12 @@ export interface TrustedJsPluginPackageV0 {
 
 export const REMOTE_PLUGIN_CATALOG_VERSION = 0 as const;
 
-export type RemotePluginChannelV0 = "trusted-js" | "extism-wasm" | "theme";
+export type RemotePluginChannelV0 = "trusted-js" | "theme";
 export type RemotePluginPlatformV0 = "web" | "desktop";
 
 /**
  * One shelf entry of the remote plugin catalog. The same catalog document
- * serves every distribution channel (trusted-js modules, WASM packages,
+ * serves every distribution channel (trusted-js modules,
  * theme packages) so the store never needs a second manifest protocol.
  * `entry` is a same-origin relative path — the loader refuses any URL that
  * resolves outside the application origin, and the platforms filter is an
@@ -440,7 +340,7 @@ export interface RemotePluginCatalogEntryV0 {
 	author?: string;
 	homepage?: string;
 	channel: RemotePluginChannelV0;
-	/** Plugin API version (trusted-js/wasm) or theme API version the artifact targets. */
+	/** Plugin API version (trusted-js) or theme API version the artifact targets. */
 	apiVersion: number;
 	/** Same-origin relative artifact path: an ES module for trusted-js, a package otherwise. */
 	entry: string;
@@ -464,7 +364,7 @@ export interface RemotePluginCatalogV0 {
 
 export type FormValueV0 = string | number | boolean;
 
-export const FORM_FLUENT_ICON_NAMES_V0 = [
+export const ACTION_FLUENT_ICON_NAMES_V0 = [
 	"AddRegular",
 	"ArrowDownRegular",
 	"ArrowLeftRegular",
@@ -510,32 +410,12 @@ export const FORM_FLUENT_ICON_NAMES_V0 = [
 	"WarningRegular",
 ] as const;
 
-export type FormFluentIconNameV0 = (typeof FORM_FLUENT_ICON_NAMES_V0)[number];
+export type ActionFluentIconNameV0 =
+	(typeof ACTION_FLUENT_ICON_NAMES_V0)[number];
 
-export interface FormIconV0 {
+export interface ActionIconV0 {
 	source: "@fluentui/react-icons";
-	name: FormFluentIconNameV0;
-}
-
-/**
- * Declarative entrance animation. Presets are implemented entirely by the
- * host (which also honors `prefers-reduced-motion`); the protocol never
- * accepts CSS text, keyframes or durations in milliseconds.
- */
-export const FORM_ANIMATION_PRESETS_V0 = [
-	"fade",
-	"slide-up",
-	"scale-in",
-] as const;
-export type FormAnimationPresetV0 = (typeof FORM_ANIMATION_PRESETS_V0)[number];
-
-export const FORM_ANIMATION_SPEEDS_V0 = ["fast", "normal", "slow"] as const;
-export type FormAnimationSpeedV0 = (typeof FORM_ANIMATION_SPEEDS_V0)[number];
-
-export interface FormAnimationV0 {
-	preset: FormAnimationPresetV0;
-	/** Defaults to "normal". */
-	speed?: FormAnimationSpeedV0;
+	name: ActionFluentIconNameV0;
 }
 
 export interface FormConditionV0 {
@@ -547,17 +427,12 @@ export interface FormOptionV0 {
 	value: string;
 	label: LocalizedText;
 	disabled?: boolean;
-	icon?: FormIconV0;
 }
 
 export interface FormFieldPresentationV0 {
 	visibleWhen?: FormConditionV0;
 	labelPlacement?: "top" | "hidden";
-	width?: "full" | "compact";
 	controlSize?: "small" | "medium";
-	icon?: FormIconV0;
-	/** Plays when the field mounts (initial render or `visibleWhen` toggling). */
-	animation?: FormAnimationV0;
 }
 
 export type FormFieldV0 =
@@ -580,9 +455,6 @@ export type FormFieldV0 =
 			max?: number;
 			step?: number;
 			required?: boolean;
-			control?: "input" | "stepper";
-			decrementIcon?: FormIconV0;
-			incrementIcon?: FormIconV0;
 	  } & FormFieldPresentationV0)
 	| ({
 			kind: "boolean";
@@ -602,18 +474,12 @@ export type FormFieldV0 =
 			kind: "note";
 			text: LocalizedText;
 			tone?: "default" | "muted";
-	  } & Pick<FormFieldPresentationV0, "visibleWhen" | "icon" | "animation">)
+	  } & Pick<FormFieldPresentationV0, "visibleWhen">)
 	| {
 			kind: "group";
 			id: string;
 			label?: LocalizedText;
-			direction?: "row" | "column";
-			align?: "start" | "center" | "end";
-			gap?: "small" | "medium" | "large";
-			indent?: boolean;
 			visibleWhen?: FormConditionV0;
-			icon?: FormIconV0;
-			animation?: FormAnimationV0;
 			fields: FormFieldV0[];
 	  };
 
@@ -624,7 +490,6 @@ export interface FormActionV0 {
 	role?: "submit" | "cancel";
 	/** Defaults to "primary" for submit actions and "neutral" for cancel actions. */
 	tone?: "primary" | "danger" | "neutral";
-	icon?: FormIconV0;
 }
 
 export interface FormSchemaV0 {
@@ -632,14 +497,9 @@ export interface FormSchemaV0 {
 	description?: LocalizedText;
 	fields: FormFieldV0[];
 	size?: "small" | "medium" | "large";
-	icon?: FormIconV0;
-	/** Entrance animation for the whole dialog body. */
-	animation?: FormAnimationV0;
 	submitLabel?: LocalizedText;
 	cancelLabel?: LocalizedText;
-	submitIcon?: FormIconV0;
-	cancelIcon?: FormIconV0;
-	/** Replaces the default cancel/apply footer; the legacy submit/cancel labels and icons are ignored when set. */
+	/** Replaces the default cancel/apply footer; the legacy submit/cancel labels are ignored when set. */
 	actions?: FormActionV0[];
 }
 
@@ -685,7 +545,7 @@ export type ThemeSpectrogramTokenNameV0 =
 
 /**
  * Stable styling hooks exposed by the host. Theme package CSS may only select
- * inside these `data-slot`/`data-part` scopes; everything else (dialogs,
+ * inside these `data-slot`/`data-part` scopes; everything else (protected dialogs,
  * permission prompts, the plugin manager, toasts) lives outside them.
  */
 export const THEME_SLOT_NAMES_V0 = [
@@ -698,10 +558,18 @@ export const THEME_SLOT_NAMES_V0 = [
 	"preview",
 	"audio-controls",
 	"spectrogram",
+	"plugin-form",
 ] as const;
 export type ThemeSlotNameV0 = (typeof THEME_SLOT_NAMES_V0)[number];
 
-export const THEME_PART_NAMES_V0 = ["lyric-line", "lyric-word"] as const;
+export const THEME_PART_NAMES_V0 = [
+	"lyric-line",
+	"lyric-word",
+	"form-field",
+	"form-group",
+	"form-note",
+	"form-footer",
+] as const;
 export type ThemePartNameV0 = (typeof THEME_PART_NAMES_V0)[number];
 
 /**
@@ -788,40 +656,6 @@ export interface ThemePackageV0 {
 	/** asset name -> asset; names are referenced from CSS via url(asset:<name>) */
 	assets?: Record<string, ThemePackageAssetV0>;
 }
-
-export type HostMethod =
-	| "lyrics.getDocument"
-	| "lyrics.getSelection"
-	| "lyrics.applyEdit"
-	| "ui.notify"
-	| "ui.showForm"
-	| "storage.get"
-	| "storage.set"
-	| "storage.delete"
-	| "storage.keys";
-
-export type HostCallV0 =
-	| { id: string; method: "lyrics.getDocument"; params: Record<string, never> }
-	| { id: string; method: "lyrics.getSelection"; params: Record<string, never> }
-	| { id: string; method: "lyrics.applyEdit"; params: LyricsApplyEditParams }
-	| { id: string; method: "ui.notify"; params: NotifyParams }
-	| { id: string; method: "ui.showForm"; params: { schema: FormSchemaV0 } }
-	| { id: string; method: "storage.get"; params: { key: string } }
-	| {
-			id: string;
-			method: "storage.set";
-			params: { key: string; value: JsonValue };
-	  }
-	| { id: string; method: "storage.delete"; params: { key: string } }
-	| { id: string; method: "storage.keys"; params: Record<string, never> };
-
-export interface HostResponseV0 {
-	id: string;
-	result: HostResult<JsonValue>;
-}
-
-/** JSON result returned by a guest lifecycle or command export. */
-export type PluginReturnV0 = HostResult<JsonValue>;
 
 export interface ParseIssue {
 	path: string;

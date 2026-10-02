@@ -6,7 +6,7 @@ import type { TitleBarActionContributionRecord } from "$/kernel/extensions";
 import { commandRegistry } from "$/modules/keyboard/registry";
 import { extensionRegistry } from "../adapters/extension-host";
 import { matchesWhenClause } from "../adapters/when-clause";
-import { FluentFormIcon } from "./fluent-form-icons";
+import { FluentActionIcon } from "./fluent-action-icons";
 import { localizeText } from "./localized-text";
 import type { HostModeContribution } from "./mode-host";
 
@@ -34,7 +34,9 @@ const DeclarativeTitleBarAction = ({
 	const source =
 		action.owner.kind === "plugin" ? action.owner.pluginId : action.owner.id;
 	return (
-		<Tooltip content={`${localizeText(action.tooltip, i18n.language)} · ${source}`}>
+		<Tooltip
+			content={`${localizeText(action.tooltip, i18n.language)} · ${source}`}
+		>
 			<IconButton
 				variant="ghost"
 				color="gray"
@@ -49,7 +51,7 @@ const DeclarativeTitleBarAction = ({
 					});
 				}}
 			>
-				<FluentFormIcon icon={action.icon} />
+				<FluentActionIcon icon={action.icon} />
 			</IconButton>
 		</Tooltip>
 	);
@@ -75,9 +77,8 @@ export const TitleBarActions = ({
 	const actions = extensionRegistry.contributions
 		.getTitleBarActions()
 		.filter((action) => matchesWhenClause(action.when));
-	const groups = extensionRegistry.contributions.getTrustedViews(
-		"titlebar-group",
-	);
+	const groups =
+		extensionRegistry.contributions.getTrustedViews("titlebar-group");
 	const ModeActions = activeMode?.titleBarActions;
 	if (!ModeActions && groups.length === 0 && actions.length === 0) return null;
 	return (

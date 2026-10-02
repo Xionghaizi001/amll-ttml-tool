@@ -17,13 +17,7 @@ import {
 	fetchPluginNetworkTransport,
 } from "./plugin-network";
 
-/**
- * Host services shared by every plugin tier (WASM turn host and trusted-js
- * host). Sharing the instances, not just the classes, is what makes the two
- * tiers agree on document semantics: one gateway means one revision-conflict
- * rule, one transaction path and one provenance label format; one kv storage
- * means one `amll-plugin-kv` namespace per plugin id regardless of tier.
- */
+/** Shared document, selection, project, network and KV ports for trusted-js plugins. */
 
 export const pluginDocumentGateway = new PluginDocumentGateway(
 	editorDocumentAdapter,

@@ -15,6 +15,7 @@ import type {
 import {
 	applyDocumentOpsV0,
 	parseHttpRequest,
+	parseFormSchema,
 	TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
 } from "@amll-ttml-tool/plugin-api";
 import type {
@@ -239,6 +240,8 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 
 	readonly ui: TrustedJsHostV0["ui"] = {
 		showForm: async (schema) => {
+			const parsed = parseFormSchema(schema);
+			if (!parsed.ok) throw new Error("Invalid form schema");
 			this.shownForms.push(clone(schema));
 			return (await this.options.onShowForm?.(schema)) ?? { submitted: false };
 		},

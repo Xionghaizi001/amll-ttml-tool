@@ -11,7 +11,7 @@
 发生冲突时，按以下顺序判断当前行为：
 
 1. `packages/plugin-api/src/types.ts` 与 `schema/schemas.ts`
-2. `packages/plugin-api/src/parsers.ts`、`permissions.ts`、`capabilities.ts`
+2. `packages/plugin-api/src/parsers.ts`、`capabilities.ts`
 3. `packages/plugin-sdk-js/src/host.ts`
 4. `src/plugins`、`src/kernel`、`src/platform` 的实现与测试
 5. 仓库根目录 `PLUGIN.md`、本指南和开发指南
@@ -25,7 +25,6 @@
 | `packages/plugin-api` | JSON 可表达的公开合同、Schema、解析器、权限规则 |
 | `packages/plugin-sdk-js` | trusted-js 强类型 facade、mock 和合同测试 |
 | `src/kernel` | 文档事务、命令、贡献点、格式、主题核心与资源所有权 |
-| `src/plugins/runtime` | Worker、Extism、超时、取消、载荷限制和 RPC |
 | `src/plugins/adapters` | 公开协议与宿主模型之间的转换、端口接线 |
 | `src/plugins/trusted` | trusted-js 准入、状态、factory 解析与安装 |
 | `src/plugins/store` | catalog、摘要校验、容器解包和安装路由 |
@@ -35,17 +34,12 @@
 必须保持的边界：
 
 - `plugin-api` 不依赖 React、DOM、Worker、Tauri 或内部歌词类型。
-- kernel 不依赖插件 UI 或 Extism。
+- kernel 不依赖插件 UI 。
 - 插件不能直接写 Jotai atom；文档写入最终进入 `EditorDocumentService` 事务。
-- Extism 依赖只允许出现在 `src/plugins/runtime`。
 - 所有跨信任边界输入都先经过 Schema/parser，再进入业务服务。
 - 命令、菜单、事件、视图、模式和格式必须归属一个 `ExtensionScope`，卸载时可整体释放。
 
 ## 3. 当前运行档
-
-### extism-wasm
-
-用于不可信代码。每个插件有独立 Worker、串行回合队列、能力检查、配额、超时和崩溃隔离。WASM 不获得 `network.http`，也不能访问 DOM、文件或 Tauri。一个回合内的编辑合并为一个事务，KV 在回合成功后提交。表单使用 `showForm` outcome 与 `plugin_resume_form` 续体。
 
 ### trusted-js
 
@@ -91,7 +85,7 @@ Manifest 与包：
 - 功能/主题判别联合保持互斥。
 - 插件、command、view、mode、format ID 受命名空间约束。
 - ZIP 拒绝路径穿越、重复、未声明文件和解压炸弹。
-- trusted-js 入口只接受单文件 ESM；WASM 字节和 JSON payload 有明确上限。
+- trusted-js 入口只接受单文件 ESM；代码和表单 payload 有明确上限。
 
 文档与生命周期：
 
@@ -103,7 +97,6 @@ Manifest 与包：
 
 安全与 UI：
 
-- WASM 每次 host call 都校验 capability。
 - trusted-js consent 在执行任何插件代码之前完成，内容变化重新 consent。
 - 主题和插件内容不能覆盖受保护恢复入口。
 - 网络端口不带凭据，遵守离线开关、URL/头部规则、大小上限和取消。
@@ -124,7 +117,6 @@ pnpm build
 
 - API/Schema：`tests/plugin-api/**`
 - trusted-js SDK/真实宿主：`tests/plugin-sdk-js/**`、`tests/plugins/trusted/**`
-- WASM 回合与 Worker：`tests/plugins/runtime/**`
 - 包、catalog、安装：`tests/plugins/store/**`、`tests/plugins/adapters/**`
 - 主题：`tests/kernel/theme/**`、`tests/plugins/builtin/themes/**`
 - contribution/UI model：`tests/kernel/extensions/**`、`tests/plugins/ui/**`

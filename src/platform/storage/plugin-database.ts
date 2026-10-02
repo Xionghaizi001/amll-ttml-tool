@@ -1,10 +1,10 @@
 import { openDB } from "idb";
 
-/** Shared upgrade path keeps WASM and JS connections at the same version. */
+/** Single upgrade entry for installed trusted-js packages. */
 export const openPluginDatabase = () =>
 	openDB("amll-plugins", 2, {
 		upgrade(database) {
-			for (const name of ["packages", "trusted-js"])
+			for (const name of ["trusted-js"])
 				if (!database.objectStoreNames.contains(name))
 					database.createObjectStore(name, { keyPath: "id" });
 		},

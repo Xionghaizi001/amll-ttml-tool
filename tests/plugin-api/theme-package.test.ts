@@ -38,7 +38,7 @@ describe("parseThemePackage", () => {
 				version: "1.0.0",
 				kind: "function",
 				apiVersion: 0,
-				runtime: "extism-wasm",
+				runtime: "trusted-js",
 				entry: "main.wasm",
 				capabilities: ["lyrics.core"],
 			},

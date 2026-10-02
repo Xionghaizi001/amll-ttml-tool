@@ -27,15 +27,15 @@
 
 ### 退役范围
 
-- [ ] 运行时：删除 `src/plugins/runtime/`（Extism、Worker、回合宿主、协议、WASI 检测）、`src/plugins/adapters/wasm-plugin-service.ts` 及其端口，`@extism/extism` 依赖随之移除。
-- [ ] 协议：删除 `HostCallV0`/`HostResponseV0`/`PluginReturnV0`/`PluginCommandOutcomeV0`/`FormatConversionResultV0` 等回合协议类型与 schema、`FunctionPluginPackageV0`（base64 WASM 包）、`PLUGIN_EXPORTS`、`FORM_ROUNDS_PER_INVOCATION_LIMIT_V0`、`EXTISM_WASM_HOST_CAPABILITIES`；`runtime` 枚举只剩 `builtin | trusted-js`。capability 声明保留（用于展示与文档），`HOST_METHOD_CAPABILITY` 运行时校验随 WASM 删除。
-- [ ] 表单续体：`plugin_resume_form` 多轮协议随 WASM 删除；trusted-js 的 `ui.showForm` 继续返回 Promise。
-- [ ] 分发：catalog `channel` 去掉 `extism-wasm`；商店安装路由、`sample-tools` 示例、`public/plugins/*.wasm`、`examples/plugins/{echo,rust-pdk-echo,csharp-pdk-echo,sample-tools}`、`scripts/build-plugin-pdk.mjs`、`scripts/build-plugin-sample.mjs` 与对应 `pnpm plugin:build:*` 脚本删除；toolkit 的 Rust Extism 模板删除。
-- [ ] 持久化：`amll-plugins/packages` store 删除（分支未上线，不写迁移）。
-- [ ] UI：设置 → 插件页中的 WASM 安装、JSON 导入、能力授权弹窗（`PluginPermissionDialog`）与 `?plugin-runtime=1` 诊断页删除；管理入口按“架构调整点”第 1 条合并为一个。
-- [ ] 测试：`tests/plugins/runtime/**`、WASM 真实宿主合同测试、`MockPluginHost` 中仅服务 WASM 的部分删除；`runHostContractTests` 只保留 MockTrustedJsHost 与真实 trusted-js 宿主两套。
+- [x] 运行时：删除 `src/plugins/runtime/`（Extism、Worker、回合宿主、协议、WASI 检测）、`src/plugins/adapters/wasm-plugin-service.ts` 及其端口，`@extism/extism` 依赖随之移除。
+- [x] 协议：删除 `HostCallV0`/`HostResponseV0`/`PluginReturnV0`/`PluginCommandOutcomeV0`/`FormatConversionResultV0` 等回合协议类型与 schema、`FunctionPluginPackageV0`（base64 WASM 包）、`PLUGIN_EXPORTS`、`FORM_ROUNDS_PER_INVOCATION_LIMIT_V0`、`EXTISM_WASM_HOST_CAPABILITIES`；`runtime` 枚举只剩 `builtin | trusted-js`。capability 声明保留（用于展示与文档），`HOST_METHOD_CAPABILITY` 运行时校验随 WASM 删除。
+- [x] 表单续体：`plugin_resume_form` 多轮协议随 WASM 删除；trusted-js 的 `ui.showForm` 继续返回 Promise。
+- [x] 分发：catalog `channel` 去掉 `extism-wasm`；商店安装路由、`sample-tools` 示例、`public/plugins/*.wasm`、`examples/plugins/{echo,rust-pdk-echo,csharp-pdk-echo,sample-tools}`、`scripts/build-plugin-pdk.mjs`、`scripts/build-plugin-sample.mjs` 与对应 `pnpm plugin:build:*` 脚本删除；toolkit 的 Rust Extism 模板删除。
+- [x] 持久化：`amll-plugins/packages` store 删除（分支未上线，不写迁移）。
+- [x] UI：设置 → 插件页中的 WASM 安装、JSON 导入、能力授权弹窗（`PluginPermissionDialog`）与 `?plugin-runtime=1` 诊断页删除；管理入口按“架构调整点”第 1 条合并为一个。
+- [x] 测试：`tests/plugins/runtime/**`、WASM 真实宿主合同测试、`MockPluginHost` 中仅服务 WASM 的部分删除；`runHostContractTests` 只保留 MockTrustedJsHost 与真实 trusted-js 宿主两套。
 - [ ] 文档：`PLUGIN.md` 第 6.1、11.6 节与三档措辞改为两档；本文“当前安全模型”一节的 WASM 条目删除；开发指南第 5 节删除；验收清单 A 部分删除。
-- [ ] 第三方格式插件改经 trusted-js `formats.register` 接入，`lyrics.format` capability 只作声明。
+- [x] 第三方格式插件改经 trusted-js `formats.register` 接入，`lyrics.format` capability 只作声明。
 
 ### 保留
 
@@ -47,9 +47,9 @@
 
 表单对 trusted-js 同样有价值：只需“向用户要几个参数”的插件不必自建对话框、主题接入、i18n 与校验。裁剪只去掉属于宿主 UI 决策的字段。
 
-- [ ] 删除：`FormAnimationV0`（`FORM_ANIMATION_PRESETS_V0`、`FORM_ANIMATION_SPEEDS_V0` 及 schema/field/group/note 上的 `animation`）、`layout: row | column`、`indent`、`width: compact`、`control: stepper`、`FormIconV0` 与 `FORM_FLUENT_ICON_NAMES_V0`（表单内所有 `icon` 字段）；`DeclarativeFormHost` 中对应的动画 class、`prefers-reduced-motion` 分支与图标映射一并删除。标题栏动作与菜单的图标白名单不属于表单，另行评估。
-- [ ] 保留：字段类型（text、textarea、number、select、radio、checkbox/switch）、默认值、required 与范围/长度/pattern 校验、选项列表与禁用项、`group`（保留递归）、`note`、`visibleWhen`、自定义 footer 动作、宿主尺寸；提交前 sanitize 与体积上限不变。
-- [ ] 主题接入：当前 `DeclarativeFormHost` 只继承 Radix 强调色与明暗，未标记 `data-amll-modal-size`，主题 surfaces 与主题 CSS 均无法命中表单对话框。裁剪时补：对话框加 `data-amll-modal-size="medium"`，表单根加一个 slot（如 `plugin-form`，纳入 `THEME_SLOT_NAMES_V0`），字段容器加 `data-part`；表单仍不属于任何插件作用域。
+- [x] 删除：`FormAnimationV0`（`FORM_ANIMATION_PRESETS_V0`、`FORM_ANIMATION_SPEEDS_V0` 及 schema/field/group/note 上的 `animation`）、`layout: row | column`、`indent`、`width: compact`、`control: stepper`、`FormIconV0` 与 `FORM_FLUENT_ICON_NAMES_V0`（表单内所有 `icon` 字段）；`DeclarativeFormHost` 中对应的动画 class、`prefers-reduced-motion` 分支与图标映射一并删除。标题栏动作与菜单的图标白名单不属于表单，另行评估。
+- [x] 保留：字段类型（text、textarea、number、select、radio、checkbox/switch）、默认值、required 与范围/长度/pattern 校验、选项列表与禁用项、`group`（保留递归）、`note`、`visibleWhen`、自定义 footer 动作、宿主尺寸；提交前 sanitize 与体积上限不变。
+- [x] 主题接入：当前 `DeclarativeFormHost` 只继承 Radix 强调色与明暗，未标记 `data-amll-modal-size`，主题 surfaces 与主题 CSS 均无法命中表单对话框。裁剪时补：对话框加 `data-amll-modal-size="medium"`，表单根加一个 slot（如 `plugin-form`，纳入 `THEME_SLOT_NAMES_V0`），字段容器加 `data-part`；表单仍不属于任何插件作用域。
 - 验收：time-shift 表单与 SDK Mock 合同测试通过；主题 surfaces 对表单对话框生效；schema 生成文档不再包含被删字段。
 
 ## 当前安全模型的冗余项与降级项（2026-09-21 复核）

@@ -13,7 +13,12 @@ import type {
 	DocumentChangeEvent,
 	DocumentTransactionMeta,
 } from "$/kernel/editor/EditorDocumentService";
-import type { LyricLine, LyricWord, LyricWordBase, TTMLLyric } from "$/types/ttml";
+import type {
+	LyricLine,
+	LyricWord,
+	LyricWordBase,
+	TTMLLyric,
+} from "$/types/ttml";
 
 /**
  * Projects the internal document into the stable v0 plugin projection.
@@ -92,11 +97,7 @@ export interface PluginOpIdAllocator {
 	nextId(kind: "line" | "word"): string;
 }
 
-/**
- * Deterministic id allocator seeded per plugin turn. The worker-side turn
- * host derives identical ids from the same seed and sequence, so ids a guest
- * observed from its own inserts stay valid at commit time.
- */
+/** Deterministic IDs for inserted lines and words within one document edit. */
 export const createSeededIdAllocator = (seed: string): PluginOpIdAllocator => {
 	let sequence = 0;
 	return {
@@ -197,17 +198,13 @@ const applyOp = (
 			);
 			return;
 		case "removeLine": {
-			const index = draft.lyricLines.findIndex(
-				(line) => line.id === op.lineId,
-			);
+			const index = draft.lyricLines.findIndex((line) => line.id === op.lineId);
 			if (index < 0) throw new PluginOpError(`line ${op.lineId} was not found`);
 			draft.lyricLines.splice(index, 1);
 			return;
 		}
 		case "moveLine": {
-			const index = draft.lyricLines.findIndex(
-				(line) => line.id === op.lineId,
-			);
+			const index = draft.lyricLines.findIndex((line) => line.id === op.lineId);
 			if (index < 0) throw new PluginOpError(`line ${op.lineId} was not found`);
 			const [line] = draft.lyricLines.splice(index, 1);
 			try {
@@ -264,7 +261,7 @@ export interface PluginApplyEditInput {
 	label: string;
 	expectedRevision: number;
 	ops: DocumentOpV0[];
-	/** Seed for ids of inserted lines/words; must match the worker's seed. */
+	/** Seed for IDs of inserted lines and words. */
 	idSeed: string;
 }
 

@@ -8,7 +8,6 @@ const applicationRoot = resolve(sourceRoot, "application");
 const kernelRoot = resolve(sourceRoot, "kernel");
 const platformRoot = resolve(sourceRoot, "platform");
 const pluginsRoot = resolve(sourceRoot, "plugins");
-const pluginRuntimeRoot = resolve(pluginsRoot, "runtime");
 const pluginAdaptersRoot = resolve(pluginsRoot, "adapters");
 const pluginUiRoot = resolve(pluginsRoot, "ui");
 const modulesRoot = resolve(sourceRoot, "modules");
@@ -241,13 +240,6 @@ const layerImportViolation = (path, specifier) => {
 			])
 		)
 			return `platform implementation cannot import ${specifier}`;
-		return null;
-	}
-
-	if (isWithin(path, pluginRuntimeRoot)) {
-		if (isExternal) return null;
-		if (!isWithinAny(target, [pluginRuntimeRoot, pluginApiRoot]))
-			return `plugin runtime cannot import ${specifier}`;
 		return null;
 	}
 
@@ -523,15 +515,6 @@ const boundaryRegressionChecks = [
 			),
 		),
 		message: "platform positive rules must reject UI state imports",
-	},
-	{
-		passed: Boolean(
-			layerImportViolation(
-				resolve(pluginRuntimeRoot, "fixture.ts"),
-				"$/states/main",
-			),
-		),
-		message: "plugin runtime positive rules must reject host state imports",
 	},
 	{
 		passed: Boolean(

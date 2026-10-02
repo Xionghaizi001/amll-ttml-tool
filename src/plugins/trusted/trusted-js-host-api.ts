@@ -59,7 +59,7 @@ export interface TrustedJsViewPort {
  * runs under the protocol contract suite in Node exactly like the mock.
  */
 export interface TrustedJsHostPorts {
-	/** Shared with the WASM turn host: one transaction path, one conflict rule. */
+	/** One transaction path and revision conflict rule for plugin edits. */
 	documents: PluginDocumentGateway;
 	subscribeDocumentChanges(
 		listener: (event: DocumentChangedEventV0) => void,
@@ -72,7 +72,7 @@ export interface TrustedJsHostPorts {
 	getProjectInfo(): TrustedJsProjectInfoV0;
 	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
 	notify(params: NotifyParams, meta: { pluginId: string }): void;
-	/** The `amll-plugin-kv` namespace store, keyed by plugin id like the WASM tier. */
+	/** The `amll-plugin-kv` namespace store, keyed by plugin id. */
 	kv: TrustedJsKvPort;
 	network: TrustedJsNetworkPort;
 	views: TrustedJsViewPort;
@@ -105,7 +105,7 @@ const defaultEditSeed = (pluginId: string): string => {
  * a thin wrapper over the plugin's ExtensionScope (own-namespace enforcement
  * and disposal come from the registry), document access is projected and
  * merged by the shared PluginDocumentGateway, and the kv store is the
- * per-plugin namespace the WASM tier uses.
+ * per-plugin namespace.
  */
 export const createTrustedJsHost = (
 	ports: TrustedJsHostPorts,

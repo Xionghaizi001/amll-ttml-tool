@@ -12,7 +12,7 @@ const createPluginScope = (registry: ExtensionRegistry) =>
 	registry.createScope({
 		kind: "plugin",
 		pluginId: "example.formats",
-		runtime: "extism-wasm",
+		runtime: "trusted-js",
 		trusted: false,
 	});
 
@@ -120,9 +120,9 @@ describe("format provider contributions", () => {
 			importer: () => emptyLyric,
 			exporter: () => "<tt/>",
 		});
-		expect(
-			registry.contributions.getHostNativeFormatProvider()?.formatId,
-		).toBe("ttml");
+		expect(registry.contributions.getHostNativeFormatProvider()?.formatId).toBe(
+			"ttml",
+		);
 		expect(() =>
 			scope.registerFormatProvider({
 				formatId: "ttml2",

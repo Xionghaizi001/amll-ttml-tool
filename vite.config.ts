@@ -69,7 +69,6 @@ const plugins: PluginOption = [
 		disable: !!process.env.TAURI_PLATFORM,
 		workbox: {
 			globPatterns: ["**/*.{js,css,html,wasm}"],
-			globIgnores: ["plugins/csharp-pdk-echo.wasm"],
 			maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
 		},
 		manifest: {
@@ -131,9 +130,6 @@ export default defineConfig({
 			"Cross-Origin-Opener-Policy": "same-origin",
 		},
 		strictPort: true,
-	},
-	optimizeDeps: {
-		include: ["@extism/extism"],
 	},
 	envPrefix: ["VITE_", "TAURI_", "AMLL_", "SENTRY_"],
 	build: {

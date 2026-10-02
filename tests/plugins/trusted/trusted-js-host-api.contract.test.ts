@@ -5,7 +5,7 @@ import { createRealTrustedHost } from "./real-host-fixture";
 /**
  * Third contract implementation: the real trusted-js host (SDK surface over
  * EditorDocumentService + PluginDocumentGateway + ExtensionRegistry) answers
- * the same protocol suite as MockPluginHost, the WASM real host and the SDK
+ * the same document suite as the SDK
  * mock. All four passing identically is the v1-freeze gate for the tier.
  */
 runHostContractTests(() => {

@@ -1,6 +1,5 @@
 import type { RemotePluginCatalogEntryV0 } from "@amll-ttml-tool/plugin-api";
 import { themeService } from "$/plugins/adapters/theme-host";
-import { installPluginPackage } from "$/plugins/ui/plugin-install-service";
 import { installTrustedJsPackage } from "$/plugins/trusted/trusted-js-host";
 import {
 	installStoreArtifact,
@@ -8,12 +7,7 @@ import {
 	type StoreInstallOutcome,
 } from "./store-install";
 
-/**
- * Browser assembly of the store install pipeline. Both byte-shaped shelves
- * end in their existing single install gates: installPluginPackage (with its
- * capability grant prompt) for extism-wasm, themeService.importThemePackage
- * (parseThemePackage) for themes. The store never adds a second loader path.
- */
+/** Browser assembly of the shared trusted-js and theme install gates. */
 
 const fetchArtifact = async (path: string): Promise<Uint8Array> => {
 	const base = import.meta.env.BASE_URL ?? "/";
@@ -36,14 +30,7 @@ const digestSha256 = async (bytes: Uint8Array): Promise<string> => {
 const storeInstallPorts: StoreArtifactInstallPorts = {
 	fetchArtifact,
 	digestSha256,
-	installTrustedJsPackage: pkg => installTrustedJsPackage(pkg, "store"),
-	installFunctionPackage: async (pkg): Promise<StoreInstallOutcome> => {
-		const result = await installPluginPackage(pkg, "store");
-		if (result.ok) return { ok: true };
-		return result.cancelled
-			? { ok: false, cancelled: true }
-			: { ok: false, message: result.message };
-	},
+	installTrustedJsPackage: (pkg) => installTrustedJsPackage(pkg, "store"),
 	installThemePackage: async (pkg): Promise<StoreInstallOutcome> => {
 		const result = themeService.importThemePackage(pkg);
 		if (result.ok) return { ok: true };

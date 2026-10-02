@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
 	negotiateCapabilities,
 	parseEnablement,
-	parseFormatConversionResult,
 	parseFormSchema,
-	parseHostCall,
 	parseManifest,
-	parsePluginReturn,
-	requiredCapabilitiesForCall,
 } from "@amll-ttml-tool/plugin-api";
 
 describe("plugin-api v0 validation", () => {
@@ -52,55 +48,6 @@ describe("plugin-api v0 validation", () => {
 		expect(result.ok).toBe(false);
 	});
 
-	it("validates form key uniqueness and host method params", () => {
-		expect(
-			parseFormSchema({
-				title: "Form",
-				fields: [
-					{ kind: "text", key: "same", label: "One" },
-					{ kind: "boolean", key: "same", label: "Two" },
-				],
-			}).ok,
-		).toBe(false);
-		expect(
-			parseHostCall({
-				id: "notify",
-				method: "ui.notify",
-				params: { level: "info", message: "Ready" },
-			}).ok,
-		).toBe(true);
-	});
-
-	it("applies form semantic validation to ui.showForm host calls", () => {
-		expect(
-			parseHostCall({
-				id: "form",
-				method: "ui.showForm",
-				params: {
-					schema: {
-						title: "Form",
-						fields: [
-							{ kind: "text", key: "same", label: "One" },
-							{ kind: "boolean", key: "same", label: "Two" },
-						],
-					},
-				},
-			}).ok,
-		).toBe(false);
-		expect(
-			parseHostCall({
-				id: "form",
-				method: "ui.showForm",
-				params: {
-					schema: {
-						title: "Form",
-						fields: [{ kind: "text", key: "name", label: "Name" }],
-					},
-				},
-			}).ok,
-		).toBe(true);
-	});
-
 	it("caps declarative form payload sizes", () => {
 		expect(
 			parseFormSchema({
@@ -127,8 +74,8 @@ describe("plugin-api v0 validation", () => {
 			name: "Review",
 			version: "0.1.0",
 			apiVersion: 0,
-			runtime: "extism-wasm",
-			entry: "plugin.wasm",
+			runtime: "trusted-js",
+			entry: "plugin.js",
 			capabilities: ["ui.form"],
 			contributes: {
 				modes: [{ modeId: "dev.amll.review.review", title: "Review" }],
@@ -148,8 +95,8 @@ describe("plugin-api v0 validation", () => {
 			name: "Actions",
 			version: "0.1.0",
 			apiVersion: 0,
-			runtime: "extism-wasm",
-			entry: "plugin.wasm",
+			runtime: "trusted-js",
+			entry: "plugin.js",
 			capabilities: ["ui.form"],
 		};
 		const action = {
@@ -201,53 +148,6 @@ describe("plugin-api v0 validation", () => {
 		).toBe(false);
 	});
 
-	it("validates enum-only form animation presets", () => {
-		expect(
-			parseFormSchema({
-				title: "Animated",
-				animation: { preset: "scale-in", speed: "fast" },
-				fields: [
-					{
-						kind: "text",
-						key: "name",
-						label: "Name",
-						animation: { preset: "slide-up" },
-					},
-					{
-						kind: "group",
-						id: "extras",
-						animation: { preset: "fade", speed: "slow" },
-						fields: [
-							{ kind: "note", text: "Hi", animation: { preset: "fade" } },
-						],
-					},
-				],
-			}).ok,
-		).toBe(true);
-		// Unknown presets, tiers and raw durations are all rejected.
-		expect(
-			parseFormSchema({
-				title: "Bad preset",
-				animation: { preset: "spin" },
-				fields: [],
-			}).ok,
-		).toBe(false);
-		expect(
-			parseFormSchema({
-				title: "Bad speed",
-				animation: { preset: "fade", speed: "instant" },
-				fields: [],
-			}).ok,
-		).toBe(false);
-		expect(
-			parseFormSchema({
-				title: "Raw duration",
-				animation: { preset: "fade", durationMs: 5000 },
-				fields: [],
-			}).ok,
-		).toBe(false);
-	});
-
 	it("requires menu contributions to reference the plugin's own commands", () => {
 		const manifest = {
 			kind: "function",
@@ -255,8 +155,8 @@ describe("plugin-api v0 validation", () => {
 			name: "Example",
 			version: "0.1.0",
 			apiVersion: 0,
-			runtime: "extism-wasm",
-			entry: "plugin.wasm",
+			runtime: "trusted-js",
+			entry: "plugin.js",
 			capabilities: ["ui.form"],
 			contributes: {
 				menus: [{ command: "file.save", menu: "menu.tool" }],
@@ -273,85 +173,6 @@ describe("plugin-api v0 validation", () => {
 		).toBe(true);
 	});
 
-	it("validates extended declarative form layout without allowing executable UI", () => {
-		expect(
-			parseFormSchema({
-				title: "Shift timing",
-				size: "small",
-				icon: {
-					source: "@fluentui/react-icons",
-					name: "ClockRegular",
-				},
-				fields: [
-					{
-						kind: "number",
-						key: "amount",
-						label: "Amount",
-						control: "stepper",
-						step: 50,
-						decrementIcon: {
-							source: "@fluentui/react-icons",
-							name: "ArrowLeftRegular",
-						},
-					},
-					{
-						kind: "radio",
-						key: "scope",
-						label: "Scope",
-						orientation: "horizontal",
-						default: "all",
-						options: [
-							{ value: "all", label: "All" },
-							{ value: "selected", label: "Selected", disabled: true },
-							{ value: "custom", label: "Custom" },
-						],
-					},
-					{
-						kind: "group",
-						id: "range",
-						direction: "row",
-						visibleWhen: { field: "scope", equals: "custom" },
-						fields: [
-							{ kind: "note", text: "From" },
-							{
-								kind: "number",
-								key: "start",
-								label: "Start",
-								labelPlacement: "hidden",
-								width: "compact",
-							},
-						],
-					},
-				],
-			}).ok,
-		).toBe(true);
-
-		expect(
-			parseFormSchema({
-				title: "Invalid",
-				fields: [
-					{
-						kind: "group",
-						id: "unsafe",
-						visibleWhen: { field: "missing", equals: true },
-						fields: [{ kind: "note", text: "No HTML", html: "<b>x</b>" }],
-					},
-				],
-			}).ok,
-		).toBe(false);
-
-		expect(
-			parseFormSchema({
-				title: "Invalid icon",
-				icon: {
-					source: "@fluentui/react-icons",
-					name: "ArbitraryIconRegular",
-				},
-				fields: [],
-			}).ok,
-		).toBe(false);
-	});
-
 	it("validates lyric format contributions", () => {
 		const base = {
 			kind: "function",
@@ -359,8 +180,8 @@ describe("plugin-api v0 validation", () => {
 			name: "Formats",
 			version: "0.1.0",
 			apiVersion: 0,
-			runtime: "extism-wasm",
-			entry: "plugin.wasm",
+			runtime: "trusted-js",
+			entry: "plugin.js",
 		};
 		const format = {
 			id: "dev.amll.formats.krc",
@@ -376,14 +197,14 @@ describe("plugin-api v0 validation", () => {
 				contributes: { formats: [format] },
 			}).ok,
 		).toBe(true);
-		// 声明 formats 必须同时声明 lyrics.format 能力。
+		// Capability declarations do not gate trusted-js format registration.
 		expect(
 			parseManifest({
 				...base,
 				capabilities: ["lyrics.core"],
 				contributes: { formats: [format] },
 			}).ok,
-		).toBe(false);
+		).toBe(true);
 		// 格式 id 必须落在插件命名空间内。
 		expect(
 			parseManifest({
@@ -410,77 +231,6 @@ describe("plugin-api v0 validation", () => {
 				contributes: { formats: [{ ...format, extensions: [".KRC"] }] },
 			}).ok,
 		).toBe(false);
-	});
-
-	it("validates format conversion results per direction", () => {
-		const line = {
-			words: [
-				{
-					text: "Hello",
-					startTime: 0,
-					endTime: 1000,
-					emptyBeat: 0,
-					romanText: "",
-				},
-			],
-			translation: "",
-			romanization: "",
-			isBackground: false,
-			isDuet: false,
-			startTime: 0,
-			endTime: 1000,
-			ignoreSync: false,
-		};
-		expect(
-			parseFormatConversionResult(
-				{ kind: "imported", lines: [line], metadata: [] },
-				"import",
-			).ok,
-		).toBe(true);
-		expect(
-			parseFormatConversionResult(
-				{ kind: "imported", lines: [line], metadata: [] },
-				"export",
-			).ok,
-		).toBe(false);
-		expect(
-			parseFormatConversionResult({ kind: "exported", text: "[x]" }, "export")
-				.ok,
-		).toBe(true);
-		expect(
-			parseFormatConversionResult({ kind: "exported", text: "" }, "export").ok,
-		).toBe(false);
-		expect(
-			parseFormatConversionResult({ kind: "exported" }, "export").ok,
-		).toBe(false);
-	});
-
-	it("validates guest plugin return values as JSON", () => {
-		expect(parsePluginReturn({ ok: true, value: { shifted: 3 } }).ok).toBe(
-			true,
-		);
-		expect(parsePluginReturn({ ok: true, value: undefined }).ok).toBe(false);
-	});
-
-	it("rejects non-JSON storage values and detects ruby edits structurally", () => {
-		expect(
-			parseHostCall({
-				id: "set",
-				method: "storage.set",
-				params: { key: "bad", value: undefined },
-			}).ok,
-		).toBe(false);
-		expect(
-			requiredCapabilitiesForCall("lyrics.applyEdit", {
-				ops: [
-					{
-						op: "updateWord",
-						wordId: "word-1",
-						patch: { text: "ruby" },
-					},
-				],
-			}),
-		).toEqual(["lyrics.core"]);
 	});
 
 	it("negotiates exact capabilities without prefix matching", () => {

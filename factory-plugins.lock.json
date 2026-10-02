@@ -3,9 +3,9 @@
   "plugins": [
     {
       "id": "builtin.time-shift",
-      "version": "1.1.0",
-      "sha256": "62266aa75fc15aaad1c291bd68255a236ab4b552d718351a477686e4cc018398",
-      "source": "vendor/plugin-store/62266aa75fc15aaad1c291bd68255a236ab4b552d718351a477686e4cc018398.zip"
+      "version": "1.1.1",
+      "sha256": "0e3fbe3127c16aa9351cad47130336b43d155f1e5e938a37aea013c00bc89108",
+      "source": "vendor/plugin-store/0e3fbe3127c16aa9351cad47130336b43d155f1e5e938a37aea013c00bc89108.zip"
     }
   ]
 }

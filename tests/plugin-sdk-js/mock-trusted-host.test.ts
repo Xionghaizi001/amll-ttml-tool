@@ -146,3 +146,16 @@ describe("MockTrustedJsHost", () => {
 		expect(host.notifications).toEqual([{ level: "info", message: "hello" }]);
 	});
 });
+
+it("rejects obsolete form controls before exposing them to the UI callback", async () => {
+	const host = new MockTrustedJsHost({ pluginId: "p" });
+	await expect(
+		host.ui.showForm({
+			title: "Offset",
+			fields: [
+				{ kind: "number", key: "amount", label: "Offset", control: "stepper" },
+			],
+		} as never),
+	).rejects.toThrow("Invalid form schema");
+	expect(host.shownForms).toHaveLength(0);
+});

@@ -39,9 +39,8 @@ import {
 
 /**
  * Application ports behind the public `TrustedJsHostV0`. Document access and
- * kv storage are the very instances the WASM turn host uses, so both tiers
- * share one transaction path, one revision-conflict rule and one per-plugin
- * storage namespace; modes go through the same entry as core.modes.
+ * kv storage share the host transaction and namespace rules.
+ * Modes go through the same entry as core.modes.
  */
 const trustedJsHostPorts: TrustedJsHostPorts = {
 	documents: pluginDocumentGateway,
@@ -275,7 +274,7 @@ const loadPlanItem = async (item: TrustedJsLoadPlanItem): Promise<void> => {
  * on the network, then the same-origin static catalog (the store thin slice)
  * is consulted — newer first-party versions shadow their factory copies and
  * remote-only trusted-js entries load. A missing or unreachable catalog is
- * silence, not an error. WASM/theme shelf entries are handled by the store
+ * silence, not an error. Theme shelf entries are handled by the store
  * UI, not at startup.
  */
 export async function initializeTrustedJsPlugins(): Promise<void> {

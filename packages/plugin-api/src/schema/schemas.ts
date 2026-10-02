@@ -1,10 +1,6 @@
 import { ALL_CAPABILITIES } from "../capabilities";
-import type { HostMethod } from "../types";
 import {
-	FORM_ANIMATION_PRESETS_V0,
-	FORM_ANIMATION_SPEEDS_V0,
-	FORM_FLUENT_ICON_NAMES_V0,
-	FORMAT_CONVERSION_TEXT_LIMIT_V0,
+	ACTION_FLUENT_ICON_NAMES_V0,
 	FORMATS_PER_PLUGIN_LIMIT_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
@@ -40,7 +36,6 @@ const option = {
 		value: id,
 		label: localizedText,
 		disabled: { type: "boolean" },
-		icon: { $ref: "#/$defs/icon" },
 	},
 	additionalProperties: false,
 };
@@ -61,18 +56,7 @@ const icon = {
 	required: ["source", "name"],
 	properties: {
 		source: { const: "@fluentui/react-icons" },
-		name: { enum: [...FORM_FLUENT_ICON_NAMES_V0] },
-	},
-	additionalProperties: false,
-};
-// Enum-only animation contract: unknown presets, speeds and any numeric
-// duration are rejected; the host owns the actual keyframes.
-const animation = {
-	type: "object",
-	required: ["preset"],
-	properties: {
-		preset: { enum: [...FORM_ANIMATION_PRESETS_V0] },
-		speed: { enum: [...FORM_ANIMATION_SPEEDS_V0] },
+		name: { enum: [...ACTION_FLUENT_ICON_NAMES_V0] },
 	},
 	additionalProperties: false,
 };
@@ -84,7 +68,6 @@ const formAction = {
 		label: localizedText,
 		role: { enum: ["submit", "cancel"] },
 		tone: { enum: ["primary", "danger", "neutral"] },
-		icon: { $ref: "#/$defs/icon" },
 	},
 	additionalProperties: false,
 };
@@ -95,18 +78,13 @@ const keyedFieldProperties = {
 const presentationProperties = {
 	visibleWhen: { $ref: "#/$defs/condition" },
 	labelPlacement: { enum: ["top", "hidden"] },
-	width: { enum: ["full", "compact"] },
 	controlSize: { enum: ["small", "medium"] },
-	icon: { $ref: "#/$defs/icon" },
-	animation: { $ref: "#/$defs/animation" },
 };
 
 export const FORM_SCHEMA_V0 = {
 	$defs: {
 		localizedText,
 		condition,
-		icon,
-		animation,
 		field: {
 			oneOf: [
 				{
@@ -135,9 +113,6 @@ export const FORM_SCHEMA_V0 = {
 						max: { type: "number" },
 						step: { type: "number", minimum: 0 },
 						required: { type: "boolean" },
-						control: { enum: ["input", "stepper"] },
-						decrementIcon: { $ref: "#/$defs/icon" },
-						incrementIcon: { $ref: "#/$defs/icon" },
 						...presentationProperties,
 					},
 					additionalProperties: false,
@@ -179,8 +154,6 @@ export const FORM_SCHEMA_V0 = {
 						text: localizedText,
 						tone: { enum: ["default", "muted"] },
 						visibleWhen: { $ref: "#/$defs/condition" },
-						icon: { $ref: "#/$defs/icon" },
-						animation: { $ref: "#/$defs/animation" },
 					},
 					additionalProperties: false,
 				},
@@ -191,13 +164,7 @@ export const FORM_SCHEMA_V0 = {
 						kind: { const: "group" },
 						id: { type: "string", pattern: "^[a-zA-Z][a-zA-Z0-9_]*$" },
 						label: localizedText,
-						direction: { enum: ["row", "column"] },
-						align: { enum: ["start", "center", "end"] },
-						gap: { enum: ["small", "medium", "large"] },
-						indent: { type: "boolean" },
 						visibleWhen: { $ref: "#/$defs/condition" },
-						icon: { $ref: "#/$defs/icon" },
-						animation: { $ref: "#/$defs/animation" },
 						fields: {
 							type: "array",
 							minItems: 1,
@@ -217,12 +184,8 @@ export const FORM_SCHEMA_V0 = {
 		description: { $ref: "#/$defs/localizedText" },
 		fields: { type: "array", maxItems: 64, items: { $ref: "#/$defs/field" } },
 		size: { enum: ["small", "medium", "large"] },
-		icon: { $ref: "#/$defs/icon" },
-		animation: { $ref: "#/$defs/animation" },
 		submitLabel: { $ref: "#/$defs/localizedText" },
 		cancelLabel: { $ref: "#/$defs/localizedText" },
-		submitIcon: { $ref: "#/$defs/icon" },
-		cancelIcon: { $ref: "#/$defs/icon" },
 		actions: { type: "array", minItems: 1, maxItems: 4, items: formAction },
 	},
 	additionalProperties: false,
@@ -336,7 +299,7 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 				...baseManifestProperties,
 				kind: { const: "function" },
 				apiVersion: { const: PLUGIN_API_VERSION },
-				runtime: { enum: ["builtin", "extism-wasm", "trusted-js"] },
+				runtime: { enum: ["builtin", "trusted-js"] },
 				entry: { type: "string", minLength: 1 },
 				capabilities: {
 					type: "array",
@@ -606,42 +569,6 @@ export const LYRICS_APPLY_EDIT_SCHEMA = {
 	additionalProperties: false,
 } satisfies JsonSchema;
 
-/**
- * Value a guest returns from `plugin_convert_format`. The host additionally
- * checks that the kind matches the requested direction.
- */
-export const FORMAT_CONVERSION_RESULT_SCHEMA = {
-	oneOf: [
-		{
-			type: "object",
-			required: ["kind", "lines", "metadata"],
-			properties: {
-				kind: { const: "imported" },
-				lines: { type: "array", maxItems: 10000, items: newLineSchema },
-				metadata: {
-					type: "array",
-					maxItems: 256,
-					items: documentDefs.metadata,
-				},
-			},
-			additionalProperties: false,
-		},
-		{
-			type: "object",
-			required: ["kind", "text"],
-			properties: {
-				kind: { const: "exported" },
-				text: {
-					type: "string",
-					minLength: 1,
-					maxLength: FORMAT_CONVERSION_TEXT_LIMIT_V0,
-				},
-			},
-			additionalProperties: false,
-		},
-	],
-} satisfies JsonSchema;
-
 export const NOTIFY_PARAMS_SCHEMA = {
 	type: "object",
 	required: ["level", "message"],
@@ -652,125 +579,6 @@ export const NOTIFY_PARAMS_SCHEMA = {
 		timeoutMs: { type: "number", minimum: 0, maximum: 60000 },
 	},
 	additionalProperties: false,
-} satisfies JsonSchema;
-
-const jsonValueDefs = {
-	jsonValue: {
-		oneOf: [
-			{ type: "null" },
-			{ type: "boolean" },
-			{ type: "number" },
-			{ type: "string" },
-			{ type: "array", items: { $ref: "#/$defs/jsonValue" } },
-			{ type: "object", additionalProperties: { $ref: "#/$defs/jsonValue" } },
-		],
-	},
-};
-const emptyParams = {
-	type: "object",
-	properties: {},
-	additionalProperties: false,
-};
-const keyParams = {
-	type: "object",
-	required: ["key"],
-	properties: { key: { type: "string", minLength: 1, maxLength: 256 } },
-	additionalProperties: false,
-};
-export const HOST_PARAM_SCHEMAS: Readonly<Record<HostMethod, JsonSchema>> = {
-	"lyrics.getDocument": emptyParams,
-	"lyrics.getSelection": emptyParams,
-	"lyrics.applyEdit": LYRICS_APPLY_EDIT_SCHEMA,
-	"ui.notify": NOTIFY_PARAMS_SCHEMA,
-	"ui.showForm": {
-		type: "object",
-		required: ["schema"],
-		properties: { schema: FORM_SCHEMA_V0 },
-		additionalProperties: false,
-	},
-	"storage.get": keyParams,
-	"storage.set": {
-		...keyParams,
-		$defs: jsonValueDefs,
-		required: ["key", "value"],
-		properties: {
-			...(keyParams.properties as object),
-			value: { $ref: "#/$defs/jsonValue" },
-		},
-	},
-	"storage.delete": keyParams,
-	"storage.keys": emptyParams,
-};
-
-export const HOST_CALL_ENVELOPE_SCHEMA = {
-	type: "object",
-	required: ["id", "method", "params"],
-	properties: {
-		id,
-		method: { enum: Object.keys(HOST_PARAM_SCHEMAS) },
-		params: { type: "object" },
-	},
-	additionalProperties: false,
-} satisfies JsonSchema;
-
-const pluginError = {
-	type: "object",
-	required: ["code", "message"],
-	properties: {
-		code: {
-			enum: [
-				"revision-conflict",
-				"permission-denied",
-				"invalid-params",
-				"not-found",
-				"unsupported-api-version",
-				"timeout",
-				"cancelled",
-				"payload-too-large",
-				"limit-exceeded",
-				"plugin-crashed",
-				"network-unavailable",
-				"internal",
-			],
-		},
-		message: { type: "string", minLength: 1 },
-		data: { $ref: "#/$defs/jsonValue" },
-	},
-	additionalProperties: false,
-};
-export const HOST_RESPONSE_SCHEMA = {
-	$defs: jsonValueDefs,
-	type: "object",
-	required: ["id", "result"],
-	properties: {
-		id,
-		result: {
-			oneOf: [
-				{
-					type: "object",
-					required: ["ok", "value"],
-					properties: {
-						ok: { const: true },
-						value: { $ref: "#/$defs/jsonValue" },
-					},
-					additionalProperties: false,
-				},
-				{
-					type: "object",
-					required: ["ok", "error"],
-					properties: { ok: { const: false }, error: pluginError },
-					additionalProperties: false,
-				},
-			],
-		},
-	},
-	additionalProperties: false,
-} satisfies JsonSchema;
-
-export const PLUGIN_RETURN_SCHEMA = {
-	$defs: jsonValueDefs,
-	oneOf: (HOST_RESPONSE_SCHEMA.properties.result as { oneOf: JsonSchema[] })
-		.oneOf,
 } satisfies JsonSchema;
 
 export const PLUGIN_EVENT_SCHEMA = {
@@ -961,37 +769,6 @@ export const THEME_PACKAGE_SCHEMA = {
 	additionalProperties: false,
 } satisfies JsonSchema;
 
-/**
- * Value shape of a successful `plugin_execute_command` / `plugin_resume_form`
- * return. A `showForm` outcome suspends the invocation at the turn boundary;
- * the WASM guest cannot block on user input mid-call, so the host re-invokes
- * `plugin_resume_form` with the result and the echoed opaque `state`.
- */
-export const PLUGIN_COMMAND_OUTCOME_SCHEMA = {
-	$defs: jsonValueDefs,
-	oneOf: [
-		{
-			type: "object",
-			required: ["kind"],
-			properties: {
-				kind: { const: "done" },
-				value: { $ref: "#/$defs/jsonValue" },
-			},
-			additionalProperties: false,
-		},
-		{
-			type: "object",
-			required: ["kind", "schema"],
-			properties: {
-				kind: { const: "showForm" },
-				schema: FORM_SCHEMA_V0,
-				state: { $ref: "#/$defs/jsonValue" },
-			},
-			additionalProperties: false,
-		},
-	],
-} satisfies JsonSchema;
-
 export const FORM_RESULT_SCHEMA = {
 	oneOf: [
 		{
@@ -1024,25 +801,6 @@ export const FORM_RESULT_SCHEMA = {
 			additionalProperties: false,
 		},
 	],
-} satisfies JsonSchema;
-
-export const FUNCTION_PLUGIN_PACKAGE_SCHEMA = {
-	type: "object",
-	required: ["packageVersion", "manifest", "wasm"],
-	properties: {
-		packageVersion: { const: 0 },
-		// The manifest re-runs full manifest validation in the parser; this keeps
-		// the discriminant errors readable (same approach as theme packages).
-		manifest: { type: "object" },
-		wasm: {
-			type: "string",
-			minLength: 8,
-			// 32 MiB decoded, matching the runtime's MAX_PLUGIN_WASM_BYTES.
-			maxLength: 44739244,
-			pattern: "^[A-Za-z0-9+/]+={0,2}$",
-		},
-	},
-	additionalProperties: false,
 } satisfies JsonSchema;
 
 export const TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA = {
@@ -1099,7 +857,7 @@ export const REMOTE_PLUGIN_CATALOG_SCHEMA = {
 					description: baseManifestProperties.description,
 					author: baseManifestProperties.author,
 					homepage: baseManifestProperties.homepage,
-					channel: { enum: ["trusted-js", "extism-wasm", "theme"] },
+					channel: { enum: ["trusted-js", "theme"] },
 					apiVersion: { type: "integer", minimum: 0 },
 					// Relative path only: no scheme, no leading slash, no empty or
 					// backslash segments. Dot-segment rejection happens in the parser.
@@ -1133,13 +891,7 @@ export const SCHEMA_CATALOG = {
 	form: FORM_SCHEMA_V0,
 	formResult: FORM_RESULT_SCHEMA,
 	notify: NOTIFY_PARAMS_SCHEMA,
-	hostCall: HOST_CALL_ENVELOPE_SCHEMA,
-	hostResponse: HOST_RESPONSE_SCHEMA,
-	pluginReturn: PLUGIN_RETURN_SCHEMA,
-	pluginCommandOutcome: PLUGIN_COMMAND_OUTCOME_SCHEMA,
-	formatConversionResult: FORMAT_CONVERSION_RESULT_SCHEMA,
 	pluginEvent: PLUGIN_EVENT_SCHEMA,
-	functionPluginPackage: FUNCTION_PLUGIN_PACKAGE_SCHEMA,
 	trustedJsPluginPackage: TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA,
 	httpRequest: HTTP_REQUEST_SCHEMA,
 	remotePluginCatalog: REMOTE_PLUGIN_CATALOG_SCHEMA,

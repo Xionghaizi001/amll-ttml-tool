@@ -7,6 +7,7 @@ import type {
 	NotifyParams,
 	PluginSelectionV0,
 } from "@amll-ttml-tool/plugin-api";
+import { parseFormSchema } from "@amll-ttml-tool/plugin-api";
 import type { TrustedJsProjectInfoV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { CommandRegistry } from "$/kernel/commands";
 import { EditorDocumentService } from "$/kernel/editor";
@@ -123,6 +124,8 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		getProjectInfo: () =>
 			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
 		showForm: async (schema) => {
+			const parsed = parseFormSchema(schema);
+			if (!parsed.ok) throw new Error("Invalid form schema");
 			shownForms.push(schema);
 			return (await options.onShowForm?.(schema)) ?? { submitted: false };
 		},

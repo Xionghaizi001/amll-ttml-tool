@@ -1,5 +1,5 @@
 import type {
-	FormIconV0,
+	ActionIconV0,
 	FormSchemaV0,
 	LocalizedText,
 	MenuItemContribution,
@@ -29,12 +29,6 @@ export const FALLBACK_MODE_ID = "edit";
 
 export type ContributionOwner =
 	| { kind: "builtin"; id: string; trusted: true }
-	| {
-			kind: "plugin";
-			pluginId: string;
-			runtime: "extism-wasm";
-			trusted: false;
-	  }
 	| {
 			kind: "plugin";
 			pluginId: string;
@@ -111,7 +105,7 @@ export interface ModeContributionRecord<TView = unknown>
 export interface TitleBarActionContributionRecord extends OwnedContribution {
 	kind: "titlebar-action";
 	commandId: string;
-	icon: FormIconV0;
+	icon: ActionIconV0;
 	tooltip: LocalizedText;
 	order?: number;
 	when?: string;
@@ -342,9 +336,7 @@ export class ContributionRegistry<TView = unknown> {
 	}
 
 	/** The host-native (TTML) serialization format used by save/autosave. */
-	getHostNativeFormatProvider():
-		| FormatProviderContributionRecord
-		| undefined {
+	getHostNativeFormatProvider(): FormatProviderContributionRecord | undefined {
 		return this.getFormatProviders().find((provider) => provider.hostNative);
 	}
 
@@ -359,9 +351,7 @@ export class ContributionRegistry<TView = unknown> {
 		const candidates = this.getFormatProviders().filter((provider) =>
 			provider.extensions.includes(normalized),
 		);
-		return (
-			candidates.find((provider) => provider.hostNative) ?? candidates[0]
-		);
+		return candidates.find((provider) => provider.hostNative) ?? candidates[0];
 	}
 
 	getTrustedViews(

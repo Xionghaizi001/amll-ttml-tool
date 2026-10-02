@@ -1,7 +1,5 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { strToU8, zipSync } from "fflate";
 import { createServer } from "vite";
 import { collectFactoryPlugins } from "./collect-factory-plugins.ts";
 
@@ -24,45 +22,11 @@ const publicPluginsDir = resolve(root, "public/plugins");
 const storeDir = resolve(publicPluginsDir, "store");
 const catalogPath = resolve(publicPluginsDir, "catalog.json");
 
-const sha256 = (bytes: Uint8Array): string =>
-	createHash("sha256").update(bytes).digest("hex");
-
 await rm(storeDir, { recursive: true, force: true });
 await rm(catalogPath, { force: true });
 await mkdir(storeDir, { recursive: true });
 
 const factoryEntries = await collectFactoryPlugins(root);
-
-// --- extism-wasm artifact: the sample plugin as a fixed-layout zip ---
-const sampleManifestBytes = await readFile(
-	resolve(publicPluginsDir, "sample-tools.manifest.json"),
-);
-const sampleManifest = JSON.parse(sampleManifestBytes.toString("utf8")) as {
-	id: string;
-	name: string;
-	version: string;
-	description?: string;
-	author?: string;
-	apiVersion: number;
-	entry: string;
-};
-const sampleWasm = await readFile(
-	resolve(publicPluginsDir, "sample-tools.wasm"),
-);
-const sampleZip = zipSync(
-	{
-		"manifest.json": strToU8(
-			JSON.stringify({ packageVersion: 0, manifest: sampleManifest }),
-		),
-		[`assets/${sampleManifest.entry}`]: sampleWasm,
-	},
-	// Fixed mtime keeps the artifact byte-identical across builds, so the
-	// content address only changes when the content does.
-	{ mtime: new Date("2000-01-01T00:00:00Z") },
-);
-const sampleHash = sha256(sampleZip);
-const sampleFile = `${sampleHash}.zip`;
-await writeFile(resolve(storeDir, sampleFile), sampleZip);
 
 // --- catalog ---
 const server = await createServer({
@@ -88,21 +52,7 @@ try {
 
 const catalog = {
 	catalogVersion: 0,
-	plugins: [
-		...factoryEntries,
-		{
-			id: sampleManifest.id,
-			name: sampleManifest.name,
-			version: sampleManifest.version,
-			description: sampleManifest.description,
-			author: sampleManifest.author,
-			channel: "extism-wasm",
-			apiVersion: sampleManifest.apiVersion,
-			entry: `plugins/store/${sampleFile}`,
-			sha256: sampleHash,
-			platforms: ["web", "desktop"],
-		},
-	],
+	plugins: factoryEntries,
 };
 
 const parsed = pluginApi.parseRemotePluginCatalog(catalog);
@@ -122,6 +72,3 @@ console.log(
 	`Generated public/plugins/catalog.json (${catalog.plugins.length} entries)`,
 );
 console.log(`- ${factoryEntries.length} locked factory artifacts collected`);
-console.log(
-	`- extism-wasm ${sampleManifest.id} -> plugins/store/${sampleFile}`,
-);

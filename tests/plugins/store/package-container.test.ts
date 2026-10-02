@@ -44,7 +44,6 @@ describe("trusted-js installation boundary", () => {
 		const ports = {
 			fetchArtifact: vi.fn(async () => zip()),
 			digestSha256: async () => "b".repeat(64),
-			installFunctionPackage: install,
 			installThemePackage: install,
 		};
 		const entry = {
