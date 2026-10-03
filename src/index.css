@@ -135,7 +135,7 @@ html[data-amll-accent][data-amll-appearance="dark"] .radix-themes {
 /*
  * Surface background bridges. Solid colors land in --attt-surface-<name>,
  * gradients and images in --attt-surface-<name>-image; the scrim is the
- * readability overlay painted above the image. Radix Cards paint their own
+ * user overlay painted above the image. Radix Cards paint their own
  * panel color through --card-background-color, so that is bridged too.
  */
 html[data-amll-surface-title-bar] [data-slot="title-bar"] {

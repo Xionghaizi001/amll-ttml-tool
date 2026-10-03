@@ -3,7 +3,24 @@ import type {
 	ThemeTokenModeOverridesV0,
 	ThemeTokensV0,
 } from "@amll-ttml-tool/plugin-api";
-import { relativeLuminance } from "./readability";
+const relativeLuminance = (color: {
+	r: number;
+	g: number;
+	b: number;
+}): number => {
+	const linear = (channel: number): number => {
+		const value = channel / 255;
+		return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+	};
+	return (
+		0.2126 * linear(color.r) +
+		0.7152 * linear(color.g) +
+		0.0722 * linear(color.b)
+	);
+};
+
+const contrastRatio = (first: number, second: number): number =>
+	(Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 
 export interface CompileThemeTokensOptions {
 	/**
@@ -53,7 +70,8 @@ export const accentContrastColor = (
 ): "white" | "black" | null => {
 	const parsed = parseSimpleColor(accent);
 	if (parsed === null) return null;
-	return relativeLuminance(parsed) >= 0.45 ? "black" : "white";
+	// Keep the established 0.45 luminance threshold (10:1 against black).
+	return contrastRatio(relativeLuminance(parsed), 0) >= 10 ? "black" : "white";
 };
 
 const surfaceDeclarations = (

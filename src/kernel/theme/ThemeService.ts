@@ -398,7 +398,7 @@ export class ThemeService {
 	/**
 	 * Sets or clears a user-picked background image for one surface. Trusted
 	 * host input only: the URL must be a local object URL the host created,
-	 * and the scrim (usually the readability recommendation) a safe color.
+	 * and the user-selected scrim must be a safe color.
 	 * The modal fallback rule (medium/small require large) is enforced
 	 * against the combined theme + user configuration.
 	 */

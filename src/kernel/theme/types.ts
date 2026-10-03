@@ -41,11 +41,13 @@ export interface ThemeAssetUrlPort {
 /**
  * A user-picked background image for one surface. The URL is a host-created
  * local object URL — never plugin- or network-supplied — and the scrim is
- * the readability overlay computed (or confirmed) when the image was chosen.
+ * the user-selected overlay, initially set to the host default.
  */
 export interface UserSurfaceImage {
 	url: string;
 	scrim?: string;
+	/** User-selected image opacity, independently of the overlay. */
+	opacity?: number;
 }
 
 export interface ThemeServicePorts {
@@ -83,6 +85,8 @@ export interface ThemeSummary {
 export type SafeModeReason = "user" | "crash" | "forced" | null;
 
 export interface ThemeServiceState {
+	/** Session counter for cancelling pending image restoration after a reset. */
+	userSurfaceImageResetVersion: number;
 	activeThemeId: string | null;
 	previewThemeId: string | null;
 	safeMode: boolean;

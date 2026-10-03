@@ -6,19 +6,28 @@ import {
 	PaintBrush24Regular,
 	ShieldTask24Regular,
 } from "@fluentui/react-icons";
-import { Badge, Button, Flex, Switch, Text, TextField } from "@radix-ui/themes";
+import {
+	Badge,
+	Button,
+	Flex,
+	Slider,
+	Switch,
+	Text,
+	TextField,
+} from "@radix-ui/themes";
 import type { ThemeSurfaceNameV0 } from "@amll-ttml-tool/plugin-api";
 import { useAtomValue } from "jotai";
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import type { ReadabilityReport } from "$/kernel/theme";
 import { themeService } from "$/plugins/adapters/theme-host";
 import { THEME_RESCUE_SHORTCUT } from "$/plugins/ui/ThemeHost";
 import { isDarkThemeAtom } from "$/states/main";
 import {
 	clearThemeSurfaceImage,
 	setThemeSurfaceImage,
+	setThemeSurfaceImageOpacity,
+	setThemeSurfaceScrim,
 } from "../adapters/theme-surface-images";
 import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 
@@ -157,6 +166,11 @@ const SURFACE_FIELDS: {
 	i18nKey: string;
 }[] = [
 	{
+		key: "appRoot",
+		label: "全局背景",
+		i18nKey: "settings.theme.surfaceAppRoot",
+	},
+	{
 		key: "titleBar",
 		label: "标题栏",
 		i18nKey: "settings.theme.surfaceTitleBar",
@@ -257,45 +271,9 @@ const buildUserTokens = (values: OverrideValues): unknown | null => {
 	return hasAny ? tokens : null;
 };
 
-type TranslateFn = (
-	key: string,
-	defaultValue: string,
-	options?: Record<string, unknown>,
-) => string;
-
-const readabilityToastText = (
-	report: ReadabilityReport,
-	scrim: string | null,
-	t: TranslateFn,
-): string => {
-	if (report.ok)
-		return t(
-			"settings.theme.readabilityOk",
-			"可读性检测通过（最低对比度 {ratio}:1）。",
-			{ ratio: report.contrastRatio.toFixed(1) },
-		);
-	const reasons: string[] = [];
-	if (report.issues.includes("low-contrast"))
-		reasons.push(t("settings.theme.readabilityLowContrast", "文字对比度不足"));
-	if (report.issues.includes("busy-background"))
-		reasons.push(
-			t("settings.theme.readabilityBusy", "图片颜色变化剧烈、难以辨认文字"),
-		);
-	const scrimPercent = Math.round(
-		(report.recommendedScrim?.opacity ?? 0) * 100,
-	);
-	return scrim
-		? t(
-				"settings.theme.readabilityScrimApplied",
-				"{reasons}；已自动叠加 {percent}% 遮罩以保证可读性。",
-				{ reasons: reasons.join("、"), percent: scrimPercent },
-			)
-		: reasons.join("、");
-};
-
 /**
  * Per-surface background editor. Colors/gradients are declarative tokens
- * saved with the token form; images go through the readability gate and the
+ * saved with the token form; images receive a default overlay and are saved in the
  * surface image store. Modal medium/small stay disabled until a large modal
  * background exists somewhere in the effective configuration.
  */
@@ -322,10 +300,6 @@ const SurfaceBackgroundEditor = ({
 			toast.error(outcome.error);
 			return;
 		}
-		if (!outcome.ok || outcome.report === null) return;
-		const text = readabilityToastText(outcome.report, outcome.scrim, t);
-		if (outcome.report.ok) toast.success(text);
-		else toast.warn(text);
 	};
 
 	return (
@@ -334,7 +308,7 @@ const SurfaceBackgroundEditor = ({
 			title={t("settings.theme.surfacesTitle", "组件背景")}
 			description={t(
 				"settings.theme.surfacesDesc",
-				"为标题栏、功能区、菜单、播放控制区和对话框设置纯色/渐变背景，或选择一张图片；图片会先经过可读性检测，必要时自动叠加遮罩。对话框的中、小尺寸需先设置大尺寸背景（回退顺序：小 → 中 → 大）。",
+				"为全局背景、标题栏、功能区、菜单、播放控制区和对话框设置纯色/渐变背景，或选择图片；图片默认叠加遮罩（浅色 35%，深色 45%），可用滑杆调整。对话框的中、小尺寸需先设置大尺寸背景（回退顺序：小 → 中 → 大）。",
 			)}
 		>
 			<input
@@ -356,7 +330,11 @@ const SurfaceBackgroundEditor = ({
 						field.key === "modalMedium" || field.key === "modalSmall";
 					const disabled =
 						state.safeMode || (isRestrictedModal && !largeConfigured);
-					const hasImage = state.userSurfaceImages[field.key] !== undefined;
+					const image = state.userSurfaceImages[field.key];
+					const hasImage = image !== undefined;
+					const opacity = Number(
+						/\/\s*([\d.]+)/.exec(image?.scrim ?? "")?.[1] ?? 0,
+					);
 					return (
 						<Flex key={field.key} align="center" gap="2">
 							<Text size="1" style={{ minWidth: "9em" }}>
@@ -386,6 +364,46 @@ const SurfaceBackgroundEditor = ({
 							>
 								{t("settings.theme.surfacePickImage", "选图")}
 							</Button>
+							{hasImage && field.key === "appRoot" && (
+								<Flex align="center" gap="2" style={{ minWidth: "14em" }}>
+									<Text size="1">
+										{t("settings.theme.surfaceImageOpacity", "图片透明度")}
+									</Text>
+									<Slider
+										aria-label={t(
+											"settings.theme.surfaceImageOpacity",
+											"图片透明度",
+										)}
+										min={0}
+										max={100}
+										step={1}
+										value={[Math.round((image?.opacity ?? 1) * 100)]}
+										disabled={disabled}
+										onValueChange={([value]) =>
+											void setThemeSurfaceImageOpacity(field.key, value / 100)
+										}
+									/>
+									<Text size="1">
+										{Math.round((image?.opacity ?? 1) * 100)}%
+									</Text>
+								</Flex>
+							)}
+							{hasImage && (
+								<Flex align="center" gap="2" style={{ minWidth: "12em" }}>
+									<Slider
+										aria-label={t("settings.theme.surfaceScrim", "图片遮罩")}
+										min={0}
+										max={100}
+										step={1}
+										value={[Math.round(opacity * 100)]}
+										disabled={disabled}
+										onValueChange={([value]) =>
+											void setThemeSurfaceScrim(field.key, value / 100)
+										}
+									/>
+									<Text size="1">{Math.round(opacity * 100)}%</Text>
+								</Flex>
+							)}
 							{hasImage && (
 								<Button
 									size="1"

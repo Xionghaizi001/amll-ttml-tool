@@ -1,59 +1,17 @@
 import type { ThemeSurfaceNameV0 } from "@amll-ttml-tool/plugin-api";
-import {
-	analyzeRegionReadability,
-	coverCropRegion,
-	type ReadabilityReport,
-	type RgbColor,
-} from "$/kernel/theme";
 import { IndexedDbThemeSurfaceImageStorage } from "$/platform/storage/IndexedDbThemeSurfaceImageStorage";
-import {
-	measureSlotRect,
-	sampleImagePixels,
-} from "$/platform/theme/BrowserImageSampler";
 import { themeService } from "$/plugins/adapters/theme-host";
-
-export const LIGHT_TEXT_COLOR: RgbColor = { r: 255, g: 255, b: 255 };
-export const DARK_TEXT_COLOR: RgbColor = { r: 28, g: 32, b: 36 };
-
-const SURFACE_SLOTS: Partial<Record<ThemeSurfaceNameV0, string>> = {
-	titleBar: "title-bar",
-	ribbonBar: "ribbon-bar",
-	playControls: "audio-controls",
-};
-
-/** Typical component sizes for surfaces that are not mounted while picking. */
-const SURFACE_DEFAULT_SIZES: Record<
-	ThemeSurfaceNameV0,
-	{ width: number; height: number }
-> = {
-	titleBar: { width: 1280, height: 40 },
-	ribbonBar: { width: 1280, height: 140 },
-	dropdownMenu: { width: 240, height: 320 },
-	playControls: { width: 1280, height: 120 },
-	modalLarge: { width: 900, height: 620 },
-	modalMedium: { width: 520, height: 420 },
-	modalSmall: { width: 380, height: 220 },
-};
-
-const surfaceSize = (
-	surface: ThemeSurfaceNameV0,
-): { width: number; height: number } => {
-	const slot = SURFACE_SLOTS[surface];
-	if (slot !== undefined) {
-		const rect = measureSlotRect(slot);
-		if (rect !== null) return { width: rect.width, height: rect.height };
-	}
-	return SURFACE_DEFAULT_SIZES[surface];
-};
 
 export interface SurfaceImageOutcome {
 	ok: boolean;
-	report: ReadabilityReport | null;
-	scrim: string | null;
 	error: string | null;
 }
 
+export const defaultSurfaceScrim = (isDarkTheme: boolean): string =>
+	isDarkTheme ? "rgb(0 0 0 / 0.45)" : "rgb(255 255 255 / 0.35)";
+
 const storage = new IndexedDbThemeSurfaceImageStorage();
+const imageBlobs = new Map<ThemeSurfaceNameV0, Blob>();
 const objectUrls = new Map<ThemeSurfaceNameV0, string>();
 const generations = new Map<ThemeSurfaceNameV0, number>();
 let reconcileStarted = false;
@@ -68,6 +26,7 @@ const dropLocalUrl = (surface: ThemeSurfaceNameV0): void => {
 	const url = objectUrls.get(surface);
 	if (url === undefined) return;
 	objectUrls.delete(surface);
+	imageBlobs.delete(surface);
 	URL.revokeObjectURL(url);
 };
 
@@ -94,16 +53,32 @@ const startReconciliation = (): void => {
 /** Restores persisted per-surface images at startup. */
 export async function initializeThemeSurfaceImages(): Promise<void> {
 	startReconciliation();
+	const beforeRead = new Map(generations);
+	const resetVersion = themeService.getState().userSurfaceImageResetVersion;
 	const records = await storage.readAll();
+	if (themeService.getState().userSurfaceImageResetVersion !== resetVersion) {
+		await Promise.all(
+			records
+				.filter(
+					(record) =>
+						generations.get(record.surface) === beforeRead.get(record.surface),
+				)
+				.map((record) => storage.delete(record.surface)),
+		);
+		return;
+	}
 	for (const record of records) {
-		const generation = bumpGeneration(record.surface);
-		if (generations.get(record.surface) !== generation) continue;
+		if (generations.get(record.surface) !== beforeRead.get(record.surface))
+			continue;
+		bumpGeneration(record.surface);
 		dropLocalUrl(record.surface);
 		const url = URL.createObjectURL(record.blob);
 		objectUrls.set(record.surface, url);
+		imageBlobs.set(record.surface, record.blob);
 		const result = themeService.setUserSurfaceImage(record.surface, {
 			url,
 			scrim: record.scrim,
+			opacity: record.opacity,
 		});
 		if (!result.ok) {
 			dropLocalUrl(record.surface);
@@ -112,60 +87,56 @@ export async function initializeThemeSurfaceImages(): Promise<void> {
 	}
 }
 
-/**
- * Readability gate for a picked surface background: samples the cover crop
- * the component will show, checks contrast and busyness against the current
- * text color, and — when the image alone would be unreadable — derives the
- * scrim overlay that restores contrast before the image is applied.
- */
+/** Applies picked images immediately with a fixed, editable default overlay. */
 export async function setThemeSurfaceImage(
 	surface: ThemeSurfaceNameV0,
 	blob: Blob,
 	isDarkTheme: boolean,
 ): Promise<SurfaceImageOutcome> {
 	startReconciliation();
-	const generation = bumpGeneration(surface);
-	let report: ReadabilityReport;
-	try {
-		const sampled = await sampleImagePixels(blob);
-		const region = coverCropRegion(
-			{ width: sampled.imageWidth, height: sampled.imageHeight },
-			surfaceSize(surface),
-		);
-		report = analyzeRegionReadability(
-			sampled.pixels,
-			isDarkTheme ? LIGHT_TEXT_COLOR : DARK_TEXT_COLOR,
-			region,
-		);
-	} catch {
-		return {
-			ok: false,
-			report: null,
-			scrim: null,
-			error: "无法解析所选图片",
-		};
-	}
-	if (generations.get(surface) !== generation)
-		return { ok: false, report, scrim: null, error: null };
-	const scrim = report.recommendedScrim?.cssColor ?? null;
+	bumpGeneration(surface);
+	const scrim = defaultSurfaceScrim(isDarkTheme);
 	const url = URL.createObjectURL(blob);
-	const result = themeService.setUserSurfaceImage(surface, {
-		url,
-		scrim: scrim ?? undefined,
-	});
+	const result = themeService.setUserSurfaceImage(surface, { url, scrim });
 	if (!result.ok) {
 		URL.revokeObjectURL(url);
 		return {
 			ok: false,
-			report,
-			scrim,
 			error: result.issues.map((issue) => issue.message).join("; "),
 		};
 	}
 	dropLocalUrl(surface);
 	objectUrls.set(surface, url);
-	await storage.write(surface, blob, scrim ?? undefined);
-	return { ok: true, report, scrim, error: null };
+	imageBlobs.set(surface, blob);
+	await storage.write(surface, blob, scrim);
+	return { ok: true, error: null };
+}
+
+/** Updates the user's overlay without decoding or replacing the image. */
+export async function setThemeSurfaceScrim(
+	surface: ThemeSurfaceNameV0,
+	opacity: number,
+): Promise<void> {
+	const image = themeService.getState().userSurfaceImages[surface];
+	const blob = imageBlobs.get(surface);
+	if (image === undefined || blob === undefined) return;
+	const color = image.scrim?.startsWith("rgb(255") ? "255 255 255" : "0 0 0";
+	const scrim = `rgb(${color} / ${Math.min(1, Math.max(0, opacity))})`;
+	const result = themeService.setUserSurfaceImage(surface, { ...image, scrim });
+	if (result.ok) await storage.write(surface, blob, scrim, image.opacity);
+}
+
+/** Sets global background image transparency independently of its scrim. */
+export async function setThemeSurfaceImageOpacity(
+	surface: ThemeSurfaceNameV0,
+	opacity: number,
+): Promise<void> {
+	const image = themeService.getState().userSurfaceImages[surface];
+	const blob = imageBlobs.get(surface);
+	if (image === undefined || blob === undefined) return;
+	const next = { ...image, opacity: Math.min(1, Math.max(0, opacity)) };
+	const result = themeService.setUserSurfaceImage(surface, next);
+	if (result.ok) await storage.write(surface, blob, next.scrim, next.opacity);
 }
 
 export async function clearThemeSurfaceImage(
