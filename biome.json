@@ -42,5 +42,55 @@
 				"organizeImports": "on"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": [
+				"src/states/**",
+				"src/application/**",
+				"src/kernel/**",
+				"packages/plugin-api/src/**",
+				"packages/plugin-sdk-js/src/**"
+			],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedGlobals": {
+							"level": "error",
+							"options": {
+								"deniedGlobals": {
+									"document": "Use a platform adapter instead of browser globals.",
+									"window": "Use a platform adapter instead of browser globals.",
+									"localStorage": "Use a platform adapter instead of browser globals.",
+									"fetch": "Use a platform adapter instead of browser globals.",
+									"indexedDB": "Use a platform adapter instead of browser globals.",
+									"DOMParser": "Use a platform adapter instead of browser globals.",
+									"HTMLElement": "Use a platform adapter instead of browser globals.",
+									"HTMLInputElement": "Use a platform adapter instead of browser globals.",
+									"Window": "Use a platform adapter instead of browser globals.",
+									"Worker": "Use a platform adapter instead of browser globals.",
+									"globalThis": "Do not access host globals through globalThis; use a platform adapter."
+								}
+							}
+						},
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"paths": {
+									"idb": "Use platform storage adapters."
+								},
+								"patterns": [
+									{
+										"group": ["**"],
+										"importNamePattern": "lyricLinesAtom",
+										"message": "Use editor document ports instead of importing the writable lyric atom."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		}
+	]
 }

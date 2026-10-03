@@ -555,13 +555,13 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 
 ### 13.1 分层检查规则
 
-`scripts/check-editor-boundary.mjs`（`pnpm lint:boundaries`，CI 执行）现行规则，新增模块须遵守：
+`pnpm lint:boundaries`（CI 执行）依次运行 dependency-cruiser、Biome 与短 AST 检查。`.dependency-cruiser.cjs` 使用 tsconfig paths 校验解析后的依赖；`biome.json` 按路径限制宿主全局与导入；`scripts/check-command-menus.mjs` 仅保留菜单、单写入口、TSX 与 Object URL 生命周期约束，不再自行解析 import。新增模块须遵守：
 
 - 相对导入按解析后的真实目标校验，不能以 `../../modules/...` 绕过 application/kernel 边界。
-- 宿主全局补查小写 `document`、`window`、`localStorage`、`fetch` 等。
+- application/kernel/state/API/SDK 层禁止全局 `document`、`window`、`localStorage`、`fetch`、`indexedDB` 与 DOM 类型；局部同名参数合法。`globalThis` 也禁止，避免通过它绕过限制；`URL` 构造仍合法，但 Object URL 生命周期只能经 platform adapter。
 - 遍历 `tests/plugin-api/` 与 `tests/plugin-sdk-js/`；`src/platform` 与 `src/plugins`（runtime、adapters、ui、trusted、store 与根目录）有正向依赖白名单。
 - UI 不得以别名或相对路径直接导入纯算法模块（drag-reorder、segmentation、syllable-smoothing、LRC parser、时间线边界等），只能经 application service 与 adapter；`?worker` 资源只能由 platform/runtime adapter 引入。
-- 普通菜单项不得重新内联 `onSelect`/`onClick`/`onCheckedChange`（菜单只引用 command ID）。
+- 普通菜单项不得重新内联 `onSelect`/`onClick`/`onCheckedChange` 或使用可能隐藏回调的 prop spread（菜单只引用 command ID）。编辑文档的写入仅限 editor document adapter。
 - state 层不得重新访问 idb、fetch、localStorage 或 Object URL API（走 platform adapter）。
 - `src/plugins/builtin/<plugin>/**`（formats/modes/themes 三个宿主核心目录除外）与 `examples/` 只允许导入 `@amll-ttml-tool/plugin-api`、`@amll-ttml-tool/plugin-sdk-js` 与 React；SDK 包只允许 plugin-api 与 type-only React。
 

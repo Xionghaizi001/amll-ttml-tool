@@ -111,6 +111,8 @@ pnpm test
 pnpm build
 ```
 
+`pnpm lint:boundaries` 使用 dependency-cruiser 校验依赖方向，再由 Biome 的路径 overrides 检查宿主全局与受限导入，最后运行不足 100 行的 AST 菜单/文档写入检查。修改这些规则时另跑 `pnpm lint:boundaries:test`：该命令创建并清理临时负例，验证跨层别名/相对导入、state 层 fetch、内联菜单回调、Worker 资源、纯算法与 SDK React 类型边界。不得以跳过 dependency-cruiser 的局部检查替代完整验收。
+
 按改动范围补充：
 
 - API/Schema：`tests/plugin-api/**`
