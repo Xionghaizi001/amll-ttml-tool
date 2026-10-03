@@ -627,3 +627,5 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 插件、主题与用户背景共用 `amll-extensions`，仅 `src/platform/storage/plugin-database.ts` 打开连接，负责升级、阻塞关闭、终止与打开失败后的重试。四个 object store 为 `trusted-js`、`plugin-kv`（复合键 `[pluginId, key]`）、`theme-packages` 与 `theme-assets`。历史快照继续使用 `amll-autosave-db`；localStorage 中的授权、启用、factory pin、主题选择与 override 键保持不变。分支未上线，不迁移旧 IndexedDB 库。
 
 主题包资源以 Blob 存入 `theme-assets`，通过 `themeId` 索引关联包；用户 surface 图片以 surface 名为键，不归属于任何主题。全局背景为 `appRoot` surface，设置入口统一到主题设置。卸载 trusted-js 时一个事务删除包与其 KV 范围；卸载主题时一个事务删除包及其资源，保留用户 surface 图片。失败安装的回滚仅删除包，不清空已有 KV。
+
+用户选图立即应用固定默认遮罩（浅色白色 35%、深色黑色 45%）；每个 surface 可手调遮罩，全局 `appRoot` 图片另可调整透明度。用户值与 Blob 持久化于 `theme-assets`，刷新恢复；恢复默认清除图片，不进行图片可读性分析。

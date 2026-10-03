@@ -4,15 +4,15 @@
 
 ## 进度总览
 
-- 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载。
-- 尚未落地：边界检查脚本替换、IndexedDB 合库、可读性检测器删除、管理 UI 统一、工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、阶段 8/9 完整业务迁移、阶段 10 后端、ADR 并入。
+- 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩。
+- 尚未落地：边界检查脚本替换的完整验收、管理 UI 统一、工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、阶段 8/9 完整业务迁移、阶段 10 后端、ADR 并入。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
 ## 后续实现顺序
 
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
-| 1（并行） | 边界检查脚本替换、IndexedDB 合库、可读性检测器删除、管理 UI 统一 | 前三项互不依赖；管理 UI 统一另依赖“架构调整点”第 1 条统一 installation 模型，须在阶段 8 第二个插件落地前完成 |
+| 1（并行） | 边界检查脚本替换的完整验收、管理 UI 统一 | 边界配置已实现，尚待安装 dependency-cruiser、补齐锁文件并完成新旧一致性与负例验收；管理 UI 统一依赖“架构调整点”第 1 条统一 installation 模型，须在阶段 8 第二个插件落地前完成 |
 | 2（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
 | 3 | 阶段 8：批量迁移 | 按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移；toolbar/sidebar 渲染器随首个消费者落地 |
 | 4（贯穿） | 开发文档整理 | 随各项实现同步交付；ADR 并入其他文档后删除 |
@@ -113,35 +113,13 @@ amll-ttml-tool-plugin-<name>/      # 外置插件，各自独立仓库，CI 产�
 
 v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确插件版本，升级、回退与离线出厂副本原则不变。验收见 `docs/plugin-acceptance-checklist.md`。
 
-## 边界检查脚本替换
+## 边界检查脚本替换（完整验收待完成）
 
-`scripts/check-editor-boundary.mjs` 自带目录遍历、import 解析、tsconfig alias 与 `?worker` 后缀处理、全局标识符扫描和 AST 级菜单规则。规则本身有效（见 `PLUGIN.md` 第 13.1 节），但解析器是自研的，每加一层目录都要改脚本。目标是用现成工具承载同一组规则，脚本缩到 100 行以内或删除。可与阶段 8 并行。
+分层规则已迁到 `.dependency-cruiser.cjs`，全局与受限导入规则由 Biome overrides 承载；旧自研解析器已删除。`scripts/check-command-menus.mjs` 保留不足 100 行的 Babel AST 规则，处理菜单回调、文档单写入口、禁止 TSX 与 Object URL 生命周期；`scripts/lint-boundaries.mjs` 只选择实际存在的目录并顺序调用工具。规则合同见 `PLUGIN.md` 第 13.1 节。
 
-- [ ] 分层 import 规则迁到 dependency-cruiser：用 `.dependency-cruiser.cjs` 表达 application/kernel/platform/plugins/states/modules 之间的允许方向、`src/plugins/**` 与 `src/platform` 的正向白名单、`src/plugins/builtin/<plugin>/**` 与 `examples/` 只允许 plugin-api/SDK/React、SDK 包只允许 plugin-api 与 type-only React、`?worker` 资源只能由 platform/runtime adapter 引入、UI 不得直接导入纯算法模块。tsconfig paths 由其原生解析；`?worker` 后缀用路径正则匹配。
-- [ ] 全局标识符规则迁到 biome（当前 `@biomejs/biome` 2.x 支持 `overrides` 按路径覆盖）：对 `src/states/**`、`src/application/**`、`src/kernel/**` 开启 `noRestrictedGlobals`，禁止 `document`、`window`、`localStorage`、`fetch`、`indexedDB`、`URL.createObjectURL` 等；对同一路径用 `noRestrictedImports` 禁止直接导入 `idb` 与 `lyricLinesAtom` 所在模块（需要按具名导入限制时用 `importNames`）。
-- [ ] 菜单项不得内联 `onSelect`/`onClick`/`onCheckedChange` 属于 AST 规则，biome 不支持自定义规则：要么保留一个只做这一件事的短脚本，要么在 `ContributionMenuItems` 层用类型约束替代（菜单项类型只暴露 `command` 字段）后删除该规则。二选一，倾向后者。
-- [ ] `pnpm lint:boundaries` 改为依次运行 `depcruise` 与 biome，CI 工作流命令名不变；删除自研脚本后同步更新 `PLUGIN.md` 第 13.1 节与 agent guide 第 6 节的命令说明。
-- 验收：在现有代码上新旧两套检查结果一致（先并行跑一次，差异逐条解释）；故意制造一条跨层导入、一次 state 层直接 `fetch`、一处内联菜单回调，三者都被新工具拦截；CI 通过。
-
-## IndexedDB 合库
-
-分支未上线，没有迁移负担，这是合库唯一的零成本窗口。当前插件与主题相关的库有五个：`amll-plugins`（store：`trusted-js`）、`amll-plugin-kv`、`amll-theme-packages`、`amll-theme-surfaces`、`amll-custom-background`；另有 `amll-autosave-db` 属上游历史快照，不动。每个库各自维护一份 open/upgrade/terminated 重开逻辑。
-
-- [ ] 建立单一库 `amll-extensions`，object store 为：`trusted-js`（manifest、Blob、sha256、source）、`plugin-kv`（复合键 `[pluginId, key]`）、`theme-packages`、`theme-assets`（surface 图片与全局背景图，键为 slot/surface 名）。`src/platform/storage/plugin-database.ts` 的统一升级入口扩展为整个库的唯一 open 点，五个 storage 类改为接收同一个连接。
-- [ ] 自定义背景并入主题 surface：`amll-custom-background` 在概念上就是 app-root slot 的用户 surface 图片，改为 `theme-assets` 中的一条记录，`IndexedDbCustomBackgroundStorage` 与设置页“自定义背景”独立入口删除，由主题设置页的 surface 图片入口承接（见下文可读性检测器条目）。
-- [ ] localStorage 键保持不变：`amll-trusted-js-plugin-state-v0`、`amll-trusted-js-factory-pins-v0`、主题选择状态与用户 override 属同步小状态，不进 IndexedDB。
-- [ ] 卸载语义随之收口：卸载 trusted-js 插件时在同一事务里删除 `trusted-js` 记录与该 `pluginId` 的 `plugin-kv` 范围；卸载主题时同事务删除 `theme-packages` 与其 `theme-assets`。这是“架构调整点”第 5 条持久化原子性在单库下的直接实现。
-- 验收：`rg -n 'openDB\(' src/platform` 只剩 `amll-extensions` 与 `amll-autosave-db` 两处；安装、禁用、卸载、刷新恢复、主题应用与恢复默认的既有测试全部通过；DevTools 中只看到两个应用库。
-
-## 可读性检测器删除
-
-`src/kernel/theme/readability.ts`（267 行，WCAG 最差十分位对比度、局部梯度、亮度标准差与最小遮罩求解）与 `src/platform/theme/BrowserImageSampler.ts`（116 行）只为“用户选图后自动算遮罩”服务。没有现成库能替代图片区域可读性判断，但这个判断本身不值得自研维护。
-
-- [ ] 删除上述两个文件及 `ThemeService`/`token-css.ts` 中对 `relativeLuminance` 以外的引用；`relativeLuminance` 与 `contrastRatio` 两个纯函数（约 20 行）移到 `token-css.ts` 内部，继续用于强调色对比文字与 `isSafeThemeColor`。
-- [ ] 选图行为改为固定默认遮罩：surface 图片与全局背景图选定后套一个固定不透明度的遮罩（建议 0.35，暗色模式 0.45），设置页保留现有遮罩/透明度滑杆供用户调整，不再弹“已自动调整”提示。`ThemeUserSurfaceImage.scrim` 字段保留，语义从“计算值”改为“用户值”。
-- [ ] `customBackground.tsx` 与 `theme.tsx` 中的分析调用、`analysis.recommendation` 分支与相关文案删除；`tests/kernel/theme` 中针对检测器的用例删除，保留 surface 编译与安全色校验用例。
-- [ ] 若日后需要自动判明暗，用 `fast-average-color` 取区域平均亮度决定遮罩深浅，不恢复梯度与方差分析。
-- 验收：选择任意图片后立即得到带默认遮罩的预览且可用滑杆调整；`rg -n readability src` 无输出；主题相关测试通过。
+- [ ] 在可联网环境运行 `pnpm install --no-frozen-lockfile`，安装 dependency-cruiser 并提交真实生成的完整锁文件；当前新增依赖尚未锁定，frozen install 不可用。
+- [ ] 运行旧版本检查与 `pnpm lint:boundaries`，逐项解释差异，实测 Worker query、SDK type-only React 与 builtin 跨插件隔离规则。
+- [ ] 运行 `pnpm lint:boundaries:test` 完整负例验收与 CI。Biome、AST 及显式跳过 dependency-cruiser 的负例已通过，不能代替完整验收。
 
 ## 管理 UI 统一
 
