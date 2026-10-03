@@ -578,6 +578,7 @@ export type ThemePartNameV0 = (typeof THEME_PART_NAMES_V0)[number];
  * or small size therefore requires the large one to be defined too.
  */
 export const THEME_SURFACE_NAMES_V0 = [
+	"appRoot",
 	"titleBar",
 	"ribbonBar",
 	"dropdownMenu",

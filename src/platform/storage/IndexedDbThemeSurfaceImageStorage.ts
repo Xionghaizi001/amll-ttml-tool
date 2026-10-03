@@ -1,27 +1,34 @@
-import { type IDBPDatabase, openDB } from "idb";
+import {
+	type ExtensionDatabaseProvider,
+	openPluginDatabase,
+} from "./plugin-database";
 import type { ThemeSurfaceNameV0 } from "@amll-ttml-tool/plugin-api";
 
-const DATABASE = "amll-theme-surfaces";
-const STORE = "surface-image";
+const STORE = "theme-assets";
 
 export interface ThemeSurfaceImageRecord {
 	surface: ThemeSurfaceNameV0;
 	blob: Blob;
-	/** Readability overlay confirmed when the image was chosen. */
+	/** User-selected overlay color and opacity. */
 	scrim?: string;
+	opacity?: number;
 	updatedAt: number;
 }
 
 /** Per-surface background image blobs picked by the user. */
 export class IndexedDbThemeSurfaceImageStorage {
-	private database?: Promise<IDBPDatabase>;
+	constructor(
+		private readonly getDatabase: ExtensionDatabaseProvider = openPluginDatabase,
+	) {}
 
 	async readAll(): Promise<ThemeSurfaceImageRecord[]> {
 		try {
 			const records = (await (
 				await this.getDatabase()
 			).getAll(STORE)) as ThemeSurfaceImageRecord[];
-			return records.filter((record) => record.blob instanceof Blob);
+			return records.filter(
+				(record) => record.blob instanceof Blob && !("themeId" in record),
+			);
 		} catch (error) {
 			console.warn("Theme surface image read failed", error);
 			return [];
@@ -32,12 +39,14 @@ export class IndexedDbThemeSurfaceImageStorage {
 		surface: ThemeSurfaceNameV0,
 		blob: Blob,
 		scrim: string | undefined,
+		opacity?: number,
 	): Promise<void> {
 		try {
 			await (await this.getDatabase()).put(STORE, {
 				surface,
 				blob,
 				scrim,
+				opacity,
 				updatedAt: Date.now(),
 			} satisfies ThemeSurfaceImageRecord);
 		} catch (error) {
@@ -51,24 +60,5 @@ export class IndexedDbThemeSurfaceImageStorage {
 		} catch (error) {
 			console.warn("Theme surface image delete failed", error);
 		}
-	}
-
-	private getDatabase(): Promise<IDBPDatabase> {
-		// A rejected open must not be cached for the rest of the session; a
-		// transient failure should retry on the next call, and a terminated
-		// connection reopens the same way.
-		this.database ??= openDB(DATABASE, 1, {
-			upgrade(database) {
-				if (!database.objectStoreNames.contains(STORE))
-					database.createObjectStore(STORE, { keyPath: "surface" });
-			},
-			terminated: () => {
-				this.database = undefined;
-			},
-		}).catch((error) => {
-			this.database = undefined;
-			throw error;
-		});
-		return this.database;
 	}
 }

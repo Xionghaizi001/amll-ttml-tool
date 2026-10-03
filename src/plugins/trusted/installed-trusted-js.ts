@@ -9,6 +9,7 @@ export interface TrustedJsPackageStorage {
 	loadAll(): Promise<StoredTrustedJsRecord[]>;
 	save(record: StoredTrustedJsRecord): Promise<void>;
 	remove(id: string): Promise<void>;
+	uninstall?(id: string): Promise<void>;
 }
 
 export const digestTrustedJsPackage = async (
@@ -151,8 +152,11 @@ export class InstalledTrustedJsService<THost> {
 	uninstall(id: string): Promise<void> {
 		const operation = this.queue.then(async () => {
 			await this.runtime.unload(id);
-			await this.storage.remove(id);
-			await this.clearKv(id);
+			if (this.storage.uninstall) await this.storage.uninstall(id);
+			else {
+				await this.storage.remove(id);
+				await this.clearKv(id);
+			}
 			this.runtime.forget(id);
 			this.records.delete(id);
 			this.emit();

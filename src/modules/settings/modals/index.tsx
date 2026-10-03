@@ -21,7 +21,7 @@ import { SettingsPersonalizationTab } from "./personalization";
 import { SettingsPluginsTab } from "./plugins";
 import styles from "./SettingsDialog.module.css";
 
-type SettingsSubpage = "customBackground" | "customPalette";
+type SettingsSubpage = "customPalette";
 
 const subscribeContributions = (listener: () => void) => {
 	const disposable = extensionRegistry.contributions.subscribe(listener);
@@ -121,11 +121,9 @@ export const SettingsDialog = memo(() => {
 	const activeTabTitle = activeTabConfig.label;
 	const subpageTitle =
 		activeTab === "personalization"
-			? activeSubpage === "customBackground"
-				? t("settings.common.customBackground", "自定义背景")
-				: activeSubpage === "customPalette"
-					? t("settings.spectrogram.customPaletteTitle", "自定义频谱图配色")
-					: null
+			? activeSubpage === "customPalette"
+				? t("settings.spectrogram.customPaletteTitle", "自定义频谱图配色")
+				: null
 			: null;
 	const onSubpageChange = (nextSubpage: SettingsSubpage | null) => {
 		setActiveSubpage(nextSubpage);

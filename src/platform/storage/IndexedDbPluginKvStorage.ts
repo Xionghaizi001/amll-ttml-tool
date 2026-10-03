@@ -1,8 +1,11 @@
-import { type IDBPDatabase, openDB } from "idb";
+import {
+	type ExtensionDatabaseProvider,
+	openPluginDatabase,
+	pluginNamespaceRange,
+} from "./plugin-database";
 import type { JsonValue } from "@amll-ttml-tool/plugin-api";
 
-const DATABASE = "amll-plugin-kv";
-const STORE = "kv";
+const STORE = "plugin-kv";
 
 interface PluginKvRecord {
 	pluginId: string;
@@ -11,24 +14,21 @@ interface PluginKvRecord {
 	updatedAt: number;
 }
 
-const namespaceRange = (pluginId: string): IDBKeyRange =>
-	// Composite keys sort arrays after strings, so [pluginId, []] is an upper
-	// bound covering every string key in the namespace.
-	IDBKeyRange.bound([pluginId, ""], [pluginId, []]);
-
 /**
  * Per-plugin isolated key-value persistence. Quotas are enforced by the
- * worker turn host before changes ever reach this adapter; reads and writes
+ * trusted-js host before changes ever reach this adapter; reads and writes
  * here are namespace-scoped so one plugin can never see another's keys.
  */
 export class IndexedDbPluginKvStorage {
-	private database?: Promise<IDBPDatabase>;
+	constructor(
+		private readonly getDatabase: ExtensionDatabaseProvider = openPluginDatabase,
+	) {}
 
 	async read(pluginId: string): Promise<Record<string, JsonValue>> {
 		try {
 			const records = (await (
 				await this.getDatabase()
-			).getAll(STORE, namespaceRange(pluginId))) as PluginKvRecord[];
+			).getAll(STORE, pluginNamespaceRange(pluginId))) as PluginKvRecord[];
 			return Object.fromEntries(
 				records.map((record) => [record.key, record.value]),
 			);
@@ -64,26 +64,10 @@ export class IndexedDbPluginKvStorage {
 		try {
 			const database = await this.getDatabase();
 			const transaction = database.transaction(STORE, "readwrite");
-			transaction.store.delete(namespaceRange(pluginId));
+			transaction.store.delete(pluginNamespaceRange(pluginId));
 			await transaction.done;
 		} catch (error) {
 			console.warn("Plugin KV clear failed", error);
 		}
-	}
-
-	private getDatabase(): Promise<IDBPDatabase> {
-		this.database ??= openDB(DATABASE, 1, {
-			upgrade(database) {
-				if (!database.objectStoreNames.contains(STORE))
-					database.createObjectStore(STORE, { keyPath: ["pluginId", "key"] });
-			},
-			terminated: () => {
-				this.database = undefined;
-			},
-		}).catch((error) => {
-			this.database = undefined;
-			throw error;
-		});
-		return this.database;
 	}
 }

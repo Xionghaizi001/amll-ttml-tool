@@ -95,6 +95,35 @@ function fixture(
 }
 
 describe("installed trusted-js lifecycle", () => {
+	it("uses the atomic uninstall port and keeps installation state if persistence fails", async () => {
+		const f = fixture();
+		const atomic = vi.fn(async (_id: string) => {
+			throw new Error("transaction aborted");
+		});
+		const service = new InstalledTrustedJsService(
+			{ ...f.storage, uninstall: atomic },
+			f.runtime,
+			f.clearKv,
+		);
+		expect((await service.install(pkg())).ok).toBe(true);
+		const consent = f.runtime.getConsent("test.local");
+		await expect(service.uninstall("test.local")).rejects.toThrow(
+			"transaction aborted",
+		);
+		expect(f.records.has("test.local")).toBe(true);
+		expect(service.list()).toHaveLength(1);
+		expect(f.runtime.getConsent("test.local")).toEqual(consent);
+		expect(f.clearKv).not.toHaveBeenCalled();
+		atomic.mockImplementation(async (id) => {
+			f.records.delete(id);
+		});
+		await service.uninstall("test.local");
+		expect(atomic).toHaveBeenCalledWith("test.local");
+		expect(service.list()).toHaveLength(0);
+		expect(f.states.size).toBe(0);
+		expect(f.clearKv).not.toHaveBeenCalled();
+	});
+
 	it("hot reload preserves release state, reuses session consent and rolls back failed code", async () => {
 		const f = fixture();
 		f.importModule.mockImplementation(async () => ({

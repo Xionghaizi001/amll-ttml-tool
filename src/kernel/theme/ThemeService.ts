@@ -46,6 +46,7 @@ export class ThemeService {
 	private safeMode = false;
 	private safeModeReason: SafeModeReason = null;
 	private userTokens: ThemeTokensV0 | null = null;
+	private userSurfaceImageResetVersion = 0;
 	private userSurfaceImages = new Map<ThemeSurfaceNameV0, UserSurfaceImage>();
 	private assetUrls: string[] = [];
 	private initialized = false;
@@ -233,6 +234,7 @@ export class ThemeService {
 						this.activeThemeTokens()?.color?.accent) !== undefined,
 				activeSurfaces: this.effectiveSurfaceNames(this.userSurfaceImages),
 				userSurfaceImages: this.getUserSurfaceImages(),
+				userSurfaceImageResetVersion: this.userSurfaceImageResetVersion,
 			};
 		return this.stateSnapshot;
 	}
@@ -276,6 +278,7 @@ export class ThemeService {
 		this.activeThemeId = null;
 		this.pendingActiveId = null;
 		this.userTokens = null;
+		this.userSurfaceImageResetVersion += 1;
 		this.userSurfaceImages = new Map();
 		this.ports.storage.remove(STORAGE_KEYS.active);
 		this.ports.storage.remove(STORAGE_KEYS.userTokens);
@@ -415,6 +418,13 @@ export class ThemeService {
 		if (image !== null) {
 			if (!/^blob:[^"'\\)\s]+$/.test(image.url))
 				return fail("surface images must be local object URLs");
+			if (
+				image.opacity !== undefined &&
+				(!Number.isFinite(image.opacity) ||
+					image.opacity < 0 ||
+					image.opacity > 1)
+			)
+				return fail("opacity must be between 0 and 1");
 			if (image.scrim !== undefined && !isSafeThemeColor(image.scrim))
 				return fail("unsafe scrim color");
 		}
@@ -507,6 +517,7 @@ export class ThemeService {
 			)}`;
 			declarations.push(`${varName}-image: url("${image.url}");`);
 			declarations.push(`${varName}-scrim: ${image.scrim ?? "initial"};`);
+			declarations.push(`${varName}-opacity: ${image.opacity ?? 1};`);
 		}
 		return `:root {\n\t${declarations.join("\n\t")}\n}`;
 	}

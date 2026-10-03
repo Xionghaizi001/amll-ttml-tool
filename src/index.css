@@ -326,3 +326,25 @@ html[data-amll-surface-modal-large]
 	/* 避免 Radix UI 锁定焦点时把 Toast 也加上 pointer-events: none; 吞掉鼠标事件 */
 	pointer-events: auto;
 }
+
+html[data-amll-surface-app-root] [data-slot="app-root"] {
+	isolation: isolate;
+	background: transparent;
+}
+html[data-amll-surface-app-root] [data-slot="app-root"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background-color: var(--attt-surface-app-root, transparent);
+	background-image:
+		linear-gradient(
+			var(--attt-surface-app-root-scrim, transparent),
+			var(--attt-surface-app-root-scrim, transparent)
+		),
+		var(--attt-surface-app-root-image, none);
+	background-size: cover;
+	background-position: center;
+	opacity: var(--attt-surface-app-root-opacity, 1);
+}

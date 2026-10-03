@@ -8,19 +8,3 @@
 	height: 100%;
 	background: var(--attt-app-background, transparent);
 }
-
-.customBackgroundLayer {
-	position: fixed;
-	inset: 0;
-	z-index: 0;
-	pointer-events: none;
-}
-
-.customBackgroundImage {
-	position: absolute;
-	inset: 0;
-	background-size: cover;
-	background-position: center;
-	background-repeat: no-repeat;
-	transform: scale(1.02);
-}

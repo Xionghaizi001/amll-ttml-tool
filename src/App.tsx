@@ -46,15 +46,6 @@ import { SyncKeyBinding } from "./modules/lyric-editor/components/sync-keybindin
 import { AutosaveManager } from "./modules/project/autosave/AutosaveManager.tsx";
 import { GlobalDragOverlay } from "./modules/project/modals/GlobalDragOverlay.tsx";
 import { getTauriStartupOpenedFile } from "./platform/files/TauriStartupFile.ts";
-import {
-	customBackgroundBlurAtom,
-	customBackgroundBrightnessAtom,
-	customBackgroundImageAtom,
-	customBackgroundImageDisposeAtom,
-	customBackgroundImageInitAtom,
-	customBackgroundMaskAtom,
-	customBackgroundOpacityAtom,
-} from "./modules/settings/states/custom-background";
 import { showTouchSyncPanelAtom } from "./modules/settings/states/sync.ts";
 import { ensureFormatCommandsRegistered } from "./plugins/adapters/format-commands.ts";
 import { lyricFileFlow } from "./plugins/adapters/lyric-file-flow-host.ts";
@@ -139,23 +130,12 @@ function EditorApp() {
 	const [toolMode, setToolMode] = useAtom(toolModeAtom);
 	const { activeModeId, activeMode } = useActiveMode(toolMode);
 	const showTouchSyncPanel = useAtomValue(showTouchSyncPanelAtom);
-	const customBackgroundImage = useAtomValue(customBackgroundImageAtom);
-	const customBackgroundOpacity = useAtomValue(customBackgroundOpacityAtom);
-	const customBackgroundMask = useAtomValue(customBackgroundMaskAtom);
-	const customBackgroundBlur = useAtomValue(customBackgroundBlurAtom);
-	const customBackgroundBrightness = useAtomValue(
-		customBackgroundBrightnessAtom,
-	);
 	const [hasBackground, setHasBackground] = useState(false);
 	const effectiveTheme = isDarkTheme ? "dark" : "light";
 	const { checkUpdate, status, update } = useAppUpdate();
 	const hasNotifiedRef = useRef(false);
 	const setSettingsOpen = useSetAtom(settingsDialogAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
-	const initCustomBackgroundImage = useSetAtom(customBackgroundImageInitAtom);
-	const disposeCustomBackgroundImage = useSetAtom(
-		customBackgroundImageDisposeAtom,
-	);
 	const { t } = useTranslation();
 	const store = useStore();
 
@@ -165,11 +145,6 @@ function EditorApp() {
 	useEffect(() => {
 		if (toolMode !== activeModeId) setToolMode(activeModeId);
 	}, [toolMode, activeModeId, setToolMode]);
-
-	useEffect(() => {
-		void initCustomBackgroundImage();
-		return () => disposeCustomBackgroundImage();
-	}, [disposeCustomBackgroundImage, initCustomBackgroundImage]);
 
 	useEffect(() => {
 		if (import.meta.env.TAURI_ENV_PLATFORM) {
@@ -305,22 +280,6 @@ function EditorApp() {
 					// TODO
 				}}
 			>
-				{customBackgroundImage && (
-					<div
-						className={styles.customBackgroundLayer}
-						data-slot="background-layer"
-						aria-hidden="true"
-					>
-						<div
-							className={styles.customBackgroundImage}
-							style={{
-								backgroundImage: `linear-gradient(rgba(0, 0, 0, ${customBackgroundMask}), rgba(0, 0, 0, ${customBackgroundMask})), url(${customBackgroundImage})`,
-								opacity: customBackgroundOpacity,
-								filter: `blur(${customBackgroundBlur}px) brightness(${customBackgroundBrightness})`,
-							}}
-						/>
-					</div>
-				)}
 				<div className={styles.appContent} data-slot="app-root">
 					<ThemeHost />
 					<TrustedJsHost />
@@ -385,7 +344,6 @@ function App() {
 			await win.show();
 		})();
 	}, []);
-
 
 	return <EditorApp />;
 }

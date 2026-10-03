@@ -4,10 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { DarkMode, darkModeAtom } from "$/states/main";
-import {
-	SettingsCustomBackgroundCard,
-	SettingsCustomBackgroundSettings,
-} from "./customBackground";
 import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 import {
 	SettingsSpectrogramCustomPalettePage,
@@ -29,19 +25,15 @@ export const SettingsPersonalizationTab = ({
 	subpage,
 	onSubpageChange,
 }: {
-	subpage: "customBackground" | "customPalette" | null;
-	onSubpageChange: (
-		subpage: "customBackground" | "customPalette" | null,
-	) => void;
+	subpage: "customPalette" | null;
+	onSubpageChange: (subpage: "customPalette" | null) => void;
 }) => {
 	const [darkMode, setDarkMode] = useAtom(darkModeAtom);
 	const { t } = useTranslation();
 	const spectrogramTitle = t("settingsDialog.tab.spectrogram", "频谱图");
 
 	const subpageContent =
-		subpage === "customBackground" ? (
-			<SettingsCustomBackgroundSettings />
-		) : subpage === "customPalette" ? (
+		subpage === "customPalette" ? (
 			<SettingsSpectrogramCustomPalettePage />
 		) : null;
 
@@ -91,10 +83,6 @@ export const SettingsPersonalizationTab = ({
 										</SegmentedControl.Item>
 									</SegmentedControl.Root>
 								}
-							/>
-
-							<SettingsCustomBackgroundCard
-								onOpen={() => onSubpageChange("customBackground")}
 							/>
 						</SettingsGroup>
 

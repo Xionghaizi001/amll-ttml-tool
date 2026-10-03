@@ -143,8 +143,8 @@ flowchart TB
 | 档位 | 信任与隔离 | 能力面 | 生命周期管理 | 当前持久化 |
 | --- | --- | --- | --- | --- |
 | 宿主内置 `builtin` | 与应用同一信任根、同一 JS 上下文 | 内部 scope，可注册核心 mode/format/theme | 宿主启动代码 | 随应用构建 |
-| `trusted-js` | 经准入后视为应用全权；没有安全隔离 | `TrustedJsHostV0`，含 React view、mode、format、匿名 HTTP | `TrustedJsPluginService` + `InstalledTrustedJsService` | IndexedDB `amll-plugins/trusted-js`，运行状态另存 localStorage |
-| theme / `none` | 不执行代码；声明式 token、受限 CSS、本地资源 | `ThemeService` | 注册、预览、激活、安全模式 | IndexedDB `amll-theme-packages`，选择状态另存 key-value storage |
+| `trusted-js` | 经准入后视为应用全权；没有安全隔离 | `TrustedJsHostV0`，含 React view、mode、format、匿名 HTTP | `TrustedJsPluginService` + `InstalledTrustedJsService` | IndexedDB `amll-extensions/trusted-js`，运行状态另存 localStorage |
+| theme / `none` | 不执行代码；声明式 token、受限 CSS、本地资源 | `ThemeService` | 注册、预览、激活、安全模式 | IndexedDB `amll-extensions/theme-packages`，选择状态另存 key-value storage |
 
 ### 6.1 trusted-js
 
@@ -321,11 +321,11 @@ trusted-js 按上述顺序管理生命周期。主题则使用另一套注册/�
 
 | 数据 | 当前位置 | 键 | 备注 |
 | --- | --- | --- | --- |
-| trusted-js manifest、Blob、SHA-256、source | IndexedDB `amll-plugins/trusted-js` | plugin id | `dev` 不写入 |
+| trusted-js manifest、Blob、SHA-256、source | IndexedDB `amll-extensions/trusted-js` | plugin id | `dev` 不写入 |
 | trusted-js consent/crash/pending/disabled | localStorage | plugin id map | 写失败时退化为会话内状态 |
 | factory pin | localStorage | plugin id list | 控制是否回退随应用副本 |
-| 插件 KV | IndexedDB `amll-plugin-kv/kv` | `[pluginId, key]` | 卸载时清除，禁用时保留 |
-| 已安装主题包 | IndexedDB `amll-theme-packages/packages` | theme id | 从旧 localStorage 迁移 |
+| 插件 KV | IndexedDB `amll-extensions/plugin-kv` | `[pluginId, key]` | 卸载时清除，禁用时保留 |
+| 已安装主题包 | IndexedDB `amll-extensions/theme-packages` | theme id | 从旧 localStorage 迁移 |
 | 当前主题、安全模式、用户覆盖 | 同步 key-value storage | 固定设置键 | 与主题包分开 |
 | 插件网络离线开关 | atom storage/localStorage | `amll-plugin-network-offline` | 只约束 host network port |
 
@@ -591,7 +591,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 ### 13.6 trusted-js SDK 合同要点
 
 - 分包 `packages/plugin-sdk-js`（`@amll-ttml-tool/plugin-sdk-js`，`./testing` 子路径导出 `MockTrustedJsHost` 与 `createTrustedJsHostUnderTest`）。不走 pnpm workspace，靠 tsconfig paths 与 Vite/Vitest alias 解析；React 只允许 `import type`。`pnpm plugin:sdk:check` 证明可脱离宿主编译。
-- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
+- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-extensions/plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
 - 宿主共享服务 `src/plugins/adapters/host-services.ts` 接入 trusted-js 宿主，保证事务、revision 冲突、来源标记与 KV 命名空间。`createTrustedJsHost` 为端口注入的纯工厂，可在 Node 中与 `EditorDocumentService` 组成真实宿主。
 - 加载合同：`createHost({ pluginId, scope, signal })` 返回 handle；`activate({ pluginId, host, signal })` 返回 cleanup；unload 顺序固定为 abort → cleanup → host handle dispose → scope dispose；activation 抛错同样 abort 并全清理。
 - 合同测试入口 `runHostContractTests` 由 MockTrustedJsHost 与真实 trusted-js 宿主共用。
@@ -621,3 +621,9 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 | 工厂锁 | `factory-plugins.lock.json` |
 | 当前路线图 | `goal.md` |
 | 架构决策 | `docs/adr/0001-plugin-architecture.md` 至 `0003-kernel-command-contribution.md` |
+
+### 扩展持久化
+
+插件、主题与用户背景共用 `amll-extensions`，仅 `src/platform/storage/plugin-database.ts` 打开连接，负责升级、阻塞关闭、终止与打开失败后的重试。四个 object store 为 `trusted-js`、`plugin-kv`（复合键 `[pluginId, key]`）、`theme-packages` 与 `theme-assets`。历史快照继续使用 `amll-autosave-db`；localStorage 中的授权、启用、factory pin、主题选择与 override 键保持不变。分支未上线，不迁移旧 IndexedDB 库。
+
+主题包资源以 Blob 存入 `theme-assets`，通过 `themeId` 索引关联包；用户 surface 图片以 surface 名为键，不归属于任何主题。全局背景为 `appRoot` surface，设置入口统一到主题设置。卸载 trusted-js 时一个事务删除包与其 KV 范围；卸载主题时一个事务删除包及其资源，保留用户 surface 图片。失败安装的回滚仅删除包，不清空已有 KV。

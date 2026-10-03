@@ -72,7 +72,7 @@ export interface TrustedJsHostPorts {
 	getProjectInfo(): TrustedJsProjectInfoV0;
 	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
 	notify(params: NotifyParams, meta: { pluginId: string }): void;
-	/** The `amll-plugin-kv` namespace store, keyed by plugin id. */
+	/** The `amll-extensions/plugin-kv` namespace store, keyed by plugin id. */
 	kv: TrustedJsKvPort;
 	network: TrustedJsNetworkPort;
 	views: TrustedJsViewPort;
