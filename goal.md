@@ -4,64 +4,28 @@
 
 ## 进度总览
 
-- 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩。
-- 尚未落地：边界检查脚本替换的完整验收、管理 UI 统一、工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、阶段 8/9 完整业务迁移、阶段 10 后端、ADR 并入。
+- 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。
+- 尚未落地：工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、多商店提供者、阶段 8/9 完整业务迁移、阶段 10 后端、ADR 并入。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
 ## 后续实现顺序
 
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
-| 1（并行） | 边界检查脚本替换的完整验收、管理 UI 统一 | 边界配置已实现，尚待安装 dependency-cruiser、补齐锁文件并完成新旧一致性与负例验收；管理 UI 统一依赖“架构调整点”第 1 条统一 installation 模型，须在阶段 8 第二个插件落地前完成 |
-| 2（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
-| 3 | 阶段 8：批量迁移 | 按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移；toolbar/sidebar 渲染器随首个消费者落地 |
-| 4（贯穿） | 开发文档整理 | 随各项实现同步交付；ADR 并入其他文档后删除 |
-| 5 | 阶段 9：定制功能插件化 | SDK、外置模板与插件间关系三项就绪；审阅功能开发可与后端并行 |
-| 6 | 阶段 10：后端实化与发布 | 提供者合同先完成；资格过滤、kill switch、审计须在审阅插件上架前就绪 |
-| 7 | 最终收口 | 全部定制功能通过合同测试后冻结 API v1，完成插件交付后退役定制版分支 |
+| 1（并行） | 商店提供者 → 插件依赖 → 主题作用域/局部覆盖 | 提供者依赖本地安装；跨提供者依赖解析依赖聚合目录；依赖协议须先于需要共享的迁移插件，主题/覆盖不阻塞无关迁移 |
+| 2 | 阶段 8：批量迁移 | 按辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务迁移；toolbar/sidebar 渲染器随首个消费者落地 |
+| 3（贯穿） | 开发文档整理 | 随各项实现同步交付；ADR 并入其他文档后删除 |
+| 4 | 阶段 9：定制功能插件化 | SDK、外置模板与插件间关系三项就绪；审阅功能开发可与后端并行 |
+| 5 | 阶段 10：后端实化与发布 | 提供者合同先完成；资格过滤、kill switch、审计须在审阅插件上架前就绪 |
+| 6 | 最终收口 | 全部定制功能通过合同测试后冻结 API v1，完成插件交付后退役定制版分支 |
 
-## WASM 档退役与表单裁剪
+## 当前的用户心智模型及稳定性验收要求
 
-决策：extism-wasm 档没有本项目需要的性能收益（负载是小体量歌词文档，Worker 序列化开销大于计算收益），也没有任何已规划的插件必须使用它；其唯一剩余理由“不可信代码沙箱”在“用户对自己的操作负责”的信任模型下不成立。退役后功能插件只有 `trusted-js` 一个运行档，主题保持 `none`。
-
-### 退役范围
-
-- [x] 运行时：删除 `src/plugins/runtime/`（Extism、Worker、回合宿主、协议、WASI 检测）、`src/plugins/adapters/wasm-plugin-service.ts` 及其端口，`@extism/extism` 依赖随之移除。
-- [x] 协议：删除 `HostCallV0`/`HostResponseV0`/`PluginReturnV0`/`PluginCommandOutcomeV0`/`FormatConversionResultV0` 等回合协议类型与 schema、`FunctionPluginPackageV0`（base64 WASM 包）、`PLUGIN_EXPORTS`、`FORM_ROUNDS_PER_INVOCATION_LIMIT_V0`、`EXTISM_WASM_HOST_CAPABILITIES`；`runtime` 枚举只剩 `builtin | trusted-js`。capability 声明保留（用于展示与文档），`HOST_METHOD_CAPABILITY` 运行时校验随 WASM 删除。
-- [x] 表单续体：`plugin_resume_form` 多轮协议随 WASM 删除；trusted-js 的 `ui.showForm` 继续返回 Promise。
-- [x] 分发：catalog `channel` 去掉 `extism-wasm`；商店安装路由、`sample-tools` 示例、`public/plugins/*.wasm`、`examples/plugins/{echo,rust-pdk-echo,csharp-pdk-echo,sample-tools}`、`scripts/build-plugin-pdk.mjs`、`scripts/build-plugin-sample.mjs` 与对应 `pnpm plugin:build:*` 脚本删除；toolkit 的 Rust Extism 模板删除。
-- [x] 持久化：`amll-plugins/packages` store 删除（分支未上线，不写迁移）。
-- [x] UI：设置 → 插件页中的 WASM 安装、JSON 导入、能力授权弹窗（`PluginPermissionDialog`）与 `?plugin-runtime=1` 诊断页删除；管理入口按“架构调整点”第 1 条合并为一个。
-- [x] 测试：`tests/plugins/runtime/**`、WASM 真实宿主合同测试、`MockPluginHost` 中仅服务 WASM 的部分删除；`runHostContractTests` 只保留 MockTrustedJsHost 与真实 trusted-js 宿主两套。
-- [x] 文档：`PLUGIN.md` 第 6.1、11.6 节与三档措辞改为两档；本文“当前安全模型”一节的 WASM 条目删除；开发指南第 5 节删除；验收清单 A 部分删除。
-- [x] 第三方格式插件改经 trusted-js `formats.register` 接入，`lyrics.format` capability 只作声明。
-
-### 保留
-
-`PluginDocumentV0`、`DocumentOpV0`、稳定 ID、revision、单事务与撤销语义；manifest 判别联合与 contribution 声明；表单 schema（按下文裁剪）；主题包与 CSS 校验；容器解包与 SHA-256；ExtensionScope 与 owner 命名空间；trusted-js 崩溃 marker 与计数。
-
-- 验收：`pnpm test`、`pnpm build`、`pnpm lint:boundaries` 通过；time-shift 出厂副本与本地安装路径不变；仓库内不再出现 `extism`、`wasi`、`plugin_resume_form`；`rg -n "extism|amll_host_call" src packages` 无输出。
-
-### 表单裁剪
-
-表单对 trusted-js 同样有价值：只需“向用户要几个参数”的插件不必自建对话框、主题接入、i18n 与校验。裁剪只去掉属于宿主 UI 决策的字段。
-
-- [x] 删除：`FormAnimationV0`（`FORM_ANIMATION_PRESETS_V0`、`FORM_ANIMATION_SPEEDS_V0` 及 schema/field/group/note 上的 `animation`）、`layout: row | column`、`indent`、`width: compact`、`control: stepper`、`FormIconV0` 与 `FORM_FLUENT_ICON_NAMES_V0`（表单内所有 `icon` 字段）；`DeclarativeFormHost` 中对应的动画 class、`prefers-reduced-motion` 分支与图标映射一并删除。标题栏动作与菜单的图标白名单不属于表单，另行评估。
-- [x] 保留：字段类型（text、textarea、number、select、radio、checkbox/switch）、默认值、required 与范围/长度/pattern 校验、选项列表与禁用项、`group`（保留递归）、`note`、`visibleWhen`、自定义 footer 动作、宿主尺寸；提交前 sanitize 与体积上限不变。
-- [x] 主题接入：当前 `DeclarativeFormHost` 只继承 Radix 强调色与明暗，未标记 `data-amll-modal-size`，主题 surfaces 与主题 CSS 均无法命中表单对话框。裁剪时补：对话框加 `data-amll-modal-size="medium"`，表单根加一个 slot（如 `plugin-form`，纳入 `THEME_SLOT_NAMES_V0`），字段容器加 `data-part`；表单仍不属于任何插件作用域。
-- 验收：time-shift 表单与 SDK Mock 合同测试通过；主题 surfaces 对表单对话框生效；schema 生成文档不再包含被删字段。
-
-## 当前安全模型的冗余项与降级项
-
-定位：用户对自己的操作负主要责任，程序只保证稳定性与平台内的基本安全性。trusted-js 按应用级代码处理，consent 负责告知与授权，不承诺代码沙箱；只有随应用构建的 factory 模块免 consent，所有远程 trusted-js（含第一方更新）均须用户授权。后续机制按以下职责评审。
-
-### 必须保留的稳定性与平台边界
+定位：用户对自己的操作负主要责任，程序只保证稳定性。trusted-js 按应用级代码处理，consent 负责告知与授权，不承诺代码沙箱；只有随应用构建的 factory 模块免 consent，所有远程 trusted-js（含第一方更新）均须用户授权。后续机制按以下职责评审。
 
 - manifest、协议、表单、主题 CSS、ZIP 路径和解压大小校验，避免损坏、卡死、资源耗尽与 UI 失控。
 - trusted-js 的 consent、来源与风险展示、scope 清理和崩溃恢复；SDK capability 声明只用于文档、兼容性及提示，不能宣称可隔离任意 trusted-js 代码。
 - 宿主凭据不进入插件存储、文档投影或公开 API，业务 API 在服务端鉴权。trusted-js 可借宿主能力操作用户数据及以当前登录身份调用 API；不向插件提供凭据原文是接口约束，不是同一 JS 环境内的强隔离承诺。
-
-### 降级为完整性、兼容性、恢复与运营措施
 
 - SHA-256、内容寻址与 artifact 字节一致性用于完整性、缓存、回退和可复现构建，不作为发布者身份认证或代码安全边界。
 - 同源脚本、CDN 反向代理、immutable 缓存和 catalog `no-store` 用于部署与更新一致性；同源不等于可信。
@@ -69,7 +33,7 @@
 - crash marker、自动禁用与主题安全模式只负责恢复和可用性；依赖闭包、批次回滚和失败隔离只负责安装一致性与兼容性，不传递权限。
 - 资格过滤、kill switch 与必要操作记录用于运营和事故响应，发布溯源复用现有代码托管与 CI 记录。运营上可以不公开部分代码；代码公开后用户可修改源码自行运行，业务权限始终由服务端控制。
 
-本次复核删除的冗余规划已从后续任务与历史决策中移除，不保留延后待办。新增安全机制须说明它如何防止插件故障或平台越界；仅增加高级攻击者成本的治理机制不列入本路线图。
+新增安全机制须说明它如何防止插件故障或平台越界；仅增加高级攻击者成本的治理机制不列入本路线图。
 
 ## 目标结构
 
@@ -112,26 +76,6 @@ amll-ttml-tool-plugin-<name>/      # 外置插件，各自独立仓库，CI 产�
 - [ ] 平台补测：桌面 WebView 与跨平台 ZIP 可复现性。阶段 8 新插件直接沿用外置模板；有依赖关系的迁移须等待依赖协议。
 
 v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确插件版本，升级、回退与离线出厂副本原则不变。验收见 `docs/plugin-acceptance-checklist.md`。
-
-## 边界检查脚本替换（完整验收待完成）
-
-分层规则已迁到 `.dependency-cruiser.cjs`，全局与受限导入规则由 Biome overrides 承载；旧自研解析器已删除。`scripts/check-command-menus.mjs` 保留不足 100 行的 Babel AST 规则，处理菜单回调、文档单写入口、禁止 TSX 与 Object URL 生命周期；`scripts/lint-boundaries.mjs` 只选择实际存在的目录并顺序调用工具。规则合同见 `PLUGIN.md` 第 13.1 节。
-
-- [ ] 在可联网环境运行 `pnpm install --no-frozen-lockfile`，安装 dependency-cruiser 并提交真实生成的完整锁文件；当前新增依赖尚未锁定，frozen install 不可用。
-- [x] 运行旧版本检查与 `pnpm lint:boundaries`，逐项解释差异，实测 Worker query、SDK type-only React 与 builtin 跨插件隔离规则。
-- [ ] 运行 `pnpm lint:boundaries:test` 完整负例验收与 CI。Biome、AST 及显式跳过 dependency-cruiser 的负例已通过，不能代替完整验收。
-
-## 管理 UI 统一
-
-当前插件与主题的管理入口有三处：设置 → 插件（插件商店管理入口、插件网络离线开关、开发模式目录加载与热重载）、工具 → 插件商店（catalog 货架、JS 插件管理、桌面端远程 JS 开关、导入插件包）、设置 → 主题（主题安装、预览、应用、用户 override）。插件与主题仍由不同服务管理。前置：“架构调整点”第 1 条统一 installation 模型（提供单一列表数据源）。
-
-- [x] 统一为一个“扩展”入口（设置内一页或独立对话框，二选一后不再并存），三个区块：已安装（trusted-js 与主题混排，按 kind 徽章区分，行内启停/卸载/回退出厂/重新授权/查看来源摘要）、商店（现有 catalog 货架与更新提示）、开发（目录加载、热重载、立即重载，仅支持 File System Access 的环境显示）。
-- [ ] 主题的预览/应用/恢复默认与用户 override 编辑器保留在主题设置页，但主题包的安装、更新与卸载移入“扩展”已安装列表；主题页只负责“选哪个、怎么调”。
-- [ ] 列表数据源只读 `PluginInstallation` 统一模型，运行态细节（crash 计数、consent 状态、factory shadow）由各 service 以附加字段提供，UI 不再分别订阅功能插件与主题的 service。
-- [ ] 合并设置页与工具菜单的插件管理入口；桌面端远程 JS 开关按评估结论删除（consent 文案保留 desktop 措辞）。插件网络离线开关的去留随阶段 8 网络服务迁移决定：宿主网络调用迁入同一端口则保留在“扩展”页，否则删除。
-- [ ] 受保护区域不变：新入口的 Content 继续标记 `data-amll-protected`，portal 到 body。
-- 验收：一个入口完成安装、启停、更新、回退、卸载、开发加载全流程；`plugins.tsx` 与 `PluginStoreDialog.tsx` 合并后总行数明显低于现有 1157 行；主题包的安装/卸载在“扩展”页完成后主题页立即反映。
-
 
 ## 商店提供者抽象与自托管（阶段 10 前置）
 
@@ -313,26 +257,7 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 
 ## 架构调整点（未决）
 
-以下不是已实现设计，而是基于 trusted-js 与主题现状仍需评估的决策点。
-
-### 1 统一 installation 领域模型
-
-当前 trusted-js 与主题各自定义来源、状态、安装记录和摘要字段。可以考虑建立宿主内部统一模型：
-
-```ts
-interface PluginInstallation {
-  id: string;
-  kind: "function" | "theme";
-  runtime: "builtin" | "trusted-js" | "none";
-  version: string;
-  source: PluginSource;
-  artifact?: ArtifactIdentity;
-  enabled: boolean;
-  installedAt?: number;
-}
-```
-
-该模型只统一目录和管理语义，不应强迫功能插件与主题共用不适合的载荷字段。管理入口的合并计划见“管理 UI 统一”一节，本条是其数据源前置。
+统一 installation 目录已落地，现状见 `PLUGIN.md`。以下是基于 trusted-js 与主题现状仍需评估的决策点。
 
 ### 2 统一生命周期状态机
 
@@ -426,3 +351,6 @@ trusted-js 主要使用 warn/crash 状态，主题有自己的 safe-mode 记录�
 - theme 货架 zip 路径已实现但 CI catalog 暂未发布主题条目。
 - `document.undo/redo` 与 `selection.changed` 事件类型已定义但暂未派发；`minAppVersion` 客户端未强制（静态薄片由 CI 保证，后端实化时启用）。
 - 浏览器文件选择器取消时 Promise 不 resolve（与旧行为一致）；Ctrl+O 的音频路径依赖 `HostOpenedFile.asFile`。
+
+- 插件网络离线开关的最终去留随阶段 8 网络服务迁移决定：宿主网络调用迁入同一端口则保留，否则删除。
+- 旧主题安装记录尚未持久化提供者、摘要及安装时间，统一目录显示来源未记录；多商店提供者落地时同步补齐。

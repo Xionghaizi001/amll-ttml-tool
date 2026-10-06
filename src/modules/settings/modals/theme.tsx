@@ -3,7 +3,6 @@ import {
 	Checkmark16Filled,
 	Color24Regular,
 	Image24Regular,
-	PaintBrush24Regular,
 	ShieldTask24Regular,
 } from "@fluentui/react-icons";
 import {
@@ -109,18 +108,6 @@ const ThemeListRow = ({
 							? t("settings.theme.active", "使用中")
 							: t("settings.theme.apply", "应用")}
 					</Button>
-					{source === "installed" && (
-						<Button
-							variant="soft"
-							color="red"
-							size="1"
-							onClick={() =>
-								id !== null && themeService.removeInstalledTheme(id)
-							}
-						>
-							{t("settings.theme.remove", "移除")}
-						</Button>
-					)}
 				</Flex>
 			}
 		/>
@@ -517,34 +504,7 @@ const UserTokenOverrideEditor = () => {
 export const SettingsThemeSection = () => {
 	const { t } = useTranslation();
 	const state = useThemeState();
-	const fileInputRef = useRef<HTMLInputElement>(null);
 	const themes = themeService.listThemes();
-
-	const onImportFile = async (file: File) => {
-		try {
-			const parsed: unknown = JSON.parse(await file.text());
-			const result = themeService.importThemePackage(parsed);
-			if (result.ok)
-				toast.success(
-					t("settings.theme.importSuccess", "已导入主题 {name}", {
-						name: result.value.manifest.name,
-					}),
-				);
-			else
-				toast.error(
-					t("settings.theme.importInvalid", "主题包未通过校验：{issues}", {
-						issues: result.issues
-							.slice(0, 3)
-							.map((issue) => `${issue.path}: ${issue.message}`)
-							.join("; "),
-					}),
-				);
-		} catch {
-			toast.error(
-				t("settings.theme.importParseError", "主题包不是有效的 JSON 文件"),
-			);
-		}
-	};
 
 	return (
 		<SettingsGroup title={t("settings.theme.title", "主题")}>
@@ -578,36 +538,6 @@ export const SettingsThemeSection = () => {
 					source={theme.source}
 				/>
 			))}
-			<SettingsRow
-				icon={<PaintBrush24Regular />}
-				title={t("settings.theme.import", "导入主题包")}
-				description={t(
-					"settings.theme.importDesc",
-					"从 JSON 文件导入声明式主题包；主题只包含设计 token 与受限 CSS，不包含可执行代码。",
-				)}
-				action={
-					<>
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept=".json,application/json"
-							style={{ display: "none" }}
-							onChange={(event) => {
-								const file = event.target.files?.[0];
-								event.target.value = "";
-								if (file) void onImportFile(file);
-							}}
-						/>
-						<Button
-							variant="soft"
-							size="1"
-							onClick={() => fileInputRef.current?.click()}
-						>
-							{t("settings.theme.importButton", "选择文件")}
-						</Button>
-					</>
-				}
-			/>
 			<SettingsRow
 				icon={<ShieldTask24Regular />}
 				title={t("settings.theme.safeMode", "主题安全模式")}

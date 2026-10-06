@@ -2,6 +2,14 @@ import type { RemotePluginCatalogEntryV0 } from "@amll-ttml-tool/plugin-api";
 import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
 import semverGt from "semver/functions/gt";
 import semverValid from "semver/functions/valid";
+import type { ThemeServiceState, ThemeSummary } from "$/kernel/theme/types";
+import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
+import {
+	TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD,
+	type TrustedJsPluginEntry,
+	type TrustedJsPluginStateRecord,
+	type TrustedJsPluginSummary,
+} from "../trusted/trusted-js-service";
 import {
 	type PluginContainerKind,
 	unpackPluginContainer,
@@ -122,3 +130,211 @@ export const isStoreUpdateAvailable = (
 	semverValid(catalogVersion) !== null &&
 	semverValid(installedVersion) !== null &&
 	semverGt(catalogVersion, installedVersion);
+
+export type PluginSource = "builtin" | "user" | "store" | "dev" | "unknown";
+export interface ArtifactIdentity {
+	sha256: string;
+}
+/** Host management projection. Runtime payloads remain owned by their services. */
+export interface PluginInstallation {
+	id: string;
+	kind: "function" | "theme";
+	runtime: "builtin" | "trusted-js" | "none";
+	name: string;
+	description?: string;
+	version: string;
+	source: PluginSource;
+	artifact?: ArtifactIdentity;
+	enabled: boolean;
+	installedAt?: number;
+	trustedJs?: {
+		loaded: boolean;
+		bundled: boolean;
+		firstParty: boolean;
+		status: "active" | "installed" | "disabled" | "crash-disabled";
+		state: TrustedJsPluginStateRecord | null;
+		hasInstalledPackage: boolean;
+		hasFactory: boolean;
+		pinnedToFactory: boolean;
+		installedPackage?: {
+			version: string;
+			source: PluginSource;
+			artifact: ArtifactIdentity;
+			installedAt: number;
+		};
+	};
+	theme?: {
+		active: boolean;
+		preview: boolean;
+		safeMode: boolean;
+		appearance: ThemeSummary["appearance"];
+	};
+}
+export interface InstallationPorts {
+	factory(): readonly TrustedJsPluginEntry[];
+	installed(): readonly StoredTrustedJsRecord[];
+	loaded(): readonly TrustedJsPluginSummary[];
+	/** Loaded payload identity distinguishes equal-version sources. */
+	entry?(id: string): TrustedJsPluginEntry | undefined;
+	/** Only catalog modules with an existing loader state belong in the directory. */
+	catalog?(): readonly RemotePluginCatalogEntryV0[];
+	state(id: string): TrustedJsPluginStateRecord | null;
+	pinned(id: string): boolean;
+	themes(): readonly ThemeSummary[];
+	themeState(): ThemeServiceState;
+	subscribe(listener: () => void): () => void;
+	setEnabled(
+		kind: PluginInstallation["kind"],
+		id: string,
+		enabled: boolean,
+	): Promise<void>;
+	uninstall(kind: PluginInstallation["kind"], id: string): Promise<void>;
+	revertToFactory(id: string): Promise<void>;
+	reauthorize(id: string): Promise<void>;
+}
+/** Single directory and subscription, with separate runtime and theme semantics. */
+export class PluginInstallationService {
+	private readonly knownLoaded = new Map<string, TrustedJsPluginSummary>();
+	constructor(private readonly ports: InstallationPorts) {}
+	list = (): PluginInstallation[] => {
+		const factory = new Map(
+			this.ports.factory().map((entry) => [entry.id, entry]),
+		);
+		const installed = new Map(
+			this.ports.installed().map((record) => [record.id, record]),
+		);
+		const loaded = new Map(
+			this.ports.loaded().map((entry) => [entry.id, entry]),
+		);
+		for (const entry of loaded.values()) this.knownLoaded.set(entry.id, entry);
+		const remote = new Map(
+			(this.ports.catalog?.() ?? [])
+				.filter(
+					(entry) =>
+						entry.channel === "trusted-js" &&
+						!/\.(zip|json)$/i.test(entry.entry) &&
+						this.ports.state(entry.id) !== null,
+				)
+				.map((entry) => [entry.id, entry]),
+		);
+		// Disabled catalog modules have no persisted package, but remain manageable.
+		for (const id of this.knownLoaded.keys()) {
+			if (!loaded.has(id) && this.ports.state(id) === null)
+				this.knownLoaded.delete(id);
+		}
+		const ids = new Set([
+			...factory.keys(),
+			...installed.keys(),
+			...loaded.keys(),
+			...remote.keys(),
+			...this.knownLoaded.keys(),
+		]);
+		const functions: PluginInstallation[] = [...ids].map((id) => {
+			const bundledEntry = factory.get(id);
+			const record = installed.get(id);
+			const live = loaded.get(id);
+			const liveEntry = this.ports.entry?.(id);
+			const pinned = this.ports.pinned(id);
+			const bundled =
+				live?.bundled ?? Boolean(bundledEntry && (pinned || !record));
+			const entry =
+				live ??
+				(bundled ? bundledEntry : record?.manifest) ??
+				bundledEntry ??
+				record?.manifest ??
+				remote.get(id) ??
+				this.knownLoaded.get(id);
+			if (!entry) throw new Error(`Missing installation metadata: ${id}`);
+			const selectedRecord =
+				!bundled &&
+				record &&
+				(!live ||
+					(live.version === record.manifest.version &&
+						(!this.ports.entry || liveEntry?.moduleBlob === record.code)))
+					? record
+					: undefined;
+			const state = this.ports.state(id);
+			const crashDisabled =
+				(state?.crashes ?? 0) >= TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD;
+			return {
+				id,
+				kind: "function",
+				runtime: "trusted-js",
+				name: entry.name,
+				description:
+					liveEntry?.description ??
+					(bundled
+						? bundledEntry?.description
+						: selectedRecord?.manifest.description) ??
+					remote.get(id)?.description,
+				version: entry.version,
+				source: bundled ? "builtin" : (selectedRecord?.source ?? "store"),
+				artifact: selectedRecord
+					? { sha256: selectedRecord.sha256 }
+					: undefined,
+				installedAt: selectedRecord?.installedAt,
+				enabled: !state?.disabled && !crashDisabled,
+				trustedJs: {
+					loaded: Boolean(live),
+					bundled,
+					firstParty:
+						live?.firstParty ??
+						(bundled
+							? bundledEntry?.firstParty === true
+							: remote.get(id)?.firstParty === true),
+					status: live
+						? "active"
+						: crashDisabled
+							? "crash-disabled"
+							: state?.disabled
+								? "disabled"
+								: "installed",
+					state,
+					hasInstalledPackage: Boolean(record),
+					hasFactory: Boolean(bundledEntry),
+					pinnedToFactory: pinned,
+					installedPackage: record
+						? {
+								version: record.manifest.version,
+								source: record.source,
+								artifact: { sha256: record.sha256 },
+								installedAt: record.installedAt,
+							}
+						: undefined,
+				},
+			};
+		});
+		const state = this.ports.themeState();
+		return [
+			...functions,
+			...this.ports.themes().map(
+				(theme): PluginInstallation => ({
+					id: theme.id,
+					kind: "theme",
+					runtime: "none",
+					name: theme.name,
+					description: theme.description,
+					version: theme.version,
+					source: theme.source === "builtin" ? "builtin" : "unknown",
+					enabled: state.activeThemeId === theme.id && !state.safeMode,
+					theme: {
+						active: state.activeThemeId === theme.id,
+						preview: state.previewThemeId === theme.id,
+						safeMode: state.safeMode,
+						appearance: theme.appearance,
+					},
+				}),
+			),
+		];
+	};
+	subscribe = (listener: () => void) => this.ports.subscribe(listener);
+	setEnabled = (
+		kind: PluginInstallation["kind"],
+		id: string,
+		enabled: boolean,
+	) => this.ports.setEnabled(kind, id, enabled);
+	uninstall = (kind: PluginInstallation["kind"], id: string) =>
+		this.ports.uninstall(kind, id);
+	revertToFactory = (id: string) => this.ports.revertToFactory(id);
+	reauthorize = (id: string) => this.ports.reauthorize(id);
+}

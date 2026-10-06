@@ -9,7 +9,6 @@ import {
 	cmdDistributeRomanization,
 	cmdOpenAdvancedSegmentation,
 	cmdOpenLatencyTest,
-	cmdOpenPluginStore,
 	cmdOpenSyllableSmoothing,
 	cmdRubySegment,
 	cmdSyncLineTimestamps,
@@ -71,10 +70,6 @@ const ToolMenuItems = () => {
 			</CommandMenuItem>
 			<CommandMenuItem commandId={cmdOpenLatencyTest.id}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
-			</CommandMenuItem>
-			<DropdownMenu.Separator />
-			<CommandMenuItem commandId={cmdOpenPluginStore.id}>
-				{t("topBar.menu.pluginStore", "插件商店...")}
 			</CommandMenuItem>
 			<ContributionMenuItems location="menu.tool" withLeadingSeparator />
 		</>

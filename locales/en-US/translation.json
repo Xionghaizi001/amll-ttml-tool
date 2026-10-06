@@ -724,5 +724,41 @@
 		"mergeSyllables": "Merge Syllables",
 		"mergeSyllablesHint": "Produces Apple Music-like lyrics where CJK characters are merged together, but not suitable for regular use.",
 		"description": "Smooth the timeline for CJK syllables.\nDoes not smooth syllables from other languages."
+	},
+	"pluginStore": {
+		"title": "Plugin manager",
+		"back": "Back to preferences",
+		"available": "Available plugins",
+		"installedTitle": "Installed",
+		"settingsTitle": "Plugin settings",
+		"filterKind": "Extension type",
+		"filterLocation": "Extension source",
+		"all": "All",
+		"plugins": "Plugins",
+		"themes": "Themes",
+		"online": "Online",
+		"local": "Local",
+		"importZip": "Import plugin package (ZIP)",
+		"zipOnly": "Choose a ZIP plugin package",
+		"uninstall": "Uninstall",
+		"reauthorize": "Authorize again",
+		"enable": "Enable",
+		"status": {
+			"active": "Active",
+			"disabled": "Disabled",
+			"crash-disabled": "Disabled after repeated crashes",
+			"installed": "Installed"
+		},
+		"source": {
+			"builtin": "Factory",
+			"user": "Local import",
+			"store": "Online store",
+			"dev": "Development directory",
+			"unknown": "Source not recorded"
+		},
+		"channel": {
+			"trustedJs": "Plugin",
+			"theme": "Theme"
+		}
 	}
 }

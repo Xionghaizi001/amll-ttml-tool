@@ -65,8 +65,6 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 };
 
 const STATE_STORAGE_KEY = "amll-trusted-js-plugin-state-v0";
-const DESKTOP_TRUST_STORAGE_KEY = "amll-trusted-js-desktop-enabled";
-
 type StateMap = Record<string, TrustedJsPluginStateRecord>;
 
 const readStateMap = (): StateMap => {
@@ -113,22 +111,8 @@ export const getTrustedJsPluginState = (
 
 const isDesktop = (): boolean => Boolean(import.meta.env.TAURI_ENV_PLATFORM);
 
-export const isDesktopTrustedJsEnabled = (): boolean => {
-	try {
-		return localStorage.getItem(DESKTOP_TRUST_STORAGE_KEY) === "1";
-	} catch {
-		return false;
-	}
-};
-
-export const setDesktopTrustedJsEnabled = (enabled: boolean): void => {
-	try {
-		if (enabled) localStorage.setItem(DESKTOP_TRUST_STORAGE_KEY, "1");
-		else localStorage.removeItem(DESKTOP_TRUST_STORAGE_KEY);
-	} catch {
-		// Ignored: without persistence the gate simply stays at its default (off).
-	}
-};
+/** Desktop uses the same per-package consent gate as the browser. */
+export const isDesktopTrustedJsEnabled = (): boolean => true;
 
 /**
  * The shared trusted-js plugin host. Modules are imported straight off the

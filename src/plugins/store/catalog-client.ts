@@ -12,6 +12,16 @@ import { parseRemotePluginCatalog } from "@amll-ttml-tool/plugin-api";
 const CATALOG_PATH = "plugins/catalog.json";
 
 let cached: Promise<RemotePluginCatalogV0 | null> | null = null;
+let snapshot: RemotePluginCatalogV0 | null = null;
+const listeners = new Set<() => void>();
+/** Last validated directory, available without another network request. */
+export const getRemotePluginCatalogSnapshot = () => snapshot;
+export const subscribeRemotePluginCatalog = (listener: () => void) => {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+};
 
 const fetchCatalogOnce = async (): Promise<RemotePluginCatalogV0 | null> => {
 	let response: Response;
@@ -40,6 +50,8 @@ const fetchCatalogOnce = async (): Promise<RemotePluginCatalogV0 | null> => {
 		);
 		return null;
 	}
+	snapshot = parsed.value;
+	for (const listener of listeners) listener();
 	return parsed.value;
 };
 

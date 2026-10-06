@@ -41,7 +41,7 @@
 
 ### trusted-js
 
-用于经过准入的全权 ESM。它已正式实现，不得再按“保留值”或“一律拒绝”处理。非 factory 模块必须在 import 前经过来源、桌面开关、禁用/崩溃状态和 consent 检查。SDK host 负责兼容性、命名空间和资源回收，不构成安全隔离。
+用于经过准入的全权 ESM。它已正式实现，不得再按“保留值”或“一律拒绝”处理。非 factory 模块必须在 import 前经过来源、禁用/崩溃状态和 consent 检查。SDK host 负责兼容性、命名空间和资源回收，不构成安全隔离。
 
 ### theme
 
@@ -74,7 +74,7 @@
 
 ### 修改安装或分发
 
-所有 ZIP/JSON 入口应复用同一链路：容器识别 → 安全解包 → 对应 package parser → 授权/consent → 持久化 → 加载。catalog 中的 trusted-js 裸 ESM 不经过容器，但必须经过 catalog parser、同源解析和唯一的 trusted-js 加载闸门。商店 artifact 还要校验可选 SHA-256 和 catalog/package 身份。不要创建绕过语义校验或加载闸门的“开发快捷路径”。
+底层 ZIP/JSON 容器处理应复用同一链路（用户导入入口只接受 ZIP）：容器识别 → 安全解包 → 对应 package parser → 授权/consent → 持久化 → 加载。catalog 中的 trusted-js 裸 ESM 不经过容器，但必须经过 catalog parser、同源解析和唯一的 trusted-js 加载闸门。商店 artifact 还要校验可选 SHA-256 和 catalog/package 身份。不要创建绕过语义校验或加载闸门的“开发快捷路径”。
 
 ## 5. 不变量检查
 
@@ -134,3 +134,9 @@ pnpm build
 - 未完成的跨平台验证或已知风险
 
 不要用“协议中已有字段”代表功能已接通，也不要用单个 mock 测试代表真实宿主、持久化和卸载路径已经完成。
+
+## 统一管理入口
+
+首选项中的插件管理子页复用设置 Dialog.Content，保留 `data-amll-protected` 和 body portal；返回导航恢复原设置页。工具菜单不再提供商店入口。管理列表只订阅 `pluginInstallationService`，功能与主题 runtime 状态保留在 installation 附加字段，不在 UI 分别订阅两个 service。主题包安装、更新与卸载在管理器完成；主题设置继续负责预览、应用、恢复默认和用户 override。
+
+边界完整负例与合法对照由 `pnpm lint:boundaries:test` 在临时项目快照运行，保持真实配置和路径，不修改源码目录；桌面构建 quality job 必须运行该检查。

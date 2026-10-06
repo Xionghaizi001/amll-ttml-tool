@@ -223,7 +223,7 @@ export const PluginManagerRow = () => {
 	return (
 		<SettingsRow
 			icon={<StoreMicrosoft24Regular />}
-			title={t("pluginStore.title", "插件商店")}
+			title={t("pluginStore.title", "插件管理")}
 			description={t(
 				"plugins.manageHint",
 				"管理已安装插件、浏览商店并配置插件设置",

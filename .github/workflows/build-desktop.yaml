@@ -38,6 +38,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: 检查分层边界
         run: pnpm lint:boundaries
+      - name: 验收分层边界负例与合法对照
+        run: pnpm lint:boundaries:test
       - name: 检查 Plugin API 与生成文档
         run: pnpm plugin:api:check
       - name: 运行协议与应用服务测试

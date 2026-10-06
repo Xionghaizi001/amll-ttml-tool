@@ -724,5 +724,41 @@
 		"mergeSyllables": "合并音节",
 		"mergeSyllablesHint": "可以获得类似 Apple Music 的、把 CJK 合并到一起的歌词，但不适合日常使用",
 		"description": "对 CJK 音节的时间轴进行平滑处理\n不会平滑其他语言的音节"
+	},
+	"pluginStore": {
+		"title": "插件管理",
+		"back": "返回首选项",
+		"available": "可用插件",
+		"installedTitle": "已安装",
+		"settingsTitle": "插件设置",
+		"filterKind": "扩展类型",
+		"filterLocation": "扩展来源",
+		"all": "全部",
+		"plugins": "插件",
+		"themes": "主题",
+		"online": "在线",
+		"local": "本地",
+		"importZip": "导入插件包（ZIP）",
+		"zipOnly": "请选择 ZIP 插件包",
+		"uninstall": "卸载",
+		"reauthorize": "重新授权",
+		"enable": "启用",
+		"status": {
+			"active": "运行中",
+			"disabled": "已禁用",
+			"crash-disabled": "多次崩溃已禁用",
+			"installed": "已安装"
+		},
+		"source": {
+			"builtin": "出厂",
+			"user": "本地导入",
+			"store": "在线商店",
+			"dev": "开发目录",
+			"unknown": "来源未记录"
+		},
+		"channel": {
+			"trustedJs": "插件",
+			"theme": "主题"
+		}
 	}
 }

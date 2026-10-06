@@ -151,7 +151,7 @@ flowchart TB
 **已实现，但它是准入模型，不是沙箱。** 关键规则：
 
 - factory 模块由应用构建产出，跳过来源和 desktop consent 闸门，但仍参与 crash 记账。
-- 非 factory 模块必须通过 API 版本、同源或本地 Blob、桌面开关、用户禁用、崩溃禁用和 consent 检查。
+- 非 factory 模块必须通过 API 版本、同源或本地 Blob、用户禁用、崩溃禁用和 consent 检查。
 - 第三方本地/商店代码以 Blob 持久化，加载时创建 Object URL。
 - 代码内容摘要作为 `consentKey`；同 id 内容变化会重新 consent。摘要只用于内容识别，不代表代码可信。
 - `activate({ pluginId, host, signal })` 可返回 cleanup；停用顺序为 abort → cleanup → host handle dispose → scope dispose → Object URL revoke。
@@ -408,7 +408,7 @@ flowchart LR
 | Artifact 下载 | 远程字节 | catalog 声明 `sha256` 时校验；factory lock 必须匹配精确摘要 | 安装终止，旧版本/factory 保留 | catalog 中 `sha256` 当前不是必填；摘要不是签名 |
 | 容器 | ZIP/JSON | magic bytes、路径、重复项、白名单布局、条目和解压尺寸 | 整包拒绝，不产生部分安装 | manifest 语义和代码行为，交给后续 parser/runtime |
 | Package parser | 未知对象 | JSON Schema、manifest、API 版本、kind/runtime、静态 contribution、主题安全规则 | 返回结构化 issue，拒绝安装/恢复 | 插件业务正确性 |
-| trusted-js 准入 | factory、同源模块或本地 Blob | API 版本、来源路径、desktop 开关、禁用/crash 状态、consent key | import 前拒绝；更新可回退 factory | 代码开始执行后的任何沙箱保证 |
+| trusted-js 准入 | factory、同源模块或本地 Blob | API 版本、来源路径、禁用/crash 状态、consent key | import 前拒绝；更新可回退 factory | 代码开始执行后的任何沙箱保证 |
 | 文档提交 | op batch + revision | schema、稳定 ID、能力、expected revision、单事务 | 全批拒绝，不部分写入 | 用户已经授权的合法但不理想修改 |
 | Contribution | 注册 id 和 owner | owner 命名空间、全局冲突、trusted-only view/mode、数量限制 | 注册抛错，scope 可整体释放 | trusted-js 自己直接操作 DOM |
 | 持久化 | package、状态、KV | plugin id 命名空间、恢复时重新解析 | 各 adapter 语义目前不完全一致 | 跨 store 原子事务；浏览器配额可用性 |
@@ -441,7 +441,7 @@ ZIP entry 必须使用相对正斜杠路径，不能包含空段、`.`、`..`、
 
 trusted-js 的边界全部发生在代码执行之前：
 
-- factory module 与主应用同一构建和信任根，跳过用户 consent 与 desktop remote gate；
+- factory module 与主应用同一构建和信任根，跳过用户 consent；
 - 远程裸模块必须解析到应用 origin 内；
 - 本地/商店 package 经 parser 后保存为 Blob，包内容 SHA-256 作为 consent key，内容变化重新询问；
 - 桌面端非 factory trusted-js 默认关闭；
@@ -629,3 +629,11 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 主题包资源以 Blob 存入 `theme-assets`，通过 `themeId` 索引关联包；用户 surface 图片以 surface 名为键，不归属于任何主题。全局背景为 `appRoot` surface，设置入口统一到主题设置。卸载 trusted-js 时一个事务删除包与其 KV 范围；卸载主题时一个事务删除包及其资源，保留用户 surface 图片。失败安装的回滚仅删除包，不清空已有 KV。
 
 用户选图立即应用固定默认遮罩（浅色白色 35%、深色黑色 45%）；每个 surface 可手调遮罩，全局 `appRoot` 图片另可调整透明度。用户值与 Blob 持久化于 `theme-assets`，刷新恢复；恢复默认清除图片，不进行图片可读性分析。
+
+### 统一安装目录与管理入口
+
+`src/plugins/store/store-install.ts` 的 `PluginInstallation` 是宿主内部管理投影，分别保留 `kind`、`runtime`、版本、来源、可用 artifact 身份与启用状态。`PluginInstallationService` 聚合 factory、安装记录、运行中功能插件及主题目录，`store-host.ts` 负责单一订阅与启停、卸载、回退出厂、重新授权的接线；两套 runtime 继续各自负责生命周期。factory 当前版本与被遮蔽的安装包身份分开表示，缺少来源元数据的旧主题记录显示“来源未记录”，不推断为本地或商店来源。
+
+管理器位于“首选项 > 插件管理”，与设置共用一个受保护、portal 到 body 的 Dialog.Content，返回按钮恢复原设置页。工具菜单不再提供插件商店入口。“可用插件”左侧用“全部 / 插件 / 主题”过滤种类，右侧用“在线 / 本地”切换 catalog 与安装目录；本地导入入口只选择 ZIP。已安装列表混排功能插件与主题，按种类提供适用操作。主题设置保留预览、应用、恢复默认与 override 编辑，安装、更新和卸载归管理器。
+
+桌面宿主取消远程 JS 总开关，继续使用插件级 consent、来源校验及崩溃恢复；consent 保留桌面环境的能力说明。网络离线开关和开发目录加载保留在插件管理器设置页。完整边界负例和合法对照在临时项目快照运行，桌面构建 quality job 同时执行主边界检查与 `pnpm lint:boundaries:test`。
