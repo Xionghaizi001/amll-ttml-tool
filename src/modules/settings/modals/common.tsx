@@ -52,6 +52,7 @@ import {
 	KeyBindingTriggerMode,
 	keyBindingTriggerModeAtom,
 } from "$/utils/keybindings";
+import { PluginManagerRow } from "./plugins";
 import { SettingsGroup, SettingsRow } from "./SettingsGroup";
 
 const languageOptions: readonly string[] = Object.keys(resources);
@@ -129,6 +130,9 @@ export const SettingsCommonTab = () => {
 
 	return (
 		<Flex direction="column" gap="4">
+			<SettingsGroup title={t("settings.group.extensions", "扩展")}>
+				<PluginManagerRow />
+			</SettingsGroup>
 			<SettingsGroup title={t("settings.group.display", "显示")}>
 				<SettingsRow
 					icon={<LocalLanguage24Regular />}

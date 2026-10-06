@@ -1,22 +1,19 @@
-import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
-import {
-	installedTrustedJsService,
-	uninstallTrustedJsPackage,
-} from "$/plugins/trusted/trusted-js-host";
+import type {
+	RemotePluginCatalogEntryV0,
+	RemotePluginCatalogV0,
+} from "@amll-ttml-tool/plugin-api";
 import {
 	ArrowCounterclockwise24Regular,
 	ArrowSync24Regular,
 	CloudArrowDown24Regular,
 	Javascript24Regular,
 	PaintBrush24Regular,
+	Settings24Regular,
 	ShieldTask24Regular,
 	StoreMicrosoft24Regular,
 } from "@fluentui/react-icons";
-import type {
-	RemotePluginCatalogEntryV0,
-	RemotePluginCatalogV0,
-} from "@amll-ttml-tool/plugin-api";
 import { Badge, Button, Dialog, Flex, Switch, Text } from "@radix-ui/themes";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAtom } from "jotai";
 import {
 	type ReactNode,
@@ -27,6 +24,12 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
+import { PluginSettingsSections } from "$/modules/settings/modals/plugins";
+import styles from "$/modules/settings/modals/SettingsDialog.module.css";
+import {
+	SettingsGroup,
+	SettingsRow,
+} from "$/modules/settings/modals/SettingsGroup";
 import { themeService } from "$/plugins/adapters/theme-host";
 import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
 import { installStoreEntry } from "$/plugins/store/store-host";
@@ -36,18 +39,17 @@ import {
 	applyTrustedJsUpdate,
 	getTrustedJsPluginState,
 	getTrustedJsUpdateStates,
+	installedTrustedJsService,
 	isDesktopTrustedJsEnabled,
 	reloadTrustedJsPlugin,
 	revertTrustedJsToFactory,
 	setDesktopTrustedJsEnabled,
 	trustedJsPluginService,
+	uninstallTrustedJsPackage,
 } from "$/plugins/trusted/trusted-js-host";
 import type { TrustedJsFactoryUpdateState } from "$/plugins/trusted/trusted-js-load-plan";
 import { TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD } from "$/plugins/trusted/trusted-js-service";
-import {
-	SettingsGroup,
-	SettingsRow,
-} from "$/modules/settings/modals/SettingsGroup";
+import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
 import { pluginStoreDialogAtom } from "$/states/dialogs";
 
 const isDesktop = (): boolean => Boolean(import.meta.env.TAURI_ENV_PLATFORM);
@@ -341,6 +343,7 @@ export const PluginStoreDialog = () => {
 		TrustedJsFactoryUpdateState[]
 	>([]);
 	const [busyId, setBusyId] = useState<string | null>(null);
+	const [section, setSection] = useState("available");
 	const [desktopTrust, setDesktopTrust] = useState(isDesktopTrustedJsEnabled);
 	const trustedLoaded = useTrustedJsLoaded();
 	const themes = useThemes();
@@ -496,155 +499,218 @@ export const PluginStoreDialog = () => {
 
 	return (
 		<Dialog.Root open={open} onOpenChange={setOpen}>
-			<Dialog.Content
-				maxWidth="720px"
-				data-amll-protected
-				aria-describedby={undefined}
-			>
-				<Flex align="center" justify="between" mb="4">
-					<Dialog.Title mb="0">
-						<Flex align="center" gap="2">
-							<StoreMicrosoft24Regular />
-							{t("pluginStore.title", "插件商店")}
+			<Dialog.Content className={styles.dialogContent} data-amll-protected>
+				<aside className={styles.sidebar}>
+					<Text as="div" weight="bold" size="2" className={styles.sidebarTitle}>
+						{t("pluginStore.title", "插件管理")}
+					</Text>
+					<nav className={styles.navList}>
+						{[
+							["available", t("pluginStore.available", "可用插件")],
+							["installed", t("pluginStore.installedTitle", "已安装")],
+							["settings", t("pluginStore.settingsTitle", "插件设置")],
+						].map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								className={styles.navItem}
+								data-active={section === value || undefined}
+								onClick={() => setSection(value)}
+							>
+								<Settings24Regular className={styles.navIcon} />
+								<span>{label}</span>
+							</button>
+						))}
+					</nav>
+				</aside>
+				<section className={styles.mainPane}>
+					<header className={styles.header}>
+						<Flex align="center" justify="between">
+							<Dialog.Title mb="0">
+								<Flex align="center" gap="2">
+									<StoreMicrosoft24Regular />
+									{t("pluginStore.title", "插件商店")}
+								</Flex>
+							</Dialog.Title>
+							<Button
+								size="1"
+								variant="ghost"
+								disabled={catalogLoading}
+								onClick={() => void refresh(true)}
+							>
+								<ArrowSync24Regular width="1em" height="1em" />
+								{t("pluginStore.refresh", "刷新")}
+							</Button>
 						</Flex>
-					</Dialog.Title>
-					<Button
-						size="1"
-						variant="ghost"
-						disabled={catalogLoading}
-						onClick={() => void refresh(true)}
-					>
-						<ArrowSync24Regular width="1em" height="1em" />
-						{t("pluginStore.refresh", "刷新")}
-					</Button>
-				</Flex>
-				<Flex direction="column" gap="4">
-					<label>
-						导入插件包（ZIP / JSON）
-						<input
-							type="file"
-							aria-label="导入插件包"
-							accept=".zip,.json"
-							disabled={busyId !== null}
-							onChange={async (event) => {
-								const file = event.currentTarget.files?.[0];
-								event.currentTarget.value = "";
-								if (!file) return;
-								setBusyId("local-import");
-								try {
-									const result = await installLocalPluginFile(file);
-									if (result.ok) toast.success("插件已安装");
-									else if (!("cancelled" in result && result.cancelled))
-										toast.error(result.message);
-									await refresh(false);
-								} catch (error) {
-									toast.error(String(error));
-								} finally {
-									setBusyId(null);
-								}
-							}}
-						/>
-					</label>
-					{catalog === null && !catalogLoading && (
-						<Text size="2" color="gray">
-							{t(
-								"pluginStore.unavailable",
-								"商店目前不可用（离线或清单未发布）。这不影响编辑器和随应用附带的出厂插件。",
-							)}
-						</Text>
-					)}
-					{entries.length > 0 && (
-						<SettingsGroup title={t("pluginStore.catalogTitle", "可用插件")}>
-							{entries.map((entry) => {
-								const trustedUpdate = trustedUpdates.find(
-									(update) => update.id === entry.id,
-								);
-								const live = trustedLoaded.find(
-									(summary) => summary.id === entry.id,
-								);
-								const installedVersion =
-									entry.channel === "theme"
-										? (themes.find((theme) => theme.id === entry.id)?.version ??
-											null)
-										: (installed.find((plugin) => plugin.id === entry.id)
-												?.manifest.version ?? null);
-								return (
-									<CatalogEntryRow
-										key={entry.id}
-										entry={entry}
-										installedVersion={installedVersion}
-										trustedUpdate={trustedUpdate}
-										trustedLive={live}
-										busy={busyId !== null}
-										onAction={(action) => void runAction(entry, action)}
-									/>
-								);
-							})}
-						</SettingsGroup>
-					)}
-					{knownTrustedPlugins.length > 0 && (
-						<SettingsGroup title={t("pluginStore.trustedTitle", "JS 插件管理")}>
-							{knownTrustedPlugins.map((plugin) => (
-								<TrustedJsManagementRow
-									key={plugin.id}
-									id={plugin.id}
-									name={plugin.name}
-									version={plugin.version}
-									bundled={plugin.bundled}
-									live={plugin.live}
-									busy={busyId !== null}
-									onToggle={(enabled) =>
-										void onToggleTrusted(plugin.id, enabled)
-									}
-									onRetry={() => void onRetryTrusted(plugin.id)}
-									sourceInfo={(() => {
-										const record = installed.find((r) => r.id === plugin.id);
-										return record
-											? `${plugin.id} · ${record.source} · SHA-256（包内容，仅供识别）: ${record.sha256}`
-											: undefined;
-									})()}
-									onUninstall={
-										installed.some((r) => r.id === plugin.id)
-											? async () => {
-													setBusyId(plugin.id);
-													try {
-														await uninstallTrustedJsPackage(plugin.id);
-														await refresh(false);
-													} catch (error) {
-														toast.error(String(error));
-													} finally {
-														setBusyId(null);
-													}
-												}
-											: undefined
-									}
-								/>
-							))}
-						</SettingsGroup>
-					)}
-					{isDesktop() && (
-						<SettingsGroup title={t("pluginStore.desktopTitle", "桌面端")}>
-							<SettingsRow
-								icon={<ShieldTask24Regular />}
-								title={t("pluginStore.desktopGate", "允许加载远程 JS 插件")}
-								description={t(
-									"pluginStore.desktopGateHint",
-									"桌面端的 JS 插件除了能以你的身份在应用内行事之外，还可能危害你的系统——请像安装一个软件一样对待。默认关闭；出厂插件不受影响。",
-								)}
-								action={
-									<Switch
-										checked={desktopTrust}
-										onCheckedChange={(checked) => {
-											setDesktopTrustedJsEnabled(checked);
-											setDesktopTrust(checked);
-											void refresh(false);
-										}}
-									/>
-								}
-							/>
-						</SettingsGroup>
-					)}
-				</Flex>
+					</header>
+					<div className={styles.scrollContent}>
+						<AnimatePresence mode="wait" initial={false}>
+							<motion.div
+								key={section}
+								initial={{ opacity: 0, y: 12 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={{ opacity: 0, y: -8 }}
+								transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+							>
+								<Flex direction="column" gap="4">
+									{section === "available" && (
+										<>
+											<label>
+												导入插件包（ZIP / JSON）
+												<input
+													type="file"
+													aria-label="导入插件包"
+													accept=".zip,.json"
+													disabled={busyId !== null}
+													onChange={async (event) => {
+														const file = event.currentTarget.files?.[0];
+														event.currentTarget.value = "";
+														if (!file) return;
+														setBusyId("local-import");
+														try {
+															const result = await installLocalPluginFile(file);
+															if (result.ok) toast.success("插件已安装");
+															else if (
+																!("cancelled" in result && result.cancelled)
+															)
+																toast.error(result.message);
+															await refresh(false);
+														} catch (error) {
+															toast.error(String(error));
+														} finally {
+															setBusyId(null);
+														}
+													}}
+												/>
+											</label>
+											{catalog === null && !catalogLoading && (
+												<Text size="2" color="gray">
+													{t(
+														"pluginStore.unavailable",
+														"商店目前不可用（离线或清单未发布）。这不影响编辑器和随应用附带的出厂插件。",
+													)}
+												</Text>
+											)}
+											{entries.length > 0 && (
+												<SettingsGroup
+													title={t("pluginStore.catalogTitle", "可用插件")}
+												>
+													{entries.map((entry) => {
+														const trustedUpdate = trustedUpdates.find(
+															(update) => update.id === entry.id,
+														);
+														const live = trustedLoaded.find(
+															(summary) => summary.id === entry.id,
+														);
+														const installedVersion =
+															entry.channel === "theme"
+																? (themes.find((theme) => theme.id === entry.id)
+																		?.version ?? null)
+																: (installed.find(
+																		(plugin) => plugin.id === entry.id,
+																	)?.manifest.version ?? null);
+														return (
+															<CatalogEntryRow
+																key={entry.id}
+																entry={entry}
+																installedVersion={installedVersion}
+																trustedUpdate={trustedUpdate}
+																trustedLive={live}
+																busy={busyId !== null}
+																onAction={(action) =>
+																	void runAction(entry, action)
+																}
+															/>
+														);
+													})}
+												</SettingsGroup>
+											)}
+										</>
+									)}
+									{section === "installed" &&
+										knownTrustedPlugins.length > 0 && (
+											<SettingsGroup
+												title={t("pluginStore.trustedTitle", "JS 插件管理")}
+											>
+												{knownTrustedPlugins.map((plugin) => (
+													<TrustedJsManagementRow
+														key={plugin.id}
+														id={plugin.id}
+														name={plugin.name}
+														version={plugin.version}
+														bundled={plugin.bundled}
+														live={plugin.live}
+														busy={busyId !== null}
+														onToggle={(enabled) =>
+															void onToggleTrusted(plugin.id, enabled)
+														}
+														onRetry={() => void onRetryTrusted(plugin.id)}
+														sourceInfo={(() => {
+															const record = installed.find(
+																(r) => r.id === plugin.id,
+															);
+															return record
+																? `${plugin.id} · ${record.source} · SHA-256（包内容，仅供识别）: ${record.sha256}`
+																: undefined;
+														})()}
+														onUninstall={
+															installed.some((r) => r.id === plugin.id)
+																? async () => {
+																		setBusyId(plugin.id);
+																		try {
+																			await uninstallTrustedJsPackage(
+																				plugin.id,
+																			);
+																			await refresh(false);
+																		} catch (error) {
+																			toast.error(String(error));
+																		} finally {
+																			setBusyId(null);
+																		}
+																	}
+																: undefined
+														}
+													/>
+												))}
+											</SettingsGroup>
+										)}
+									{section === "settings" && (
+										<>
+											<PluginSettingsSections />
+											{isDesktop() && (
+												<SettingsGroup
+													title={t("pluginStore.desktopTitle", "桌面端")}
+												>
+													<SettingsRow
+														icon={<ShieldTask24Regular />}
+														title={t(
+															"pluginStore.desktopGate",
+															"允许加载远程 JS 插件",
+														)}
+														description={t(
+															"pluginStore.desktopGateHint",
+															"桌面端的 JS 插件除了能以你的身份在应用内行事之外，还可能危害你的系统——请像安装一个软件一样对待。默认关闭；出厂插件不受影响。",
+														)}
+														action={
+															<Switch
+																checked={desktopTrust}
+																onCheckedChange={(checked) => {
+																	setDesktopTrustedJsEnabled(checked);
+																	setDesktopTrust(checked);
+																	void refresh(false);
+																}}
+															/>
+														}
+													/>
+												</SettingsGroup>
+											)}
+										</>
+									)}
+								</Flex>
+							</motion.div>
+						</AnimatePresence>
+					</div>
+				</section>
 			</Dialog.Content>
 		</Dialog.Root>
 	);

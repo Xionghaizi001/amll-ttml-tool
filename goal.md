@@ -118,14 +118,14 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 分层规则已迁到 `.dependency-cruiser.cjs`，全局与受限导入规则由 Biome overrides 承载；旧自研解析器已删除。`scripts/check-command-menus.mjs` 保留不足 100 行的 Babel AST 规则，处理菜单回调、文档单写入口、禁止 TSX 与 Object URL 生命周期；`scripts/lint-boundaries.mjs` 只选择实际存在的目录并顺序调用工具。规则合同见 `PLUGIN.md` 第 13.1 节。
 
 - [ ] 在可联网环境运行 `pnpm install --no-frozen-lockfile`，安装 dependency-cruiser 并提交真实生成的完整锁文件；当前新增依赖尚未锁定，frozen install 不可用。
-- [ ] 运行旧版本检查与 `pnpm lint:boundaries`，逐项解释差异，实测 Worker query、SDK type-only React 与 builtin 跨插件隔离规则。
+- [x] 运行旧版本检查与 `pnpm lint:boundaries`，逐项解释差异，实测 Worker query、SDK type-only React 与 builtin 跨插件隔离规则。
 - [ ] 运行 `pnpm lint:boundaries:test` 完整负例验收与 CI。Biome、AST 及显式跳过 dependency-cruiser 的负例已通过，不能代替完整验收。
 
 ## 管理 UI 统一
 
 当前插件与主题的管理入口有三处：设置 → 插件（插件商店管理入口、插件网络离线开关、开发模式目录加载与热重载）、工具 → 插件商店（catalog 货架、JS 插件管理、桌面端远程 JS 开关、导入插件包）、设置 → 主题（主题安装、预览、应用、用户 override）。插件与主题仍由不同服务管理。前置：“架构调整点”第 1 条统一 installation 模型（提供单一列表数据源）。
 
-- [ ] 统一为一个“扩展”入口（设置内一页或独立对话框，二选一后不再并存），三个区块：已安装（trusted-js 与主题混排，按 kind 徽章区分，行内启停/卸载/回退出厂/重新授权/查看来源摘要）、商店（现有 catalog 货架与更新提示）、开发（目录加载、热重载、立即重载，仅支持 File System Access 的环境显示）。
+- [x] 统一为一个“扩展”入口（设置内一页或独立对话框，二选一后不再并存），三个区块：已安装（trusted-js 与主题混排，按 kind 徽章区分，行内启停/卸载/回退出厂/重新授权/查看来源摘要）、商店（现有 catalog 货架与更新提示）、开发（目录加载、热重载、立即重载，仅支持 File System Access 的环境显示）。
 - [ ] 主题的预览/应用/恢复默认与用户 override 编辑器保留在主题设置页，但主题包的安装、更新与卸载移入“扩展”已安装列表；主题页只负责“选哪个、怎么调”。
 - [ ] 列表数据源只读 `PluginInstallation` 统一模型，运行态细节（crash 计数、consent 状态、factory shadow）由各 service 以附加字段提供，UI 不再分别订阅功能插件与主题的 service。
 - [ ] 合并设置页与工具菜单的插件管理入口；桌面端远程 JS 开关按评估结论删除（consent 文案保留 desktop 措辞）。插件网络离线开关的去留随阶段 8 网络服务迁移决定：宿主网络调用迁入同一端口则保留在“扩展”页，否则删除。

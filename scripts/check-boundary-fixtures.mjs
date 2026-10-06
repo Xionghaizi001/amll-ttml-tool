@@ -31,7 +31,7 @@ const fixture = (directory, extension, text, test) => {
 		writeFileSync(file, text);
 		test(file);
 	} finally {
-		rmSync(file);
+		rmSync(file, { force: true });
 		if (createdDirectory) rmdirSync(directory);
 	}
 };
@@ -42,6 +42,7 @@ const globals = [
 	"--only=style/noRestrictedImports",
 ];
 const ast = ["scripts/check-command-menus.mjs"];
+const sdkReact = ["scripts/check-sdk-react-imports.mjs"];
 const dependencies = [cruiser, "--config", ".dependency-cruiser.cjs"];
 
 for (const text of [
@@ -126,13 +127,13 @@ if (!partial) {
 		"packages/plugin-sdk-js/src",
 		"ts",
 		"import React from 'react';",
-		(file) => run(dependencies, file, /sdk-react-types-only/),
+		(file) => run(sdkReact, file, /sdk-react-types-only/),
 	);
 	fixture(
 		"packages/plugin-sdk-js/src",
 		"ts",
 		"import type { ReactNode } from 'react';",
-		(file) => run(dependencies, file, undefined, true),
+		(file) => run(sdkReact, file, undefined, true),
 	);
 	fixture(
 		"examples",

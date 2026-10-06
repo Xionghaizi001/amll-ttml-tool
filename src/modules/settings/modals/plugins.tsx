@@ -1,7 +1,4 @@
-import {
-	installTrustedJsPackage,
-	installedTrustedJsService,
-} from "$/plugins/trusted/trusted-js-host";
+import { parseManifest } from "@amll-ttml-tool/plugin-api";
 import {
 	ArrowClockwise24Regular,
 	FolderOpen24Regular,
@@ -9,11 +6,14 @@ import {
 	StoreMicrosoft24Regular,
 } from "@fluentui/react-icons";
 import { Button, Flex, Switch } from "@radix-ui/themes";
-import { parseManifest } from "@amll-ttml-tool/plugin-api";
 import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
+import {
+	installedTrustedJsService,
+	installTrustedJsPackage,
+} from "$/plugins/trusted/trusted-js-host";
 import {
 	DevPluginWatcher,
 	isDevPluginLoadingSupported,
@@ -217,25 +217,43 @@ const DevPluginSection = () => {
 	);
 };
 
-export const SettingsPluginsTab = () => {
+export const PluginManagerRow = () => {
 	const { t } = useTranslation();
 	const [, setStoreOpen] = useAtom(pluginStoreDialogAtom);
 	return (
+		<SettingsRow
+			icon={<StoreMicrosoft24Regular />}
+			title={t("pluginStore.title", "插件商店")}
+			description={t(
+				"plugins.manageHint",
+				"管理已安装插件、浏览商店并配置插件设置",
+			)}
+			action={
+				<Button size="1" variant="soft" onClick={() => setStoreOpen(true)}>
+					<StoreMicrosoft24Regular />
+					{t("plugins.manage", "管理插件")}
+				</Button>
+			}
+		/>
+	);
+};
+
+/** Settings embedded in the unified plugin manager dialog. */
+export const PluginSettingsSections = () => (
+	<>
+		<PluginNetworkSection />
+		<DevPluginSection />
+	</>
+);
+
+/* Kept as a small compatibility wrapper for extensions that imported this tab. */
+export const SettingsPluginsTab = () => {
+	const { t } = useTranslation();
+	return (
 		<Flex direction="column" gap="4">
 			<SettingsGroup title={t("plugins.installedTitle", "插件")}>
-				<SettingsRow
-					icon={<StoreMicrosoft24Regular />}
-					title={t("pluginStore.title", "插件商店")}
-					action={
-						<Button size="1" variant="soft" onClick={() => setStoreOpen(true)}>
-							<StoreMicrosoft24Regular />
-							{t("plugins.manage", "管理插件")}
-						</Button>
-					}
-				/>
+				<PluginManagerRow />
 			</SettingsGroup>
-			<PluginNetworkSection />
-			<DevPluginSection />
 		</Flex>
 	);
 };

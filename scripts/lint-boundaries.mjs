@@ -26,6 +26,7 @@ const steps = [
 		...roots,
 	],
 	["scripts/check-command-menus.mjs"],
+	["scripts/check-sdk-react-imports.mjs", "packages/plugin-sdk-js/src"],
 ];
 for (const args of steps) {
 	const result = spawnSync(process.execPath, args, { stdio: "inherit" });

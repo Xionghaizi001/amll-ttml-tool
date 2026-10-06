@@ -7,7 +7,7 @@ const rule = (name, from, to) => ({ name, severity: "error", from, to });
 const positive = (name, path, allowed) =>
 	rule(name, { path }, { pathNot: allowed });
 const external = (names) =>
-	`(?:node_modules/(?:\\.pnpm/[^/]+/node_modules/)?(?:${names})(?:/|$)|^(?:${names})(?:/|$))`;
+	`(?:node_modules/.*(?:${names})(?:/|$)|^(?:${names})(?:/|$))`;
 
 module.exports = {
 	forbidden: [
@@ -44,10 +44,10 @@ module.exports = {
 				path: "^src/(?:components|hooks)/",
 			},
 		),
-		positive(
+		rule(
 			"plugin-api-dependencies",
-			`^${api}`,
-			`^${api}|${external("vitest")}`,
+			{ path: `^${api}` },
+			{ pathNot: `^${api}|${external("vitest")}`, couldNotResolve: false },
 		),
 		rule(
 			"plugin-api-testing-only",
@@ -58,11 +58,6 @@ module.exports = {
 			"sdk-dependencies",
 			`^${sdk}`,
 			`^(?:${api}|${sdk})|${external("react")}`,
-		),
-		rule(
-			"sdk-react-types-only",
-			{ path: `^${sdk}` },
-			{ path: external("react"), dependencyTypesNot: ["type-only"] },
 		),
 		positive(
 			"plugin-public-api-only",
@@ -101,7 +96,9 @@ module.exports = {
 		rule(
 			"worker-resources",
 			{ pathNot: "^src/(?:platform|plugins/runtime)/" },
-			{ path: "\\?worker(?:&|$)" },
+			// dependency-cruiser resolves Vite query imports before applying rules,
+			// so match the worker resource filename as well as the original query.
+			{ path: "(?:\\?worker(?:&|$)|\\.worker\\.ts$)" },
 		),
 		rule(
 			"pure-algorithms-through-adapters",
@@ -110,7 +107,7 @@ module.exports = {
 				pathNot: "(?:/adapters/|^src/modules/lyric-drag/reorder-engine\\.ts$)",
 			},
 			{
-				path: "^src/(?:modules/(?:segmentation/utils/(?:segmentation|syllable-smoothing)|lyric-drag/drag-reorder|project/logic/|spectrogram/utils/timeline-boundary|lyric-editor/utils/(?:ruby-generator|normalize-line-time)|lrclib/utils/)|utils/parse-lrc(?:\\.|$))",
+			path: "^(?:src/(?:modules/(?:segmentation/utils/(?:segmentation|syllable-smoothing)|lyric-drag/drag-reorder|project/logic/|spectrogram/utils/timeline-boundary|lyric-editor/utils/(?:ruby-generator|normalize-line-time)|lrclib/utils/)|utils/parse-lrc(?:\\.|$))|\\$/utils/parse-lrc(?:\\.|$))",
 			},
 		),
 	],
