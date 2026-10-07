@@ -342,7 +342,7 @@ export interface RemotePluginCatalogEntryV0 {
 	channel: RemotePluginChannelV0;
 	/** Plugin API version (trusted-js) or theme API version the artifact targets. */
 	apiVersion: number;
-	/** Same-origin relative artifact path: an ES module for trusted-js, a package otherwise. */
+	/** Artifact path relative to the provider catalog directory. */
 	entry: string;
 	/** Hex sha-256 of the artifact — the content-addressing red line for immutable delivery. */
 	sha256?: string;
@@ -355,6 +355,14 @@ export interface RemotePluginCatalogEntryV0 {
 	 * may skip the remote consent gate.
 	 */
 	firstParty?: boolean;
+}
+
+/** Static or API-backed source; only the host-defined same-origin source is official. */
+export interface StoreProviderV0 {
+	id: string;
+	name: string;
+	catalogUrl: string;
+	official: boolean;
 }
 
 export interface RemotePluginCatalogV0 {

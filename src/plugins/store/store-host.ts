@@ -13,23 +13,33 @@ import {
 } from "../trusted/trusted-js-host";
 import {
 	getRemotePluginCatalogSnapshot,
+	storeProviderClient,
 	subscribeRemotePluginCatalog,
 } from "./catalog-client";
+import { readStoreResponse } from "./read-store-response";
 import {
 	installStoreArtifact,
 	PluginInstallationService,
 	type StoreArtifactInstallPorts,
 	type StoreInstallOutcome,
 } from "./store-install";
+import type { ProviderCatalogEntry } from "./store-providers";
 
 /** Browser assembly of the shared trusted-js and theme install gates. */
 
 const fetchArtifact = async (path: string): Promise<Uint8Array> => {
 	const base = import.meta.env.BASE_URL ?? "/";
-	const response = await fetch(`${base}${path}`);
+	const response = await fetch(
+		new URL(path, new URL(base, window.location.href)),
+		{
+			credentials: "omit",
+			redirect: "error",
+			signal: AbortSignal.timeout(30000),
+		},
+	);
 	if (!response.ok)
 		throw new Error(`artifact request failed with status ${response.status}`);
-	return new Uint8Array(await response.arrayBuffer());
+	return readStoreResponse(response, 48 * 1024 * 1024);
 };
 
 const digestSha256 = async (bytes: Uint8Array): Promise<string> => {
@@ -58,11 +68,49 @@ const storeInstallPorts: StoreArtifactInstallPorts = {
 	},
 };
 
-/** Store page action: install or update one catalog artifact entry. */
-export const installStoreEntry = (
+/** Recheck current provider identity before downloading. */
+export const installStoreEntry = async (
 	entry: RemotePluginCatalogEntryV0,
-): Promise<StoreInstallOutcome> =>
-	installStoreArtifact(entry, storeInstallPorts);
+): Promise<StoreInstallOutcome> => {
+	const selected = entry as ProviderCatalogEntry;
+	const current = storeProviderClient
+		.entries(new Set(FACTORY_TRUSTED_JS_PLUGINS.map((p) => p.id)))
+		.find(
+			(candidate) =>
+				candidate.id === entry.id &&
+				candidate.provider.id === selected.provider?.id,
+		);
+	if (
+		!current ||
+		current.sha256 !== entry.sha256 ||
+		current.version !== entry.version
+	)
+		return { ok: false, message: "来源已移除或目录已变化，请刷新后重试" };
+	if (current.blockedReason)
+		return { ok: false, message: current.blockedReason };
+	const provenance = current.sha256
+		? {
+				providerId: current.provider.id,
+				providerName: current.provider.name,
+				artifactSha256: current.sha256,
+			}
+		: undefined;
+	return installStoreArtifact(current, {
+		...storeInstallPorts,
+		fetchArtifact: () => fetchArtifact(current.artifactUrl),
+		installTrustedJsPackage: (pkg) =>
+			installTrustedJsPackage(pkg, "store", provenance),
+		installThemePackage: async (pkg) => {
+			const result = await themeService.installThemePackage(pkg, provenance);
+			return result.ok
+				? { ok: true }
+				: {
+						ok: false,
+						message: result.issues.map((issue) => issue.message).join("\n"),
+					};
+		},
+	});
+};
 
 export const pluginInstallationService = new PluginInstallationService({
 	factory: () => FACTORY_TRUSTED_JS_PLUGINS,

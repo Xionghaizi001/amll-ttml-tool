@@ -72,6 +72,11 @@ export const TrustedJsConsentDialog = () => {
 							{request.author ??
 								t("plugins.trustedConsent.unknownAuthor", "未署名作者")}
 						</Text>
+						{request.providerName && (
+							<Text size="1" color="gray">
+								{request.providerName}
+							</Text>
+						)}
 						{request.homepage && (
 							<Link size="1" href={request.homepage} target="_blank">
 								{request.homepage}

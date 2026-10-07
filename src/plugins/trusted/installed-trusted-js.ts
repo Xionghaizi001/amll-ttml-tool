@@ -1,4 +1,5 @@
 import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
+import type { StoreInstallationProvenance } from "$/kernel/extensions/installation-provenance";
 import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
 import type {
 	TrustedJsPluginEntry,
@@ -58,6 +59,7 @@ export class InstalledTrustedJsService<THost> {
 			moduleBlob: record.code,
 			consentKey: record.source === "dev" ? `dev:${record.id}` : record.sha256,
 			development: record.source === "dev",
+			providerName: record.store?.providerName,
 		};
 	}
 	async restore() {
@@ -83,14 +85,21 @@ export class InstalledTrustedJsService<THost> {
 		}
 		this.emit();
 	}
-	install(input: unknown, source: StoredTrustedJsRecord["source"] = "user") {
-		const operation = this.queue.then(() => this.installOne(input, source));
+	install(
+		input: unknown,
+		source: StoredTrustedJsRecord["source"] = "user",
+		store?: StoreInstallationProvenance,
+	) {
+		const operation = this.queue.then(() =>
+			this.installOne(input, source, store),
+		);
 		this.queue = operation.catch(() => undefined);
 		return operation;
 	}
 	private async installOne(
 		input: unknown,
 		source: StoredTrustedJsRecord["source"],
+		store?: StoreInstallationProvenance,
 	): Promise<
 		| { ok: true; pluginId: string }
 		| { ok: false; cancelled?: boolean; message: string }
@@ -112,6 +121,7 @@ export class InstalledTrustedJsService<THost> {
 			sha256: await digestTrustedJsPackage(manifest, code),
 			source,
 			installedAt: Date.now(),
+			store: source === "store" && store ? { ...store } : undefined,
 		};
 		const entry: TrustedJsPluginEntry = {
 			...manifest,
@@ -120,6 +130,7 @@ export class InstalledTrustedJsService<THost> {
 			moduleBlob: record.code,
 			consentKey: record.source === "dev" ? `dev:${record.id}` : record.sha256,
 			development: record.source === "dev",
+			providerName: record.store?.providerName,
 			beforeImport: async () => {
 				if (source !== "dev") {
 					await this.storage.save(record);

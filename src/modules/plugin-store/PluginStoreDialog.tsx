@@ -1,10 +1,7 @@
-import type {
-	RemotePluginCatalogEntryV0,
-	RemotePluginCatalogV0,
-} from "@amll-ttml-tool/plugin-api";
+import type { RemotePluginCatalogV0 } from "@amll-ttml-tool/plugin-api";
 import {
-	ArrowLeft24Regular,
 	ArrowCounterclockwise24Regular,
+	ArrowLeft24Regular,
 	ArrowSync24Regular,
 	CloudArrowDown24Regular,
 	Javascript24Regular,
@@ -20,11 +17,11 @@ import {
 	Text,
 } from "@radix-ui/themes";
 import {
+	type ReactNode,
 	useCallback,
 	useEffect,
-	useMemo,
 	useState,
-	type ReactNode,
+	useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
@@ -34,12 +31,17 @@ import {
 	SettingsGroup,
 	SettingsRow,
 } from "$/modules/settings/modals/SettingsGroup";
-import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
+import {
+	loadRemotePluginCatalog,
+	storeProviderClient,
+} from "$/plugins/store/catalog-client";
 import {
 	installStoreEntry,
 	pluginInstallationService,
 } from "$/plugins/store/store-host";
 import { isStoreUpdateAvailable } from "$/plugins/store/store-install";
+import type { ProviderCatalogEntry } from "$/plugins/store/store-providers";
+import { FACTORY_TRUSTED_JS_PLUGINS } from "$/plugins/trusted/factory-plugins";
 import {
 	applyTrustedJsUpdate,
 	getTrustedJsUpdateStates,
@@ -47,6 +49,7 @@ import {
 } from "$/plugins/trusted/trusted-js-host";
 import type { TrustedJsFactoryUpdateState } from "$/plugins/trusted/trusted-js-load-plan";
 import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
+
 const CHANNEL_BADGES = {
 	"trusted-js": {
 		color: "amber" as const,
@@ -64,7 +67,7 @@ const CHANNEL_ICONS = {
 	theme: <PaintBrush24Regular />,
 };
 interface CatalogEntryRowProps {
-	entry: RemotePluginCatalogEntryV0;
+	entry: ProviderCatalogEntry;
 	installedVersion: string | null;
 	trustedUpdate?: TrustedJsFactoryUpdateState;
 	trustedLive?: { version: string; bundled: boolean };
@@ -85,7 +88,9 @@ const CatalogEntryRow = ({
 
 	let action: ReactNode = null;
 	let statusBadge: ReactNode = null;
-	if (entry.channel === "trusted-js" && trustedUpdate !== undefined) {
+	if (entry.blockedReason) {
+		statusBadge = <Badge color="red">{entry.blockedReason}</Badge>;
+	} else if (entry.channel === "trusted-js" && trustedUpdate !== undefined) {
 		// Factory-backed plugin: the store is only its update channel.
 		if (trustedLive !== undefined && !trustedLive.bundled) {
 			statusBadge = (
@@ -189,6 +194,8 @@ const CatalogEntryRow = ({
 			title={
 				<Flex align="center" gap="2" wrap="wrap">
 					{entry.name}
+					<Badge color="gray">{entry.provider.name}</Badge>
+					{entry.mirrorOf && <Badge color="gray">镜像：{entry.mirrorOf}</Badge>}
 					<Badge color="gray">{entry.version}</Badge>
 					<Badge color={badge.color}>{t(badge.key, badge.fallback)}</Badge>
 					{entry.firstParty === true && (
@@ -217,6 +224,12 @@ const CatalogEntryRow = ({
 /** The manager replaces the settings body inside its protected dialog shell. */
 export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const { t } = useTranslation();
+	const shelves = useSyncExternalStore(
+		storeProviderClient.subscribe,
+		storeProviderClient.list,
+	);
+	const [providerName, setProviderName] = useState("");
+	const [providerUrl, setProviderUrl] = useState("");
 	const [section, setSection] = useState("available");
 	const [kind, setKind] = useState("all");
 	const [location, setLocation] = useState("online");
@@ -237,10 +250,10 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 		try {
 			const [next, states] = await Promise.all([
 				loadRemotePluginCatalog({ refresh: force }),
-				getTrustedJsUpdateStates({ refresh: force }),
+				getTrustedJsUpdateStates(),
 			]);
 			setCatalog(next);
-			setUpdates(states);
+			setUpdates(force ? await getTrustedJsUpdateStates() : states);
 		} catch (error) {
 			toast.error(String(error));
 		} finally {
@@ -263,19 +276,17 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 			setBusy(null);
 		}
 	};
-	const entries = useMemo(
-		() =>
-			(catalog?.plugins ?? []).filter(
-				(entry) =>
-					(entry.platforms === undefined ||
-						entry.platforms.includes(
-							import.meta.env.TAURI_ENV_PLATFORM ? "desktop" : "web",
-						)) &&
-					(kind === "all" ||
-						entry.channel === (kind === "theme" ? "theme" : "trusted-js")),
-			),
-		[catalog, kind],
-	);
+	const entries = storeProviderClient
+		.entries(new Set(FACTORY_TRUSTED_JS_PLUGINS.map((p) => p.id)))
+		.filter(
+			(entry) =>
+				(entry.platforms === undefined ||
+					entry.platforms.includes(
+						import.meta.env.TAURI_ENV_PLATFORM ? "desktop" : "web",
+					)) &&
+				(kind === "all" ||
+					entry.channel === (kind === "theme" ? "theme" : "trusted-js")),
+		);
 	const local = installations.filter(
 		(item) => kind === "all" || item.kind === kind,
 	);
@@ -321,6 +332,15 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 							<span style={{ overflowWrap: "anywhere" }}>
 								{t(`pluginStore.source.${item.source}`, item.source)}
 								{item.artifact ? ` · SHA-256: ${item.artifact.sha256}` : ""}
+								{item.store && (
+									<span>
+										{" "}
+										· {item.store.providerName}
+										{!shelves.some(
+											(s) => s.provider.id === item.store?.providerId,
+										) && "（来源已移除，不再更新）"}
+									</span>
+								)}
 							</span>
 						</Flex>
 					}
@@ -533,12 +553,16 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 												);
 												return (
 													<CatalogEntryRow
-														key={entry.id}
+														key={`${entry.provider.id}:${entry.id}`}
 														entry={entry}
 														installedVersion={item?.version ?? null}
-														trustedUpdate={updates.find(
-															(update) => update.id === entry.id,
-														)}
+														trustedUpdate={
+															entry.provider.official
+																? updates.find(
+																		(update) => update.id === entry.id,
+																	)
+																: undefined
+														}
 														trustedLive={
 															item?.trustedJs?.loaded
 																? {
@@ -581,7 +605,88 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 								{installedRows(installations)}
 							</SettingsGroup>
 						)}
-						{section === "settings" && <PluginSettingsSections />}
+						{section === "settings" && (
+							<>
+								<SettingsGroup title="商店提供者">
+									<Text size="2">
+										添加的来源均按第三方处理。JS
+										插件可访问应用数据与登录态，安装时需要授权；主题可改变界面。当前技术原型允许
+										HTTP localhost 来源。
+									</Text>
+									{shelves.map((shelf) => (
+										<SettingsRow
+											icon={<CloudArrowDown24Regular />}
+											key={shelf.provider.id}
+											title={shelf.provider.name}
+											description={
+												<span style={{ overflowWrap: "anywhere" }}>
+													{shelf.provider.catalogUrl}
+													<br />
+													{shelf.error
+														? `不可用：${shelf.error}${shelf.catalog ? "（显示本地缓存）" : ""}`
+														: shelf.fetchedAt
+															? `缓存于 ${new Date(shelf.fetchedAt).toLocaleString()}`
+															: "尚未获取，请在“可用插件 → 在线”中刷新目录"}
+												</span>
+											}
+											action={
+												!shelf.provider.official ? (
+													<Button
+														size="1"
+														variant="soft"
+														disabled={loading || busy !== null}
+														onClick={() =>
+															void run("provider", () =>
+																storeProviderClient.remove(shelf.provider.id),
+															)
+														}
+													>
+														移除
+													</Button>
+												) : undefined
+											}
+										/>
+									))}
+									<form
+										onSubmit={(event) => {
+											event.preventDefault();
+											void run("provider", async () => {
+												storeProviderClient.add(providerName, providerUrl);
+												setProviderName("");
+												setProviderUrl("");
+												await refresh(true);
+											});
+										}}
+									>
+										<Flex gap="2" wrap="wrap">
+											<input
+												aria-label="提供者名称"
+												placeholder="提供者名称"
+												value={providerName}
+												onChange={(e) => setProviderName(e.target.value)}
+												required
+											/>
+											<input
+												aria-label="提供者目录 URL"
+												placeholder="http://localhost:8787/plugins/catalog.json"
+												type="url"
+												value={providerUrl}
+												onChange={(e) => setProviderUrl(e.target.value)}
+												required
+											/>
+											<Button
+												type="submit"
+												size="1"
+												disabled={loading || busy !== null}
+											>
+												添加第三方提供者
+											</Button>
+										</Flex>
+									</form>
+								</SettingsGroup>
+								<PluginSettingsSections />
+							</>
+						)}
 					</Flex>
 				</div>
 			</section>

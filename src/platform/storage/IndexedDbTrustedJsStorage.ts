@@ -1,4 +1,5 @@
 import type { TrustedJsPluginPackageV0 } from "@amll-ttml-tool/plugin-api";
+import type { StoreInstallationProvenance } from "$/kernel/extensions/installation-provenance";
 import {
 	type ExtensionDatabaseProvider,
 	openPluginDatabase,
@@ -12,6 +13,7 @@ export interface StoredTrustedJsRecord {
 	sha256: string;
 	source: "user" | "dev" | "store";
 	installedAt: number;
+	store?: StoreInstallationProvenance;
 }
 
 /** Writes deliberately propagate quota/transaction errors to the installer. */

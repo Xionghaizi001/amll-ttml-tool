@@ -214,3 +214,14 @@ pnpm build
 ```
 
 协议变化时先修改 `packages/plugin-api` 的类型、Schema、parser 和合同测试，再运行 `pnpm plugin:api:build` 重新生成协议索引，最后更新 SDK、宿主和本指南。生成文件不入库，不要手工编辑。
+
+
+## 本地商店提供者技术验证
+
+1. 启动静态 toolkit 服务或 `amll-ttml-tool-plugin-store` 后端，确认 `GET http://localhost:8787/plugins/catalog.json` 可返回 `RemotePluginCatalogV0`。
+2. 在宿主首选项 → 插件管理 → 插件设置 → 商店提供者填写名称和完整 catalog URL，点击“添加第三方提供者”。按服务实际监听端口调整 URL；artifact `entry` 相对 catalog 所在目录解析。
+3. 点击刷新时客户端请求目录，缓存到本地后与已安装版本比较；之后断开服务刷新，应显示不可用并保留缓存，其他货架仍可用。
+4. trusted-js 包安装时确认第三方 consent 中的提供者名；安装和更新均校验 SHA-256 与 manifest id/version/API 一致性。主题安装成功后可在已安装页启用。
+5. 移除提供者后，已安装插件继续可用，来源显示已移除；重新添加同一 URL 会分配新的提供者 id，可显式从新来源安装/更新。
+
+目录公开读取无需管理员登录；管理员仅用于后端维护目录/上传。提供者警示与 localhost HTTP 放行仅用于本期技术原型。

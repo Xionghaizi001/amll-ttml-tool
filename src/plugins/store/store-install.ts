@@ -1,5 +1,8 @@
 import type { RemotePluginCatalogEntryV0 } from "@amll-ttml-tool/plugin-api";
-import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
+import {
+	parseThemePackage,
+	parseTrustedJsPackage,
+} from "@amll-ttml-tool/plugin-api";
 import semverGt from "semver/functions/gt";
 import semverValid from "semver/functions/valid";
 import type { ThemeServiceState, ThemeSummary } from "$/kernel/theme/types";
@@ -116,8 +119,20 @@ export const installStoreArtifact = async (
 			return (installTrustedJs as NonNullable<typeof installTrustedJs>)(
 				unpacked.pkg,
 			);
-		default:
+		default: {
+			const parsed = parseThemePackage(unpacked.pkg);
+			if (!parsed.ok) return { ok: false, message: "invalid theme package" };
+			if (
+				parsed.value.manifest.id !== entry.id ||
+				parsed.value.manifest.version !== entry.version ||
+				parsed.value.manifest.themeApiVersion !== entry.apiVersion
+			)
+				return {
+					ok: false,
+					message: "theme manifest does not match catalog identity/version",
+				};
 			return ports.installThemePackage(unpacked.pkg);
+		}
 	}
 };
 
@@ -137,6 +152,7 @@ export interface ArtifactIdentity {
 }
 /** Host management projection. Runtime payloads remain owned by their services. */
 export interface PluginInstallation {
+	store?: import("$/kernel/extensions/installation-provenance").StoreInstallationProvenance;
 	id: string;
 	kind: "function" | "theme";
 	runtime: "builtin" | "trusted-js" | "none";
@@ -157,6 +173,7 @@ export interface PluginInstallation {
 		hasFactory: boolean;
 		pinnedToFactory: boolean;
 		installedPackage?: {
+			store?: import("$/kernel/extensions/installation-provenance").StoreInstallationProvenance;
 			version: string;
 			source: PluginSource;
 			artifact: ArtifactIdentity;
@@ -269,8 +286,12 @@ export class PluginInstallationService {
 					remote.get(id)?.description,
 				version: entry.version,
 				source: bundled ? "builtin" : (selectedRecord?.source ?? "store"),
+				store: selectedRecord?.store,
 				artifact: selectedRecord
-					? { sha256: selectedRecord.sha256 }
+					? {
+							sha256:
+								selectedRecord.store?.artifactSha256 ?? selectedRecord.sha256,
+						}
 					: undefined,
 				installedAt: selectedRecord?.installedAt,
 				enabled: !state?.disabled && !crashDisabled,
@@ -297,7 +318,10 @@ export class PluginInstallationService {
 						? {
 								version: record.manifest.version,
 								source: record.source,
-								artifact: { sha256: record.sha256 },
+								store: record.store,
+								artifact: {
+									sha256: record.store?.artifactSha256 ?? record.sha256,
+								},
 								installedAt: record.installedAt,
 							}
 						: undefined,
@@ -315,7 +339,17 @@ export class PluginInstallationService {
 					name: theme.name,
 					description: theme.description,
 					version: theme.version,
-					source: theme.source === "builtin" ? "builtin" : "unknown",
+					source:
+						theme.source === "builtin"
+							? "builtin"
+							: theme.store
+								? "store"
+								: "unknown",
+					store: theme.store,
+					artifact: theme.store
+						? { sha256: theme.store.artifactSha256 }
+						: undefined,
+					installedAt: theme.installedAt,
 					enabled: state.activeThemeId === theme.id && !state.safeMode,
 					theme: {
 						active: state.activeThemeId === theme.id,

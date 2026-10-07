@@ -52,7 +52,10 @@ try {
 
 const catalog = {
 	catalogVersion: 0,
-	plugins: factoryEntries,
+	plugins: factoryEntries.map((entry) => ({
+		...entry,
+		entry: entry.entry.replace(/^plugins\//, ""),
+	})),
 };
 
 const parsed = pluginApi.parseRemotePluginCatalog(catalog);

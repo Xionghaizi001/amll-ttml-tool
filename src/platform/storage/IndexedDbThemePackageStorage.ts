@@ -1,3 +1,4 @@
+import type { ThemeInstallationMetadata } from "$/kernel/theme/types";
 import {
 	type ExtensionDatabaseProvider,
 	openPluginDatabase,
@@ -6,7 +7,7 @@ import {
 const STORE = "theme-packages";
 const ASSETS = "theme-assets";
 
-export interface StoredThemePackageRecord {
+export interface StoredThemePackageRecord extends ThemeInstallationMetadata {
 	id: string;
 	/** Raw ThemePackageV0 JSON; re-validated with parseThemePackage on load. */
 	pkg: unknown;
@@ -60,7 +61,11 @@ export class IndexedDbThemePackageStorage {
 				}),
 		);
 	}
-	async save(id: string, pkg: unknown): Promise<void> {
+	async save(
+		id: string,
+		pkg: unknown,
+		installation: ThemeInstallationMetadata = {},
+	): Promise<void> {
 		const { assets, ...metadata } = pkg as {
 			assets?: Record<string, { mime: string; data: string }>;
 		};
@@ -85,13 +90,12 @@ export class IndexedDbThemePackageStorage {
 			const oldKeys = await assetStore.index("themeId").getAllKeys(id);
 			for (const key of oldKeys) await assetStore.delete(key);
 			for (const asset of blobs) await assetStore.put(asset);
-			await transaction
-				.objectStore(STORE)
-				.put({
-					id,
-					pkg: metadata,
-					installedAt: Date.now(),
-				} satisfies StoredThemePackageRecord);
+			await transaction.objectStore(STORE).put({
+				id,
+				pkg: metadata,
+				installedAt: installation.installedAt ?? Date.now(),
+				store: installation.store,
+			} satisfies StoredThemePackageRecord);
 			await transaction.done;
 		} catch (error) {
 			try {

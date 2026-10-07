@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ThemeService } from "$/kernel/theme/ThemeService";
-import type { ThemePackageStorePort, ThemeServicePorts } from "$/kernel/theme/types";
+import type {
+	ThemeInstallationMetadata,
+	ThemePackageStorePort,
+	ThemeServicePorts,
+} from "$/kernel/theme/types";
 
 const themePackage = (id: string) => ({
 	packageVersion: 0,
@@ -31,6 +35,7 @@ interface Harness {
 const createHarness = (
 	store = new Map<string, string>(),
 	packages = new Map<string, unknown>(),
+	customStore?: ThemePackageStorePort,
 ): Harness => {
 	const warnings: string[] = [];
 	const themeCss: string[] = [];
@@ -52,13 +57,65 @@ const createHarness = (
 			setFlags: () => undefined,
 		},
 		assets: { create: () => "local:x", revoke: () => undefined },
-		packageStore,
+		packageStore: customStore ?? packageStore,
 		warn: (message) => void warnings.push(message),
 	};
-	return { service: new ThemeService(ports), store, packages, warnings, themeCss };
+	return {
+		service: new ThemeService(ports),
+		store,
+		packages,
+		warnings,
+		themeCss,
+	};
 };
 
 describe("ThemeService with an async package store", () => {
+	it("retains store provenance after restart and does not publish failed updates", async () => {
+		let record:
+			| ({ id: string; pkg: unknown } & ThemeInstallationMetadata)
+			| undefined;
+		let fail = false;
+		const packageStore: ThemePackageStorePort = {
+			loadAll: async () => (record ? [record] : []),
+			save: async (id, pkg, metadata) => {
+				if (fail) throw new Error("quota");
+				record = { id, pkg, ...metadata };
+			},
+			remove: async () => {
+				record = undefined;
+			},
+		};
+		const store = {
+			providerId: "local",
+			providerName: "Local store",
+			artifactSha256: "b".repeat(64),
+		};
+		const first = createHarness(undefined, undefined, packageStore);
+		expect(
+			(
+				await first.service.installThemePackage(
+					themePackage("store.theme"),
+					store,
+				)
+			).ok,
+		).toBe(true);
+		const second = createHarness(undefined, undefined, packageStore);
+		await second.service.hydrateInstalledThemes();
+		expect(second.service.listThemes()[0]).toMatchObject({
+			store,
+			installedAt: expect.any(Number),
+		});
+		fail = true;
+		await expect(
+			second.service.installThemePackage(themePackage("store.theme"), {
+				...store,
+				providerId: "other",
+			}),
+		).rejects.toThrow("quota");
+		expect(second.service.listThemes()[0].store?.providerId).toBe("local");
+		expect(record?.store?.providerId).toBe("local");
+	});
+
 	it("migrates the legacy localStorage JSON into the package store once", async () => {
 		const store = new Map<string, string>([
 			[

@@ -373,3 +373,45 @@ describe("installation directory identity and disabled remote modules", () => {
 		});
 	});
 });
+
+it("checks theme package identity before the semantic install gate", async () => {
+	const pkg = {
+		packageVersion: 0,
+		manifest: {
+			id: "test.theme",
+			name: "Theme",
+			version: "1.0.0",
+			kind: "theme",
+			themeApiVersion: 0,
+			runtime: "none",
+			appearance: "dark",
+			tokens: "tokens.json",
+		},
+		tokens: { tokenVersion: 0, color: { accent: "#7c5cff" } },
+	};
+	const entry = {
+		id: "test.theme",
+		name: "Theme",
+		version: "1.0.0",
+		apiVersion: 0,
+		channel: "theme" as const,
+		entry: "theme.json",
+		sha256: "a".repeat(64),
+	};
+	const ports = {
+		fetchArtifact: async () => strToU8(JSON.stringify(pkg)),
+		digestSha256: async () => entry.sha256,
+		installThemePackage: vi.fn(async () => ({ ok: true as const })),
+	};
+	expect(
+		await installStoreArtifact({ ...entry, id: "other.theme" }, ports),
+	).toMatchObject({ ok: false });
+	expect(
+		await installStoreArtifact({ ...entry, version: "2.0.0" }, ports),
+	).toMatchObject({ ok: false });
+	expect(
+		await installStoreArtifact({ ...entry, apiVersion: 1 }, ports),
+	).toMatchObject({ ok: false });
+	expect(ports.installThemePackage).not.toHaveBeenCalled();
+	expect(await installStoreArtifact(entry, ports)).toEqual({ ok: true });
+});

@@ -1,63 +1,46 @@
 import type { RemotePluginCatalogV0 } from "@amll-ttml-tool/plugin-api";
-import { parseRemotePluginCatalog } from "@amll-ttml-tool/plugin-api";
+import { StoreProviderClient } from "./store-providers";
 
-/**
- * Shared same-origin catalog client for the store thin slice. Startup
- * (trusted-js factory/shadow resolution) and the store page consume the same
- * cached fetch. A missing, unreachable or invalid catalog is null — the
- * store is an optional enhancement whose absence must never degrade the
- * editor, so every failure here is silence or a console warning.
- */
-
-const CATALOG_PATH = "plugins/catalog.json";
-
-let cached: Promise<RemotePluginCatalogV0 | null> | null = null;
+const origin =
+	typeof window === "undefined" ? "http://localhost/" : window.location.href;
+const base = new URL(import.meta.env.BASE_URL ?? "/", origin);
+let storage: Storage | undefined;
+try {
+	storage = globalThis.localStorage;
+} catch {
+	/* Session cache only. */
+}
+export const storeProviderClient = new StoreProviderClient(
+	{
+		id: "official",
+		name: "官方商店",
+		catalogUrl: new URL("plugins/catalog.json", base).href,
+		official: true,
+	},
+	storage,
+);
 let snapshot: RemotePluginCatalogV0 | null = null;
-const listeners = new Set<() => void>();
-/** Last validated directory, available without another network request. */
+const rebuild = () => {
+	const shelf = storeProviderClient.list()[0];
+	// Only official entries enter automatic runtime/factory resolution.
+	snapshot = shelf?.catalog
+		? {
+				catalogVersion: 0,
+				plugins: shelf.catalog.plugins.map((entry) => ({
+					...entry,
+					entry: new URL(entry.entry, shelf.provider.catalogUrl).href,
+				})),
+			}
+		: null;
+};
+rebuild();
+storeProviderClient.subscribe(rebuild);
 export const getRemotePluginCatalogSnapshot = () => snapshot;
-export const subscribeRemotePluginCatalog = (listener: () => void) => {
-	listeners.add(listener);
-	return () => {
-		listeners.delete(listener);
-	};
-};
-
-const fetchCatalogOnce = async (): Promise<RemotePluginCatalogV0 | null> => {
-	let response: Response;
-	try {
-		const base = import.meta.env.BASE_URL ?? "/";
-		// no-store keeps kill-switch style catalog changes a refresh away.
-		response = await fetch(`${base}${CATALOG_PATH}`, { cache: "no-store" });
-	} catch {
-		return null;
-	}
-	if (!response.ok) return null;
-	let json: unknown;
-	try {
-		json = await response.json();
-	} catch {
-		console.warn("[plugin-store] plugin catalog is not valid JSON; ignored");
-		return null;
-	}
-	const parsed = parseRemotePluginCatalog(json);
-	if (!parsed.ok) {
-		console.warn(
-			"[plugin-store] plugin catalog failed validation; ignored:",
-			parsed.issues
-				.map((issue) => `${issue.path || "/"}: ${issue.message}`)
-				.join("; "),
-		);
-		return null;
-	}
-	snapshot = parsed.value;
-	for (const listener of listeners) listener();
-	return parsed.value;
-};
-
-export const loadRemotePluginCatalog = (options?: {
+export const subscribeRemotePluginCatalog = storeProviderClient.subscribe;
+/** Ordinary reads use the local snapshot; only the user's refresh contacts providers. */
+export const loadRemotePluginCatalog = async (options?: {
 	refresh?: boolean;
 }): Promise<RemotePluginCatalogV0 | null> => {
-	if (options?.refresh || cached === null) cached = fetchCatalogOnce();
-	return cached;
+	if (options?.refresh) await storeProviderClient.refresh();
+	return snapshot;
 };

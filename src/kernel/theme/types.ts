@@ -3,6 +3,7 @@ import type {
 	ThemePackageV0,
 	ThemeSurfaceNameV0,
 } from "@amll-ttml-tool/plugin-api";
+import type { StoreInstallationProvenance } from "../extensions/installation-provenance";
 
 /** Synchronous key-value persistence; the platform adapter owns the store. */
 export interface ThemeKeyValueStorePort {
@@ -66,14 +67,25 @@ export interface ThemeServicePorts {
 }
 
 export interface ThemePackageStorePort {
-	loadAll(): Promise<{ id: string; pkg: unknown }[]>;
-	save(id: string, pkg: unknown): Promise<void>;
+	loadAll(): Promise<
+		({ id: string; pkg: unknown } & ThemeInstallationMetadata)[]
+	>;
+	save(
+		id: string,
+		pkg: unknown,
+		metadata?: ThemeInstallationMetadata,
+	): Promise<void>;
 	remove(id: string): Promise<void>;
+}
+
+export interface ThemeInstallationMetadata {
+	store?: StoreInstallationProvenance;
+	installedAt?: number;
 }
 
 export type ThemeSource = "builtin" | "installed";
 
-export interface ThemeSummary {
+export interface ThemeSummary extends ThemeInstallationMetadata {
 	id: string;
 	name: string;
 	version: string;
@@ -99,7 +111,7 @@ export interface ThemeServiceState {
 	>;
 }
 
-export interface RegisteredTheme {
+export interface RegisteredTheme extends ThemeInstallationMetadata {
 	pkg: ThemePackageV0;
 	source: ThemeSource;
 }

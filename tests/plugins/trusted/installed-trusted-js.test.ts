@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { ExtensionRegistry } from "$/kernel/extensions";
+import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
 import { InstalledTrustedJsService } from "$/plugins/trusted/installed-trusted-js";
 import {
 	TrustedJsPluginService,
 	type TrustedJsPluginStateRecord,
 } from "$/plugins/trusted/trusted-js-service";
-import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
 
 const pkg = (code = "export function activate() {}") => ({
 	packageVersion: 0,
@@ -95,6 +95,35 @@ function fixture(
 }
 
 describe("installed trusted-js lifecycle", () => {
+	it("preserves store provenance across restore and names the provider in consent", async () => {
+		const f = fixture();
+		const store = {
+			providerId: "local",
+			providerName: "Local store",
+			artifactSha256: "a".repeat(64),
+		};
+		expect((await f.installed.install(pkg(), "store", store)).ok).toBe(true);
+		expect(f.consent).toHaveBeenCalledWith(
+			expect.objectContaining({ providerName: "Local store" }),
+		);
+		const persisted = f.records.get("test.local");
+		expect(persisted?.store).toEqual(store);
+		expect(persisted?.sha256).not.toBe(store.artifactSha256);
+		const restored = new InstalledTrustedJsService(
+			f.storage,
+			f.runtime,
+			f.clearKv,
+		);
+		await restored.restore();
+		expect(restored.list()[0]).toMatchObject({
+			store,
+			installedAt: persisted?.installedAt,
+		});
+		expect(restored.entry("test.local")?.providerName).toBe("Local store");
+		await restored.uninstall("test.local");
+		expect(f.records.has("test.local")).toBe(false);
+	});
+
 	it("uses the atomic uninstall port and keeps installation state if persistence fails", async () => {
 		const f = fixture();
 		const atomic = vi.fn(async (_id: string) => {

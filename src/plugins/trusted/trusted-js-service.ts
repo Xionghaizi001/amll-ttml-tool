@@ -31,6 +31,7 @@ export interface TrustedJsPluginEntry {
 	/** Host-created installed source; still subject to desktop and consent gates. */
 	moduleBlob?: Blob;
 	consentKey?: string;
+	providerName?: string;
 	beforeImport?: () => Promise<void>;
 	/** Development consent and crash accounting stay in this session. */
 	development?: boolean;
@@ -82,6 +83,7 @@ export interface TrustedJsStatePort {
 }
 
 export interface TrustedJsConsentRequest {
+	providerName?: string;
 	pluginId: string;
 	name: string;
 	version: string;
@@ -313,6 +315,7 @@ export class TrustedJsPluginService<THost> {
 					: entry.description,
 				author: entry.author,
 				homepage: entry.homepage,
+				providerName: entry.providerName,
 				tier: this.ports.isDesktop() ? "desktop" : "browser",
 			});
 			if (!approved)

@@ -274,7 +274,7 @@ sequenceDiagram
     R-->>C: installed or cancelled/error
 ```
 
-本地导入复用相同容器和语义闸门。开发目录最终也进入对应 service，但 `dev` 来源只在当前会话有效。当前远程 catalog 是单一同源源；多提供者、自托管聚合、跨提供者冲突规则仍是 **规划**。
+本地导入复用相同容器和语义闸门。开发目录最终也进入对应 service，但 `dev` 来源只在当前会话有效。多提供者与自托管目录已支持，见下文“商店提供者 v0”。
 
 ### 8.3 Factory 构建路径
 
@@ -435,7 +435,7 @@ ZIP entry 必须使用相对正斜杠路径，不能包含空段、`.`、`..`、
 2. 商店 ZIP/JSON artifact 仅在 catalog 提供 `sha256` 时校验。两种通道都会核对容器类型；当前只有 trusted-js 继续核对包内 id、version、API version 与 catalog 条目，主题验证包自身语义。
 3. catalog 中的裸 trusted-js 模块直接从同源 URL 动态 import。当前 loader 不验证 catalog `sha256`，也不把它作为 `consentKey`；这条路径依赖 TLS、同源服务器和发布流程，内容变化不会像本地 Blob 包一样按摘要强制重新 consent。
 
-因此，SHA-256、同源和 `firstParty` 的含义必须分开：SHA-256 是内容身份，同源是交付边界，`firstParty` 是宿主给予的信任策略。三者都不是代码签名。若后续支持第三方 provider，应把摘要设为 artifact 的必需身份，并在执行前验证实际字节。
+因此，SHA-256、同源和 `firstParty` 的含义必须分开：SHA-256 是内容身份，同源是交付边界，`firstParty` 是宿主给予的信任策略。三者都不是代码签名。第三方 provider 已要求摘要，并在执行前验证下载包的实际字节。
 
 ### 11.7 trusted-js 准入边界
 
@@ -637,3 +637,16 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 管理器位于“首选项 > 插件管理”，与设置共用一个受保护、portal 到 body 的 Dialog.Content，返回按钮恢复原设置页。工具菜单不再提供插件商店入口。“可用插件”左侧用“全部 / 插件 / 主题”过滤种类，右侧用“在线 / 本地”切换 catalog 与安装目录；本地导入入口只选择 ZIP。已安装列表混排功能插件与主题，按种类提供适用操作。主题设置保留预览、应用、恢复默认与 override 编辑，安装、更新和卸载归管理器。
 
 桌面宿主取消远程 JS 总开关，继续使用插件级 consent、来源校验及崩溃恢复；consent 保留桌面环境的能力说明。网络离线开关和开发目录加载保留在插件管理器设置页。完整边界负例和合法对照在临时项目快照运行，桌面构建 quality job 同时执行主边界检查与 `pnpm lint:boundaries:test`。
+
+
+### 商店提供者 v0（技术原型）
+
+公开合同 `StoreProviderV0 { id, name, catalogUrl, official }` 使用现有 `RemotePluginCatalogV0` JSON 聚合目录，作为逐 manifest JSONL 的等价传输方案。目录的 `entry` **相对 catalog URL 所在目录**，例如 `/plugins/catalog.json` 配 `store/<sha256>.zip`；可连接静态托管，也可连接服务端 `GET /plugins/catalog.json`。官方构建产物已同步此解析基准。客户端不需要管理员账号，目录与 artifact 为公开 GET。
+
+插件管理 → 插件设置 → 商店提供者可添加/移除提供者；在“可用插件 → 在线”主动刷新目录。用户添加的来源一律 `official: false`，即使目录声明 `firstParty` 也忽略；唯一官方来源由宿主定义且保持同源。原型允许 HTTPS，以及 HTTP `localhost`、`127.0.0.1`、`[::1]`，不代表正式上线策略。跨源服务需配置 CORS；HTTPS 页面访问本机端口仍遵守浏览器网络权限。
+
+提供者与验证后的目录按来源缓存至 localStorage；启动及普通读目录不请求网络，点击刷新（或添加来源）才以 `no-store` 请求所有来源，并在缓存更新后与本地安装版本比较。并发刷新合并，单来源超时/坏目录不会清除上次有效缓存，也不影响其他来源；界面显示不可用与缓存时间。缓存写入失败会明确显示，当前会话仍可查看响应。目录流式限额 4 MiB，artifact 48 MiB，下载另受容器解压限额约束。
+
+同 id 同 SHA-256 标记镜像；不同摘要冲突时官方优先，其余按添加顺序选择首项并阻止冲突项安装。第三方不能覆盖 factory id；第三方条目必须提供 SHA-256 与 ZIP/JSON 包，不能通过裸 JS URL 自动执行。所有第三方安装经下载、摘要校验、容器解析、包身份与目录身份核对、原有 semantic gate / consent、IndexedDB 持久化，再从本地 Blob 加载。主题安装等待写入成功才发布新状态。JS consent 展示提供者名，仍按第三方权限措辞；原有桌面 consent 闸门不变。
+
+安装记录保留 provider id/name、artifact SHA-256、安装时间。移除来源不卸载插件，已安装页显示“来源已移除，不再更新”，原有本地运行和卸载保持可用。官方同源裸 JS 模块保留既有 loader 策略；第三方目录只参与商店展示和显式安装，不参与启动时的远程 load plan。

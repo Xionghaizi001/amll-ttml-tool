@@ -12,6 +12,7 @@ import {
 	THEME_SURFACE_NAMES_V0,
 	validateThemeTokens,
 } from "@amll-ttml-tool/plugin-api";
+import type { StoreInstallationProvenance } from "../extensions/installation-provenance";
 import { compileThemeTokensCss } from "./token-css";
 import type {
 	RegisteredTheme,
@@ -194,6 +195,8 @@ export class ThemeService {
 				this.themes.set(parsed.value.manifest.id, {
 					pkg: parsed.value,
 					source: "installed",
+					store: record.store,
+					installedAt: record.installedAt,
 				});
 		}
 		if (
@@ -211,14 +214,18 @@ export class ThemeService {
 	}
 
 	listThemes(): ThemeSummary[] {
-		return [...this.themes.values()].map(({ pkg, source }) => ({
-			id: pkg.manifest.id,
-			name: pkg.manifest.name,
-			version: pkg.manifest.version,
-			description: pkg.manifest.description,
-			appearance: pkg.manifest.appearance,
-			source,
-		}));
+		return [...this.themes.values()].map(
+			({ pkg, source, store, installedAt }) => ({
+				id: pkg.manifest.id,
+				name: pkg.manifest.name,
+				version: pkg.manifest.version,
+				description: pkg.manifest.description,
+				appearance: pkg.manifest.appearance,
+				source,
+				store,
+				installedAt,
+			}),
+		);
 	}
 
 	getState(): ThemeServiceState {
@@ -347,7 +354,7 @@ export class ThemeService {
 		return parsed;
 	}
 
-	importThemePackage(input: unknown): ParseResult<ThemePackageV0> {
+	private parseThemeImport(input: unknown): ParseResult<ThemePackageV0> {
 		const parsed = parseThemePackage(input);
 		if (!parsed.ok) return parsed;
 		const id = parsed.value.manifest.id;
@@ -362,11 +369,57 @@ export class ThemeService {
 					},
 				],
 			};
-		this.themes.set(id, { pkg: parsed.value, source: "installed" });
+		return parsed;
+	}
+
+	/** Store installs publish only after durable storage has succeeded. */
+	async installThemePackage(
+		input: unknown,
+		store?: StoreInstallationProvenance,
+	): Promise<ParseResult<ThemePackageV0>> {
+		const parsed = this.parseThemeImport(input);
+		if (!parsed.ok) return parsed;
+		if (!this.ports.packageStore) return this.importThemePackage(input, store);
+		const id = parsed.value.manifest.id;
+		const metadata = {
+			store: store ? { ...store } : undefined,
+			installedAt: Date.now(),
+		};
+		await this.ports.packageStore.save(
+			id,
+			JSON.parse(JSON.stringify(parsed.value)),
+			metadata,
+		);
+		this.themes.set(id, {
+			pkg: parsed.value,
+			source: "installed",
+			...metadata,
+		});
+		this.render();
+		return parsed;
+	}
+
+	importThemePackage(
+		input: unknown,
+		store?: StoreInstallationProvenance,
+	): ParseResult<ThemePackageV0> {
+		const parsed = this.parseThemeImport(input);
+		if (!parsed.ok) return parsed;
+		const id = parsed.value.manifest.id;
+		const metadata = {
+			store: store ? { ...store } : undefined,
+			installedAt: Date.now(),
+		};
+		this.themes.set(id, {
+			pkg: parsed.value,
+			source: "installed",
+			...metadata,
+		});
 		if (this.ports.packageStore !== undefined)
 			void this.ports.packageStore.save(
 				id,
 				JSON.parse(JSON.stringify(parsed.value)),
+				metadata,
 			);
 		else this.persistInstalled();
 		this.render();

@@ -154,6 +154,7 @@ export const installedTrustedJsService = new InstalledTrustedJsService(
 export async function installTrustedJsPackage(
 	input: unknown,
 	source: "user" | "dev" | "store" = "user",
+	store?: import("$/kernel/extensions/installation-provenance").StoreInstallationProvenance,
 ) {
 	const parsed = parseTrustedJsPackage(input);
 	if (parsed.ok) {
@@ -170,7 +171,7 @@ export async function installTrustedJsPackage(
 				message: "安装版本必须高于同名出厂插件版本",
 			};
 	}
-	const result = await installedTrustedJsService.install(input, source);
+	const result = await installedTrustedJsService.install(input, source, store);
 	if (result.ok && source !== "dev") setPinnedToFactory(result.pluginId, false);
 	return result;
 }
