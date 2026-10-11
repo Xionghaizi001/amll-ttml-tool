@@ -111,6 +111,17 @@ export interface FunctionContributions {
 	formats?: FormatContribution[];
 }
 
+export const DEPENDENCIES_PER_PLUGIN_LIMIT_V0 = 16;
+
+/** Presence, version and activation ordering only; grants no API or permissions. */
+export interface PluginDependencyV0 {
+	id: string;
+	/** Non-empty node-semver range, at most 256 characters. */
+	version: string;
+	/** Defaults to false. An unavailable optional dependency does not block activation. */
+	optional?: boolean;
+}
+
 export interface PluginManifestBase {
 	id: string;
 	name: string;
@@ -119,6 +130,7 @@ export interface PluginManifestBase {
 	author?: string;
 	homepage?: string;
 	license?: string;
+	dependencies?: PluginDependencyV0[];
 	extensions?: Record<string, JsonValue>;
 }
 

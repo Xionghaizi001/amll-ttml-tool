@@ -1,3 +1,4 @@
+import validRange from "semver/ranges/valid.js";
 import { isCapability } from "./capabilities";
 import {
 	FORM_RESULT_SCHEMA,
@@ -195,6 +196,20 @@ export function parseManifestSchema(
 	if (!parsed.ok) return parsed;
 	const manifest = parsed.value;
 	const issues: ParseIssue[] = [];
+	const dependencyIds = new Set<string>();
+	manifest.dependencies?.forEach((dependency, index) => {
+		const path = `$/dependencies/${index}`;
+		if (dependency.id === manifest.id)
+			issues.push({ path: `${path}/id`, message: "must not depend on itself" });
+		if (dependencyIds.has(dependency.id))
+			issues.push({ path: `${path}/id`, message: "duplicate dependency id" });
+		dependencyIds.add(dependency.id);
+		if (!dependency.version.trim() || validRange(dependency.version) === null)
+			issues.push({
+				path: `${path}/version`,
+				message: "must be a non-empty semver range",
+			});
+	});
 	const paths =
 		manifest.kind === "function"
 			? [{ value: manifest.entry, path: "$/entry" }]

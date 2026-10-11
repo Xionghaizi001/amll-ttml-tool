@@ -17,6 +17,12 @@
 
 trusted-js 可以绕过 SDK 直接使用浏览器能力，因此应像安装桌面软件一样审查其来源；`TrustedJsHostV0` 是兼容性与资源生命周期边界，不是沙箱。
 
+### 依赖声明（协议就绪，运行时待接入）
+
+功能包与主题包均可声明 `dependencies: [{ id, version, optional? }]`；`version` 为非空 semver range，`optional` 默认 `false`。每包最多 16 条，不允许自依赖或重复 id。字段规范、可选依赖与版本匹配语义见 [插件依赖 v0](../PLUGIN.md#插件依赖-v0)。
+
+当前 API 已校验并保留声明，但宿主尚不自动安装依赖或保证激活顺序；此字段不提供跨插件调用能力。发布依赖此机制的插件须等待路线图中的运行时实现，并升级使用新版 API tarball 的工具链。
+
 ## 2. 推荐工具链
 
 独立插件优先使用同级仓库 `amll-ttml-tool-plugin-toolkit` 创建、构建、测试和打包。宿主仓库也提供：

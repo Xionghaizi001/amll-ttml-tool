@@ -5,7 +5,7 @@
 
 本文描述插件系统已经存在的代码、边界和运行路径，是架构、信任模型与协议入口的唯一权威说明。决策理由见 `docs/adr/`；插件作者阅读 `docs/plugin-development-guide.md`；维护者阅读 `docs/plugin-agent-guide.md`；验收步骤见 `docs/plugin-acceptance-checklist.md`；未完成事项与架构调整点只记在 `goal.md`。v0 允许破坏性变更，在全部原定制功能插件通过合同测试前不冻结 v1。
 
-内核永久保留产品的实时核心能力：歌词文档模型与事务、时间轴与打轴交互、AMLL 预览渲染、频谱与波形、音频解码与播放。插件只能通过公开宿主端口访问文档和 UI，不得直接依赖 React 内部状态、Jotai、Tauri、内部 `TTMLLyric`、音频 PCM 或频谱数据。
+内核永久保留产品的实时核心能力：歌词文档模型与事务、时间轴与打轴交互、AMLL 预览渲染、频谱与波形、音频解码与播放。插件开发合同要求通过公开宿主端口访问文档和 UI，不得直接依赖 React 内部状态、Jotai、Tauri、内部 `TTMLLyric`、音频 PCM 或频谱数据。这是兼容性与源码依赖约束，不是对任意 trusted-js 的运行时隔离。
 
 ## 1. 权威来源与阅读规则
 
@@ -28,7 +28,7 @@
 
 ## 2. 系统一句话模型
 
-插件系统把一个外部或随应用交付的 **artifact**，经过容器剥离、语义校验、授权和持久化，变成一个可启停的 **installation**；运行时为它创建带所有者的 **extension scope**，插件只能通过公开宿主端口修改文档、注册 contribution 或提供主题数据，卸载 scope 即撤销其全部宿主注册。
+插件系统把一个外部或随应用交付的 **artifact**，经过容器剥离、语义校验、按运行档授权和持久化，变成一个可启停的 **installation**；运行时为它创建带所有者的 **extension scope**。公开宿主端口提供文档修改、contribution 注册和主题数据接口，卸载 scope 即撤销经它管理的宿主注册。
 
 ```mermaid
 flowchart LR
@@ -62,7 +62,7 @@ flowchart LR
 | 维度 | 当前取值 | 决定什么 |
 | --- | --- | --- |
 | 插件类型 `kind` | `function`、`theme` | 包的语义；功能包与主题包互斥 |
-| 执行方式 `runtime` | `builtin`、`trusted-js`、主题专用 `none` | 代码是否执行、隔离方式、可用宿主能力 |
+| 执行方式 `runtime` | `builtin`、`trusted-js`、主题专用 `none` | 代码是否执行、宿主接口与生命周期 |
 | 安装来源 `source` | `user`、`dev`、`store`，主题为 `builtin/installed`，trusted-js 另有 factory 概念 | 持久化、展示、更新与回退策略 |
 | 交付方式 | factory bundle、catalog artifact、catalog 裸模块、本地 ZIP/JSON、开发目录 | artifact 如何到达语义解析闸门 |
 
@@ -83,7 +83,7 @@ flowchart LR
 | Host port | 插件可调用的宿主能力，不暴露宿主内部对象 | `TrustedJsHostV0` |
 | Plugin document | 内部 `TTMLLyric` 的稳定 ID 投影 | `PluginDocumentV0` 与 `PluginDocumentGateway` |
 | Runtime state | active/disabled/crash 等运行态和诊断 | trusted-js 维护 |
-| Plugin KV | 以 plugin id 隔离的 JSON 值存储 | `IndexedDbPluginKvStorage` |
+| Plugin KV | 按 plugin id 分命名空间的 JSON 值存储 | `IndexedDbPluginKvStorage` |
 | Factory copy | 随应用交付、离线可用，可被更高版本更新遮蔽的 trusted-js 副本 | `factory-plugins.lock.json`、`factory-plugins.ts` |
 
 ### 4.1 身份关系
@@ -98,6 +98,30 @@ flowchart LR
 - crash、consent、禁用和 factory pin 状态。
 
 当前模型默认同一 `pluginId` 同时只有一个活动版本。factory、已安装版本和远程候选不是并存实例，而是先解析出一个加载计划，再由选中版本占用该 id。
+
+### 插件依赖 v0
+
+**部分实现**：公开类型、JSON Schema 与 manifest 语义校验已实现；安装闭包、版本求解、拓扑激活及级联启停尚未接入，见 `goal.md`。当前校验成功不代表宿主已经保障依赖可用，插件暂不可据此依赖运行顺序。
+
+function（含 builtin/trusted-js）与 theme 共用 `PluginManifestBase.dependencies?: PluginDependencyV0[]`：
+
+```json
+{
+  "dependencies": [
+    { "id": "dev.amll.metadata", "version": "^1.2.0" },
+    { "id": "dev.amll.ruby", "version": ">=1.0.0 <2.0.0", "optional": true }
+  ]
+}
+```
+
+- 字段省略或 `[]` 均表示无依赖；最多 16 条，必需和可选合计。每条只能含 `id`、`version`、`optional`；前两项必填，`optional` 必须为布尔值，省略按 `false` 解释，不改写输入。
+- `id` 与插件自身 id 使用相同的小写反域名格式；禁止自依赖和重复 id（包括必需/可选重复）。跨插件环检测属于后续图解析，单 manifest 校验不访问安装状态或网络。
+- `version` 为 1–256 字符的非空 node-semver 7 range，使用默认严格模式（`loose: false`）；支持精确版本、`^`、`~`、比较器组合、通配符、连字符区间与 `||`。空白字符串、tag、URL 与非法 range 拒绝；合法但无可满足版本的范围由后续求解报告。匹配沿用默认 `includePrerelease: false`，预发布版本须由对应版本元组的预发布比较器显式纳入；build metadata 不影响版本优先级。
+- Schema 负责结构、id 格式与数量/长度；`parseManifest` / `parseManifestSchema` 额外校验 range、自依赖和重复 id。trusted-js 与 theme 包解析器复用同一校验，不能仅凭 JSON Schema 判断语义有效。`plugin-api` 显式依赖纯 JavaScript 的 `semver` 包并列入边界白名单，统一 range 语法，仍不依赖宿主或浏览器 API。
+
+后续运行时须遵循的协议语义：必需依赖要求目标已安装（含 factory）、已启用且版本匹配；可选依赖缺失、禁用或版本不匹配时不阻止依赖者，也不触发自动安装、启用或升级。可选目标可用时参与激活排序；依赖图由必需边与可用的可选边组成，须无环。可选目标失效不触发依赖禁用级联。数组排列不决定激活顺序；安装和每次启用均须重新解析。
+
+依赖只表达存在、版本范围与激活顺序，不提供跨插件模块导入、命令调用或共享对象，不传递 capability、consent 或权限。跨插件调用需要另行定义 capability；主题与功能包互斥规则不变。旧宿主可能拒绝此新增字段，v0 插件发布须与宿主/API 工具链协调升级。
 
 ## 5. 分层与依赖边界
 
@@ -127,7 +151,7 @@ flowchart TB
 
 | 层 | 职责 | 不应承担的职责 |
 | --- | --- | --- |
-| `plugin-api` | JSON 可表达的公开合同、Schema、parser、权限规则 | React、DOM、Worker、Tauri、内部歌词模型 |
+| `plugin-api` | JSON 可表达的公开合同、Schema、parser、能力声明规则 | React、DOM、Worker、Tauri、内部歌词模型 |
 | `plugin-sdk-js` | trusted-js 的强类型宿主 facade、Mock 和合同测试 | 宿主实现、内部 alias、状态容器 |
 | `kernel` | 文档事务、命令和 contribution 注册、格式与主题核心 | 插件容器、远程 catalog、React 页面 |
 | `plugins/adapters` | 公开投影与内部模型转换、服务接线 | 新造一套协议或绕过事务服务 |
@@ -136,7 +160,7 @@ flowchart TB
 | `plugins/ui` | 权限、consent、管理器、表单和视图宿主 | 直接持久化插件或写歌词 atom |
 | `platform` | IndexedDB、Blob URL、DOM style 等环境适配 | 插件策略和业务规则 |
 
-核心依赖规则是：协议不依赖宿主，kernel 不依赖插件 UI/runtime，插件对文档的写入最终只能进入 `EditorDocumentService` 的事务路径。
+核心依赖规则是：协议不依赖宿主，kernel 不依赖插件 UI/runtime，公开插件 API 的文档写入统一进入 `EditorDocumentService` 的事务路径。
 
 ## 6. 插件档位模型
 
@@ -148,12 +172,12 @@ flowchart TB
 
 ### 6.1 trusted-js
 
-**已实现，但它是准入模型，不是沙箱。** 关键规则：
+关键规则：
 
-- factory 模块由应用构建产出，跳过来源和 desktop consent 闸门，但仍参与 crash 记账。
+- factory 模块由应用构建产出，跳过远程来源与用户 consent 检查，但仍参与 crash 记账。
 - 非 factory 模块必须通过 API 版本、同源或本地 Blob、用户禁用、崩溃禁用和 consent 检查。
 - 第三方本地/商店代码以 Blob 持久化，加载时创建 Object URL。
-- 代码内容摘要作为 `consentKey`；同 id 内容变化会重新 consent。摘要只用于内容识别，不代表代码可信。
+- 本地/商店 Blob 包以代码内容摘要作为 `consentKey`，同 id 内容变化会重新 consent；开发模式在当前会话复用授权，远程裸模块行为见 11.5。摘要只用于内容识别，不代表代码可信。
 - `activate({ pluginId, host, signal })` 可返回 cleanup；停用顺序为 abort → cleanup → host handle dispose → scope dispose → Object URL revoke。
 - 注册的 command、menu、titlebar、format、mode、view 和事件都归同一个 owner scope。
 - factory 更新采用 shadow 模型：更高 semver 的远程或已安装版本可遮蔽 factory；“卸载更新”通过 pin 回退到随应用副本。
@@ -176,7 +200,7 @@ trusted-js 对宿主拥有与应用代码相同的实际权限。`TrustedJsHostV
 
 当前存在两种“随应用交付”概念：
 
-- **宿主核心**：编辑模式、宿主原生 TTML 格式、内置主题等直接由宿主注册，不能被普通插件替换；它们是 fail-safe 基座。
+- **宿主核心**：编辑模式、宿主原生 TTML 格式、内置主题等直接由宿主注册，公开插件接口不开放替换；它们提供默认功能与恢复基座。
 - **factory 插件**：已插件化但仍随应用离线交付的功能。当前 `builtin.time-shift` 由独立仓库构建 artifact，宿主用 `factory-plugins.lock.json` 锁定版本与 SHA-256，并在构建期生成 bundled loader。
 
 factory 是来源/分发策略，`trusted-js` 是运行档。两者不应在未来的统一模型中合并成一个枚举。
@@ -208,7 +232,7 @@ Contribution 不是任意 UI 注入。trusted-js 通过 SDK 注册声明式 cont
 | `lyrics.format` | 文本与歌词投影转换 | `formats.register` |
 | `ui.notify` | 纯文本通知 | `ui.notify` |
 | `ui.form` | 声明式表单 | `ui.showForm` |
-| `storage.kv` | 插件隔离 KV | `storage.kv` |
+| `storage.kv` | 插件命名空间 KV | `storage.kv` |
 | `network.http` | 无凭据匿名 HTTP | `network.request` |
 | `extensions.<reverse-domain>.<name>` | 定制扩展能力 | 由具体宿主约定 |
 
@@ -216,7 +240,7 @@ Contribution 不是任意 UI 注入。trusted-js 通过 SDK 注册声明式 cont
 
 ### 7.3 文档模型与事务
 
-插件看到 `PluginDocumentV0`，不会持有内部 `TTMLLyric`：
+文档 API 返回 `PluginDocumentV0`，不提供内部 `TTMLLyric` 引用：
 
 ```text
 PluginDocumentV0
@@ -268,7 +292,7 @@ sequenceDiagram
     U-->>S: kind + package candidate
     S->>P: parse matching package
     P-->>S: validated package
-    S->>S: trusted-js: verify catalog id/version/apiVersion
+    S->>S: verify catalog id/version and matching API version
     S->>R: install by runtime/kind
     R->>D: persist grant/code/data
     R-->>C: installed or cancelled/error
@@ -329,37 +353,37 @@ trusted-js 按上述顺序管理生命周期。主题则使用另一套注册/�
 | 当前主题、安全模式、用户覆盖 | 同步 key-value storage | 固定设置键 | 与主题包分开 |
 | 插件网络离线开关 | atom storage/localStorage | `amll-plugin-network-offline` | 只约束 host network port |
 
-当前持久化失败语义并不统一：trusted-js 安装写盘失败会回滚；部分主题和 KV adapter 会记录 warning 后返回。这是调整“安装是否必须持久成功才算成功”时需要优先统一的合同。
+当前持久化失败语义并不统一：trusted-js 安装写盘失败会回滚，主题安装等待写入成功才发布状态；KV 等部分 adapter 会记录 warning 后返回。具体失败行为须按各条持久化路径判断。
 
-## 11. 安全边界与信任模型
+## 11. 用户责任、稳定性与信任模型
 
-安全模型不是简单的“官方/第三方”二分。系统把外部数据校验、内容完整性、用户授权、代码隔离、事务完整性、资源限制和故障恢复组合成多层边界；不同运行档只继承其中与自身相符的保证。
+用户对自己的安装、授权和操作负主要责任，程序的职责是保证稳定性。trusted-js 按应用级代码处理；consent 负责告知与授权，来源标识帮助用户选择，均不承诺代码安全或沙箱隔离。校验、事务、资源限制与恢复机制负责减少损坏、资源耗尽、UI 失控和故障后的不可用；这也不意味着宿主能中断同一 JS 上下文中的任意死循环。
 
-### 11.1 受保护资产
+### 11.1 机制职责
 
-| 资产 | 主要风险 | 当前保护手段 |
+| 对象 | 稳定性与接口目标 | 当前机制 |
 | --- | --- | --- |
-| 歌词文档和撤销历史 | 越权读取、部分写入、覆盖并发修改、破坏内部字段 | capability、公开投影、稳定 ID、revision、原子事务、adapter 保留内部字段 |
-| 用户选择和项目信息 | 超出功能所需的数据暴露 | 只读公开投影；trusted-js 为全权准入 |
-| 登录态、PAT 和业务身份 | 插件窃取凭据或冒充用户 | host network port 不带 credentials；trusted-js consent 明示无隔离风险；服务端必须独立鉴权 |
-| 浏览器/桌面系统 | DOM、文件、Tauri 或系统 API 被不可信代码调用 | 主题不执行代码；trusted-js 桌面默认关闭并要求全权 consent |
-| 宿主 UI 和授权决策 | 主题或插件伪造/遮盖权限、管理和恢复界面 | 声明式普通插件 UI、trusted-only view/mode、主题 selector 白名单、protected region、宿主核心恢复入口 |
-| 应用可用性 | 死循环、超大输入、通知/编辑洪泛、崩溃循环 | Worker、超时终止、载荷和 turn 配额、崩溃计数、自动禁用、安全模式 |
-| 插件间数据 | 一个插件读取或删除另一个插件的数据和注册项 | plugin id KV 命名空间、owner scope、注册 id 命名空间 |
-| 发布和更新完整性 | 下载内容被替换、更新破坏 factory 功能 | artifact 摘要（声明时）、factory 精确 lock、通道类型复核、trusted-js 身份复核、更新失败回退 factory |
+| 歌词文档和撤销历史 | 防止部分写入、并发覆盖和内部字段丢失 | 公开投影、稳定 ID、revision、原子事务、adapter 保留内部字段 |
+| 用户选择和项目信息 | 提供稳定的数据接口 | 公开投影与只读快照；不限制 trusted-js 的实际数据访问 |
+| 登录态、PAT 和业务身份 | 宿主接口不提供凭据原文；业务权限由服务端决定 | 凭据不进插件存储或文档投影；匿名网络端口不附带凭据；服务端鉴权 |
+| 浏览器/桌面能力 | 告知代码的实际运行权限 | 主题不执行代码；非 factory trusted-js 须用户授权，桌面 consent 说明系统能力 |
+| 宿主 UI | 保持管理与恢复入口可用，避免主题样式干扰 | 声明式 UI 校验、主题 selector 白名单、protected region、宿主核心恢复入口 |
+| 应用可用性 | 减少超大输入、资源残留与重复启动失败 | 载荷限额、网络超时与取消、scope 清理、崩溃计数、自动禁用、主题安全模式 |
+| 插件数据和注册项 | 避免正常 API 使用中的串写、命名冲突和清理遗漏 | plugin id KV 命名空间、owner scope、注册 id 命名空间；不构成 JS 隔离 |
+| 发布和更新完整性 | 确认 artifact 字节与记录一致，保留回退能力 | 摘要、factory 精确 lock、包与目录身份复核、更新失败回退 factory |
 
-### 11.2 威胁假设
+### 11.2 责任与约束
 
-当前模型作以下假设：
+当前模型按以下职责划分：
 
-- catalog、ZIP/JSON、manifest、主题数据与 SDK 请求参数 都是不可信输入，每次跨边界都要解析和校验。
-- theme 可以是恶意数据；目标是阻止代码执行、远程资源加载和安全 UI 覆盖。
+- catalog、ZIP/JSON、manifest、主题数据与 SDK 请求参数须按协议解析和校验，防止非法结构、过大载荷或不支持的操作损坏应用状态。
+- theme 保持纯数据合同，通过 token、CSS 和资源校验避免 UI 失控，并保留主题恢复入口。
 - `trusted-js` 在 consent 之后进入与应用代码相同的信任域。系统只做执行前准入、来源展示和执行后的可用性恢复，不承诺约束其 DOM、网络、存储、凭据或 Tauri 访问。
-- 应用自身代码、构建流水线、factory lock 生成过程和发布 origin 属于可信计算基。它们一旦失陷，插件层不能恢复安全性。
+- factory 随应用构建，复用应用的交付与发布流程；只有 factory 模块免 consent，远程 trusted-js（含第一方更新）均须用户授权。
 - 业务服务端不信任客户端。资格、提交身份、审阅和其他敏感操作必须在服务端重新鉴权，不能把插件 capability 当作服务端授权。
-- 当前没有发布者签名、证书链、信誉系统或透明日志。内容摘要只证明“字节与某个已知摘要一致”，不证明作者身份或代码安全。
+- 内容摘要只确认字节一致，用于完整性、缓存、回退和可复现构建；同源与 `firstParty` 不证明代码安全，也不替代用户授权。
 
-当前安全投入主要覆盖有 bug 或一般恶意的插件输入、误操作和可用性故障，不声称抵御已经取得主应用发布权限、同源服务器控制权或用户明确授权的全权 JS。
+新增机制须说明如何防止插件故障或平台越界；不以增加高级攻击者成本为目标引入发布者签名、信誉或透明日志等治理要求。资格过滤、kill switch 与必要操作记录服务于运营和事故响应，发布溯源复用代码托管与 CI 记录。
 
 ### 11.3 信任域与跨域路径
 
@@ -391,10 +415,10 @@ flowchart LR
     end
 
     CAT --> CP --> HASH
-    ART --> HASH --> UNPACK --> PARSE --> DECIDE
+    ART --> HASH --> UNPACK --> PARSE
     MOD --> CP --> DECIDE
-    DECIDE -->|theme| THEME --> HOST
-    DECIDE -->|trusted-js| JS --> HOST
+    PARSE -->|theme，无需 consent| THEME --> HOST
+    PARSE -->|trusted-js| DECIDE --> JS --> HOST
     HOST --> CORE
 ```
 
@@ -405,15 +429,15 @@ flowchart LR
 | 边界 | 输入 | 强制检查 | 失败方式 | 明确不保证 |
 | --- | --- | --- | --- | --- |
 | Catalog | 远程 JSON | schema、版本、重复 id、相对 entry、dot segment | 整份 catalog 拒绝或不可用时跳过 | 发布者身份、条目代码安全；`platforms` 只是运营过滤 |
-| Artifact 下载 | 远程字节 | catalog 声明 `sha256` 时校验；factory lock 必须匹配精确摘要 | 安装终止，旧版本/factory 保留 | catalog 中 `sha256` 当前不是必填；摘要不是签名 |
+| Artifact 下载 | 远程字节 | 第三方 provider 必须提供 SHA-256；其余 artifact 声明摘要时校验；factory lock 必须匹配精确摘要 | 安装终止，旧版本/factory 保留 | 字节一致不代表发布者身份或代码安全 |
 | 容器 | ZIP/JSON | magic bytes、路径、重复项、白名单布局、条目和解压尺寸 | 整包拒绝，不产生部分安装 | manifest 语义和代码行为，交给后续 parser/runtime |
 | Package parser | 未知对象 | JSON Schema、manifest、API 版本、kind/runtime、静态 contribution、主题安全规则 | 返回结构化 issue，拒绝安装/恢复 | 插件业务正确性 |
 | trusted-js 准入 | factory、同源模块或本地 Blob | API 版本、来源路径、禁用/crash 状态、consent key | import 前拒绝；更新可回退 factory | 代码开始执行后的任何沙箱保证 |
-| 文档提交 | op batch + revision | schema、稳定 ID、能力、expected revision、单事务 | 全批拒绝，不部分写入 | 用户已经授权的合法但不理想修改 |
+| 文档提交 | op batch + revision | schema、稳定 ID、expected revision、单事务 | 全批拒绝，不部分写入 | 编辑内容符合用户意图；capability 不隔离 trusted-js |
 | Contribution | 注册 id 和 owner | owner 命名空间、全局冲突、trusted-only view/mode、数量限制 | 注册抛错，scope 可整体释放 | trusted-js 自己直接操作 DOM |
 | 持久化 | package、状态、KV | plugin id 命名空间、恢复时重新解析 | 各 adapter 语义目前不完全一致 | 跨 store 原子事务；浏览器配额可用性 |
 
-### 11.5 Artifact 与供应链边界
+### 11.5 Artifact 完整性与资源限额
 
 容器解包的当前硬限制如下：
 
@@ -429,13 +453,13 @@ flowchart LR
 
 ZIP entry 必须使用相对正斜杠路径，不能包含空段、`.`、`..`、绝对路径、反斜杠或重复名称；固定布局之外的文件会使整个包失败。这一层用于防路径穿越、意外附带文件和常见解压膨胀，不替代语义 parser。
 
-内容完整性存在三种不同强度：
+不同交付路径的完整性行为如下：
 
 1. factory artifact 由 `factory-plugins.lock.json` 锁定版本和 SHA-256，构建时验证。
-2. 商店 ZIP/JSON artifact 仅在 catalog 提供 `sha256` 时校验。两种通道都会核对容器类型；当前只有 trusted-js 继续核对包内 id、version、API version 与 catalog 条目，主题验证包自身语义。
+2. 商店 ZIP/JSON artifact 在 catalog 提供 `sha256` 时校验，第三方 provider 强制要求摘要。trusted-js 与 theme 均核对容器类型、包内 id、version、对应 API version 与 catalog 条目，并校验包自身语义。
 3. catalog 中的裸 trusted-js 模块直接从同源 URL 动态 import。当前 loader 不验证 catalog `sha256`，也不把它作为 `consentKey`；这条路径依赖 TLS、同源服务器和发布流程，内容变化不会像本地 Blob 包一样按摘要强制重新 consent。
 
-因此，SHA-256、同源和 `firstParty` 的含义必须分开：SHA-256 是内容身份，同源是交付边界，`firstParty` 是宿主给予的信任策略。三者都不是代码签名。第三方 provider 已要求摘要，并在执行前验证下载包的实际字节。
+SHA-256 用于内容识别与完整性；同源脚本、CDN 反向代理、immutable 缓存和 catalog `no-store` 服务于部署与更新一致性；`firstParty` 是来源标识。同源不等于可信，第一方标识不免除远程代码的 consent。factory/shadow/pin 服务于出厂回退，`minAppVersion` 与平台过滤服务于版本兼容和运营策略，均不替代服务端鉴权。
 
 ### 11.7 trusted-js 准入边界
 
@@ -444,9 +468,9 @@ trusted-js 的边界全部发生在代码执行之前：
 - factory module 与主应用同一构建和信任根，跳过用户 consent；
 - 远程裸模块必须解析到应用 origin 内；
 - 本地/商店 package 经 parser 后保存为 Blob，包内容 SHA-256 作为 consent key，内容变化重新询问；
-- 桌面端非 factory trusted-js 默认关闭；
+- 桌面宿主已取消远程 JS 总开关，非 factory 模块继续逐插件 consent，桌面提示包含系统能力说明；
 - 用户禁用、连续崩溃和上次启动残留 pending marker 都在 import 前检查；
-- consent 明示插件可读取和修改应用数据、读取凭据并以用户身份操作；桌面端还提示系统风险。
+- consent 明示插件可读取和修改应用数据、访问登录态并以用户身份操作；桌面端还提示系统能力。不向插件提供凭据原文是宿主接口约束，不能据此承诺任意 JS 无法读取同一环境中的凭据。
 
 一旦 `import()` 开始，trusted-js 就能以应用前端的权限运行。它可以绕过 `TrustedJsHostV0` 直接使用可见的 DOM、Web API、存储、网络以及桌面 WebView 暴露的能力。以下机制对 trusted-js 只是兼容性或可用性机制，不是安全隔离：
 
@@ -456,7 +480,7 @@ trusted-js 的边界全部发生在代码执行之前：
 - owner namespace 和 scope；
 - AbortSignal、cleanup 和 crash counter。
 
-当前 `index.html` 的 CSP 允许广泛来源、`blob:`、`unsafe-inline` 和 `unsafe-eval`。它满足现有应用与插件加载需求，但不是约束 trusted-js 或供应链注入的安全边界。若未来要把 CSP 纳入安全模型，需要单独清点应用依赖、Tauri IPC、Worker、动态 import 与开发模式后收紧，并建立自动化响应头/页面策略测试。
+当前 `index.html` 的 CSP 允许广泛来源、`blob:`、`unsafe-inline` 和 `unsafe-eval`，用于兼容现有应用与插件加载。CSP 不承担 trusted-js 隔离职责。
 
 ### 11.8 主题与安全 UI 边界
 
@@ -485,20 +509,20 @@ trusted-js 的边界全部发生在代码执行之前：
 - 请求体最多 1 MiB，响应体最多 8 MiB；默认超时 30 秒，最大 120 秒；卸载会取消请求；
 - 离线开关拒绝经该 port 发起的新请求；浏览器/Tauri WebView 的 CORS 规则仍适用。
 
-该端口不实现域名 allowlist、DNS 解析检查或私网 HTTPS 地址过滤。它防止宿主主动附带用户凭据，不阻止拥有文档读取和网络能力的插件主动外传数据。trusted-js 可以完全绕过该 port 直接联网，所以离线开关不能作为 trusted-js 的网络隔离。
+该端口为调用方提供匿名请求、大小限额、超时与取消能力，避免宿主主动附带用户凭据。trusted-js 可以绕过该 port 直接联网，离线开关只控制该端口的请求，不承担网络隔离或防数据外传职责。
 
-宿主持有的 PAT、登录态和服务端 token 不应出现在 `PluginDocumentV0`、KV或日志中。对 trusted-js 只能通过全权 consent 和发布治理管理该风险，不能靠前端对象隐藏建立安全保证。
+宿主持有的 PAT、登录态和服务端 token 不应出现在 `PluginDocumentV0`、插件 KV 或日志中，公开 API 不提供凭据原文。用户通过 consent 决定是否运行插件；业务 API 在服务端鉴权。trusted-js 可借宿主能力操作用户数据及以当前登录身份调用 API，前端对象隐藏不构成凭据隔离。
 
 ### 11.10 文档、表单与 contribution 完整性边界
 
 事务层保护文档一致性，而不是判断编辑内容是否“正确”：
 
-- 插件只得到公开投影，内部字段不会因 patch 丢失；
+- 文档 API 提供公开投影，adapter 保留未暴露的内部字段；
 - 所有定位使用稳定 ID；未知目标使事务失败；
 - revision 冲突整批拒绝；一个 turn/applyEdit 对应一个撤销记录；
 - 来源 plugin id 随事务传播，事件回送时避免自触发循环。
 
-声明式表单在协议入口和 UI service 再次校验，字段、选项、文本和层级都有上限；提交值按 schema 清洗，丢弃未知键、限制文本和数字范围，并校验 select/radio 成员。通知是纯文本，图标只允许宿主预编译的 Fluent icon 白名单。普通插件不能传 HTML、SVG、URL、React component 或内联回调。
+声明式表单在协议入口和 UI service 再次校验，字段、选项、文本和层级都有上限；提交值按 schema 清洗，丢弃未知键、限制文本和数字范围，并校验 select/radio 成员。通知是纯文本，图标只允许宿主预编译的 Fluent icon 白名单。这些声明式接口不接受 HTML、SVG、URL、React component 或内联回调；trusted-js 的 React view 使用独立的视图接口。
 
 Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、trusted view、host-native format 只允许 trusted owner。标题栏 action 是数量受限的命令引用和白名单图标，不能占据窗口控件或恢复入口。scope disposal 只清理经宿主 API 注册的资源；trusted-js 自行创建的全局 listener、timer 或 DOM 仍需插件 cleanup，宿主无法可靠枚举。
 
@@ -517,36 +541,31 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 
 安全恢复入口必须属于宿主核心：默认编辑模式、host-native TTML、插件管理、权限/consent、主题安全模式和恢复快捷键均不能依赖可卸载插件才能访问。
 
-### 11.12 当前残余风险与非保证
+### 11.12 当前实现限制
 
-调整架构时不应把以下事项误认为已经解决：
+以下限制影响授权记录、持久化或恢复行为，不代表需要为 trusted-js 补建沙箱：
 
-1. trusted-js 没有运行时隔离，可能读取凭据、篡改 UI、直接联网或调用桌面能力。
-2. 当前 CSP 宽松，不提供脚本来源约束或 trusted-js containment。
-3. 远程裸 trusted-js 模块没有实际字节摘要校验，内容变化也没有摘要驱动的重新 consent。
-4. catalog artifact 的 `sha256` 是可选字段；系统没有发布者签名、撤销或透明日志。
-5. 商店中的主题包尚未把包内 id/version/API version 与 catalog 条目逐项比对。
-7. host network port 没有 hostname allowlist 或私网 HTTPS 过滤，并不构成防数据外传机制。
-8. 主题/KV 的部分持久化 adapter 会吞掉写失败，安装和持久成功的语义尚未统一。
-9. localStorage 不可用时，trusted-js crash/pin 状态会降级，factory pin 可能只在当前会话有效。
-10. `data-amll-protected` 只约束经过校验的主题 CSS，不能抵抗全权 JS 或宿主自身 CSS/DOM bug。
-11. Web/Tauri 的真实隔离还依赖浏览器、WebView和 Tauri 配置；桌面跨平台验证尚未全部完成。
+1. 远程裸 trusted-js 模块没有实际字节摘要校验，内容变化也没有摘要驱动的重新 consent；本地/商店 Blob 包使用内容摘要授权。
+2. KV 等部分持久化 adapter 会记录写失败后返回；主题安装现已等待写入成功才发布状态，具体语义以各条路径为准。
+3. localStorage 不可用时，trusted-js crash/pin 状态会降级，factory pin 可能只在当前会话有效。
+4. scope、AbortSignal 与 cleanup 只管理宿主登记或插件主动释放的资源，不能抢占中断主线程死循环；crash marker 用于后续启动恢复。
+5. 浏览器、WebView 与 Tauri 配置决定实际可用的平台能力；桌面跨平台验证尚未全部完成。
 
 ## 12. 当前不变量
 
 后续重构如果没有明确 ADR 变更，应保持这些行为：
 
 1. `plugin-api` 保持宿主无关且可独立构建。
-2. 外部插件只依赖公开 API/SDK，不能导入 `$/` 或宿主内部类型。
+2. 外部插件开发合同只允许依赖公开 API/SDK，不导入 `$/` 或宿主内部类型；这是兼容性约束。
 3. 每条 artifact 路径最终进入唯一的对应语义 parser。
-4. 文档写入只经事务服务；稳定 ID、revision、原子提交和撤销语义不变。
+4. 公开插件 API 的文档写入只经事务服务；稳定 ID、revision、原子提交和撤销语义不变。
 5. capability 精确匹配，未知 capability 拒绝，不做前缀通配。
-6. 插件只能注册自己命名空间下的命令和贡献。
+6. 宿主注册接口只接受插件自己命名空间下的命令和贡献。
 7. scope disposal 能撤销插件的全部宿主注册。
 9. trusted-js 明确按全权代码处理，不把 SDK facade 描述成沙箱。
 10. 主题不执行代码，受保护 UI 不受主题样式影响。
 11. factory copy 离线可用；更新失败可回退，商店不可用不会移除基础功能。
-12. host-native TTML 和 fallback edit mode 始终由可信、不可销毁的宿主核心提供。
+12. host-native TTML 和 fallback edit mode 始终由不可卸载的宿主核心提供。
 
 
 ## 13. 仍然有效的历史决策
@@ -571,17 +590,17 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 
 ### 13.3 两档用户提示语与两条红线
 
-用户提示语按两档说明信任边界，措辞不得混淆“浏览器保护的是系统、不是账号”：
+用户提示语按两档说明实际能力，由用户决定是否安装和授权，不承诺插件行为安全：
 
 1. 主题：不执行代码，token、CSS 与资源引用由宿主校验。
 2. JS 插件：与应用同权，可访问应用数据和登录态；桌面端还可能访问系统能力，应像安装软件一样审查来源。
 
-不随规模松动的红线：凭据（PAT/登录态）由宿主持有，不进插件可读存储、不进文档投影，宿主 API 不提供凭据原文；业务 API 鉴权在服务端，不信任客户端。trusted-js 与应用同处 JS 环境，接口约定不构成对任意 JS 的凭据隔离保证。只有随应用构建的 factory 模块免 consent，所有远程 trusted-js（含第一方更新）均须用户授权。
+不随规模松动的红线：凭据（PAT/登录态）由宿主持有，不进插件存储、不进文档投影，宿主 API 不提供凭据原文；业务 API 鉴权在服务端，不信任客户端。trusted-js 与应用同处 JS 环境，接口约定不构成对任意 JS 的凭据隔离保证。只有随应用构建的 factory 模块免 consent，所有远程 trusted-js（含第一方更新）均须用户授权。
 
 ### 13.4 一级页面、标题栏与表单的信任结论
 
 - 完整 React mainView 只由已准入的 builtin/trusted scope 注册，manifest 不能声明 mode。`FALLBACK_MODE_ID = "edit"`，edit 模式禁止携带 `when`，模式切换器位于 `data-amll-protected` 内。
-- 标题栏承载模式切换器与窗口控制，属恢复入口。第三方最多获得声明式动作位（每 manifest ≤3 条，自身 command ID + 宿主图标白名单 + 纯文本 tooltip），不得触碰窗口拖拽区、窗口控制和模式切换器。
+- 标题栏承载模式切换器与窗口控制，属恢复入口。manifest 的标题栏声明最多 3 条动作（自身 command ID + 宿主图标白名单 + 纯文本 tooltip）；该接口不开放窗口拖拽区、窗口控制和模式切换器。这是 UI 合同，不限制 trusted-js 直接操作 DOM 的实际能力。
 - 表单不向协议开放 CSS 文本；若未来需要主题动画，应在主题合同内以受限 `@keyframes` 另行扩展。
 
 ### 13.5 主题 slot / part 合同

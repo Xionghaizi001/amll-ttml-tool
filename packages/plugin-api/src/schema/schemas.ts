@@ -1,6 +1,7 @@
 import { ALL_CAPABILITIES } from "../capabilities";
 import {
 	ACTION_FLUENT_ICON_NAMES_V0,
+	DEPENDENCIES_PER_PLUGIN_LIMIT_V0,
 	FORMATS_PER_PLUGIN_LIMIT_V0,
 	PLUGIN_API_VERSION,
 	THEME_API_VERSION,
@@ -262,11 +263,26 @@ const formatContribution = {
 	},
 	additionalProperties: false,
 };
+const pluginId = {
+	type: "string",
+	pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
+};
+
 const baseManifestProperties = {
-	id: {
-		type: "string",
-		pattern:
-			"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
+	id: pluginId,
+	dependencies: {
+		type: "array",
+		maxItems: DEPENDENCIES_PER_PLUGIN_LIMIT_V0,
+		items: {
+			type: "object",
+			required: ["id", "version"],
+			properties: {
+				id: pluginId,
+				version: { type: "string", minLength: 1, maxLength: 256 },
+				optional: { type: "boolean" },
+			},
+			additionalProperties: false,
+		},
 	},
 	name: { type: "string", minLength: 1, maxLength: 128 },
 	version: {

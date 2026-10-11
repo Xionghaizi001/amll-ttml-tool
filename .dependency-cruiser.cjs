@@ -47,7 +47,7 @@ module.exports = {
 		rule(
 			"plugin-api-dependencies",
 			{ path: `^${api}` },
-			{ pathNot: `^${api}|${external("vitest")}`, couldNotResolve: false },
+			{ pathNot: `^${api}|${external("vitest|semver")}`, couldNotResolve: false },
 		),
 		rule(
 			"plugin-api-testing-only",
