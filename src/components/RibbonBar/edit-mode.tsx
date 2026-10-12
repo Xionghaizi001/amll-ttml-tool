@@ -476,6 +476,31 @@ function EditField<
 				placeholder={fieldPlaceholder}
 				disabled={fieldInput === undefined}
 				onChange={(evt) => setFieldInput(evt.currentTarget.value)}
+				onDragOver={(evt) => {
+					// The app-level drop handler opens dropped files. Allow text drops
+					// to reach this editor while preserving file drop behavior.
+					if (
+						(fieldName === "translatedLyric" || fieldName === "romanLyric") &&
+						evt.dataTransfer.types.includes("text/plain")
+					) {
+						evt.preventDefault();
+						evt.stopPropagation();
+					}
+				}}
+				onDrop={(evt) => {
+					if (
+						fieldName !== "translatedLyric" &&
+						fieldName !== "romanLyric"
+					) {
+						return;
+					}
+					const text = evt.dataTransfer.getData("text/plain");
+					if (!text) return;
+					evt.preventDefault();
+					evt.stopPropagation();
+					setFieldInput(text);
+					onInputFinished(text);
+				}}
 				onKeyDown={(evt) => {
 					if (evt.key !== "Enter") return;
 					onInputFinished(evt.currentTarget.value);
