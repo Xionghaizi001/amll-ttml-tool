@@ -2,7 +2,7 @@ import { Add16Regular } from "@fluentui/react-icons";
 import { Grid, IconButton, Select, Text } from "@radix-ui/themes";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
-import { type FC, useCallback, useMemo } from "react";
+import { type FC, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addLanguageDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom } from "$/states/main.ts";
@@ -16,6 +16,14 @@ export const I18nEditor: FC = () => {
 		"ribbonBar.editMode.multilingualPlaceholder",
 		"请选择语言",
 	);
+	const [selectedTranslationLang, setSelectedTranslationLang] = useState<
+		string | undefined
+	>();
+	const [selectedRomanizationLang, setSelectedRomanizationLang] = useState<
+		string | undefined
+	>();
+	const [selectedWordRomanizationLang, setSelectedWordRomanizationLang] =
+		useState<string | undefined>();
 
 	const translationLanguages = useMemo(() => {
 		const languages = new Set<string>();
@@ -27,10 +35,8 @@ export const I18nEditor: FC = () => {
 				hasUndFallback = true;
 				continue;
 			}
-			for (const [lang, value] of entries) {
-				if (value.trim().length > 0) {
-					languages.add(lang);
-				}
+			for (const lang of Object.keys(line.translatedLyricByLang)) {
+				languages.add(lang);
 			}
 		}
 		if (languages.size === 0 && hasUndFallback) {
@@ -49,10 +55,8 @@ export const I18nEditor: FC = () => {
 				hasUndFallback = true;
 				continue;
 			}
-			for (const [lang, value] of entries) {
-				if (value.trim().length > 0) {
-					languages.add(lang);
-				}
+			for (const lang of Object.keys(line.romanLyricByLang)) {
+				languages.add(lang);
 			}
 		}
 		if (languages.size === 0 && hasUndFallback) {
@@ -69,10 +73,8 @@ export const I18nEditor: FC = () => {
 				hasUndFallback = true;
 			}
 			if (!line.wordRomanizationByLang) continue;
-			for (const [lang, words] of Object.entries(line.wordRomanizationByLang)) {
-				if (words.length > 0) {
-					languages.add(lang);
-				}
+			for (const lang of Object.keys(line.wordRomanizationByLang)) {
+				languages.add(lang);
 			}
 		}
 		if (languages.size === 0 && hasUndFallback) {
@@ -183,6 +185,7 @@ export const I18nEditor: FC = () => {
 				});
 				return;
 			}
+			setSelectedTranslationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					line.translatedLyric = line.translatedLyricByLang?.[lang] ?? "";
@@ -212,6 +215,7 @@ export const I18nEditor: FC = () => {
 				});
 				return;
 			}
+			setSelectedRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					line.romanLyric = line.romanLyricByLang?.[lang] ?? "";
@@ -237,8 +241,10 @@ export const I18nEditor: FC = () => {
 						}
 					}
 				});
+				setSelectedWordRomanizationLang(lang);
 				return;
 			}
+			setSelectedWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					const romanWords = line.wordRomanizationByLang?.[lang] ?? [];
@@ -272,9 +278,16 @@ export const I18nEditor: FC = () => {
 			target: "translation",
 			onSubmit: (lang) => {
 				editLyricLines((state) => {
+					const hasLanguageMap = state.lyricLines.some(
+						(line) => Object.keys(line.translatedLyricByLang ?? {}).length > 0,
+					);
 					for (const line of state.lyricLines) {
 						line.translatedLyricByLang ??= {};
-						line.translatedLyricByLang[lang] = line.translatedLyric ?? "";
+						if (!(lang in line.translatedLyricByLang)) {
+							line.translatedLyricByLang[lang] = hasLanguageMap
+								? ""
+								: (line.translatedLyric ?? "");
+						}
 						line.translatedLyric = line.translatedLyricByLang[lang] ?? "";
 					}
 				});
@@ -289,9 +302,16 @@ export const I18nEditor: FC = () => {
 			target: "romanization",
 			onSubmit: (lang) => {
 				editLyricLines((state) => {
+					const hasLanguageMap = state.lyricLines.some(
+						(line) => Object.keys(line.romanLyricByLang ?? {}).length > 0,
+					);
 					for (const line of state.lyricLines) {
 						line.romanLyricByLang ??= {};
-						line.romanLyricByLang[lang] = line.romanLyric ?? "";
+						if (!(lang in line.romanLyricByLang)) {
+							line.romanLyricByLang[lang] = hasLanguageMap
+								? ""
+								: (line.romanLyric ?? "");
+						}
 						line.romanLyric = line.romanLyricByLang[lang] ?? "";
 					}
 				});
@@ -306,16 +326,22 @@ export const I18nEditor: FC = () => {
 			target: "word-romanization",
 			onSubmit: (lang) => {
 				editLyricLines((state) => {
+					const hasLanguageMap = state.lyricLines.some(
+						(line) => Object.keys(line.wordRomanizationByLang ?? {}).length > 0,
+					);
 					for (const line of state.lyricLines) {
 						line.wordRomanizationByLang ??= {};
-						const romanWords = line.words
-							.filter((word) => word.romanWord.trim().length > 0)
-							.map((word) => ({
-								startTime: word.startTime,
-								endTime: word.endTime,
-								text: word.romanWord,
-							}));
-						line.wordRomanizationByLang[lang] = romanWords;
+						if (!(lang in line.wordRomanizationByLang)) {
+							line.wordRomanizationByLang[lang] = hasLanguageMap
+								? []
+								: line.words
+										.filter((word) => word.romanWord.trim().length > 0)
+										.map((word) => ({
+											startTime: word.startTime,
+											endTime: word.endTime,
+											text: word.romanWord,
+										}));
+						}
 						line.wordRomanizationLang = lang;
 					}
 				});
@@ -330,7 +356,12 @@ export const I18nEditor: FC = () => {
 				{t("ribbonBar.editMode.translation", "翻译")}
 			</Text>
 			<Select.Root
-				value={currentTranslationLang}
+				value={
+					selectedTranslationLang &&
+					translationLanguages.includes(selectedTranslationLang)
+						? selectedTranslationLang
+						: currentTranslationLang
+				}
 				onValueChange={applyTranslationLang}
 				disabled={translationLanguages.length === 0}
 				size="1"
@@ -356,7 +387,12 @@ export const I18nEditor: FC = () => {
 				{t("ribbonBar.editMode.romanization", "音译")}
 			</Text>
 			<Select.Root
-				value={currentRomanizationLang}
+				value={
+					selectedRomanizationLang &&
+					romanizationLanguages.includes(selectedRomanizationLang)
+						? selectedRomanizationLang
+						: currentRomanizationLang
+				}
 				onValueChange={applyRomanizationLang}
 				disabled={romanizationLanguages.length === 0}
 				size="1"
@@ -382,7 +418,12 @@ export const I18nEditor: FC = () => {
 				{t("ribbonBar.editMode.wordRomanization", "逐字音译")}
 			</Text>
 			<Select.Root
-				value={currentWordRomanizationLang}
+				value={
+					selectedWordRomanizationLang &&
+					wordRomanizationLanguages.includes(selectedWordRomanizationLang)
+						? selectedWordRomanizationLang
+						: currentWordRomanizationLang
+				}
 				onValueChange={applyWordRomanizationLang}
 				disabled={wordRomanizationLanguages.length === 0}
 				size="1"
