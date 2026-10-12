@@ -5,7 +5,7 @@
 ## 进度总览
 
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。
-- 尚未落地：工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、阶段 8/9 完整业务迁移、阶段 10 后端、ADR 并入。
+- 尚未落地：工具链/插件远端发布、插件依赖/主题作用域/局部覆盖、阶段 8/9 完整业务迁移、阶段 10 后端。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
 ## 后续实现顺序
@@ -87,7 +87,7 @@ v0 版本政策：SDK → 插件 → 宿主 lock 协调发布；宿主锁精确�
 
 ### 1. 插件依赖
 
-依赖声明合同与可选依赖语义见 `PLUGIN.md`“插件依赖 v0”；以下运行时能力尚未实现。
+依赖声明合同与可选依赖语义见 `PLUGIN.md`“插件依赖 v0”；trusted-js 加载闸门已接入必需依赖的安装/启用/版本检查与 factory 拓扑启动，商店闭包安装、批次回滚、手动导入禁用状态和主题作用域仍待完成。
 - [ ] 解析规则：依赖满足 = 目标已安装且已启用且版本落在范围内；出厂副本视为已安装；依赖图必须无环（成环即拒绝安装）；激活按拓扑顺序进行；解析在安装与每次启用时都执行，不只在安装时。
 - [ ] 商店安装：catalog 客户端对必需依赖求闭包（跨全部提供者，见 `PLUGIN.md`“商店提供者 v0”），在一个确认弹窗中列出全部待安装项并按各自档位如实措辞（trusted-js 走 consent、theme 无需授权），用户一次确认后按拓扑顺序安装；任一项失败即回滚本批次已安装项，不留半状态。
 - [ ] 手动安装（JSON / zip 导入、开发目录加载）：依赖缺失或版本不匹配时安装成功但状态置为 `disabled(missingDependency)`，插件管理器逐条列出缺失的 id 与版本范围，catalog 中存在时提供"去商店安装"入口；补齐后不自动启用，由用户显式启用。
@@ -192,9 +192,9 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 
 ## 贯穿项：开发文档整理
 
-文档地图：`PLUGIN.md`（架构、信任模型、决策理由与协议入口，唯一架构文档）、`docs/plugin-development-guide.md`（插件作者）、`docs/plugin-agent-guide.md`（维护者）、`docs/plugin-acceptance-checklist.md`（验收）、本文（只写未完成项，不写完成记录）。`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库。`docs/adr/` 按下列待办合并后删除。
+文档地图：`PLUGIN.md`（架构、信任模型、决策理由与协议入口，唯一架构文档）、`docs/plugin-development-guide.md`（插件作者）、`docs/plugin-agent-guide.md`（维护者）、`docs/plugin-acceptance-checklist.md`（验收）、本文（只写未完成项，不写完成记录）。`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库。架构决策已合并到上述文档，不再维护独立 ADR 目录。
 
-- [ ] 删除 `docs/adr/`，把三份 ADR 中其他文档没有的内容并入后再删：ADR 0001 的“决策”各条已被 `PLUGIN.md` 第 6、11、12 节覆盖，只需把“后果”一节的取舍并入 `PLUGIN.md` 第 12 节；ADR 0002 第 9 条（错误码稳定且可序列化、HTTP 非 2xx 不是 RPC 失败、`network-unavailable` 语义）并入 `PLUGIN.md` 第 7 节，“验证要求”并入 agent guide 第 6 节；ADR 0003 第 1 条（`CommandRegistry` 与 `src/modules/keyboard` 分工、`defaultKeys` 只是默认值）与第 4 条（adapter 清单与“adapter 不定义新合同”）并入 `PLUGIN.md` 第 5 节，第 6 条 fail-closed 规则并入第 11.10 节。并入后更新 `PLUGIN.md` 头部、agent guide 与开发指南中指向 `docs/adr/` 的文字。
+- [x] 删除 `docs/adr/` 并完成决策内容归并：ADR 0001 的取舍并入 `PLUGIN.md` 第 12 节；ADR 0002 的错误语义并入第 7 节、验证要求并入 agent guide 第 6 节；ADR 0003 的命令/快捷键分工与 adapter 约束并入第 5 节、fail-closed 规则并入第 11.10 节；同时更新架构文档头部、agent guide 与开发指南。
 - [ ] 自动生成扩展：`gen-plugin-docs.ts` 覆盖 `TrustedJsHostV0` 与 SDK 类型。
 - [ ] trusted-js 与主题各一份“最小插件 → 构建 → 本地安装 → 发布到 catalog”端到端教程；主题包制作（CSS 校验规则与 slot/part 合同）、分发与商店（zip 容器、catalog、sha256、factory/shadow/pin）章节补入开发指南。
 - 验收：新人或 agent 只凭 docs 完成相应插件并通过合同测试；信任模型与分发文档在审阅插件上架前收口。

@@ -35,6 +35,7 @@ export interface TrustedJsPluginEntry {
 	beforeImport?: () => Promise<void>;
 	/** Development consent and crash accounting stay in this session. */
 	development?: boolean;
+	dependencies?: import("@amll-ttml-tool/plugin-api").PluginDependencyV0[];
 }
 
 /**
@@ -117,6 +118,8 @@ export interface TrustedJsLoaderPorts<THost> {
 	/** Desktop trusted-js runtime consent gate; default off per trust model. */
 	isDesktopTrustEnabled(): boolean;
 	warn?(message: string): void;
+	/** Returns a stable reason before any plugin bytes are imported. */
+	checkDependencies?(entry: TrustedJsPluginEntry): string | null;
 }
 
 export type TrustedJsLoadRejection =
@@ -128,6 +131,7 @@ export type TrustedJsLoadRejection =
 	| "crash-disabled"
 	| "consent-declined"
 	| "invalid-module"
+	| "missing-dependency"
 	| "activation-failed";
 
 export type TrustedJsLoadResult =
@@ -252,6 +256,9 @@ export class TrustedJsPluginService<THost> {
 				"api-version",
 				`Plugin ${entry.id} targets api version ${entry.apiVersion}, host supports ${PLUGIN_API_VERSION}`,
 			);
+		const dependencyError = this.ports.checkDependencies?.(entry);
+		if (dependencyError)
+			return rejected("missing-dependency", dependencyError);
 		const bundled = typeof entry.loadModule === "function";
 		let url: string | null = null;
 		if (!bundled) {

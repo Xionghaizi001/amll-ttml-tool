@@ -14,7 +14,7 @@
 4. `src/plugins`、`src/kernel`、`src/platform` 的实现与测试
 5. 仓库根目录 `PLUGIN.md`、本指南和开发指南
 
-`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库，不能手改。当前协议为 experimental v0，但破坏性变更仍必须同时更新类型、Schema、parser、合同测试、生成文档和调用方。
+`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库，不能手改。当前协议为 experimental v0，但破坏性变更仍必须同时更新类型、Schema、parser、合同测试、生成文档和调用方。架构决策与信任边界以仓库根目录 `PLUGIN.md` 为准，不再维护单独的 ADR 文件。
 
 ## 2. 分层边界
 
@@ -112,6 +112,8 @@ pnpm build
 ```
 
 `pnpm lint:boundaries` 使用 dependency-cruiser 校验依赖方向，再由 Biome 的路径 overrides 检查宿主全局与受限导入，最后运行不足 100 行的 AST 菜单/文档写入检查。修改这些规则时另跑 `pnpm lint:boundaries:test`：该命令创建并清理临时负例，验证跨层别名/相对导入、state 层 fetch、内联菜单回调、Worker 资源、纯算法与 SDK React 类型边界。不得以跳过 dependency-cruiser 的局部检查替代完整验收。
+
+协议验证还必须证明类型、JSON Schema 与 parser 对相同样例得出一致结论；parser 覆盖命名空间、跨字段、包载荷和恶意输入；`MockTrustedJsHost` 与真实宿主运行同一合同测试。生成器检查提交中没有协议文档漂移，行为测试覆盖原子性、revision 冲突、权限、限额、取消和卸载。
 
 按改动范围补充：
 

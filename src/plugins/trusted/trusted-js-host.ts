@@ -36,6 +36,7 @@ import {
 	type TrustedJsPluginStateRecord,
 	type TrustedJsStatePort,
 } from "./trusted-js-service";
+import { dependencyOrder, missingDependencies } from "./dependencies";
 
 /**
  * Application ports behind the public `TrustedJsHostV0`. Document access and
@@ -140,6 +141,27 @@ export const trustedJsPluginService =
 		isDesktop,
 		isDesktopTrustEnabled: isDesktopTrustedJsEnabled,
 		warn: (message) => console.warn(message),
+		checkDependencies: (entry) => {
+			const candidates = [
+				...FACTORY_TRUSTED_JS_PLUGINS,
+				...installedTrustedJsService.list().map((record) => ({
+					id: record.id,
+					version: record.manifest.version,
+					dependencies: record.manifest.dependencies,
+				})),
+			];
+			const missing = missingDependencies(
+				entry,
+				candidates,
+				(id) => {
+					const state = getTrustedJsPluginState(id);
+					return state?.disabled !== true;
+				},
+			);
+			return missing.length === 0
+				? null
+				: `缺少依赖：${missing.map((item) => `${item.id} (${item.version})`).join(", ")}`;
+		},
 	});
 
 const currentPlatform = (): "web" | "desktop" =>
@@ -268,7 +290,7 @@ export async function initializeTrustedJsPlugins(): Promise<void> {
 	} catch (error) {
 		console.warn("Installed JS restore failed", error);
 	}
-	for (const entry of FACTORY_TRUSTED_JS_PLUGINS) {
+	for (const entry of dependencyOrder(FACTORY_TRUSTED_JS_PLUGINS)) {
 		const result = await trustedJsPluginService.load(entry);
 		if (!result.ok)
 			console.warn(

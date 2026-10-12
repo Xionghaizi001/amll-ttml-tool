@@ -382,6 +382,17 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 					type: "array",
 					items: { type: "string", minLength: 1 },
 				},
+				scope: {
+					anyOf: [
+						{ enum: ["global"] },
+						{
+							type: "object",
+							required: ["pluginId"],
+							properties: { pluginId: { type: "string", minLength: 1, maxLength: 128 } },
+							additionalProperties: false,
+						},
+					],
+				},
 			},
 			additionalProperties: false,
 		},

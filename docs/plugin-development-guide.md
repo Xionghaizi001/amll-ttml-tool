@@ -4,7 +4,7 @@
 
 适用版本：当前仓库
 
-本文面向插件作者，说明当前可用的插件档位、开发入口、包格式和发布检查。完整类型以 `packages/plugin-api/src` 与 `packages/plugin-sdk-js/src` 为准；自动生成的字段索引运行 `pnpm plugin:api:build` 后见 `docs/plugin-protocol-v0.md`，宿主内部结构见仓库根目录 `PLUGIN.md`。v0 允许破坏性变更。
+本文面向插件作者，说明当前可用的插件档位、开发入口、包格式和发布检查。完整类型以 `packages/plugin-api/src` 与 `packages/plugin-sdk-js/src` 为准；自动生成的字段索引运行 `pnpm plugin:api:build` 后见 `docs/plugin-protocol-v0.md`，架构、信任边界和设计取舍见仓库根目录 `PLUGIN.md`。v0 允许破坏性变更；仓库不再维护单独的 ADR 文件。
 
 ## 1. 选择插件档位
 
@@ -17,11 +17,11 @@
 
 trusted-js 可以绕过 SDK 直接使用浏览器能力，因此应像安装桌面软件一样审查其来源；`TrustedJsHostV0` 是兼容性与资源生命周期边界，不是沙箱。
 
-### 依赖声明（协议就绪，运行时待接入）
+### 依赖声明（协议与加载闸门已接入）
 
 功能包与主题包均可声明 `dependencies: [{ id, version, optional? }]`；`version` 为非空 semver range，`optional` 默认 `false`。每包最多 16 条，不允许自依赖或重复 id。字段规范、可选依赖与版本匹配语义见 [插件依赖 v0](../PLUGIN.md#插件依赖-v0)。
 
-当前 API 已校验并保留声明，但宿主尚不自动安装依赖或保证激活顺序；此字段不提供跨插件调用能力。发布依赖此机制的插件须等待路线图中的运行时实现，并升级使用新版 API tarball 的工具链。
+宿主在 trusted-js 唯一加载闸门中检查必需依赖的安装、启用和版本范围，并按依赖拓扑顺序启动 factory 插件；缺失或不匹配时不会执行依赖者代码。商店依赖闭包安装、批次回滚、手动导入后的 disabled 状态和主题作用域 CSS 仍属于路线图后续工作。依赖不提供跨插件调用能力。
 
 ## 2. 推荐工具链
 

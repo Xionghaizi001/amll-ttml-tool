@@ -80,6 +80,26 @@ describe("parseThemePackage", () => {
 		).toBe(false);
 	});
 
+	it("requires a dependency for plugin-scoped themes", () => {
+		const scoped = {
+			...validPackage,
+			manifest: {
+				...validPackage.manifest,
+				scope: { pluginId: "dev.example.editor" },
+			},
+		};
+		expect(parseThemePackage(scoped).ok).toBe(false);
+		expect(
+			parseThemePackage({
+				...scoped,
+				manifest: {
+					...scoped.manifest,
+					dependencies: [{ id: "dev.example.editor", version: "^1.0.0" }],
+				},
+			}).ok,
+		).toBe(true);
+	});
+
 	it("rejects surface image tokens referencing assets the package lacks", () => {
 		expect(
 			parseThemePackage({

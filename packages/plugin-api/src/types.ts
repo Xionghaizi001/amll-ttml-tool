@@ -157,6 +157,7 @@ export interface ThemePluginManifest extends PluginManifestBase {
 	appearance: "light" | "dark" | "both";
 	tokens: string;
 	styles?: string[];
+	scope?: "global" | { pluginId: string };
 }
 
 export type PluginManifest = FunctionPluginManifest | ThemePluginManifest;

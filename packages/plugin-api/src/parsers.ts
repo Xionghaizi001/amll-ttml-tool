@@ -210,6 +210,16 @@ export function parseManifestSchema(
 				message: "must be a non-empty semver range",
 			});
 	});
+	if (manifest.kind === "theme" && typeof manifest.scope === "object") {
+		const target = manifest.scope.pluginId;
+		if (!manifest.dependencies?.some((dependency) => dependency.id === target && !dependency.optional))
+			issues.push({
+				path: "$/scope/pluginId",
+				message: "scoped themes must declare a required dependency on their target plugin",
+			});
+		if (target === manifest.id)
+			issues.push({ path: "$/scope/pluginId", message: "scoped theme cannot target itself" });
+	}
 	const paths =
 		manifest.kind === "function"
 			? [{ value: manifest.entry, path: "$/entry" }]

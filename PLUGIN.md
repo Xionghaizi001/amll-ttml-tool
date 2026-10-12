@@ -3,7 +3,7 @@
 状态：当前实现快照，唯一的架构参考  
 协议状态：experimental v0
 
-本文描述插件系统已经存在的代码、边界和运行路径，是架构、信任模型与协议入口的唯一权威说明。决策理由见 `docs/adr/`；插件作者阅读 `docs/plugin-development-guide.md`；维护者阅读 `docs/plugin-agent-guide.md`；验收步骤见 `docs/plugin-acceptance-checklist.md`；未完成事项与架构调整点只记在 `goal.md`。v0 允许破坏性变更，在全部原定制功能插件通过合同测试前不冻结 v1。
+本文描述插件系统已经存在的代码、边界、决策理由和运行路径，是架构、信任模型与协议入口的唯一权威说明。插件作者阅读 `docs/plugin-development-guide.md`；维护者阅读 `docs/plugin-agent-guide.md`；验收步骤见 `docs/plugin-acceptance-checklist.md`；未完成事项与架构调整点只记在 `goal.md`。v0 允许破坏性变更，在全部原定制功能插件通过合同测试前不冻结 v1。
 
 内核永久保留产品的实时核心能力：歌词文档模型与事务、时间轴与打轴交互、AMLL 预览渲染、频谱与波形、音频解码与播放。插件开发合同要求通过公开宿主端口访问文档和 UI，不得直接依赖 React 内部状态、Jotai、Tauri、内部 `TTMLLyric`、音频 PCM 或频谱数据。这是兼容性与源码依赖约束，不是对任意 trusted-js 的运行时隔离。
 
@@ -16,9 +16,9 @@
 3. `packages/plugin-api/src/parsers.ts`、`capabilities.ts`：跨字段约束与 capability 声明。
 4. `packages/plugin-sdk-js/src/host.ts`：trusted-js 宿主能力面。
 5. `src/plugins/**`、`src/kernel/**`、`src/platform/**`：宿主实际行为。
-6. ADR、开发手册和 `goal.md`：设计理由、使用说明和后续规划。
+6. 本文、开发手册和 `goal.md`：架构决策、使用说明和后续规划。
 
-`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库。ADR 记录的是决策发生时的状态，其中部分 MVP 描述早于 trusted-js、本地安装和远程商店实现，不能单独用来判断当前能力。
+`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库。本文中的决策说明与当前实现同步；协议字段仍以源代码、Schema、parser 和合同测试为准。
 
 本文使用以下标记：
 
@@ -162,6 +162,10 @@ flowchart TB
 
 核心依赖规则是：协议不依赖宿主，kernel 不依赖插件 UI/runtime，公开插件 API 的文档写入统一进入 `EditorDocumentService` 的事务路径。
 
+命令由 `src/kernel/commands/CommandRegistry.ts` 统一执行、查询、校验 owner、处理 enablement 和冲突；`src/modules/keyboard` 只负责快捷键持久化、按键匹配和模式快捷键 UI。manifest 的 `defaultKeys` 只是命令默认值，不直接写入用户快捷键配置，所有调用入口最终都使用同一个 command handler。
+
+`src/plugins/adapters` 只负责公开投影与宿主内部模型之间的转换和端口接线，包括文档、host service、manifest contribution、格式/file-flow 和 enablement adapter。adapter 不定义新的公开合同，也不能绕过 parser、事务服务或权限检查。
+
 ## 6. 插件档位模型
 
 | 档位 | 信任与隔离 | 能力面 | 生命周期管理 | 当前持久化 |
@@ -299,6 +303,8 @@ sequenceDiagram
 ```
 
 本地导入复用相同容器和语义闸门。开发目录最终也进入对应 service，但 `dev` 来源只在当前会话有效。多提供者与自托管目录已支持，见下文“商店提供者 v0”。
+
+跨边界错误使用稳定、可序列化的 `PluginErrorCode` 与 `HostResult<T>` 表示。权限、参数、revision 冲突、取消、超时、payload/limit、崩溃、网络和内部错误保持可区分；HTTP 非 2xx 表示请求已完成传输并由 `HttpResponseV0` 携带状态，不当作 RPC 失败。离线或传输失败使用 `network-unavailable`，调用方据此决定重试或提示。
 
 ### 8.3 Factory 构建路径
 
@@ -522,7 +528,7 @@ trusted-js 的边界全部发生在代码执行之前：
 - revision 冲突整批拒绝；一个 turn/applyEdit 对应一个撤销记录；
 - 来源 plugin id 随事务传播，事件回送时避免自触发循环。
 
-声明式表单在协议入口和 UI service 再次校验，字段、选项、文本和层级都有上限；提交值按 schema 清洗，丢弃未知键、限制文本和数字范围，并校验 select/radio 成员。通知是纯文本，图标只允许宿主预编译的 Fluent icon 白名单。这些声明式接口不接受 HTML、SVG、URL、React component 或内联回调；trusted-js 的 React view 使用独立的视图接口。
+声明式表单在协议入口和 UI service 再次校验，字段、选项、文本和层级都有上限；提交值按 schema 清洗，丢弃未知键、限制文本和数字范围，并校验 select/radio 成员。通知是纯文本，图标只允许宿主预编译的 Fluent icon 白名单。这些声明式接口不接受 HTML、SVG、URL、React component 或内联回调；trusted-js 的 React view 使用独立的视图接口。`enablement/when` 解析失败、包含未知键或类型不匹配时必须关闭显示或禁用动作（fail closed），不得执行任意表达式。
 
 Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、trusted view、host-native format 只允许 trusted owner。标题栏 action 是数量受限的命令引用和白名单图标，不能占据窗口控件或恢复入口。scope disposal 只清理经宿主 API 注册的资源；trusted-js 自行创建的全局 listener、timer 或 DOM 仍需插件 cleanup，宿主无法可靠枚举。
 
@@ -553,7 +559,9 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 
 ## 12. 当前不变量
 
-后续重构如果没有明确 ADR 变更，应保持这些行为：
+后续重构如果没有明确架构决策变更，应保持这些行为：
+
+本架构的取舍是：实时编辑、渲染、音频和恢复入口留在宿主，以保证离线可用和故障恢复；需要 React 或浏览器能力的功能以 trusted-js 提供，但按应用级代码提示风险，不把 SDK facade 误称为沙箱；主题保持无代码声明包，并与功能包分离。资源通过 `ExtensionScope` 统一归属，禁用保留包与 KV，卸载才删除数据。安装路径复用容器、语义校验、授权和持久化闸门，SHA-256 用于完整性、缓存和 consent 绑定，不代表发布者身份认证。factory 副本提供离线基线，更新失败可回退，商店不可用不应移除基础功能。平台差异由 adapter 隔离，发布前仍需 WebView、Tauri 和跨平台实测。
 
 1. `plugin-api` 保持宿主无关且可独立构建。
 2. 外部插件开发合同只允许依赖公开 API/SDK，不导入 `$/` 或宿主内部类型；这是兼容性约束。
@@ -568,9 +576,9 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 12. host-native TTML 和 fallback edit mode 始终由不可卸载的宿主核心提供。
 
 
-## 13. 仍然有效的历史决策
+## 13. 仍然有效的历史约束
 
-以下条目来自已完成阶段的记录，仍约束后续工作；决策的时间语境见 ADR 与 git 历史。
+以下条目来自已完成阶段的记录，仍约束后续工作。
 
 ### 13.1 分层检查规则
 
@@ -639,7 +647,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 | 平台持久化 | `src/platform/storage/IndexedDb*.ts` |
 | 工厂锁 | `factory-plugins.lock.json` |
 | 当前路线图 | `goal.md` |
-| 架构决策 | `docs/adr/0001-plugin-architecture.md` 至 `0003-kernel-command-contribution.md` |
+| 架构决策 | 本文第 3、5、6、7、11、12 节 |
 
 ### 扩展持久化
 
