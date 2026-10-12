@@ -94,10 +94,17 @@ export const I18nEditor: FC = () => {
 				matchedLang = "und";
 				continue;
 			}
-			const matched = Object.entries(byLang).find(([, value]) => {
-				const nextValue = value.trim().length > 0 ? value : "";
-				return nextValue === line.translatedLyric && value.trim().length > 0;
-			})?.[0];
+			const matched = line.translatedLyric?.trim().length
+				? Object.entries(byLang).find(
+						([, value]) =>
+							value.trim().length > 0 && value === line.translatedLyric,
+					)?.[0]
+				: Object.entries(byLang).filter(([, value]) => value.trim().length > 0)
+							.length === 1
+					? Object.entries(byLang).find(
+							([, value]) => value.trim().length > 0,
+						)?.[0]
+					: undefined;
 			if (!matched) return undefined;
 			if (matchedLang && matchedLang !== matched) return undefined;
 			matchedLang = matched;
@@ -116,10 +123,16 @@ export const I18nEditor: FC = () => {
 				matchedLang = "und";
 				continue;
 			}
-			const matched = Object.entries(byLang).find(([, value]) => {
-				const nextValue = value.trim().length > 0 ? value : "";
-				return nextValue === line.romanLyric && value.trim().length > 0;
-			})?.[0];
+			const matched = line.romanLyric?.trim().length
+				? Object.entries(byLang).find(
+						([, value]) => value.trim().length > 0 && value === line.romanLyric,
+					)?.[0]
+				: Object.entries(byLang).filter(([, value]) => value.trim().length > 0)
+							.length === 1
+					? Object.entries(byLang).find(
+							([, value]) => value.trim().length > 0,
+						)?.[0]
+					: undefined;
 			if (!matched) return undefined;
 			if (matchedLang && matchedLang !== matched) return undefined;
 			matchedLang = matched;

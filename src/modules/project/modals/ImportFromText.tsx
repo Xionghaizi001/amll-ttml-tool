@@ -39,6 +39,9 @@ enum ImportMode {
 	LyricTrans = "lyric-trans",
 	LyricRoman = "lyric-roman",
 	LyricTransRoman = "lyric-trans-roman",
+	I18nTranslation = "i18n-translation",
+	I18nRomanization = "i18n-romanization",
+	I18nWordRomanization = "i18n-word-romanization",
 }
 
 enum LineSeparatorMode {
@@ -77,6 +80,7 @@ const emptyBeatSymbolAtom = atomWithStorage(
 	"importFromText.emptyBeatSymbol",
 	"^",
 );
+const i18nPrefixAtom = atomWithStorage("importFromText.i18nPrefix", "@");
 const textValueAtom = atom("");
 
 const ImportFromTextEditor = memo(() => {
@@ -120,6 +124,8 @@ export const ImportFromText = () => {
 	const [duetLyricPrefix, setDuetLyricPrefix] = useAtom(duetLyricPrefixAtom);
 	const [enableEmptyBeat, setEnableEmptyBeat] = useAtom(enableEmptyBeatAtom);
 	const [emptyBeatSymbol, setEmptyBeatSymbol] = useAtom(emptyBeatSymbolAtom);
+	const [i18nPrefix, setI18nPrefix] = useAtom(i18nPrefixAtom);
+	const isI18nImportMode = importMode.startsWith("i18n-");
 
 	const store = useStore();
 
@@ -135,6 +141,7 @@ export const ImportFromText = () => {
 			const duetLyricPrefix = store.get(duetLyricPrefixAtom);
 			const enableEmptyBeat = store.get(enableEmptyBeatAtom);
 			const emptyBeatSymbol = store.get(emptyBeatSymbolAtom);
+			const i18nPrefix = store.get(i18nPrefixAtom);
 
 			const lines = text.split("\n");
 			const result: LyricLine[] = [];
@@ -222,6 +229,44 @@ export const ImportFromText = () => {
 				}
 			}
 
+			function addAsI18n(
+				target: "translation" | "romanization" | "word-romanization",
+			) {
+				const prefix = i18nPrefix;
+				if (!prefix) throw new Error("i18n 行首标识符不能为空");
+				let current: LyricLine | undefined;
+				for (const rawLine of lines) {
+					const lineText = rawLine.replace(/\r$/, "");
+					if (lineText.trim().length === 0) continue;
+					if (!lineText.startsWith(prefix)) {
+						current = addLine(lineText);
+						continue;
+					}
+					const tagged = lineText.slice(prefix.length).trimStart();
+					const match = tagged.match(
+						/^([A-Za-z0-9_-]+)(?:\s*[:=]\s*|\s+)(.*)$/,
+					);
+					if (!match) throw new Error(`无法解析 i18n 行：${lineText}`);
+					const [, lang, content] = match;
+					current ??= addLine();
+					if (target === "translation") {
+						current.translatedLyricByLang ??= {};
+						current.translatedLyricByLang[lang] = content;
+					} else if (target === "romanization") {
+						current.romanLyricByLang ??= {};
+						current.romanLyricByLang[lang] = content;
+					} else {
+						current.wordRomanizationByLang ??= {};
+						const words = content.split(wordSeparator).map((word) => ({
+							startTime: 0,
+							endTime: 0,
+							text: word,
+						}));
+						current.wordRomanizationByLang[lang] = words;
+					}
+				}
+			}
+
 			switch (importMode) {
 				case ImportMode.Lyric:
 					addAsLyricOnly();
@@ -234,6 +279,15 @@ export const ImportFromText = () => {
 					break;
 				case ImportMode.LyricTransRoman:
 					addAsLyricWithSub("translatedLyric", "romanLyric");
+					break;
+				case ImportMode.I18nTranslation:
+					addAsI18n("translation");
+					break;
+				case ImportMode.I18nRomanization:
+					addAsI18n("romanization");
+					break;
+				case ImportMode.I18nWordRomanization:
+					addAsI18n("word-romanization");
 					break;
 			}
 
@@ -389,6 +443,24 @@ export const ImportFromText = () => {
 											"歌词和翻译、音译歌词",
 										)}
 									</Select.Item>
+									<Select.Item value={ImportMode.I18nTranslation}>
+										{t(
+											"textImportDialog.contentMode.i18nTranslation",
+											"批量导入翻译",
+										)}
+									</Select.Item>
+									<Select.Item value={ImportMode.I18nRomanization}>
+										{t(
+											"textImportDialog.contentMode.i18nRomanization",
+											"批量导入音译",
+										)}
+									</Select.Item>
+									<Select.Item value={ImportMode.I18nWordRomanization}>
+										{t(
+											"textImportDialog.contentMode.i18nWordRomanization",
+											"批量导入逐字音译",
+										)}
+									</Select.Item>
 								</Select.Content>
 							</Select.Root>
 
@@ -399,7 +471,7 @@ export const ImportFromText = () => {
 								)}
 							</PrefText>
 							<Select.Root
-								disabled={importMode === ImportMode.Lyric}
+								disabled={importMode === ImportMode.Lyric || isI18nImportMode}
 								value={lineSeparatorMode}
 								onValueChange={(v) =>
 									setLineSeparatorMode(v as LineSeparatorMode)
@@ -425,10 +497,21 @@ export const ImportFromText = () => {
 							<TextField.Root
 								disabled={
 									importMode === ImportMode.Lyric ||
+									isI18nImportMode ||
 									lineSeparatorMode !== LineSeparatorMode.SameLineSeparator
 								}
 								value={lineSeparator}
 								onChange={(evt) => setLineSeparator(evt.currentTarget.value)}
+							/>
+
+							<PrefText>
+								{t("textImportDialog.i18nPrefix", "i18n 行首标识符")}
+							</PrefText>
+							<TextField.Root
+								disabled={!isI18nImportMode}
+								value={i18nPrefix}
+								onChange={(evt) => setI18nPrefix(evt.currentTarget.value)}
+								placeholder="@"
 							/>
 
 							<PrefText>
