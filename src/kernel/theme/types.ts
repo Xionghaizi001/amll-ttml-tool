@@ -1,5 +1,6 @@
 import type {
 	ThemePackageAssetV0,
+	ThemePluginManifest,
 	ThemePackageV0,
 	ThemeSurfaceNameV0,
 } from "@amll-ttml-tool/plugin-api";
@@ -52,6 +53,7 @@ export interface UserSurfaceImage {
 }
 
 export interface ThemeServicePorts {
+	checkDependencies?(manifest: ThemePluginManifest, activating: boolean): string | null;
 	storage: ThemeKeyValueStorePort;
 	styles: ThemeStyleSinkPort;
 	assets: ThemeAssetUrlPort;

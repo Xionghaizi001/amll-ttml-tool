@@ -89,9 +89,10 @@ export class InstalledTrustedJsService<THost> {
 		input: unknown,
 		source: StoredTrustedJsRecord["source"] = "user",
 		store?: StoreInstallationProvenance,
+		approvedConsentKey?: string,
 	) {
 		const operation = this.queue.then(() =>
-			this.installOne(input, source, store),
+			this.installOne(input, source, store, approvedConsentKey),
 		);
 		this.queue = operation.catch(() => undefined);
 		return operation;
@@ -100,6 +101,7 @@ export class InstalledTrustedJsService<THost> {
 		input: unknown,
 		source: StoredTrustedJsRecord["source"],
 		store?: StoreInstallationProvenance,
+		approvedConsentKey?: string,
 	): Promise<
 		| { ok: true; pluginId: string }
 		| { ok: false; cancelled?: boolean; message: string }
@@ -140,8 +142,14 @@ export class InstalledTrustedJsService<THost> {
 		};
 		const oldEntry = this.runtime.getEntry(manifest.id);
 		await this.runtime.unload(manifest.id);
-		const result = await this.runtime.load(entry);
+		const result = await this.runtime.load(entry, approvedConsentKey);
 		if (!result.ok) {
+			if (result.reason === "missing-dependency" && source !== "dev") {
+				await this.storage.save(record);
+				this.records.set(record.id, record);
+				this.runtime.markMissingDependency(record.id);
+				return { ok: true, pluginId: record.id };
+			}
 			if (source !== "dev")
 				this.runtime.restoreConsent(manifest.id, oldConsent);
 			if (persisted) {
@@ -160,6 +168,21 @@ export class InstalledTrustedJsService<THost> {
 		this.emit();
 		return { ok: true, pluginId: record.id };
 	}
+	/** Rollback only the package and runtime; never erase existing plugin data. */
+	checkpoint(id: string): () => Promise<void> {
+		const previous = this.records.get(id);
+		const restoreRuntime = this.runtime.checkpoint(id);
+		return async () => {
+			await this.runtime.unload(id);
+			if (previous && previous.source !== "dev") await this.storage.save(previous);
+			else if (previous?.source !== "dev") await this.storage.remove(id);
+			if (previous) this.records.set(id, previous);
+			else this.records.delete(id);
+			await restoreRuntime();
+			this.emit();
+		};
+	}
+
 	uninstall(id: string): Promise<void> {
 		const operation = this.queue.then(async () => {
 			await this.runtime.unload(id);

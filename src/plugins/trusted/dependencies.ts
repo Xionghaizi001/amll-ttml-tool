@@ -14,7 +14,7 @@ export interface MissingDependency {
 }
 
 /** Only active, compatible optional edges participate in ordering. */
-export function dependencyOrder<T extends DependencyNode>(nodes: readonly T[]): T[] {
+export function dependencyOrder<T extends DependencyNode>(nodes: readonly T[], isEnabled: (id: string) => boolean = () => true): T[] {
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const visiting = new Set<string>();
 	const visited = new Set<string>();
@@ -25,7 +25,7 @@ export function dependencyOrder<T extends DependencyNode>(nodes: readonly T[]): 
 		visiting.add(node.id);
 		for (const dependency of node.dependencies ?? []) {
 			const target = byId.get(dependency.id);
-			if (target && (!dependency.optional || satisfies(target.version, dependency.version))) visit(target);
+			if (target && (!dependency.optional || (isEnabled(target.id) && satisfies(target.version, dependency.version)))) visit(target);
 		}
 		visiting.delete(node.id);
 		visited.add(node.id);

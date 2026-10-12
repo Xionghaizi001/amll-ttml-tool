@@ -24,6 +24,8 @@ import {
 	type StoreInstallOutcome,
 } from "./store-install";
 import type { ProviderCatalogEntry } from "./store-providers";
+import { installStoreBatch, prepareStorePackage, resolveStoreDependencies } from "./dependency-install";
+import { installedDependencyNodes } from "../trusted/dependency-context";
 
 /** Browser assembly of the shared trusted-js and theme install gates. */
 
@@ -69,7 +71,7 @@ const storeInstallPorts: StoreArtifactInstallPorts = {
 };
 
 /** Recheck current provider identity before downloading. */
-export const installStoreEntry = async (
+const installOneStoreEntry = async (
 	entry: RemotePluginCatalogEntryV0,
 ): Promise<StoreInstallOutcome> => {
 	const selected = entry as ProviderCatalogEntry;
@@ -110,6 +112,38 @@ export const installStoreEntry = async (
 					};
 		},
 	});
+};
+
+export const installStoreEntry = async (entry: RemotePluginCatalogEntryV0): Promise<StoreInstallOutcome> => {
+	const selected = entry as ProviderCatalogEntry;
+	const current = storeProviderClient.entries(new Set(FACTORY_TRUSTED_JS_PLUGINS.map((p) => p.id)));
+	const root = current.find((candidate) => candidate.id === selected.id && candidate.provider.id === selected.provider?.id);
+	if (!root) return { ok: false, message: "来源已移除或目录已变化，请刷新后重试" };
+	try {
+		const plan = await resolveStoreDependencies(root, current, installedDependencyNodes(), (candidate) =>
+			prepareStorePackage(candidate, { fetchArtifact: (path) => fetchArtifact(path), digestSha256 }),
+		);
+		const snapshot = new Map(current.map((item) => [`${item.provider.id}:${item.id}`, item.version]));
+		const result = await installStoreBatch(plan, {
+			confirm: async (items) => {
+				const lines = items.map((item) => `${item.id}@${item.version}（${item.entry.channel}）`).join("\n");
+				return typeof window === "undefined" || window.confirm(`将安装以下插件及依赖：\n\n${lines}`);
+			},
+			validate: () => {
+				for (const item of plan) {
+					const now = storeProviderClient.entries().find((candidate) => candidate.provider.id === item.entry.provider.id && candidate.id === item.id);
+					if (!now || snapshot.get(`${item.entry.provider.id}:${item.id}`) !== now.version) throw new Error("目录已变化，请刷新后重试");
+				}
+			},
+			checkpoint: (item) => item.entry.channel === "trusted-js"
+				? installedTrustedJsService.checkpoint(item.id)
+				: themeService.checkpoint(item.id),
+			install: (item) => installOneStoreEntry(item.entry),
+		});
+		return result;
+	} catch (error) {
+		return { ok: false, message: String(error instanceof Error ? error.message : error) };
+	}
 };
 
 export const pluginInstallationService = new PluginInstallationService({

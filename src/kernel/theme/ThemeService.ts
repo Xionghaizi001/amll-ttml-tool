@@ -228,6 +228,44 @@ export class ThemeService {
 		);
 	}
 
+	dependencyNodes() {
+		return [...this.themes.values()].map(({ pkg }) => ({
+			...pkg.manifest,
+			enabled: this.activeThemeId === pkg.manifest.id && !this.safeMode,
+			ready: this.activeThemeId === pkg.manifest.id && !this.safeMode,
+		}));
+	}
+
+	private assertDependencies(id: string) {
+		const theme = this.themes.get(id);
+		if (!theme) throw new Error(`Unknown theme ${id}`);
+		const error = this.ports.checkDependencies?.(theme.pkg.manifest, true);
+		if (error) throw new Error(error);
+	}
+
+	/** Awaited compensation for a store batch, including metadata and selection. */
+	checkpoint(id: string): () => Promise<void> {
+		const previous = this.themes.get(id);
+		const active = this.activeThemeId;
+		const preview = this.previewThemeId;
+		return async () => {
+			if (previous?.source === "installed") {
+				await this.ports.packageStore?.save(id, JSON.parse(JSON.stringify(previous.pkg)), {
+					store: previous.store, installedAt: previous.installedAt,
+				});
+			} else await this.ports.packageStore?.remove(id);
+			if (previous) this.themes.set(id, previous);
+			else this.themes.delete(id);
+			if (!this.ports.packageStore) this.persistInstalled();
+			this.activeThemeId = active;
+			this.pendingActiveId = active;
+			this.previewThemeId = preview;
+			if (active === null) this.ports.storage.remove(STORAGE_KEYS.active);
+			else this.ports.storage.set(STORAGE_KEYS.active, active);
+			this.render();
+		};
+	}
+
 	getState(): ThemeServiceState {
 		if (this.stateSnapshot === null)
 			this.stateSnapshot = {
@@ -256,6 +294,7 @@ export class ThemeService {
 	}
 
 	applyTheme(id: string | null): void {
+		if (id !== null) this.assertDependencies(id);
 		if (id !== null && !this.themes.has(id))
 			throw new Error(`Unknown theme ${id}`);
 		this.previewThemeId = null;
@@ -268,6 +307,7 @@ export class ThemeService {
 
 	/** Applies a theme without persisting it; cancelPreview() reverts. */
 	previewTheme(id: string): void {
+		this.assertDependencies(id);
 		if (!this.themes.has(id)) throw new Error(`Unknown theme ${id}`);
 		this.previewThemeId = id;
 		this.render();
@@ -358,6 +398,8 @@ export class ThemeService {
 		const parsed = parseThemePackage(input);
 		if (!parsed.ok) return parsed;
 		const id = parsed.value.manifest.id;
+		const dependencyError = this.ports.checkDependencies?.(parsed.value.manifest, false);
+		if (dependencyError) return { ok: false, issues: [{ path: "/manifest/dependencies", message: dependencyError }] };
 		const existing = this.themes.get(id);
 		if (existing?.source === "builtin")
 			return {

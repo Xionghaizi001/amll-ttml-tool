@@ -75,6 +75,7 @@ export interface TrustedJsPluginStateRecord {
 	 */
 	pending: boolean;
 	disabled?: boolean;
+	disabledReason?: "user" | "missingDependency";
 }
 
 export interface TrustedJsStatePort {
@@ -93,6 +94,8 @@ export interface TrustedJsConsentRequest {
 	homepage?: string;
 	/** Drives the honest wording: desktop consent must mention system risk. */
 	tier: "browser" | "desktop";
+	/** Host-prepared batch; themes are confirmation-only, never code consent. */
+	items?: { pluginId: string; name: string; version: string; channel: "trusted-js" | "theme"; providerName: string }[];
 }
 
 /** Per-plugin host surface plus the disposal of whatever the host itself owns. */
@@ -240,12 +243,29 @@ export class TrustedJsPluginService<THost> {
 		if (state) this.ports.state.set(pluginId, { ...state, ...consent });
 	}
 
+	/** Host transaction snapshot: restore state and the prior live instance, not KV. */
+	checkpoint(pluginId: string): () => Promise<void> {
+		const entry = this.getEntry(pluginId);
+		const state = this.ports.state.get(pluginId);
+		const saved = state ? { ...state, pending: false } : null;
+		return async () => {
+			await this.unload(pluginId);
+			if (saved) this.ports.state.set(pluginId, { ...saved });
+			else this.ports.state.remove(pluginId);
+			if (entry) {
+				const result = await this.load(entry);
+				if (!result.ok) throw new Error(`Restore ${pluginId}: ${result.message}`);
+			}
+			this.emitChange();
+		};
+	}
+
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
 	}
 
-	async load(entry: TrustedJsPluginEntry): Promise<TrustedJsLoadResult> {
+	async load(entry: TrustedJsPluginEntry, approvedConsentKey?: string): Promise<TrustedJsLoadResult> {
 		if (this.instances.has(entry.id))
 			return rejected(
 				"already-loaded",
@@ -313,7 +333,7 @@ export class TrustedJsPluginService<THost> {
 			!bundled &&
 			(state.consented !== true || state.consentKey !== entry.consentKey)
 		) {
-			const approved = await this.ports.requestConsent({
+			const approved = (approvedConsentKey !== undefined && approvedConsentKey === entry.consentKey) || await this.ports.requestConsent({
 				pluginId: entry.id,
 				name: entry.name,
 				version: entry.version,
@@ -456,6 +476,11 @@ export class TrustedJsPluginService<THost> {
 			await this.unload(pluginId);
 	}
 
+	markMissingDependency(pluginId: string): void {
+		const state = this.ports.state.get(pluginId) ?? { crashes: 0, pending: false };
+		this.ports.state.set(pluginId, { ...state, disabled: true, disabledReason: "missingDependency" });
+	}
+
 	/** User toggle; disabling also unloads a live instance. */
 	async setEnabled(pluginId: string, enabled: boolean): Promise<void> {
 		const state = this.ports.state.get(pluginId) ?? {
@@ -465,6 +490,7 @@ export class TrustedJsPluginService<THost> {
 		this.ports.state.set(pluginId, {
 			...state,
 			disabled: !enabled,
+		disabledReason: enabled ? undefined : "user",
 			...(enabled ? { crashes: 0 } : {}),
 		});
 		if (!enabled) await this.unload(pluginId);

@@ -36,7 +36,8 @@ import {
 	type TrustedJsPluginStateRecord,
 	type TrustedJsStatePort,
 } from "./trusted-js-service";
-import { dependencyOrder, missingDependencies } from "./dependencies";
+import { dependencyOrder } from "./dependencies";
+import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "./dependency-context";
 
 /**
  * Application ports behind the public `TrustedJsHostV0`. Document access and
@@ -141,27 +142,7 @@ export const trustedJsPluginService =
 		isDesktop,
 		isDesktopTrustEnabled: isDesktopTrustedJsEnabled,
 		warn: (message) => console.warn(message),
-		checkDependencies: (entry) => {
-			const candidates = [
-				...FACTORY_TRUSTED_JS_PLUGINS,
-				...installedTrustedJsService.list().map((record) => ({
-					id: record.id,
-					version: record.manifest.version,
-					dependencies: record.manifest.dependencies,
-				})),
-			];
-			const missing = missingDependencies(
-				entry,
-				candidates,
-				(id) => {
-					const state = getTrustedJsPluginState(id);
-					return state?.disabled !== true;
-				},
-			);
-			return missing.length === 0
-				? null
-				: `缺少依赖：${missing.map((item) => `${item.id} (${item.version})`).join(", ")}`;
-		},
+		checkDependencies: checkDependencyActivation,
 	});
 
 const currentPlatform = (): "web" | "desktop" =>
@@ -177,9 +158,13 @@ export async function installTrustedJsPackage(
 	input: unknown,
 	source: "user" | "dev" | "store" = "user",
 	store?: import("$/kernel/extensions/installation-provenance").StoreInstallationProvenance,
+	approvedConsentKey?: string,
 ) {
 	const parsed = parseTrustedJsPackage(input);
 	if (parsed.ok) {
+		try { checkDependencyGraph(parsed.value.manifest); } catch (error) {
+			return { ok: false as const, message: String(error instanceof Error ? error.message : error) };
+		}
 		const factory = FACTORY_TRUSTED_JS_PLUGINS.find(
 			(p) => p.id === parsed.value.manifest.id,
 		);
@@ -193,7 +178,7 @@ export async function installTrustedJsPackage(
 				message: "安装版本必须高于同名出厂插件版本",
 			};
 	}
-	const result = await installedTrustedJsService.install(input, source, store);
+	const result = await installedTrustedJsService.install(input, source, store, approvedConsentKey);
 	if (result.ok && source !== "dev") setPinnedToFactory(result.pluginId, false);
 	return result;
 }
@@ -231,12 +216,24 @@ const writeFactoryPins = (pins: string[]): void => {
 export const isPinnedToFactory = (pluginId: string): boolean =>
 	readFactoryPins().includes(pluginId);
 
-const setPinnedToFactory = (pluginId: string, pinned: boolean): void => {
+export const setPinnedToFactory = (pluginId: string, pinned: boolean): void => {
 	const pins = new Set(readFactoryPins());
 	if (pinned) pins.add(pluginId);
 	else pins.delete(pluginId);
 	writeFactoryPins([...pins]);
 };
+
+registerDependencySource("trusted-js", () => {
+	const entries = new Map(FACTORY_TRUSTED_JS_PLUGINS.map((entry) => [entry.id, entry]));
+	for (const record of installedTrustedJsService.list()) {
+		if (!isPinnedToFactory(record.id) || record.source === "dev") entries.set(record.id, installedTrustedJsService.entry(record.id)!);
+	}
+	for (const live of trustedJsPluginService.getLoaded()) entries.set(live.id, trustedJsPluginService.getEntry(live.id)!);
+	return [...entries.values()].map((entry) => {
+		const state = getTrustedJsPluginState(entry.id);
+		return { ...entry, enabled: !state?.disabled && (state?.crashes ?? 0) < 3, ready: trustedJsPluginService.isLoaded(entry.id) };
+	});
+});
 
 const resolveCurrentLoadPlan = async (options?: {
 	refresh?: boolean;
@@ -298,7 +295,7 @@ export async function initializeTrustedJsPlugins(): Promise<void> {
 			);
 	}
 	const { plan } = await resolveCurrentLoadPlan();
-	for (const item of plan) {
+	for (const { item } of dependencyOrder(plan.map((item) => ({ ...item.entry, item })), (id) => !getTrustedJsPluginState(id)?.disabled)) {
 		if (item.origin === "factory") continue; // already live (or intentionally rejected)
 		if (item.fallback && trustedJsPluginService.isLoaded(item.fallback.id))
 			await trustedJsPluginService.unload(item.fallback.id);

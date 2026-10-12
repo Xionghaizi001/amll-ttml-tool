@@ -101,7 +101,7 @@ flowchart LR
 
 ### 插件依赖 v0
 
-**部分实现**：公开类型、JSON Schema 与 manifest 语义校验已实现；安装闭包、版本求解、拓扑激活及级联启停尚未接入，见 `goal.md`。当前校验成功不代表宿主已经保障依赖可用，插件暂不可据此依赖运行顺序。
+公开类型、JSON Schema、manifest 语义校验、安装闭包、版本求解、拓扑激活与运行时依赖检查均已实现；级联启停状态仍由统一管理器继续细化。
 
 function（含 builtin/trusted-js）与 theme 共用 `PluginManifestBase.dependencies?: PluginDependencyV0[]`：
 
