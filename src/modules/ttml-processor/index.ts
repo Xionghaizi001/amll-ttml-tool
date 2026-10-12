@@ -465,14 +465,18 @@ function textMapToSubLyrics(
 	values: Record<string, string> | undefined,
 	fallback: string,
 ): SubLyricContent[] | undefined {
-	const result: SubLyricContent[] = Object.entries(values ?? {})
-		.filter(([, text]) => text.length > 0)
+	const entries = Object.entries(values ?? {});
+	if (values && fallback && !entries.some(([, text]) => text === fallback)) {
+		const emptyEntry = entries.findIndex(([, text]) => text.length === 0);
+		if (emptyEntry >= 0) entries[emptyEntry][1] = fallback;
+	}
+	const result: SubLyricContent[] = entries
 		.map(([language, text]) => ({
 			language: language === "und" ? undefined : language,
 			text,
 		}));
 
-	if (fallback && !result.some((item) => item.text === fallback)) {
+	if (!values && fallback) {
 		result.unshift({ text: fallback });
 	}
 	return result.length ? result : undefined;
@@ -501,6 +505,19 @@ function romanizationsFromEditor(
 	]);
 	if (liveWordLanguage) languages.add(liveWordLanguage);
 	if (!line.romanLyricByLang && line.romanLyric) languages.add("und");
+	const romanTextByLanguage = { ...(line.romanLyricByLang ?? {}) };
+	if (
+		line.romanLyricByLang &&
+		line.romanLyric &&
+		!Object.values(line.romanLyricByLang).some(
+			(text) => text === line.romanLyric,
+		)
+	) {
+		const emptyLanguage = Object.keys(romanTextByLanguage).find(
+			(language) => romanTextByLanguage[language].length === 0,
+		);
+		if (emptyLanguage) romanTextByLanguage[emptyLanguage] = line.romanLyric;
+	}
 
 	const result: SubLyricContent[] = [];
 	for (const language of languages) {
@@ -514,10 +531,9 @@ function romanizationsFromEditor(
 						endTime: normalizeTime(word.endTime),
 					}));
 		const text =
-			line.romanLyricByLang?.[language] ??
+			romanTextByLanguage[language] ??
 			(!line.romanLyricByLang && language === "und" ? line.romanLyric : "");
 
-		if (!text && !words?.length) continue;
 		result.push({
 			language: language === "und" ? undefined : language,
 			text,

@@ -222,10 +222,13 @@ const SubLineEdit = memo(
 								byLang[keys[0]] = newValue;
 								return;
 							}
-							const matched = Object.entries(byLang).find(([, value]) => {
-								const nextValue = value.trim().length > 0 ? value : "";
-								return nextValue === previousValue && value.trim().length > 0;
-							})?.[0];
+							const entries = Object.entries(byLang);
+							const matched =
+								entries.find(
+									([, value]) =>
+										value === previousValue && value.trim().length > 0,
+								)?.[0] ??
+								entries.reverse().find(([ , value]) => value === previousValue)?.[0];
 							if (matched) {
 								byLang[matched] = newValue;
 								return;

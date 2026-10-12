@@ -167,7 +167,17 @@ export const I18nEditor: FC = () => {
 
 	const applyTranslationLang = useCallback(
 		function applyTranslationLangInner(lang: string) {
+			const previousLang = selectedTranslationLang ?? currentTranslationLang;
 			if (lang === "und") {
+				if (previousLang && previousLang !== lang) {
+					editLyricLines((state) => {
+						for (const line of state.lyricLines) {
+							line.translatedLyricByLang ??= {};
+							line.translatedLyricByLang[previousLang] =
+								line.translatedLyric ?? "";
+						}
+					});
+				}
 				setAddLanguageDialog({
 					open: true,
 					target: "translation",
@@ -188,16 +198,40 @@ export const I18nEditor: FC = () => {
 			setSelectedTranslationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
+					if (
+						previousLang &&
+						previousLang !== lang &&
+						(previousLang !== "und" ||
+							line.translatedLyricByLang?.und !== undefined)
+					) {
+						line.translatedLyricByLang ??= {};
+						line.translatedLyricByLang[previousLang] =
+							line.translatedLyric ?? "";
+					}
 					line.translatedLyric = line.translatedLyricByLang?.[lang] ?? "";
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[
+			currentTranslationLang,
+			editLyricLines,
+			selectedTranslationLang,
+			setAddLanguageDialog,
+		],
 	);
 
 	const applyRomanizationLang = useCallback(
 		function applyRomanizationLangInner(lang: string) {
+			const previousLang = selectedRomanizationLang ?? currentRomanizationLang;
 			if (lang === "und") {
+				if (previousLang && previousLang !== lang) {
+					editLyricLines((state) => {
+						for (const line of state.lyricLines) {
+							line.romanLyricByLang ??= {};
+							line.romanLyricByLang[previousLang] = line.romanLyric ?? "";
+						}
+					});
+				}
 				setAddLanguageDialog({
 					open: true,
 					target: "romanization",
@@ -218,36 +252,45 @@ export const I18nEditor: FC = () => {
 			setSelectedRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
+					if (
+						previousLang &&
+						previousLang !== lang &&
+						(previousLang !== "und" || line.romanLyricByLang?.und !== undefined)
+					) {
+						line.romanLyricByLang ??= {};
+						line.romanLyricByLang[previousLang] = line.romanLyric ?? "";
+					}
 					line.romanLyric = line.romanLyricByLang?.[lang] ?? "";
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[
+			currentRomanizationLang,
+			editLyricLines,
+			selectedRomanizationLang,
+			setAddLanguageDialog,
+		],
 	);
 
 	const applyWordRomanizationLang = useCallback(
 		function applyWordRomanizationLangInner(lang: string) {
-			if (lang === "und") {
-				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
-						if (
-							line.words.some((word) => word.romanWord.trim().length > 0) ||
-							line.wordRomanizationLang === "und"
-						) {
-							line.wordRomanizationLang = "und";
-						}
-						if (line.wordRomanizationByLang?.und) {
-							delete line.wordRomanizationByLang.und;
-						}
-					}
-				});
-				setSelectedWordRomanizationLang(lang);
-				return;
-			}
+			const previousLang =
+				selectedWordRomanizationLang ?? currentWordRomanizationLang;
 			setSelectedWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
+					if (previousLang) {
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[previousLang] = line.words
+							.filter((word) => word.romanWord.trim().length > 0)
+							.map((word) => ({
+								startTime: word.startTime,
+								endTime: word.endTime,
+								text: word.romanWord,
+							}));
+					}
 					const romanWords = line.wordRomanizationByLang?.[lang] ?? [];
+					line.wordRomanizationLang = lang;
 					if (romanWords.length === 0) {
 						for (const word of line.words) {
 							word.romanWord = "";
@@ -265,11 +308,10 @@ export const I18nEditor: FC = () => {
 						);
 						word.romanWord = match?.text ?? "";
 					}
-					line.wordRomanizationLang = lang;
 				}
 			});
 		},
-		[editLyricLines],
+		[currentWordRomanizationLang, editLyricLines, selectedWordRomanizationLang],
 	);
 
 	const openAddTranslationDialog = useCallback(() => {
@@ -288,7 +330,6 @@ export const I18nEditor: FC = () => {
 								? ""
 								: (line.translatedLyric ?? "");
 						}
-						line.translatedLyric = line.translatedLyricByLang[lang] ?? "";
 					}
 				});
 				applyTranslationLang(lang);
@@ -312,7 +353,6 @@ export const I18nEditor: FC = () => {
 								? ""
 								: (line.romanLyric ?? "");
 						}
-						line.romanLyric = line.romanLyricByLang[lang] ?? "";
 					}
 				});
 				applyRomanizationLang(lang);
@@ -342,7 +382,6 @@ export const I18nEditor: FC = () => {
 											text: word.romanWord,
 										}));
 						}
-						line.wordRomanizationLang = lang;
 					}
 				});
 				applyWordRomanizationLang(lang);
