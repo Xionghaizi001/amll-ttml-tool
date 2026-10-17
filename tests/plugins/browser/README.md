@@ -1,5 +1,9 @@
 # 浏览器交互验收
 
+## 验收进度
+
+2026-10-18 浏览器交互已随提交 `82e406f0`（`plugin: browser validation`）验收完成。以下场景保留为后续改动的回归步骤，不再作为本轮未完成项。Tauri 真实 WebView 的 Blob 加载与共享 React 仍待平台验收，浏览器结果不代替桌面实测。
+
 运行 `pnpm dev --host 127.0.0.1 --port 5173`，打开
 `http://127.0.0.1:5173/tests/plugins/browser/index.html`。
 建议使用独立浏览器测试配置或独立端口；夹具使用该 origin 的真实 IndexedDB、文档与设置，不清空已有数据。

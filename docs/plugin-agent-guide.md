@@ -83,6 +83,7 @@ Manifest 与包：
 - 功能/主题判别联合保持互斥。
 - 插件、command、view、mode、format ID 受命名空间约束。
 - ZIP 拒绝路径穿越、重复、未声明文件和解压炸弹。
+- 修改 toolkit ZIP 打包或压缩依赖时运行其 `tests/reproducibility.test.mjs`；固定摘要基线覆盖 Unicode 排序、语言/时区、文件 mtime、trusted-js/theme 与 catalog 一致性。保留三平台 CI，摘要变化必须审阅原因，不自动更新基线。此合同要求相同输入字节和锁定依赖。
 - trusted-js 入口只接受单文件 ESM；代码和表单 payload 有明确上限。
 
 文档与生命周期：

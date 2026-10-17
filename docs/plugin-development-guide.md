@@ -179,6 +179,10 @@ const external = (id: string) => [
 
 ## 7. 打包、安装与更新
 
+ZIP 可复现打包由独立 toolkit 保证：输入文件名、字节及锁定依赖一致时，条目按 UTF-16 码元排序，固定压缩级别、DOS 时间和平台属性，得到相同 SHA-256；文件 mtime、项目路径、语言与时区不参与产物。源码换行及 JSON 键顺序不自动归一化，发布需统一 checkout 换行并使用 frozen lockfile。验收运行 toolkit 的 `pnpm test`（含跨语言/时区进程与 trusted-js/theme 固定摘要），其 CI 在 Windows/Linux/macOS 核对同一摘要基线；配置矩阵不等于已通过远端实测。
+
+当前验收进度（2026-10-18）：toolkit 在 Windows / Node 24.12.0 / pnpm 10.28.2 下 `pnpm test` 9/9 通过，包含四组语言/时区固定摘要回归；Windows/Linux/macOS CI 已配置但尚未远端执行。后续需记录三个平台通过同一摘要基线的 run URL，桌面 WebView 运行验收独立进行。
+
 宿主按 magic bytes 识别 JSON 或 ZIP，不依赖文件扩展名：
 
 - JSON 是完整的 `TrustedJsPluginPackageV0` 或 `ThemePackageV0`。
@@ -232,4 +236,4 @@ pnpm build
 
 目录公开读取无需管理员登录；管理员仅用于后端维护目录/上传。提供者警示与 localhost HTTP 放行仅用于本期技术原型。
 
-浏览器交互回归使用 `tests/plugins/browser/index.html`，步骤、导航预期与实测边界见 [浏览器验收说明](../tests/plugins/browser/README.md)。插件管理器入口位于常规页，SDK 的动态 `settings-view` 贡献与管理器自身的“插件设置”应分别验收。
+浏览器交互已于 2026-10-18 随提交 `82e406f0` 验收完成。后续回归使用 `tests/plugins/browser/index.html`，步骤、导航预期与平台边界见 [浏览器验收说明](../tests/plugins/browser/README.md)。插件管理器入口位于常规页，SDK 的动态 `settings-view` 贡献与管理器自身的“插件设置”分别覆盖；Tauri 真实 WebView 的 Blob 加载与共享 React 尚待平台实测。
