@@ -38,14 +38,26 @@ const subscribeContributions = (listener: () => void) => {
  * stay host-owned (goal.md stage 8 "帮助、设置和更新扩展"); a plugin only gets
  * a body slot, scoped with `data-amll-plugin-scope` for theme scoping.
  */
-const usePluginSettingsViews = () => {
+let settingsViewsRevision = -1;
+let settingsViewsSnapshot =
+	extensionRegistry.contributions.getTrustedViews("settings-view");
+const getSettingsViewsSnapshot = () => {
+	const revision = extensionRegistry.contributions.getRevision();
+	if (revision !== settingsViewsRevision) {
+		settingsViewsRevision = revision;
+		settingsViewsSnapshot =
+			extensionRegistry.contributions.getTrustedViews("settings-view");
+	}
+	return settingsViewsSnapshot;
+};
+// Subscribe to the actual stable list, not an unused revision. React Compiler
+// may otherwise memoize the separate registry read forever.
+const usePluginSettingsViews = () =>
 	useSyncExternalStore(
 		subscribeContributions,
-		() => extensionRegistry.contributions.getRevision(),
-		() => 0,
+		getSettingsViewsSnapshot,
+		getSettingsViewsSnapshot,
 	);
-	return extensionRegistry.contributions.getTrustedViews("settings-view");
-};
 
 const contentTransition = {
 	duration: 0.25,

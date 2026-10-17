@@ -59,7 +59,7 @@ const storeInstallPorts: StoreArtifactInstallPorts = {
 	digestSha256,
 	installTrustedJsPackage: (pkg) => installTrustedJsPackage(pkg, "store"),
 	installThemePackage: async (pkg): Promise<StoreInstallOutcome> => {
-		const result = themeService.importThemePackage(pkg);
+		const result = await themeService.installThemePackage(pkg);
 		if (result.ok) return { ok: true };
 		return {
 			ok: false,

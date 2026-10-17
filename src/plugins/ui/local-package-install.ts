@@ -10,7 +10,7 @@ export async function installLocalPluginFile(file: File) {
 	if (!unpacked.ok) return { ok: false as const, message: unpacked.message };
 	if (unpacked.kind === "trusted-js")
 		return installTrustedJsPackage(unpacked.pkg);
-	const result = themeService.importThemePackage(unpacked.pkg);
+	const result = await themeService.installThemePackage(unpacked.pkg);
 	return result.ok
 		? { ok: true as const, pluginId: "theme" }
 		: {
