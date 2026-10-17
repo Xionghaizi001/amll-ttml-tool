@@ -65,6 +65,7 @@ import {
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time.ts";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
+import { handleTabNavigation } from "../utils/tab-navigation.ts";
 import styles from "./index.module.css";
 import { LyricWordMenu } from "./lyric-word-menu";
 import { RubyEditor } from "../tools/RubyEditor.tsx";
@@ -126,10 +127,16 @@ const LyricWordViewEditSpan = ({
 	className,
 	children,
 	onDoubleClick,
+	tabGroup,
+	tabKey,
+	tabActivate,
 }: PropsWithChildren<
 	LyricWordViewEditProps & {
 		className?: string;
 		onDoubleClick?: () => void;
+		tabGroup?: string;
+		tabKey?: string;
+		tabActivate?: "click" | "double-click";
 	}
 >) => {
 	const word = useAtomValue(wordAtom);
@@ -311,7 +318,14 @@ const LyricWordViewEditSpan = ({
 						evt.currentTarget.classList.remove(styles.dropRight);
 					}}
 					className={className}
+					data-tab-group={tabGroup}
+					data-tab-key={tabKey}
+					data-tab-activate={tabActivate}
+					tabIndex={tabGroup ? 0 : undefined}
 					onDoubleClick={onDoubleClick}
+					onKeyDown={(evt) => {
+						if (evt.key === "Tab" && tabGroup) handleTabNavigation(evt, tabGroup);
+					}}
 					onClick={(evt) => {
 						evt.stopPropagation();
 						evt.preventDefault();
@@ -412,6 +426,10 @@ function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 			disabled={fieldInput === undefined}
 			onChange={(evt) => setFieldInput(evt.currentTarget.value)}
 			onKeyDown={(evt) => {
+				if (evt.key === "Tab") {
+					handleTabNavigation(evt, `word-${fieldName === "word" ? "body" : String(fieldName)}`);
+					return;
+				}
 				if (evt.key !== "Enter") return;
 				onInputFinished(evt.currentTarget.value);
 			}}
@@ -420,6 +438,8 @@ function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 				onInputFinished(evt.currentTarget.value);
 			}}
 			{...other}
+			data-tab-group={`word-${fieldName === "word" ? "body" : String(fieldName)}`}
+			data-tab-key={`${store.get(wordAtom).id}-${String(fieldName)}`}
 		>
 			{children}
 		</TextField.Root>
@@ -628,6 +648,7 @@ const LyricWorldViewEdit = ({
 	const isWordSelected = useAtomValue(isWordSelectedAtom);
 	const setSelectedWords = useSetImmerAtom(selectedWordsAtom);
 	const [editing, setEditing] = useState(false);
+	const wordEditorRef = useRef<HTMLDivElement>(null);
 	const toolMode = useAtomValue(toolModeAtom);
 	const isWordBlank = useWordBlank(word.word);
 	const displayWord = getDisplayWordText(t, word.word, isWordBlank);
@@ -658,8 +679,8 @@ const LyricWorldViewEdit = ({
 	);
 
 	const onEnter = useCallback(
-		(evt: SyntheticEvent<HTMLInputElement>) => {
-			setEditing(false);
+		(evt: SyntheticEvent<HTMLInputElement>, keepEditing = false) => {
+			if (!keepEditing) setEditing(false);
 			const { word: parsedWord, enableRuby } = parseRubyShortcut(
 				evt.currentTarget.value,
 			);
@@ -678,13 +699,27 @@ const LyricWorldViewEdit = ({
 	);
 
 	return editing ? (
-		<div className={className}>
+		<div
+			ref={wordEditorRef}
+			className={className}
+			onBlur={(evt) => {
+				if (!evt.currentTarget.contains(evt.relatedTarget)) setEditing(false);
+			}}
+		>
 			<span className={styles.wordEditRow}>
 				<TextField.Root
 					autoFocus
+					data-tab-group="word-body"
+					data-tab-key={word.id}
 					defaultValue={word.word}
-					onBlur={onEnter}
+					onBlur={(evt) =>
+						onEnter(evt, wordEditorRef.current?.contains(evt.relatedTarget) ?? false)
+					}
 					onKeyDown={(evt) => {
+						if (evt.key === "Tab") {
+							handleTabNavigation(evt, "word-body");
+							return;
+						}
 						if (evt.key === "Enter") onEnter(evt);
 					}}
 				/>
@@ -713,6 +748,9 @@ const LyricWorldViewEdit = ({
 					lineIndex={lineIndex}
 					className={className}
 					line={line}
+					tabGroup="word-body"
+					tabKey={word.id}
+					tabActivate="double-click"
 					onDoubleClick={() => {
 						setEditing(true);
 					}}
@@ -932,15 +970,16 @@ const LyricWorldViewSync: FC<{
 						(rubyWord.word.length > 0 && rubyWord.word.trim().length === 0);
 					return (
 						<LyricSyncWordView
-						key={`${word.id}-ruby-${rubyIndex}`}
-						syncId={buildRubySelectionId(word.id, rubyIndex)}
-						line={line}
-						startTime={rubyWord.startTime}
-						endTime={rubyWord.endTime}
-						displayWord={getDisplayWord(rubyWord.word, isRubyBlank)}
-						isWordBlank={isRubyBlank}
-						word={rubyWord.word}
-					/>
+							// biome-ignore lint/suspicious/noArrayIndexKey: ruby segments are ordered and identified by position
+							key={`${word.id}-ruby-${rubyIndex}`}
+							syncId={buildRubySelectionId(word.id, rubyIndex)}
+							line={line}
+							startTime={rubyWord.startTime}
+							endTime={rubyWord.endTime}
+							displayWord={getDisplayWord(rubyWord.word, isRubyBlank)}
+							isWordBlank={isRubyBlank}
+							word={rubyWord.word}
+						/>
 					);
 				})}
 			</div>
