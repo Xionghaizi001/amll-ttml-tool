@@ -1,4 +1,5 @@
 import { uid } from "uid";
+import { isPunctuationOnly } from "$/modules/segmentation/utils/Transliteration/TransliterationUtils";
 import {
 	TranslationOutputMode,
 	translationOutputModeAtom,
@@ -423,6 +424,24 @@ function normalizeTime(value: number): number {
 	return Math.max(0, Math.round(value));
 }
 
+type AppRubyWord = NonNullable<AppLyricWord["ruby"]>[number];
+
+function isExportableRubyWord(rubyWord: AppRubyWord): boolean {
+	const text = rubyWord.word.trim();
+	return text.length > 0 && !isPunctuationOnly(text);
+}
+
+function exportRuby(ruby: AppLyricWord["ruby"]): Syllable["ruby"] {
+	const validRuby = ruby?.filter(isExportableRubyWord);
+	return validRuby?.length
+		? validRuby.map((rubyWord) => ({
+				text: rubyWord.word,
+				startTime: normalizeTime(rubyWord.startTime),
+				endTime: normalizeTime(rubyWord.endTime),
+			}))
+		: undefined;
+}
+
 function appWordsToSyllables(words: AppLyricWord[]): Syllable[] | undefined {
 	const result: Syllable[] = [];
 
@@ -450,11 +469,7 @@ function appWordsToSyllables(words: AppLyricWord[]): Syllable[] | undefined {
 			endsWithSpace: hasTrailingSpace || undefined,
 			obscene: word.obscene || undefined,
 			emptyBeat: word.emptyBeat > 0 ? word.emptyBeat : undefined,
-			ruby: word.ruby?.map((ruby) => ({
-				text: ruby.word,
-				startTime: normalizeTime(ruby.startTime),
-				endTime: normalizeTime(ruby.endTime),
-			})),
+			ruby: exportRuby(word.ruby),
 		});
 	}
 
@@ -470,11 +485,10 @@ function textMapToSubLyrics(
 		const emptyEntry = entries.findIndex(([, text]) => text.length === 0);
 		if (emptyEntry >= 0) entries[emptyEntry][1] = fallback;
 	}
-	const result: SubLyricContent[] = entries
-		.map(([language, text]) => ({
-			language: language === "und" ? undefined : language,
-			text,
-		}));
+	const result: SubLyricContent[] = entries.map(([language, text]) => ({
+		language: language === "und" ? undefined : language,
+		text,
+	}));
 
 	if (!values && fallback) {
 		result.unshift({ text: fallback });
@@ -684,6 +698,7 @@ export function ttmlToAmll(
  * 会丢弃 `id`、`romanWarning` 等编辑器专用字段
  */
 function normalizeExportWord(word: AppLyricWord): AmllLyricWord {
+	const validRuby = word.ruby?.filter(isExportableRubyWord);
 	return {
 		startTime: word.startTime,
 		endTime: word.endTime,
@@ -691,7 +706,7 @@ function normalizeExportWord(word: AppLyricWord): AmllLyricWord {
 		romanWord: word.romanWord,
 		obscene: word.obscene,
 		emptyBeat: word.emptyBeat,
-		ruby: word.ruby,
+		ruby: validRuby?.length ? validRuby : undefined,
 	};
 }
 
