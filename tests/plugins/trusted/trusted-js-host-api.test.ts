@@ -1,10 +1,73 @@
 import type { TrustedJsViewV0 } from "@amll-ttml-tool/plugin-sdk-js";
+import { atom, createStore } from "jotai/vanilla";
 import { describe, expect, it, vi } from "vitest";
+import { EditorDocumentAtomAdapter } from "$/plugins/adapters/editor-document";
 import { createRealTrustedHost } from "./real-host-fixture";
 
 const View = (() => null) as unknown as TrustedJsViewV0;
 
 describe("createTrustedJsHost (real host over the SDK surface)", () => {
+	it.each(["throw", "reject"])(
+		"isolates a document listener %s without interrupting publication",
+		async (failure) => {
+			const { host, handle, service } = createRealTrustedHost({
+				pluginId: "p",
+			});
+			const store = createStore();
+			const documentAtom = atom(service.readSnapshot());
+			const adapter = new EditorDocumentAtomAdapter(
+				store,
+				documentAtom,
+				service,
+			);
+			const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+			const error = new Error("listener failed");
+			const failing = vi.fn(() => {
+				if (failure === "reject") return Promise.reject(error);
+				throw error;
+			});
+			const subscription = host.document.onChanged(failing);
+			const nextListener = vi.fn();
+			host.document.onChanged(nextListener);
+			try {
+				const event = adapter.transact(
+					{ source: "user", label: "edit" },
+					(draft) => {
+						draft.lyricLines[0].translatedLyric = "after";
+					},
+				);
+				expect(event?.revision).toBe(1);
+				expect(nextListener).toHaveBeenCalledWith(
+					expect.objectContaining({ revision: 1 }),
+				);
+				expect(store.get(documentAtom)).toEqual(service.readSnapshot());
+				expect(store.get(documentAtom).lyricLines[0].translatedLyric).toBe(
+					"after",
+				);
+				expect(
+					host.document.applyEdit(
+						[{ op: "updateLine", lineId: "line-2", patch: { startTime: 1 } }],
+						"plugin edit",
+					),
+				).toEqual({ ok: true, value: { revision: 2, appliedOps: 1 } });
+				await Promise.resolve();
+				expect(warning).toHaveBeenCalledTimes(2);
+				expect(warning).toHaveBeenCalledWith(
+					"Plugin p document.onChanged failed",
+					error,
+				);
+				subscription.dispose();
+				adapter.undo();
+				expect(failing).toHaveBeenCalledTimes(2);
+				expect(nextListener).toHaveBeenCalledTimes(3);
+			} finally {
+				handle.dispose();
+				adapter.dispose();
+				warning.mockRestore();
+			}
+		},
+	);
+
 	it("projects the document with ruby and commits one labeled plugin transaction", () => {
 		const { host, service } = createRealTrustedHost({ pluginId: "p" });
 		const snapshot = host.document.readSnapshot();

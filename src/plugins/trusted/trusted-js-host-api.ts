@@ -138,7 +138,19 @@ export const createTrustedJsHost = (
 					ops: [...ops],
 					idSeed: nextSeed(pluginId),
 				}),
-			onChanged: (listener) => track(ports.subscribeDocumentChanges(listener)),
+			onChanged: (listener) => {
+				const reportError = (error: unknown) =>
+					console.warn(`Plugin ${pluginId} document.onChanged failed`, error);
+				return track(
+					ports.subscribeDocumentChanges((event) => {
+						try {
+							Promise.resolve(listener(event)).catch(reportError);
+						} catch (error) {
+							reportError(error);
+						}
+					}),
+				);
+			},
 		},
 		selection: {
 			get: () => ports.getSelection(),
