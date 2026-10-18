@@ -626,6 +626,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 - 合同测试入口 `runHostContractTests` 由 MockTrustedJsHost 与真实 trusted-js 宿主共用。
 - 热重载：工具链成功构建后发布 `dist/module/manifest.json` 与入口模块，编译失败保留上次输出；宿主监听归应用会话所有；开发 consent 按同 id 的当前会话复用，与正式包的内容授权、崩溃计数分开；激活失败清理新实例并重新激活旧模块，KV 和文档不清空。
 - 开发调试：`dev` 构建携带内联 source map、sourcesContent 和 `amll-plugin:///插件id/src/...` 源文件标识，宿主为开发 Blob 添加同命名空间的 module.js sourceURL；`build`/`pack` 不输出源码映射。
+- 开发模式与正式 trusted-js 同权，不在沙箱中运行，可访问和修改应用数据及使用当前登录态；目录加载入口及 consent 均明确提示。本会话授权覆盖同 id 的源码修改，“不持久化开发包”不代表撤销数据副作用；继续保留 API/manifest 校验、来源展示、scope 清理与失败恢复。
 
 ## 14. 代码索引
 

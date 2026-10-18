@@ -2,7 +2,7 @@
 
 ## 验收进度
 
-2026-10-18 浏览器交互已随提交 `82e406f0`（`plugin: browser validation`）验收完成。以下场景保留为后续改动的回归步骤，不再作为本轮未完成项。Tauri 真实 WebView 的 Blob 加载与共享 React 仍待平台验收，浏览器结果不代替桌面实测。
+2026-10-18 浏览器交互已随提交 `82e406f0`（`plugin: browser validation`）验收完成。以下场景保留为后续改动的回归步骤，不再作为本轮未完成项。Windows 原生 WebView 的 Blob 加载与共享 React 已完成下文限定范围的实测；macOS/Linux 与生产包仍待平台验收。
 
 运行 `pnpm dev --host 127.0.0.1 --port 5173`，打开
 `http://127.0.0.1:5173/tests/plugins/browser/index.html`。
@@ -33,3 +33,19 @@
 | 卸载 | 管理器卸载测试插件并刷新 | 安装条目、菜单与设置贡献不再出现；出厂 time-shift 表单仍可打开 |
 
 首次初始化尚未结束时不要立即刷新；等待出厂插件和测试插件稳定后继续，避免将主动刷新计为启动崩溃。结束后卸载 `test.browser-migration`，恢复离线开关，撤销测试文档事务。
+
+## 原生桌面 WebView：Blob 与共享 React
+
+复用同一夹具，不新增测试框架。从仓库根目录运行（先确保 5174 端口空闲）：
+
+```sh
+pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
+```
+
+覆盖配置使用独立应用 identifier 与端口，避免写入常用桌面实例的数据；不改变产品 Tauri 配置。由 Tauri 启动 Vite，使 `TAURI_ENV_PLATFORM` 正确注入，授权提示应包含桌面系统风险。若仓库搬迁后 Rust 缓存引用旧路径，可将 `CARGO_TARGET_DIR` 指向新的临时目录再运行。夹具 HTML 沿用应用的 CSP（包括 `blob:`），维护应用 CSP 时须同步此入口。
+
+只需检查以下平台相关路径：安装验收 ZIP 并观察桌面授权提示；授权后从“工具”打开插件对话框，确认 Hook 组件显示项目和选择；保存计数，按 Ctrl+Alt+S 确认订阅更新，再按 Ctrl+Alt+D 确认 scope 清理关闭对话框。加载 dev 副本时核对同权、登录态及会话源码修改的提示。结果应记录 OS、WebView 版本、运行方式与实际观察；开发服务器验收不等于生产打包、跨来源分发或其他操作系统验收。
+
+2026-10-18 实测记录：Windows 11（22631）、WebView2 152.0.4191.66、Tauri debug + Vite 5174（显式设置 `TAURI_ENV_PLATFORM=windows`，配置与上面的覆盖配置相同，Vite 分开启动）。安装授权由用户确认；ZIP 安装返回 `{ "ok": true, "pluginId": "test.browser-migration" }`。Blob 插件的工具菜单与对话框正常出现，显示 `lyric.ttml`，`useState` / `useEffect` 组件正常挂载，保存计数从 0 更新至 1，关闭视图成功。开发副本授权弹窗实际显示同权、应用数据、登录态及会话源码修改说明，未批准此次开发加载。
+
+本轮没有将完整交互矩阵重跑为桌面验收：自动输入 Ctrl+Alt+S / Ctrl+Alt+D 未观察到选择更新或禁用，原因未定位，不能据此记为订阅/禁用清理通过。此部分保留手动复验，现有安装/授权/热重载回归 28 项通过。平台结论仅为原生 Windows WebView 的 Blob 和共享 React 可运行，不扩大到生产包、macOS 或 Linux。

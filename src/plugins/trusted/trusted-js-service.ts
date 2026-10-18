@@ -344,7 +344,7 @@ export class TrustedJsPluginService<THost> {
 				name: entry.name,
 				version: entry.version,
 				description: entry.development
-					? `${entry.description ?? ""}\n开发模式：授权后，本会话内同一插件的源码修改将自动执行，无需逐次确认。`
+					? `${entry.description ?? ""}\n开发模式与正式 JS 插件权限相同，不在沙箱中运行，可访问和修改应用数据及使用当前登录态。授权后，本会话内同一插件的源码修改将自动执行，无需逐次确认；数据修改不会随会话结束自动撤销。`
 					: entry.description,
 				author: entry.author,
 				homepage: entry.homepage,

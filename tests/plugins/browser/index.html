@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head><meta charset="UTF-8"><title>插件浏览器验收</title></head>
+  <head>
+    <meta charset="UTF-8">
+    <!-- Match the application CSP when checking Blob modules in native WebViews. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * data: blob: filesystem: about: ws: wss: ipc: 'unsafe-inline' 'unsafe-eval'; worker-src * data: blob: ;  script-src * data: blob: 'unsafe-inline' 'unsafe-eval';  connect-src * ipc: data: blob: 'unsafe-inline';  img-src * data: blob: 'unsafe-inline';  frame-src * data: blob: ;  style-src * data: blob: 'unsafe-inline'; font-src * data: blob: 'unsafe-inline';">
+    <title>插件浏览器验收</title>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="../../../src/main.tsx"></script>

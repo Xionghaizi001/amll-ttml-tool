@@ -43,6 +43,8 @@
 
 用于经过准入的全权 ESM。它已正式实现，不得再按“保留值”或“一律拒绝”处理。非 factory 模块必须在 import 前经过来源、禁用/崩溃状态和 consent 检查。SDK host 负责兼容性、命名空间和资源回收，不构成安全隔离。
 
+开发模式与正式 trusted-js 同权，入口与授权文案必须明确可访问应用数据和当前登录态。仅开发包及授权限于会话，数据副作用不会自动撤销。保留 API/manifest 校验、来源展示、scope 清理、热重载失败恢复和正式安装崩溃恢复；不要为开发模式新增一套权限模型。桌面 Blob 与共享 React 验收复用 `tests/plugins/browser/README.md` 的原生 WebView 步骤。
+
 ### theme
 
 不执行代码。token、CSS 与资源引用必须通过解析器；主题不能覆盖带 `data-amll-protected` 的权限、插件管理和恢复 UI。应用主题、预览主题、用户 override 和安全模式是不同状态，不要合并写入。

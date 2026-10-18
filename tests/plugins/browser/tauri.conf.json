@@ -1,0 +1,22 @@
+{
+	"identifier": "net.stevexmh.amll-ttml-tool.sdk-acceptance",
+	"build": {
+		"devUrl": "http://127.0.0.1:5174/tests/plugins/browser/index.html",
+		"beforeDevCommand": "pnpm exec vite --host 127.0.0.1 --port 5174 --strictPort"
+	},
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"title": "SDK WebView 验收",
+				"url": "http://127.0.0.1:5174/tests/plugins/browser/index.html",
+				"width": 1200,
+				"height": 850,
+				"visible": true,
+				"decorations": true,
+				"dragDropEnabled": false,
+				"devtools": true
+			}
+		]
+	}
+}

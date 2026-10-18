@@ -171,7 +171,7 @@ const DevPluginSection = () => {
 				title={t("plugins.dev.loadDirectory", "从目录加载插件")}
 				description={t(
 					"plugins.dev.loadDirectoryHint",
-					"选择包含 manifest.json 与入口 JS 的目录。开发插件不持久化，仅在当前会话有效。",
+					"选择包含 manifest.json 与入口 JS 的目录。开发插件仅在当前会话加载，但权限与正式 JS 插件相同，不在沙箱中运行，可访问和修改应用数据及使用当前登录态。授权后，同一插件的源码修改无需逐次确认；数据修改不会随会话结束自动撤销。",
 				)}
 				action={
 					<Button

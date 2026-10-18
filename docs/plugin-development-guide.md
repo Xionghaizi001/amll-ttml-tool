@@ -155,7 +155,9 @@ const external = (id: string) => [
 
 产物保留 bare import，由宿主 import map 解析。不要打包第二份 React，不要引用 CDN、宿主 chunk 或私有 alias。toolkit 会拒绝非白名单依赖、运行时 `require`、不可静态确定的动态 import 和额外资源。
 
-非 factory 包在 import 前经过 API 版本、来源、桌面总开关、用户禁用、崩溃状态与 consent 检查。内容 SHA-256 用于识别变更并触发重新授权，不是签名或安全认证。factory 副本随应用交付；严格更高版本可以遮蔽它，卸载更新后可 pin 回 factory。
+非 factory 包在 import 前经过 API 版本、manifest、来源、用户禁用、崩溃状态与 consent 检查。内容 SHA-256 用于识别变更并触发重新授权，不是签名或安全认证。factory 副本随应用交付；严格更高版本可以遮蔽它，卸载更新后可 pin 回 factory。
+
+开发模式与正式 trusted-js 权限相同：代码与宿主在同一 JS 环境运行，可访问和修改应用数据及使用当前登录态。开发包只在当前会话加载，不代表数据修改会自动撤销；首次授权后，同一插件的源码修改可在本会话内自动执行。开发模式继续经过 API/manifest 校验、来源展示和 consent，并沿用 scope 清理与失败恢复；会话授权、热重载失败及崩溃计数与正式安装分开，不能将其理解为更低权限或沙箱。
 
 ## 6. 主题插件
 
