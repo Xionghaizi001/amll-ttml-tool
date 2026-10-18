@@ -90,7 +90,7 @@ export interface StoreBatchPorts {
 	confirm(plan: readonly PreparedStorePackage[]): Promise<boolean>;
 	/** Revalidate source and local state after the dialog, before any mutation. */
 	validate(): void;
-	checkpoint(item: PreparedStorePackage): () => Promise<void>;
+	checkpoint(item: PreparedStorePackage): (() => Promise<void>) | Promise<() => Promise<void>>;
 	install(item: PreparedStorePackage): Promise<StoreInstallOutcome>;
 }
 
@@ -101,7 +101,7 @@ export async function installStoreBatch(plan: readonly PreparedStorePackage[], p
 		ports.validate();
 		for (const item of plan) {
 			// Include the failing item: its persistence or activation may have started.
-			rollback.push(ports.checkpoint(item));
+			rollback.push(await ports.checkpoint(item));
 			const result = await ports.install(item);
 			if (!result.ok) throw new Error(result.message ?? `安装失败：${item.id}`);
 		}

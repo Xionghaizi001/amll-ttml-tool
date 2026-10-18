@@ -12,6 +12,7 @@ const directory = mkdtempSync(join(tmpdir(), "amll-extensions-check-"));
 const sources = [
 	"plugin-database",
 	"IndexedDbTrustedJsStorage",
+	"IndexedDbPluginKvStorage",
 	"IndexedDbThemePackageStorage",
 	"IndexedDbThemeSurfaceImageStorage",
 ];
@@ -77,6 +78,23 @@ const failingProvider = async () => ({ transaction(...args) {
 failed = false;
 try { await new IndexedDbTrustedJsStorage(failingProvider).uninstall("two"); } catch { failed = true; }
 assert(failed && await db.get("trusted-js", "two") && await db.get("plugin-kv", ["two", ""]), "aborted trusted uninstall preserved both stores");
+const kv = new IndexedDbPluginKvStorage();
+await kv.apply("two", { set: { stable: "old" }, deleted: [] });
+const restore = await trusted.checkpoint("two");
+await trusted.save({ id: "two", code: new Blob(["updated"]) });
+await kv.apply("two", { set: { stable: "new", extra: true }, deleted: [""] });
+await restore();
+assert(await (await db.get("trusted-js", "two")).code.text() === "code", "checkpoint restored package bytes");
+assert((await kv.read("two")).stable === "old" && !("extra" in await kv.read("two")), "checkpoint restored exact KV namespace");
+failed = false;
+try { await kv.apply("two", { set: { stable: "partial", bad: () => {} }, deleted: [] }); } catch { failed = true; }
+assert(failed && (await kv.read("two")).stable === "old", "KV DataCloneError surfaced and transaction rolled back");
+const unavailableKv = new IndexedDbPluginKvStorage(async () => { throw new Error("database unavailable"); });
+for (const operation of [() => unavailableKv.read("two"), () => unavailableKv.apply("two", { set: {}, deleted: [] }), () => unavailableKv.clear("two")]) {
+ failed = false;
+ try { await operation(); } catch { failed = true; }
+ assert(failed, "unavailable KV operation rejected");
+}
 db.close();
 `;
 

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { toast } from "react-toastify";
 import {
 	initializeTrustedJsPlugins,
 	trustedJsPluginService,
@@ -18,11 +19,14 @@ export const TrustedJsHost = () => {
 	useEffect(() => {
 		if (initialized) return;
 		initialized = true;
-		void initializeTrustedJsPlugins();
+		void initializeTrustedJsPlugins().catch((error) => {
+			toast.error(`插件恢复失败：${String(error)}`);
+		});
 	}, []);
 	useEffect(() => {
 		const stableTimer = window.setTimeout(() => {
-			trustedJsPluginService.confirmStartupStable();
+			try { trustedJsPluginService.confirmStartupStable(); }
+			catch (error) { toast.error(`插件状态保存失败：${String(error)}`); }
 		}, 5000);
 		return () => window.clearTimeout(stableTimer);
 	}, []);

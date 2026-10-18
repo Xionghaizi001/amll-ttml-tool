@@ -22,7 +22,7 @@ interface PluginKvRecord {
 export class IndexedDbPluginKvStorage {
 	constructor(
 		private readonly getDatabase: ExtensionDatabaseProvider = openPluginDatabase,
-	) {}
+	) { }
 
 	async read(pluginId: string): Promise<Record<string, JsonValue>> {
 		try {
@@ -34,7 +34,7 @@ export class IndexedDbPluginKvStorage {
 			);
 		} catch (error) {
 			console.warn("Plugin KV read failed", error);
-			return {};
+			throw error;
 		}
 	}
 
@@ -45,18 +45,29 @@ export class IndexedDbPluginKvStorage {
 		try {
 			const database = await this.getDatabase();
 			const transaction = database.transaction(STORE, "readwrite");
-			for (const [key, value] of Object.entries(changes.set))
-				transaction.store.put({
-					pluginId,
-					key,
-					value,
-					updatedAt: Date.now(),
-				} satisfies PluginKvRecord);
-			for (const key of changes.deleted)
-				transaction.store.delete([pluginId, key]);
-			await transaction.done;
+			try {
+				for (const [key, value] of Object.entries(changes.set))
+					await transaction.store.put({
+						pluginId,
+						key,
+						value,
+						updatedAt: Date.now(),
+					} satisfies PluginKvRecord);
+				for (const key of changes.deleted)
+					await transaction.store.delete([pluginId, key]);
+				await transaction.done;
+			} catch (error) {
+				try {
+					transaction.abort();
+				} catch {
+					/* Already aborted. */
+				}
+				await transaction.done.catch(() => undefined);
+				throw error;
+			}
 		} catch (error) {
 			console.warn("Plugin KV write failed", error);
+			throw error;
 		}
 	}
 
@@ -64,10 +75,13 @@ export class IndexedDbPluginKvStorage {
 		try {
 			const database = await this.getDatabase();
 			const transaction = database.transaction(STORE, "readwrite");
-			transaction.store.delete(pluginNamespaceRange(pluginId));
-			await transaction.done;
+			await Promise.all([
+				transaction.store.delete(pluginNamespaceRange(pluginId)),
+				transaction.done,
+			]);
 		} catch (error) {
 			console.warn("Plugin KV clear failed", error);
+			throw error;
 		}
 	}
 }

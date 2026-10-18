@@ -1,3 +1,4 @@
+import { TrustedJsStateStorage } from "./trusted-js-state-storage";
 import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { toast } from "react-toastify";
 import semverGt from "semver/functions/gt";
@@ -34,7 +35,7 @@ import {
 import {
 	TrustedJsPluginService,
 	type TrustedJsPluginStateRecord,
-	type TrustedJsStatePort,
+
 } from "./trusted-js-service";
 import { dependencyOrder } from "./dependencies";
 import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "./dependency-context";
@@ -66,50 +67,15 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	registerMode: registerHostMode,
 };
 
-const STATE_STORAGE_KEY = "amll-trusted-js-plugin-state-v0";
-type StateMap = Record<string, TrustedJsPluginStateRecord>;
-
-const readStateMap = (): StateMap => {
-	try {
-		const raw = localStorage.getItem(STATE_STORAGE_KEY);
-		if (raw === null) return {};
-		const parsed = JSON.parse(raw);
-		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
-			return {};
-		return parsed as StateMap;
-	} catch {
-		return {};
-	}
-};
-
-const writeStateMap = (map: StateMap): void => {
-	try {
-		localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(map));
-	} catch {
-		// Private mode or quota exhaustion: crash accounting degrades to
-		// session-only, which is safe (fail-open on availability, not trust —
-		// consent still gates every load in this session).
-	}
-};
-
-const localStorageStatePort: TrustedJsStatePort = {
-	get: (pluginId) => readStateMap()[pluginId] ?? null,
-	set: (pluginId, record) => {
-		const map = readStateMap();
-		map[pluginId] = record;
-		writeStateMap(map);
-	},
-	remove: (pluginId) => {
-		const map = readStateMap();
-		delete map[pluginId];
-		writeStateMap(map);
-	},
-};
+const localStorageStatePort = new TrustedJsStateStorage();
 
 /** Read-only state snapshot for management UI (enabled/crash accounting). */
 export const getTrustedJsPluginState = (
 	pluginId: string,
-): TrustedJsPluginStateRecord | null => localStorageStatePort.get(pluginId);
+): TrustedJsPluginStateRecord | null => {
+	try { return localStorageStatePort.get(pluginId); }
+	catch { return { crashes: 0, pending: false, disabled: true }; }
+};
 
 const isDesktop = (): boolean => Boolean(import.meta.env.TAURI_ENV_PLATFORM);
 
@@ -178,14 +144,26 @@ export async function installTrustedJsPackage(
 				message: "安装版本必须高于同名出厂插件版本",
 			};
 	}
-	const result = await installedTrustedJsService.install(input, source, store, approvedConsentKey);
-	if (result.ok && source !== "dev") setPinnedToFactory(result.pluginId, false);
-	return result;
+	if (!parsed.ok || source === "dev")
+		return installedTrustedJsService.install(input, source, store, approvedConsentKey);
+	const id = parsed.value.manifest.id;
+	const pinned = isPinnedToFactory(id);
+	setPinnedToFactory(id, false);
+	try {
+		const result = await installedTrustedJsService.install(input, source, store, approvedConsentKey);
+		if (!result.ok) setPinnedToFactory(id, pinned);
+		return result;
+	} catch (error) {
+		setPinnedToFactory(id, pinned);
+		throw error;
+	}
 }
 
 export async function uninstallTrustedJsPackage(id: string) {
-	await installedTrustedJsService.uninstall(id);
+	const pinned = isPinnedToFactory(id);
 	setPinnedToFactory(id, true);
+	try { await installedTrustedJsService.uninstall(id); }
+	catch (error) { setPinnedToFactory(id, pinned); throw error; }
 	const factory = FACTORY_TRUSTED_JS_PLUGINS.find((p) => p.id === id);
 	if (factory) await trustedJsPluginService.load(factory);
 }
@@ -193,24 +171,16 @@ export async function uninstallTrustedJsPackage(id: string) {
 const FACTORY_PIN_STORAGE_KEY = "amll-trusted-js-factory-pins-v0";
 
 const readFactoryPins = (): string[] => {
-	try {
-		const raw = localStorage.getItem(FACTORY_PIN_STORAGE_KEY);
-		if (raw === null) return [];
-		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed)
-			? parsed.filter((value): value is string => typeof value === "string")
-			: [];
-	} catch {
-		return [];
-	}
+	const raw = localStorage.getItem(FACTORY_PIN_STORAGE_KEY);
+	if (raw === null) return [];
+	const parsed = JSON.parse(raw);
+	return Array.isArray(parsed)
+		? parsed.filter((value): value is string => typeof value === "string")
+		: [];
 };
 
 const writeFactoryPins = (pins: string[]): void => {
-	try {
-		localStorage.setItem(FACTORY_PIN_STORAGE_KEY, JSON.stringify(pins));
-	} catch {
-		// Without persistence the pin lasts for this session only.
-	}
+	localStorage.setItem(FACTORY_PIN_STORAGE_KEY, JSON.stringify(pins));
 };
 
 export const isPinnedToFactory = (pluginId: string): boolean =>

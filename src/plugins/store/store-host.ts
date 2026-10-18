@@ -6,6 +6,7 @@ import {
 	installedTrustedJsService,
 	installTrustedJsPackage,
 	isPinnedToFactory,
+	setPinnedToFactory,
 	reloadTrustedJsPlugin,
 	revertTrustedJsToFactory,
 	trustedJsPluginService,
@@ -92,10 +93,10 @@ const installOneStoreEntry = async (
 		return { ok: false, message: current.blockedReason };
 	const provenance = current.sha256
 		? {
-				providerId: current.provider.id,
-				providerName: current.provider.name,
-				artifactSha256: current.sha256,
-			}
+			providerId: current.provider.id,
+			providerName: current.provider.name,
+			artifactSha256: current.sha256,
+		}
 		: undefined;
 	return installStoreArtifact(current, {
 		...storeInstallPorts,
@@ -107,9 +108,9 @@ const installOneStoreEntry = async (
 			return result.ok
 				? { ok: true }
 				: {
-						ok: false,
-						message: result.issues.map((issue) => issue.message).join("\n"),
-					};
+					ok: false,
+					message: result.issues.map((issue) => issue.message).join("\n"),
+				};
 		},
 	});
 };
@@ -135,9 +136,12 @@ export const installStoreEntry = async (entry: RemotePluginCatalogEntryV0): Prom
 					if (!now || snapshot.get(`${item.entry.provider.id}:${item.id}`) !== now.version) throw new Error("目录已变化，请刷新后重试");
 				}
 			},
-			checkpoint: (item) => item.entry.channel === "trusted-js"
-				? installedTrustedJsService.checkpoint(item.id)
-				: themeService.checkpoint(item.id),
+			checkpoint: async (item) => {
+				if (item.entry.channel !== "trusted-js") return themeService.checkpoint(item.id);
+				const pinned = isPinnedToFactory(item.id);
+				const restore = await installedTrustedJsService.checkpoint(item.id);
+				return async () => { await restore(); setPinnedToFactory(item.id, pinned); };
+			},
 			install: (item) => installOneStoreEntry(item.entry),
 		});
 		return result;
@@ -175,7 +179,9 @@ export const pluginInstallationService = new PluginInstallationService({
 			consentKey: trustedJsPluginService.isLoaded(id) ? `dev:${id}` : undefined,
 		};
 	},
-	pinned: isPinnedToFactory,
+	pinned: (id) => {
+		try { return isPinnedToFactory(id); } catch { return true; }
+	},
 	themes: () => themeService.listThemes(),
 	themeState: () => themeService.getState(),
 	subscribe: (listener) => {
@@ -204,29 +210,45 @@ export const pluginInstallationService = new PluginInstallationService({
 			}
 			return;
 		}
-		await trustedJsPluginService.setEnabled(id, enabled);
-		if (enabled) await reloadTrustedJsPlugin(id);
+		const restore = trustedJsPluginService.checkpoint(id);
+		try {
+			await trustedJsPluginService.setEnabled(id, enabled);
+			if (enabled) await reloadTrustedJsPlugin(id);
+		} catch (error) {
+			try { await restore(); } catch (rollbackError) {
+				throw new AggregateError([error, rollbackError], `启停失败；回滚失败：${String(rollbackError)}`);
+			}
+			throw error;
+		}
 	},
 	uninstall: async (kind, id) => {
-		if (kind === "theme") themeService.removeInstalledTheme(id);
+		if (kind === "theme") await themeService.removeInstalledTheme(id);
 		else await uninstallTrustedJsPackage(id);
 	},
 	revertToFactory: revertTrustedJsToFactory,
 	reauthorize: async (id) => {
-		// Development consent lives in a separate session state inside the runtime.
-		// Forgetting that state forces its existing consent gate to run again.
-		if (
-			installedTrustedJsService
-				.list()
-				.some((record) => record.id === id && record.source === "dev")
-		)
-			trustedJsPluginService.forget(id);
-		else
-			trustedJsPluginService.restoreConsent(id, {
-				consented: false,
-				consentKey: undefined,
-			});
-		await trustedJsPluginService.setEnabled(id, true);
-		await reloadTrustedJsPlugin(id);
+		const restore = trustedJsPluginService.checkpoint(id);
+		try {
+			// Development consent lives in a separate session state inside the runtime.
+			// Forgetting that state forces its existing consent gate to run again.
+			if (
+				installedTrustedJsService
+					.list()
+					.some((record) => record.id === id && record.source === "dev")
+			)
+				trustedJsPluginService.forget(id);
+			else
+				trustedJsPluginService.restoreConsent(id, {
+					consented: false,
+					consentKey: undefined,
+				});
+			await trustedJsPluginService.setEnabled(id, true);
+			await reloadTrustedJsPlugin(id);
+		} catch (error) {
+			try { await restore(); } catch (rollbackError) {
+				throw new AggregateError([error, rollbackError], `重新授权失败；回滚失败：${String(rollbackError)}`);
+			}
+			throw error;
+		}
 	},
 });

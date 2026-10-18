@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ThemeService } from "$/kernel/theme/ThemeService";
 import { compileThemeTokensCss } from "$/kernel/theme/token-css";
 import type { ThemeServicePorts, ThemeStyleFlags } from "$/kernel/theme/types";
@@ -197,11 +197,26 @@ describe("ThemeService", () => {
 		expect(harness.service.getState().hasUserOverrides).toBe(false);
 	});
 
-	it("imports, persists and removes installed themes", () => {
+	it("failed selection writes preserve the active theme and rescue still renders defaults", () => {
+		const harness = createHarness();
+		harness.service.registerBuiltinTheme(themePackage("a.theme"));
+		harness.service.registerBuiltinTheme(themePackage("b.theme"));
+		harness.service.applyTheme("a.theme");
+		const set = vi.spyOn(harness.store, "set").mockImplementation(() => { throw new Error("quota"); });
+		expect(() => harness.service.applyTheme("b.theme")).toThrow("quota");
+		expect(harness.service.getState().activeThemeId).toBe("a.theme");
+		set.mockRestore();
+		vi.spyOn(harness.store, "delete").mockImplementation(() => { throw new Error("unavailable"); });
+		expect(() => harness.service.restoreDefaultTheme()).toThrow("unavailable");
+		expect(harness.service.getState().activeThemeId).toBeNull();
+		expect(lastThemeCss(harness)).toBe("");
+	});
+
+	it("imports, persists and removes installed themes", async () => {
 		const store = new Map<string, string>();
 		const harness = createHarness(store);
 		harness.service.initialize();
-		const imported = harness.service.importThemePackage(
+		const imported = await harness.service.importThemePackage(
 			themePackage("b.theme"),
 		);
 		expect(imported.ok).toBe(true);
@@ -210,17 +225,17 @@ describe("ThemeService", () => {
 		const second = createHarness(store);
 		second.service.initialize();
 		expect(second.service.getState().activeThemeId).toBe("b.theme");
-		second.service.removeInstalledTheme("b.theme");
+		await second.service.removeInstalledTheme("b.theme");
 		expect(second.service.getState().activeThemeId).toBe(null);
 		expect(second.service.listThemes()).toHaveLength(0);
 		expect(store.has("amll.theme.v0.installed")).toBe(false);
 	});
 
-	it("rejects imported themes that shadow a built-in id", () => {
+	it("rejects imported themes that shadow a built-in id", async () => {
 		const harness = createHarness();
 		harness.service.registerBuiltinTheme(themePackage("a.theme"));
 		harness.service.initialize();
-		expect(harness.service.importThemePackage(themePackage("a.theme")).ok).toBe(
+		expect((await harness.service.importThemePackage(themePackage("a.theme"))).ok).toBe(
 			false,
 		);
 	});

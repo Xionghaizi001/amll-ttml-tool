@@ -245,13 +245,19 @@ export class TrustedJsPluginService<THost> {
 
 	/** Host transaction snapshot: restore state and the prior live instance, not KV. */
 	checkpoint(pluginId: string): () => Promise<void> {
-		const entry = this.getEntry(pluginId);
+		const current = this.getEntry(pluginId);
+		// Installation hooks belong to a single attempt, never replay them on rollback.
+		const entry = current ? { ...current, beforeImport: undefined } : undefined;
 		const state = this.ports.state.get(pluginId);
 		const saved = state ? { ...state, pending: false } : null;
+		const development = this.developmentStates.get(pluginId);
+		const savedDevelopment = development ? { ...development } : null;
 		return async () => {
 			await this.unload(pluginId);
 			if (saved) this.ports.state.set(pluginId, { ...saved });
 			else this.ports.state.remove(pluginId);
+			if (savedDevelopment) this.developmentStates.set(pluginId, { ...savedDevelopment });
+			else this.developmentStates.delete(pluginId);
 			if (entry) {
 				const result = await this.load(entry);
 				if (!result.ok) throw new Error(`Restore ${pluginId}: ${result.message}`);
@@ -308,10 +314,10 @@ export class TrustedJsPluginService<THost> {
 			: this.ports.state;
 		if (entry.development && this.ports.state.get(entry.id)?.disabled)
 			return rejected("user-disabled", `Plugin ${entry.id} is disabled`);
-		const state = statePort.get(entry.id) ?? {
+		const state = { ...(statePort.get(entry.id) ?? {
 			crashes: 0,
 			pending: false,
-		};
+		}) };
 		if (state.pending) {
 			// The previous session died while this plugin was live.
 			state.pending = false;
@@ -363,10 +369,14 @@ export class TrustedJsPluginService<THost> {
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
 		const abort = new AbortController();
 		let objectUrl: string | null = null;
+		let activationCleanup: TrustedJsCleanup | null = null;
 		try {
 			await entry.beforeImport?.();
 			if (entry.moduleBlob) {
-				objectUrl = URL.createObjectURL(entry.moduleBlob);
+				const blob = entry.development
+					? new Blob([entry.moduleBlob, `\n//# sourceURL=amll-plugin:///${encodeURIComponent(entry.id)}/module.js\n`], { type: "text/javascript" })
+					: entry.moduleBlob;
+				objectUrl = URL.createObjectURL(blob);
 				url = objectUrl;
 			}
 			const moduleExports = bundled
@@ -388,32 +398,35 @@ export class TrustedJsPluginService<THost> {
 				host: hostHandle.host,
 				signal: abort.signal,
 			});
+			activationCleanup = typeof cleanup === "function" ? cleanup : null;
+			state.crashes = 0;
+			state.pending = !entry.development && !this.startupStable;
+			statePort.set(entry.id, state);
 			this.instances.set(entry.id, {
-				entry,
+				entry: { ...entry, beforeImport: undefined },
 				scope,
 				hostHandle,
 				abort,
 				cleanup: typeof cleanup === "function" ? cleanup : null,
 				objectUrl,
 			});
-			state.crashes = 0;
-			// Before the host declares startup stable, the marker stays down so
-			// a plugin that activates fine but wedges the session still gets
-			// charged; afterwards a successful activation is proof enough.
-			state.pending = !entry.development && !this.startupStable;
-			statePort.set(entry.id, state);
 			this.emitChange();
 			return { ok: true };
 		} catch (error) {
 			// A failed activation is a disable: in-flight async work stops, then
 			// host subscriptions and registry contributions go.
 			abort.abort();
+			try { await activationCleanup?.(); } catch (cleanupError) {
+				this.ports.warn?.(`[trusted-js] ${entry.id} cleanup failed: ${String(cleanupError)}`);
+			}
 			if (objectUrl) URL.revokeObjectURL(objectUrl);
 			hostHandle?.dispose();
 			scope?.dispose();
 			state.pending = false;
 			if (!entry.development) state.crashes += 1;
-			statePort.set(entry.id, state);
+			try { statePort.set(entry.id, state); } catch (storageError) {
+				throw new AggregateError([error, storageError], `Plugin ${entry.id}: activation/state persistence failed`);
+			}
 			const message = String(error instanceof Error ? error.message : error);
 			this.ports.warn?.(`[trusted-js] ${entry.id} failed to load: ${message}`);
 			if (state.crashes >= TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD)
@@ -451,6 +464,9 @@ export class TrustedJsPluginService<THost> {
 	async unload(pluginId: string): Promise<void> {
 		const instance = this.instances.get(pluginId);
 		if (!instance) return;
+		const state = this.ports.state.get(pluginId);
+		if (!instance.entry.development && state?.pending)
+			this.ports.state.set(pluginId, { ...state, pending: false });
 		this.instances.delete(pluginId);
 		// Order: abort (async handlers observe cancellation) -> plugin cleanup ->
 		// host-owned subscriptions -> registry scope (commands, menus, views).
@@ -465,9 +481,6 @@ export class TrustedJsPluginService<THost> {
 		instance.hostHandle.dispose();
 		instance.scope.dispose();
 		if (instance.objectUrl) URL.revokeObjectURL(instance.objectUrl);
-		const state = this.ports.state.get(pluginId);
-		if (!instance.entry.development && state?.pending)
-			this.ports.state.set(pluginId, { ...state, pending: false });
 		this.emitChange();
 	}
 
@@ -490,6 +503,7 @@ export class TrustedJsPluginService<THost> {
 		this.ports.state.set(pluginId, {
 			...state,
 			disabled: !enabled,
+			...(!enabled ? { pending: false } : {}),
 		disabledReason: enabled ? undefined : "user",
 			...(enabled ? { crashes: 0 } : {}),
 		});

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ThemeService } from "$/kernel/theme/ThemeService";
 import type {
 	ThemeInstallationMetadata,
@@ -70,6 +70,43 @@ const createHarness = (
 };
 
 describe("ThemeService with an async package store", () => {
+	it("waits for uninstall commit and preserves active theme on deletion failure", async () => {
+		let reject!: (reason: Error) => void;
+		const harness = createHarness(undefined, undefined, {
+			loadAll: async () => [],
+			save: async () => {},
+			remove: () =>
+				new Promise((_resolve, fail) => {
+					reject = fail;
+				}),
+		});
+		await harness.service.installThemePackage(themePackage("user.theme"));
+		harness.service.applyTheme("user.theme");
+		const removing = harness.service.removeInstalledTheme("user.theme");
+		await vi.waitFor(() => expect(reject).toBeTypeOf("function"));
+		expect(harness.service.listThemes()).toHaveLength(1);
+		expect(harness.service.getState().activeThemeId).toBe("user.theme");
+		reject(new Error("delete aborted"));
+		await expect(removing).rejects.toThrow("delete aborted");
+		expect(harness.service.listThemes()).toHaveLength(1);
+		expect(harness.service.getState().activeThemeId).toBe("user.theme");
+		expect(harness.store.get("amll.theme.v0.active")).toBe("user.theme");
+	});
+	it("keeps legacy packages when migration cannot commit", async () => {
+		const legacy = JSON.stringify([themePackage("legacy.theme")]);
+		const store = new Map([["amll.theme.v0.installed", legacy]]);
+		const harness = createHarness(store, undefined, {
+			loadAll: async () => [],
+			save: async () => {
+				throw new Error("quota");
+			},
+			remove: async () => {},
+		});
+		await expect(harness.service.hydrateInstalledThemes()).rejects.toThrow(
+			"quota",
+		);
+		expect(store.get("amll.theme.v0.installed")).toBe(legacy);
+	});
 	it("retains store provenance after restart and does not publish failed updates", async () => {
 		let record:
 			| ({ id: string; pkg: unknown } & ThemeInstallationMetadata)
@@ -146,7 +183,7 @@ describe("ThemeService with an async package store", () => {
 		harness.service.initialize();
 		await harness.service.hydrateInstalledThemes();
 		expect(
-			harness.service.importThemePackage(themePackage("user.theme")).ok,
+			(await harness.service.importThemePackage(themePackage("user.theme"))).ok,
 		).toBe(true);
 		harness.service.applyTheme("user.theme");
 		expect(harness.packages.has("user.theme")).toBe(true);
@@ -165,9 +202,9 @@ describe("ThemeService with an async package store", () => {
 	it("removing an installed theme deletes it from the package store", async () => {
 		const harness = createHarness();
 		harness.service.initialize();
-		harness.service.importThemePackage(themePackage("user.theme"));
+		await harness.service.importThemePackage(themePackage("user.theme"));
 		expect(harness.packages.has("user.theme")).toBe(true);
-		harness.service.removeInstalledTheme("user.theme");
+		await harness.service.removeInstalledTheme("user.theme");
 		expect(harness.packages.has("user.theme")).toBe(false);
 	});
 

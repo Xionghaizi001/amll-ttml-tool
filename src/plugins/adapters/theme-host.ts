@@ -1,6 +1,5 @@
 import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "../trusted/dependency-context";
 import { ThemeService } from "$/kernel/theme";
-import { browserKeyValueStorage } from "$/platform/storage/BrowserKeyValueStorage";
 import { IndexedDbThemePackageStorage } from "$/platform/storage/IndexedDbThemePackageStorage";
 import { BrowserThemeAssetUrlAdapter } from "$/platform/theme/BrowserThemeAssetUrlAdapter";
 import { DomThemeStyleAdapter } from "$/platform/theme/DomThemeStyleAdapter";
@@ -20,9 +19,9 @@ export const themeService = new ThemeService({
 		try { checkDependencyGraph(manifest); return null; } catch (error) { return String(error instanceof Error ? error.message : error); }
 	},
 	storage: {
-		get: (key) => browserKeyValueStorage.getItem(key),
-		set: (key, value) => browserKeyValueStorage.setItem(key, value),
-		remove: (key) => browserKeyValueStorage.removeItem(key),
+		get: (key) => localStorage.getItem(key),
+		set: (key, value) => localStorage.setItem(key, value),
+		remove: (key) => localStorage.removeItem(key),
 	},
 	styles: new DomThemeStyleAdapter(),
 	assets: new BrowserThemeAssetUrlAdapter(),

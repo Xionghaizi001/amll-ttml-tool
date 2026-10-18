@@ -359,7 +359,9 @@ trusted-js 按上述顺序管理生命周期。主题则使用另一套注册/�
 | 当前主题、安全模式、用户覆盖 | 同步 key-value storage | 固定设置键 | 与主题包分开 |
 | 插件网络离线开关 | atom storage/localStorage | `amll-plugin-network-offline` | 只约束 host network port |
 
-当前持久化失败语义并不统一：trusted-js 安装写盘失败会回滚，主题安装等待写入成功才发布状态；KV 等部分 adapter 会记录 warning 后返回。具体失败行为须按各条持久化路径判断。
+安装持久化采用“提交后发布、失败补偿”：主题安装/卸载等待包和资源事务完成；trusted-js 正式安装在执行候选代码前等待包写入，失败恢复旧包、consent/启停状态和运行实例，激活及批次失败恢复安装前 KV 快照。卸载先停止运行，删除授权状态，再原子删除包与 KV；失败尝试恢复快照及旧实例。KV 读写/清理与授权、启停、factory pin 的 localStorage 写入错误向上传播，不降级为成功。主题旧数据迁移失败保留原数据供重试。
+
+包/KV、主题包/资源各自使用 IndexedDB 事务；localStorage 与 IndexedDB 之间采用补偿，并非跨介质原子事务，也不保证进程在中间步骤被强制终止后的原子性。若持续存储故障使回滚本身失败，返回明确的“回滚失败”错误，不报告安装成功；任意插件代码对文档、网络或宿主全局的副作用不在此快照内。开发热重载不回滚 KV 数据。
 
 ## 11. 用户责任、稳定性与信任模型
 
@@ -441,7 +443,7 @@ flowchart LR
 | trusted-js 准入 | factory、同源模块或本地 Blob | API 版本、来源路径、禁用/crash 状态、consent key | import 前拒绝；更新可回退 factory | 代码开始执行后的任何沙箱保证 |
 | 文档提交 | op batch + revision | schema、稳定 ID、expected revision、单事务 | 全批拒绝，不部分写入 | 编辑内容符合用户意图；capability 不隔离 trusted-js |
 | Contribution | 注册 id 和 owner | owner 命名空间、全局冲突、trusted-only view/mode、数量限制 | 注册抛错，scope 可整体释放 | trusted-js 自己直接操作 DOM |
-| 持久化 | package、状态、KV | plugin id 命名空间、恢复时重新解析 | 各 adapter 语义目前不完全一致 | 跨 store 原子事务；浏览器配额可用性 |
+| 持久化 | package、状态、KV | 命名空间、提交等待、事务与补偿、恢复时重新解析 | 错误向上传播；尝试恢复旧包/状态/KV/实例，补偿失败明确报告 | 跨 localStorage/IndexedDB 原子性；持续存储故障下保证恢复 |
 
 ### 11.5 Artifact 完整性与资源限额
 
@@ -552,7 +554,7 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 以下限制影响授权记录、持久化或恢复行为，不代表需要为 trusted-js 补建沙箱：
 
 1. 远程裸 trusted-js 模块没有实际字节摘要校验，内容变化也没有摘要驱动的重新 consent；本地/商店 Blob 包使用内容摘要授权。
-2. KV 等部分持久化 adapter 会记录写失败后返回；主题安装现已等待写入成功才发布状态，具体语义以各条路径为准。
+2. 安装和 KV 持久化错误向上传播；localStorage/IndexedDB 之间靠补偿恢复，持续故障导致补偿失败时明确报错，不保证跨介质原子性。
 3. localStorage 不可用时，trusted-js crash/pin 状态会降级，factory pin 可能只在当前会话有效。
 4. scope、AbortSignal 与 cleanup 只管理宿主登记或插件主动释放的资源，不能抢占中断主线程死循环；crash marker 用于后续启动恢复。
 5. 浏览器、WebView 与 Tauri 配置决定实际可用的平台能力；桌面跨平台验证尚未全部完成。
@@ -623,6 +625,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 - 加载合同：`createHost({ pluginId, scope, signal })` 返回 handle；`activate({ pluginId, host, signal })` 返回 cleanup；unload 顺序固定为 abort → cleanup → host handle dispose → scope dispose；activation 抛错同样 abort 并全清理。
 - 合同测试入口 `runHostContractTests` 由 MockTrustedJsHost 与真实 trusted-js 宿主共用。
 - 热重载：工具链成功构建后发布 `dist/module/manifest.json` 与入口模块，编译失败保留上次输出；宿主监听归应用会话所有；开发 consent 按同 id 的当前会话复用，与正式包的内容授权、崩溃计数分开；激活失败清理新实例并重新激活旧模块，KV 和文档不清空。
+- 开发调试：`dev` 构建携带内联 source map、sourcesContent 和 `amll-plugin:///插件id/src/...` 源文件标识，宿主为开发 Blob 添加同命名空间的 module.js sourceURL；`build`/`pack` 不输出源码映射。
 
 ## 14. 代码索引
 

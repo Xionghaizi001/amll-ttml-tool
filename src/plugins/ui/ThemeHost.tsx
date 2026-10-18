@@ -28,8 +28,11 @@ export const ThemeHost = () => {
 		const forceSafeMode =
 			new URLSearchParams(window.location.search).get("theme-safe-mode") ===
 			"1";
-		themeService.initialize({ forceSafeMode });
-		void themeService.hydrateInstalledThemes();
+		try { themeService.initialize({ forceSafeMode }); }
+		catch (error) { toast.error(`主题状态读取失败：${String(error)}`); return; }
+		void themeService.hydrateInstalledThemes().catch((error) => {
+			toast.error(`主题恢复失败：${String(error)}`);
+		});
 		void initializeThemeSurfaceImages();
 		if (themeService.getState().safeModeReason === "crash") {
 			toast.warn(
@@ -40,7 +43,8 @@ export const ThemeHost = () => {
 			);
 		}
 		const stableTimer = window.setTimeout(() => {
-			themeService.confirmStartupStable();
+			try { themeService.confirmStartupStable(); }
+			catch (error) { toast.error(`主题状态保存失败：${String(error)}`); }
 		}, 5000);
 		return () => window.clearTimeout(stableTimer);
 	}, [t]);
@@ -54,8 +58,12 @@ export const ThemeHost = () => {
 				event.code === "F12"
 			) {
 				event.preventDefault();
-				themeService.restoreDefaultTheme();
-				toast.info(t("theme.rescueRestored", "已恢复默认主题"));
+				try {
+					themeService.restoreDefaultTheme();
+					toast.info(t("theme.rescueRestored", "已恢复默认主题"));
+				} catch (error) {
+					toast.error(`本次会话已恢复默认主题，但保存失败：${String(error)}`);
+				}
 			}
 		};
 		window.addEventListener("keydown", onKeyDown, true);

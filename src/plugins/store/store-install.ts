@@ -36,7 +36,7 @@ export interface StoreArtifactInstallPorts {
 	/** Fetches a same-origin catalog-relative artifact path. */
 	fetchArtifact(path: string): Promise<Uint8Array>;
 	digestSha256(bytes: Uint8Array): Promise<string>;
-	/** The single theme package install gate (themeService.importThemePackage). */
+	/** The awaited theme package install gate (themeService.installThemePackage). */
 	installThemePackage(pkg: unknown): Promise<StoreInstallOutcome>;
 	/**
 	 * Persists and activates a trusted-js package through the same loader
@@ -212,7 +212,7 @@ export interface InstallationPorts {
 /** Single directory and subscription, with separate runtime and theme semantics. */
 export class PluginInstallationService {
 	private readonly knownLoaded = new Map<string, TrustedJsPluginSummary>();
-	constructor(private readonly ports: InstallationPorts) {}
+	constructor(private readonly ports: InstallationPorts) { }
 	list = (): PluginInstallation[] => {
 		const factory = new Map(
 			this.ports.factory().map((entry) => [entry.id, entry]),
@@ -264,10 +264,10 @@ export class PluginInstallationService {
 			if (!entry) throw new Error(`Missing installation metadata: ${id}`);
 			const selectedRecord =
 				!bundled &&
-				record &&
-				(!live ||
-					(live.version === record.manifest.version &&
-						(!this.ports.entry || liveEntry?.moduleBlob === record.code)))
+					record &&
+					(!live ||
+						(live.version === record.manifest.version &&
+							(!this.ports.entry || liveEntry?.moduleBlob === record.code)))
 					? record
 					: undefined;
 			const state = this.ports.state(id);
@@ -289,9 +289,9 @@ export class PluginInstallationService {
 				store: selectedRecord?.store,
 				artifact: selectedRecord
 					? {
-							sha256:
-								selectedRecord.store?.artifactSha256 ?? selectedRecord.sha256,
-						}
+						sha256:
+							selectedRecord.store?.artifactSha256 ?? selectedRecord.sha256,
+					}
 					: undefined,
 				installedAt: selectedRecord?.installedAt,
 				enabled: !state?.disabled && !crashDisabled,
@@ -316,14 +316,14 @@ export class PluginInstallationService {
 					pinnedToFactory: pinned,
 					installedPackage: record
 						? {
-								version: record.manifest.version,
-								source: record.source,
-								store: record.store,
-								artifact: {
-									sha256: record.store?.artifactSha256 ?? record.sha256,
-								},
-								installedAt: record.installedAt,
-							}
+							version: record.manifest.version,
+							source: record.source,
+							store: record.store,
+							artifact: {
+								sha256: record.store?.artifactSha256 ?? record.sha256,
+							},
+							installedAt: record.installedAt,
+						}
 						: undefined,
 				},
 			};

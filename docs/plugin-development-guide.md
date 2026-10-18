@@ -197,6 +197,10 @@ ZIP 可复现打包由独立 toolkit 保证：输入文件名、字节及锁定�
 
 ### trusted-js 插件级热重载
 
+安装与卸载只有在必要写入提交后才报告成功；失败会尝试恢复旧包、授权/启停状态和旧实例，正式包激活失败及商店批次回滚还恢复安装前 KV 快照。`host.storage.kv` 的读取、写入和删除失败会 reject，插件应等待 Promise 并处理错误。localStorage 不可用时不会把授权或启停写入伪装为成功，启动恢复错误会显示提示。持续存储故障也可能使补偿失败，此时明确报告“回滚失败”；不保证跨 localStorage/IndexedDB 的原子提交，文档与网络副作用也不属于安装回滚范围。
+
+`amll-plugin dev` 的入口模块内嵌 source map 与源码，打开浏览器开发者工具的 Sources，在 `amll-plugin:///插件id/src/` 下查看原始模块、设置断点；异常可映射回源文件和行号。开发 Blob 的模块名为同目录下的 `module.js`。编译错误保留具体源模块诊断和上次成功输出；正式 `build`/`pack` 不携带 source map，发布前重新运行 `pack`。
+
 1. 在插件项目运行 `amll-plugin dev`（使用本工作区工具链时可运行 `node ../amll-ttml-tool-plugin-toolkit/bin/cli.mjs dev`）。工具链监听 `src/` 与根目录 `manifest.json`，将成功构建的入口和 manifest 输出到 `dist/module/`；单文件项目的 manifest 从 `definePlugin()` 元数据生成。
 2. 在宿主“首选项 → 常规 → 管理插件 → 设置 → 开发模式”选择 **`dist/module/`**，确认开发授权，保持“热重载”开启。桌面端同样通过插件级 consent 授权，无额外 JS 插件总开关。
 3. 修改源码并保存。宿主每 1.5 秒轮询一次，连续两次读到稳定文件后只替换该插件，无需刷新页面。关闭设置页后仍继续监听；重新打开可关闭热重载或点击“立即重载”。页面刷新后需重新选择目录。

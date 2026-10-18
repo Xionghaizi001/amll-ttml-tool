@@ -11,6 +11,7 @@ export interface TrustedJsPackageStorage {
 	save(record: StoredTrustedJsRecord): Promise<void>;
 	remove(id: string): Promise<void>;
 	uninstall?(id: string): Promise<void>;
+	checkpoint?(id: string): Promise<() => Promise<void>>;
 }
 
 export const digestTrustedJsPackage = async (
@@ -32,7 +33,7 @@ export class InstalledTrustedJsService<THost> {
 		private readonly storage: TrustedJsPackageStorage,
 		private readonly runtime: TrustedJsPluginService<THost>,
 		private readonly clearKv: (id: string) => Promise<void>,
-	) {}
+	) { }
 	list = () => [...this.records.values()];
 	/** End a temporary override without deleting the persisted release or KV. */
 	discardDevelopment(id: string): void {
@@ -75,7 +76,7 @@ export class InstalledTrustedJsService<THost> {
 					!parsed.ok ||
 					record.id !== parsed.value.manifest.id ||
 					(await digestTrustedJsPackage(parsed.value.manifest, code)) !==
-						record.sha256
+					record.sha256
 				)
 					continue;
 				this.records.set(record.id, record);
@@ -114,7 +115,11 @@ export class InstalledTrustedJsService<THost> {
 			};
 		const { manifest, code } = parsed.value;
 		const previous = this.records.get(manifest.id);
-		const oldConsent = this.runtime.getConsent(manifest.id);
+		const restoreRuntime = this.runtime.checkpoint(manifest.id);
+		const restoreStorage =
+			source !== "dev"
+				? await this.storage.checkpoint?.(manifest.id)
+				: undefined;
 		let persisted = false;
 		const record: StoredTrustedJsRecord = {
 			id: manifest.id,
@@ -140,41 +145,61 @@ export class InstalledTrustedJsService<THost> {
 				}
 			},
 		};
-		const oldEntry = this.runtime.getEntry(manifest.id);
-		await this.runtime.unload(manifest.id);
-		const result = await this.runtime.load(entry, approvedConsentKey);
-		if (!result.ok) {
-			if (result.reason === "missing-dependency" && source !== "dev") {
-				await this.storage.save(record);
-				this.records.set(record.id, record);
-				this.runtime.markMissingDependency(record.id);
-				return { ok: true, pluginId: record.id };
+		try {
+			await this.runtime.unload(manifest.id);
+			const result = await this.runtime.load(entry, approvedConsentKey);
+			if (!result.ok) {
+				if (result.reason === "missing-dependency" && source !== "dev") {
+					await this.storage.save(record);
+					persisted = true;
+					this.records.set(record.id, record);
+					this.runtime.markMissingDependency(record.id);
+					this.emit();
+					return { ok: true, pluginId: record.id };
+				}
+				throw Object.assign(new Error(result.message), {
+					cancelled: result.reason === "consent-declined",
+				});
 			}
-			if (source !== "dev")
-				this.runtime.restoreConsent(manifest.id, oldConsent);
-			if (persisted) {
-				if (previous && previous.source !== "dev")
-					await this.storage.save(previous);
-				else await this.storage.remove(manifest.id);
+			this.records.set(record.id, record);
+			this.emit();
+			return { ok: true, pluginId: record.id };
+		} catch (error) {
+			const failures: string[] = [];
+			try {
+				if (persisted) {
+					if (restoreStorage) await restoreStorage();
+					else if (previous && previous.source !== "dev")
+						await this.storage.save(previous);
+					else await this.storage.remove(manifest.id);
+				}
+			} catch (rollbackError) {
+				failures.push(String(rollbackError));
 			}
-			if (oldEntry) await this.runtime.load(oldEntry);
+			if (previous) this.records.set(manifest.id, previous);
+			else this.records.delete(manifest.id);
+			try {
+				await restoreRuntime();
+			} catch (rollbackError) {
+				failures.push(String(rollbackError));
+			}
 			return {
 				ok: false,
-				cancelled: result.reason === "consent-declined",
-				message: result.message,
+				cancelled: (error as { cancelled?: boolean }).cancelled,
+				message: `${String(error instanceof Error ? error.message : error)}${failures.length ? `；回滚失败：${failures.join("; ")}` : ""}`,
 			};
 		}
-		this.records.set(record.id, record);
-		this.emit();
-		return { ok: true, pluginId: record.id };
 	}
-	/** Rollback only the package and runtime; never erase existing plugin data. */
-	checkpoint(id: string): () => Promise<void> {
+	/** Restore the package, pre-install KV snapshot, consent and prior runtime. */
+	async checkpoint(id: string): Promise<() => Promise<void>> {
 		const previous = this.records.get(id);
 		const restoreRuntime = this.runtime.checkpoint(id);
+		const restoreStorage = await this.storage.checkpoint?.(id);
 		return async () => {
 			await this.runtime.unload(id);
-			if (previous && previous.source !== "dev") await this.storage.save(previous);
+			if (restoreStorage) await restoreStorage();
+			else if (previous && previous.source !== "dev")
+				await this.storage.save(previous);
 			else if (previous?.source !== "dev") await this.storage.remove(id);
 			if (previous) this.records.set(id, previous);
 			else this.records.delete(id);
@@ -185,15 +210,38 @@ export class InstalledTrustedJsService<THost> {
 
 	uninstall(id: string): Promise<void> {
 		const operation = this.queue.then(async () => {
-			await this.runtime.unload(id);
-			if (this.storage.uninstall) await this.storage.uninstall(id);
-			else {
-				await this.storage.remove(id);
-				await this.clearKv(id);
+			const restoreRuntime = this.runtime.checkpoint(id);
+			const restoreStorage = await this.storage.checkpoint?.(id);
+			try {
+				await this.runtime.unload(id);
+				// Fail before deleting packages/KV if consent state cannot be persisted.
+				this.runtime.forget(id);
+				if (this.storage.uninstall) await this.storage.uninstall(id);
+				else {
+					await this.storage.remove(id);
+					await this.clearKv(id);
+				}
+				this.records.delete(id);
+				this.emit();
+			} catch (error) {
+				const failures: unknown[] = [error];
+				try {
+					if (restoreStorage) await restoreStorage();
+				} catch (e) {
+					failures.push(e);
+				}
+				try {
+					await restoreRuntime();
+				} catch (e) {
+					failures.push(e);
+				}
+				if (failures.length > 1)
+					throw new AggregateError(
+						failures,
+						`卸载失败；回滚失败：${failures.map(String).join("; ")}`,
+					);
+				throw error;
 			}
-			this.runtime.forget(id);
-			this.records.delete(id);
-			this.emit();
 		});
 		this.queue = operation.catch(() => undefined);
 		return operation;

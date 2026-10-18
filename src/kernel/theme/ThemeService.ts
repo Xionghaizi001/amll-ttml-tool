@@ -53,8 +53,14 @@ export class ThemeService {
 	private initialized = false;
 	private disposed = false;
 	private stateSnapshot: ThemeServiceState | null = null;
+	private packageQueue: Promise<unknown> = Promise.resolve();
+	private enqueuePackage<T>(operation: () => Promise<T>): Promise<T> {
+		const result = this.packageQueue.then(operation);
+		this.packageQueue = result.catch(() => undefined);
+		return result;
+	}
 
-	constructor(private readonly ports: ThemeServicePorts) {}
+	constructor(private readonly ports: ThemeServicePorts) { }
 
 	/** Registers a trusted built-in theme; still runs full package validation. */
 	registerBuiltinTheme(input: unknown): ParseResult<ThemePackageV0> {
@@ -178,9 +184,9 @@ export class ThemeService {
 				warn?.(
 					"Migrated installed themes from localStorage to the package store",
 				);
-			} catch {
-				warn?.("Legacy installed theme store is corrupted; ignoring it");
-				storage.remove(STORAGE_KEYS.installed);
+			} catch (error) {
+				warn?.("Legacy theme migration failed; keeping the original for retry");
+				throw error;
 			}
 		}
 		const records = await packageStore.loadAll();
@@ -297,11 +303,11 @@ export class ThemeService {
 		if (id !== null) this.assertDependencies(id);
 		if (id !== null && !this.themes.has(id))
 			throw new Error(`Unknown theme ${id}`);
+		if (id === null) this.ports.storage.remove(STORAGE_KEYS.active);
+		else this.ports.storage.set(STORAGE_KEYS.active, id);
 		this.previewThemeId = null;
 		this.activeThemeId = id;
 		this.pendingActiveId = id;
-		if (id === null) this.ports.storage.remove(STORAGE_KEYS.active);
-		else this.ports.storage.set(STORAGE_KEYS.active, id);
 		this.render();
 	}
 
@@ -327,16 +333,20 @@ export class ThemeService {
 		this.userTokens = null;
 		this.userSurfaceImageResetVersion += 1;
 		this.userSurfaceImages = new Map();
-		this.ports.storage.remove(STORAGE_KEYS.active);
-		this.ports.storage.remove(STORAGE_KEYS.userTokens);
-		this.render();
+		try {
+			this.ports.storage.remove(STORAGE_KEYS.active);
+			this.ports.storage.remove(STORAGE_KEYS.userTokens);
+		} finally {
+			// The rescue path must restore visible defaults even if disk is unavailable.
+			this.render();
+		}
 	}
 
 	setSafeMode(enabled: boolean): void {
-		this.safeMode = enabled;
-		this.safeModeReason = enabled ? "user" : null;
 		if (enabled) this.ports.storage.set(STORAGE_KEYS.safeMode, "1");
 		else this.ports.storage.remove(STORAGE_KEYS.safeMode);
+		this.safeMode = enabled;
+		this.safeModeReason = enabled ? "user" : null;
 		this.render();
 	}
 
@@ -415,23 +425,32 @@ export class ThemeService {
 	}
 
 	/** Store installs publish only after durable storage has succeeded. */
-	async installThemePackage(
+	installThemePackage(
+		input: unknown,
+		store?: StoreInstallationProvenance,
+	): Promise<ParseResult<ThemePackageV0>> {
+		return this.enqueuePackage(() => this.installThemePackageOne(input, store));
+	}
+	private async installThemePackageOne(
 		input: unknown,
 		store?: StoreInstallationProvenance,
 	): Promise<ParseResult<ThemePackageV0>> {
 		const parsed = this.parseThemeImport(input);
 		if (!parsed.ok) return parsed;
-		if (!this.ports.packageStore) return this.importThemePackage(input, store);
 		const id = parsed.value.manifest.id;
 		const metadata = {
 			store: store ? { ...store } : undefined,
 			installedAt: Date.now(),
 		};
-		await this.ports.packageStore.save(
+		if (this.ports.packageStore) await this.ports.packageStore.save(
 			id,
 			JSON.parse(JSON.stringify(parsed.value)),
 			metadata,
 		);
+		else this.ports.storage.set(STORAGE_KEYS.installed, JSON.stringify([
+			...[...this.themes.values()].filter((theme) => theme.source === "installed" && theme.pkg.manifest.id !== id).map((theme) => theme.pkg),
+			parsed.value,
+		]));
 		this.themes.set(id, {
 			pkg: parsed.value,
 			source: "installed",
@@ -441,46 +460,39 @@ export class ThemeService {
 		return parsed;
 	}
 
+	/** Compatibility alias; all callers must await the durable install gate. */
 	importThemePackage(
 		input: unknown,
 		store?: StoreInstallationProvenance,
-	): ParseResult<ThemePackageV0> {
-		const parsed = this.parseThemeImport(input);
-		if (!parsed.ok) return parsed;
-		const id = parsed.value.manifest.id;
-		const metadata = {
-			store: store ? { ...store } : undefined,
-			installedAt: Date.now(),
-		};
-		this.themes.set(id, {
-			pkg: parsed.value,
-			source: "installed",
-			...metadata,
-		});
-		if (this.ports.packageStore !== undefined)
-			void this.ports.packageStore.save(
-				id,
-				JSON.parse(JSON.stringify(parsed.value)),
-				metadata,
-			);
-		else this.persistInstalled();
-		this.render();
-		return parsed;
+	): Promise<ParseResult<ThemePackageV0>> {
+		return this.installThemePackage(input, store);
 	}
 
-	removeInstalledTheme(id: string): void {
+	removeInstalledTheme(id: string): Promise<void> {
+		return this.enqueuePackage(() => this.removeInstalledThemeOne(id));
+	}
+	private async removeInstalledThemeOne(id: string): Promise<void> {
 		const existing = this.themes.get(id);
 		if (existing === undefined || existing.source !== "installed") return;
+		const previousActive = this.ports.storage.get(STORAGE_KEYS.active);
+		if (this.activeThemeId === id) this.ports.storage.remove(STORAGE_KEYS.active);
+		try {
+			if (this.ports.packageStore) await this.ports.packageStore.remove(id);
+			else {
+				const remaining = [...this.themes.values()].filter((theme) => theme.source === "installed" && theme.pkg.manifest.id !== id).map((theme) => theme.pkg);
+				if (remaining.length) this.ports.storage.set(STORAGE_KEYS.installed, JSON.stringify(remaining));
+				else this.ports.storage.remove(STORAGE_KEYS.installed);
+			}
+		} catch (error) {
+			if (previousActive !== null) this.ports.storage.set(STORAGE_KEYS.active, previousActive);
+			throw error;
+		}
 		this.themes.delete(id);
 		if (this.previewThemeId === id) this.previewThemeId = null;
 		if (this.activeThemeId === id) {
 			this.activeThemeId = null;
 			this.pendingActiveId = null;
-			this.ports.storage.remove(STORAGE_KEYS.active);
 		}
-		if (this.ports.packageStore !== undefined)
-			void this.ports.packageStore.remove(id);
-		else this.persistInstalled();
 		this.render();
 	}
 
