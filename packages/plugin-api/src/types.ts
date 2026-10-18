@@ -104,6 +104,8 @@ export interface FormatContribution {
 }
 
 export interface FunctionContributions {
+	/** Published data-part names, each prefixed with pluginId.; at most 32. */
+	themeParts?: string[];
 	commands?: CommandContribution[];
 	menus?: MenuItemContribution[];
 	settings?: SettingsPageContribution[];
@@ -223,18 +225,18 @@ export type DocumentOpV0 =
 	| { op: "removeLine"; lineId: string }
 	| { op: "moveLine"; lineId: string; afterLineId: string | null }
 	| {
-			op: "insertWord";
-			lineId: string;
-			afterWordId: string | null;
-			word: NewWordV0;
-	  }
+		op: "insertWord";
+		lineId: string;
+		afterWordId: string | null;
+		word: NewWordV0;
+	}
 	| { op: "removeWord"; wordId: string }
 	| { op: "setMetadata"; entries: PluginMetadataEntryV0[] }
 	| {
-			op: "replaceDocument";
-			lines: NewLineV0[];
-			metadata: PluginMetadataEntryV0[];
-	  };
+		op: "replaceDocument";
+		lines: NewLineV0[];
+		metadata: PluginMetadataEntryV0[];
+	};
 
 export interface LyricsApplyEditParams {
 	expectedRevision: number;
@@ -308,12 +310,12 @@ export interface HttpResponseV0 {
 
 export type PluginEventV0 =
 	| {
-			type: "document.changed";
-			revision: number;
-			source: EditSource;
-			changedLineIds: string[];
-			changedWordIds: string[];
-	  }
+		type: "document.changed";
+		revision: number;
+		source: EditSource;
+		changedLineIds: string[];
+		changedWordIds: string[];
+	}
 	| { type: "document.undo"; revision: number }
 	| { type: "document.redo"; revision: number }
 	| { type: "selection.changed"; selection: PluginSelectionV0 };
@@ -458,51 +460,51 @@ export interface FormFieldPresentationV0 {
 
 export type FormFieldV0 =
 	| ({
-			kind: "text";
-			key: string;
-			label: LocalizedText;
-			default?: string;
-			placeholder?: string;
-			required?: boolean;
-			maxLength?: number;
-			multiline?: boolean;
-	  } & FormFieldPresentationV0)
+		kind: "text";
+		key: string;
+		label: LocalizedText;
+		default?: string;
+		placeholder?: string;
+		required?: boolean;
+		maxLength?: number;
+		multiline?: boolean;
+	} & FormFieldPresentationV0)
 	| ({
-			kind: "number";
-			key: string;
-			label: LocalizedText;
-			default?: number;
-			min?: number;
-			max?: number;
-			step?: number;
-			required?: boolean;
-	  } & FormFieldPresentationV0)
+		kind: "number";
+		key: string;
+		label: LocalizedText;
+		default?: number;
+		min?: number;
+		max?: number;
+		step?: number;
+		required?: boolean;
+	} & FormFieldPresentationV0)
 	| ({
-			kind: "boolean";
-			key: string;
-			label: LocalizedText;
-			default?: boolean;
-	  } & FormFieldPresentationV0)
+		kind: "boolean";
+		key: string;
+		label: LocalizedText;
+		default?: boolean;
+	} & FormFieldPresentationV0)
 	| ({
-			kind: "select" | "radio";
-			key: string;
-			label: LocalizedText;
-			options: FormOptionV0[];
-			default?: string;
-			orientation?: "vertical" | "horizontal";
-	  } & FormFieldPresentationV0)
+		kind: "select" | "radio";
+		key: string;
+		label: LocalizedText;
+		options: FormOptionV0[];
+		default?: string;
+		orientation?: "vertical" | "horizontal";
+	} & FormFieldPresentationV0)
 	| ({
-			kind: "note";
-			text: LocalizedText;
-			tone?: "default" | "muted";
-	  } & Pick<FormFieldPresentationV0, "visibleWhen">)
+		kind: "note";
+		text: LocalizedText;
+		tone?: "default" | "muted";
+	} & Pick<FormFieldPresentationV0, "visibleWhen">)
 	| {
-			kind: "group";
-			id: string;
-			label?: LocalizedText;
-			visibleWhen?: FormConditionV0;
-			fields: FormFieldV0[];
-	  };
+		kind: "group";
+		id: string;
+		label?: LocalizedText;
+		visibleWhen?: FormConditionV0;
+		fields: FormFieldV0[];
+	};
 
 export interface FormActionV0 {
 	id: string;
@@ -611,11 +613,11 @@ export const THEME_SURFACE_NAMES_V0 = [
 export type ThemeSurfaceNameV0 = (typeof THEME_SURFACE_NAMES_V0)[number];
 
 export interface ThemeTokenColorsV0
-	extends Partial<Record<ThemeColorTokenNameV0, string>> {}
+	extends Partial<Record<ThemeColorTokenNameV0, string>> { }
 export interface ThemeTokenLyricsV0
-	extends Partial<Record<ThemeLyricsTokenNameV0, string>> {}
+	extends Partial<Record<ThemeLyricsTokenNameV0, string>> { }
 export interface ThemeTokenSpectrogramV0
-	extends Partial<Record<ThemeSpectrogramTokenNameV0, string>> {}
+	extends Partial<Record<ThemeSpectrogramTokenNameV0, string>> { }
 export interface ThemeTokenBackgroundV0 {
 	kind: "solid" | "gradient" | "none";
 	value?: string;
@@ -633,7 +635,7 @@ export interface ThemeSurfaceBackgroundV0 {
 }
 
 export interface ThemeTokenSurfacesV0
-	extends Partial<Record<ThemeSurfaceNameV0, ThemeSurfaceBackgroundV0>> {}
+	extends Partial<Record<ThemeSurfaceNameV0, ThemeSurfaceBackgroundV0>> { }
 
 /** Appearance-specific overrides layered on top of the base token groups. */
 export interface ThemeTokenModeOverridesV0 {

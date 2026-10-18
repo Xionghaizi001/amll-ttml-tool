@@ -183,7 +183,7 @@ function EditorApp() {
 						setSettingsTab("about");
 						setSettingsOpen(true);
 					},
-				},
+				}
 			);
 		}
 	}, [status, update, t, setSettingsOpen, setSettingsTab]);
@@ -298,7 +298,16 @@ function EditorApp() {
 										<SuspensePlaceHolder
 											key={activeMode.mainViewKey ?? activeMode.modeId}
 										>
-											<activeMode.mainView />
+											<div
+												style={{ display: "contents" }}
+												data-amll-plugin-scope={
+													activeMode.owner.kind === "plugin"
+														? activeMode.owner.pluginId
+														: activeMode.owner.id
+												}
+											>
+												<activeMode.mainView />
+											</div>
 										</SuspensePlaceHolder>
 									)}
 								</AnimatePresence>
@@ -321,7 +330,7 @@ function EditorApp() {
 					<Theme appearance={effectiveTheme} style={{ display: "contents" }}>
 						<ToastContainer theme={effectiveTheme} />
 					</Theme>,
-					document.body,
+					document.body
 				)}
 			</ErrorBoundary>
 		</Theme>

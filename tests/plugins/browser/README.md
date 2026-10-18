@@ -49,3 +49,9 @@ pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
 2026-10-18 实测记录：Windows 11（22631）、WebView2 152.0.4191.66、Tauri debug + Vite 5174（显式设置 `TAURI_ENV_PLATFORM=windows`，配置与上面的覆盖配置相同，Vite 分开启动）。安装授权由用户确认；ZIP 安装返回 `{ "ok": true, "pluginId": "test.browser-migration" }`。Blob 插件的工具菜单与对话框正常出现，显示 `lyric.ttml`，`useState` / `useEffect` 组件正常挂载，保存计数从 0 更新至 1，关闭视图成功。开发副本授权弹窗实际显示同权、应用数据、登录态及会话源码修改说明，未批准此次开发加载。
 
 本轮没有将完整交互矩阵重跑为桌面验收：自动输入 Ctrl+Alt+S / Ctrl+Alt+D 未观察到选择更新或禁用，原因未定位，不能据此记为订阅/禁用清理通过。此部分保留手动复验，现有安装/授权/热重载回归 28 项通过。平台结论仅为原生 Windows WebView 的 Blob 和共享 React 可运行，不扩大到生产包、macOS 或 Linux。
+
+## 主题作用域回归
+
+2026-10-18：使用临时生产编译入口，在 Codex 内置 Chromium 验证一个全局主题与两个不同插件主题同时生效；检查计算样式，宿主 slot、宿主表单及锚点内部的受保护区域未被作用域 CSS 修改；用户 token 在插件后代也覆盖主题声明。真实 ThemeHost 的受保护冲突弹窗点名两个主题与目标，点击“撤销本次应用”恢复原主题；标题栏 contribution dispose 后宿主锚点消失且主题保持选择；救援快捷键清空所有作用域。临时主题、入口和产物均不保留项目引用。
+
+复验时还应检查目标卸载后的 `disabledByDependency`、重启冲突按应用时间仲裁，以及 mode mainView、settings/dialog view 的宿主锚点。Node 合同测试集中在 `tests/kernel/theme/scoped-themes.test.ts`；真实 WebView 必须支持 CSS `@scope`，本次结果不代表 macOS/Linux 或桌面生产包验收。

@@ -12,14 +12,24 @@ const subscribeContributions = (listener: () => void) => {
 };
 
 /** Live, order-sorted mode contributions (re-renders on registry changes). */
-export const useModeContributions = (): HostModeContribution[] => {
+let modeRevision = -1;
+let modeSnapshot =
+	extensionRegistry.contributions.getModes() as HostModeContribution[];
+const getModeSnapshot = () => {
+	const revision = extensionRegistry.contributions.getRevision();
+	if (modeRevision !== revision) {
+		modeRevision = revision;
+		modeSnapshot =
+			extensionRegistry.contributions.getModes() as HostModeContribution[];
+	}
+	return modeSnapshot;
+};
+export const useModeContributions = (): HostModeContribution[] =>
 	useSyncExternalStore(
 		subscribeContributions,
-		() => extensionRegistry.contributions.getRevision(),
-		() => 0,
+		getModeSnapshot,
+		getModeSnapshot,
 	);
-	return extensionRegistry.contributions.getModes() as HostModeContribution[];
-};
 
 /**
  * Resolves the active mode with the edit fail-safe applied: when the mode id

@@ -49,7 +49,7 @@ const ThemeListRow = ({
 }) => {
 	const state = useThemeState();
 	const { t } = useTranslation();
-	const isActive = state.activeThemeId === id && state.previewThemeId === null;
+	const isActive = (id === null ? state.activeThemeIds.length === 0 : state.activeThemeIds.includes(id)) && state.previewThemeId === null;
 	const isPreviewing =
 		state.previewThemeId !== null && state.previewThemeId === id;
 	return (

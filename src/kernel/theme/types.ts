@@ -53,7 +53,11 @@ export interface UserSurfaceImage {
 }
 
 export interface ThemeServicePorts {
-	checkDependencies?(manifest: ThemePluginManifest, activating: boolean): string | null;
+	targetParts?(pluginId: string): readonly string[];
+	checkDependencies?(
+		manifest: ThemePluginManifest,
+		activating: boolean,
+	): string | null;
 	storage: ThemeKeyValueStorePort;
 	styles: ThemeStyleSinkPort;
 	assets: ThemeAssetUrlPort;
@@ -88,6 +92,8 @@ export interface ThemeInstallationMetadata {
 export type ThemeSource = "builtin" | "installed";
 
 export interface ThemeSummary extends ThemeInstallationMetadata {
+	scope?: string;
+	disabledByDependency?: string;
 	id: string;
 	name: string;
 	version: string;
@@ -101,7 +107,16 @@ export type SafeModeReason = "user" | "crash" | "forced" | null;
 export interface ThemeServiceState {
 	/** Session counter for cancelling pending image restoration after a reset. */
 	userSurfaceImageResetVersion: number;
+	/** Compatibility: the global theme only. */
 	activeThemeId: string | null;
+	activeThemeIds: readonly string[];
+	conflict: {
+		scope: string;
+		previousId: string;
+		nextId: string;
+		previousName: string;
+		nextName: string;
+	} | null;
 	previewThemeId: string | null;
 	safeMode: boolean;
 	safeModeReason: SafeModeReason;

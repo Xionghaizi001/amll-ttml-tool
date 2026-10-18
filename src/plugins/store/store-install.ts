@@ -181,6 +181,8 @@ export interface PluginInstallation {
 		};
 	};
 	theme?: {
+		scope?: string;
+		disabledByDependency?: string;
 		active: boolean;
 		preview: boolean;
 		safeMode: boolean;
@@ -350,9 +352,11 @@ export class PluginInstallationService {
 						? { sha256: theme.store.artifactSha256 }
 						: undefined,
 					installedAt: theme.installedAt,
-					enabled: state.activeThemeId === theme.id && !state.safeMode,
+					enabled: (state.activeThemeIds ?? [state.activeThemeId]).includes(theme.id) && !state.safeMode && !theme.disabledByDependency,
 					theme: {
-						active: state.activeThemeId === theme.id,
+						scope: theme.scope,
+						disabledByDependency: theme.disabledByDependency,
+						active: (state.activeThemeIds ?? [state.activeThemeId]).includes(theme.id),
 						preview: state.previewThemeId === theme.id,
 						safeMode: state.safeMode,
 						appearance: theme.appearance,

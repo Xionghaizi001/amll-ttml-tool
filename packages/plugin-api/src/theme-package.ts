@@ -6,6 +6,7 @@ import {
 import { validate } from "./schema/validator";
 import { validateThemeCss } from "./theme-css";
 import { validateThemeTokens } from "./theme-tokens";
+import { THEME_PART_NAMES_V0 } from "./types";
 import type {
 	ParseIssue,
 	ParseResult,
@@ -23,7 +24,10 @@ const prefixIssues = (issues: ParseIssue[], prefix: string): ParseIssue[] =>
  * (scoped selectors, no remote URLs) and asset naming. Returns the package
  * with comment-stripped CSS ready for host injection.
  */
-export function parseThemePackage(input: unknown): ParseResult<ThemePackageV0> {
+export function parseThemePackage(
+	input: unknown,
+	options: { targetParts?: readonly string[] } = {},
+): ParseResult<ThemePackageV0> {
 	const parsed = validate<ThemePackageV0>(THEME_PACKAGE_SCHEMA, input);
 	if (!parsed.ok) return parsed;
 	const issues: ParseIssue[] = [];
@@ -39,6 +43,17 @@ export function parseThemePackage(input: unknown): ParseResult<ThemePackageV0> {
 	const tokens = validateThemeTokens(parsed.value.tokens);
 	if (!tokens.ok) issues.push(...prefixIssues(tokens.issues, "/tokens"));
 
+	const scope = parsed.value.manifest.scope;
+	const pluginId = typeof scope === "object" ? scope.pluginId : undefined;
+	if (pluginId && tokens.ok) {
+		for (const group of [tokens.value, tokens.value.light, tokens.value.dark]) {
+			if (group?.color?.accent !== undefined || group?.surfaces !== undefined)
+				issues.push({
+					path: "/tokens",
+					message: "scoped themes cannot set accent or surfaces",
+				});
+		}
+	}
 	const assets = parsed.value.assets ?? {};
 	for (const name of Object.keys(assets)) {
 		if (name.length > 64 || !THEME_ASSET_NAME_PATTERN.test(name))
@@ -95,7 +110,12 @@ export function parseThemePackage(input: unknown): ParseResult<ThemePackageV0> {
 	}
 	const validatedStyles: Record<string, string> = {};
 	for (const [path, css] of Object.entries(styles)) {
-		const result = validateThemeCss(css, { assetNames });
+		const result = validateThemeCss(css, {
+			assetNames,
+			pluginId,
+			deferTargetParts: options.targetParts === undefined,
+			parts: [...THEME_PART_NAMES_V0, ...(options.targetParts ?? [])],
+		});
 		if (!result.ok)
 			issues.push(...prefixIssues(result.issues, `/styles/${path}`));
 		else validatedStyles[path] = result.value;

@@ -10,6 +10,7 @@ export const TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD = 3;
  * remote catalog feed the same gate.
  */
 export interface TrustedJsPluginEntry {
+	contributes?: import("@amll-ttml-tool/plugin-api").FunctionContributions;
 	id: string;
 	name: string;
 	version: string;

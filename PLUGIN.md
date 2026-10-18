@@ -197,7 +197,11 @@ trusted-js 对宿主拥有与应用代码相同的实际权限。`TrustedJsHostV
 - parser 校验 token 版本、颜色、资源引用、选择器范围和危险 CSS 结构。
 - 资源转换为本地 Object URL，切换或卸载时撤销。
 - theme layer 与 user override layer 分离，用户覆盖优先。
-- preview 与 active theme 分开；启动 crash marker 可触发安全模式并回落到默认视觉。
+- preview 与 active set 分开：至多一个 global 和每个 pluginId 各一个主题；同作用域替换经受保护对话框提示，支持撤销，恢复时按应用时间仲裁。
+- 作用域 CSS 必须精确锚定宿主生成的 `data-amll-plugin-scope`，允许宿主公开 part 与目标 `contributes.themeParts`（自身 id 前缀、最多 32 个）。包解析延迟的目标 part 检查由宿主安装/激活/渲染补齐；CSS `@scope` 下边界排除嵌套插件与受保护区域。
+- 作用域 token 编译到视图根，拒绝 accent/surfaces；用户 token 在 `amll.user` 同时覆盖根与插件后代。声明式表单、安全 UI 不归属插件作用域。
+- 目标禁用只移除视图根而保留主题选择；目标缺失或版本不兼容投影为 `disabledByDependency`，不注入样式。
+- 启动 crash marker 覆盖所有作用域；安全模式、救援快捷键和恢复默认清空全部选择。
 - permission、插件管理和错误恢复 UI 位于受保护区域，不受主题 CSS 控制。
 
 ### 6.3 宿主核心与 factory 插件

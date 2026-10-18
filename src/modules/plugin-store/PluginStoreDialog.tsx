@@ -226,7 +226,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const { t } = useTranslation();
 	const shelves = useSyncExternalStore(
 		storeProviderClient.subscribe,
-		storeProviderClient.list,
+		storeProviderClient.list
 	);
 	const [providerName, setProviderName] = useState("");
 	const [providerUrl, setProviderUrl] = useState("");
@@ -238,7 +238,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState<string | null>(null);
 	const [installations, setInstallations] = useState(() =>
-		pluginInstallationService.list(),
+		pluginInstallationService.list()
 	);
 	useEffect(() => {
 		const refresh = () => setInstallations(pluginInstallationService.list());
@@ -265,7 +265,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	}, [refresh]);
 	const run = async (
 		id: string,
-		operation: () => unknown | Promise<unknown>,
+		operation: () => unknown | Promise<unknown>
 	) => {
 		setBusy(id);
 		try {
@@ -282,13 +282,13 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 			(entry) =>
 				(entry.platforms === undefined ||
 					entry.platforms.includes(
-						import.meta.env.TAURI_ENV_PLATFORM ? "desktop" : "web",
+						import.meta.env.TAURI_ENV_PLATFORM ? "desktop" : "web"
 					)) &&
 				(kind === "all" ||
-					entry.channel === (kind === "theme" ? "theme" : "trusted-js")),
+					entry.channel === (kind === "theme" ? "theme" : "trusted-js"))
 		);
 	const local = installations.filter(
-		(item) => kind === "all" || item.kind === kind,
+		(item) => kind === "all" || item.kind === kind
 	);
 	const installedRows = (items: typeof installations) =>
 		items.map((item) => {
@@ -317,6 +317,16 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									? t("pluginStore.channel.theme", "主题")
 									: t("pluginStore.channel.trustedJs", "插件")}
 							</Badge>
+							{item.theme?.scope && (
+								<Badge color="gray">
+									{item.theme.scope === "global" ? "全局" : item.theme.scope}
+								</Badge>
+							)}
+							{item.theme?.disabledByDependency && (
+								<Badge color="red">
+									依赖不可用：{item.theme.disabledByDependency}
+								</Badge>
+							)}
 							{trusted?.status && (
 								<Badge color="gray">
 									{t(`pluginStore.status.${trusted.status}`, trusted.status)}
@@ -337,7 +347,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 										{" "}
 										· {item.store.providerName}
 										{!shelves.some(
-											(s) => s.provider.id === item.store?.providerId,
+											(s) => s.provider.id === item.store?.providerId
 										) && "（来源已移除，不再更新）"}
 									</span>
 								)}
@@ -365,7 +375,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									disabled={busy !== null}
 									onClick={() =>
 										void run(item.id, () =>
-											pluginInstallationService.reauthorize(item.id),
+											pluginInstallationService.reauthorize(item.id)
 										)
 									}
 								>
@@ -379,7 +389,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									disabled={busy !== null}
 									onClick={() =>
 										void run(item.id, () =>
-											pluginInstallationService.revertToFactory(item.id),
+											pluginInstallationService.revertToFactory(item.id)
 										)
 									}
 								>
@@ -393,7 +403,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									disabled={busy !== null}
 									onClick={() =>
 										void run(item.id, () =>
-											pluginInstallationService.uninstall(item.kind, item.id),
+											pluginInstallationService.uninstall(item.kind, item.id)
 										)
 									}
 								>
@@ -409,8 +419,8 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 										pluginInstallationService.setEnabled(
 											item.kind,
 											item.id,
-											enabled,
-										),
+											enabled
+										)
 									)
 								}
 							/>
@@ -492,7 +502,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 												type="file"
 												aria-label={t(
 													"pluginStore.importZip",
-													"导入插件包（ZIP）",
+													"导入插件包（ZIP）"
 												)}
 												accept=".zip"
 												disabled={busy !== null}
@@ -503,12 +513,12 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 														void run("local-import", async () => {
 															if (!/\.zip$/i.test(file.name))
 																throw new Error(
-																	t("pluginStore.zipOnly", "请选择 ZIP 插件包"),
+																	t("pluginStore.zipOnly", "请选择 ZIP 插件包")
 																);
 															const result = await installLocalPluginFile(file);
 															if (result.ok)
 																toast.success(
-																	t("pluginStore.installSuccess", "已安装"),
+																	t("pluginStore.installSuccess", "已安装")
 																);
 															else if (
 																!("cancelled" in result && result.cancelled)
@@ -537,7 +547,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 											<Text size="2" color="gray">
 												{t(
 													"pluginStore.unavailable",
-													"商店目前不可用（离线或清单未发布）。这不影响编辑器和随应用附带的出厂插件。",
+													"商店目前不可用（离线或清单未发布）。这不影响编辑器和随应用附带的出厂插件。"
 												)}
 											</Text>
 										)}
@@ -547,9 +557,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 													(item) =>
 														item.id === entry.id &&
 														item.kind ===
-															(entry.channel === "theme"
-																? "theme"
-																: "function"),
+															(entry.channel === "theme" ? "theme" : "function")
 												);
 												return (
 													<CatalogEntryRow
@@ -559,8 +567,8 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 														trustedUpdate={
 															entry.provider.official
 																? updates.find(
-																		(update) => update.id === entry.id,
-																	)
+																		(update) => update.id === entry.id
+																  )
 																: undefined
 														}
 														trustedLive={
@@ -568,7 +576,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 																? {
 																		version: item.version,
 																		bundled: item.trustedJs.bundled,
-																	}
+																  }
 																: undefined
 														}
 														busy={busy !== null}
@@ -576,7 +584,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 															void run(entry.id, async () => {
 																if (action === "revert")
 																	await pluginInstallationService.revertToFactory(
-																		entry.id,
+																		entry.id
 																	);
 																else if (action === "load")
 																	await reloadTrustedJsPlugin(entry.id);
@@ -584,7 +592,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 																	const result = await installStoreEntry(entry);
 																	if (result.ok)
 																		toast.success(
-																			t("pluginStore.installSuccess", "已安装"),
+																			t("pluginStore.installSuccess", "已安装")
 																		);
 																	else if (!result.cancelled)
 																		toast.error(result.message);
@@ -623,10 +631,14 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 													{shelf.provider.catalogUrl}
 													<br />
 													{shelf.error
-														? `不可用：${shelf.error}${shelf.catalog ? "（显示本地缓存）" : ""}`
+														? `不可用：${shelf.error}${
+																shelf.catalog ? "（显示本地缓存）" : ""
+														  }`
 														: shelf.fetchedAt
-															? `缓存于 ${new Date(shelf.fetchedAt).toLocaleString()}`
-															: "尚未获取，请在“可用插件 → 在线”中刷新目录"}
+														? `缓存于 ${new Date(
+																shelf.fetchedAt
+														  ).toLocaleString()}`
+														: "尚未获取，请在“可用插件 → 在线”中刷新目录"}
 												</span>
 											}
 											action={
@@ -637,7 +649,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 														disabled={loading || busy !== null}
 														onClick={() =>
 															void run("provider", () =>
-																storeProviderClient.remove(shelf.provider.id),
+																storeProviderClient.remove(shelf.provider.id)
 															)
 														}
 													>

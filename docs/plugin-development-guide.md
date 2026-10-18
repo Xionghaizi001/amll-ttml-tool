@@ -21,7 +21,7 @@ trusted-js 可以绕过 SDK 直接使用浏览器能力，因此应像安装桌�
 
 功能包与主题包均可声明 `dependencies: [{ id, version, optional? }]`；`version` 为非空 semver range，`optional` 默认 `false`。每包最多 16 条，不允许自依赖或重复 id。字段规范、可选依赖与版本匹配语义见 [插件依赖 v0](../PLUGIN.md#插件依赖-v0)。
 
-宿主在 trusted-js 唯一加载闸门中检查必需依赖的安装、启用和版本范围，并按依赖拓扑顺序启动 factory 插件；缺失或不匹配时不会执行依赖者代码。商店依赖闭包安装、批次回滚、手动导入后的 disabled 状态和主题作用域 CSS 仍属于路线图后续工作。依赖不提供跨插件调用能力。
+宿主在 trusted-js 唯一加载闸门中检查必需依赖的安装、启用和版本范围，并按依赖拓扑顺序启动 factory 插件；缺失或不匹配时不会执行依赖者代码。商店依赖闭包安装、批次回滚、手动导入后的 disabled 状态与主题作用域已接入宿主。依赖不提供跨插件调用能力。
 
 ## 2. 推荐工具链
 
@@ -178,6 +178,24 @@ const external = (id: string) => [
 ```
 
 `ThemePackageV0` 包含 manifest、tokens、可选 styles 和内联 assets。宿主校验 token 版本、颜色、长度、选择器范围和资源引用；禁止远程 URL、任意代码和危险 CSS。资源通过 `asset:<name>` 引用并转换为本地 Object URL。权限、插件管理和错误恢复 UI 位于受保护区域，不受主题 CSS 控制。
+
+### 插件作用域主题
+
+`scope` 省略或为 `"global"` 表示全局；`{ "pluginId": "dev.example.editor" }` 表示只作用于该插件，并必须声明该目标的非 optional `dependencies`。激活时目标必须存在、版本兼容且启用。目标禁用后宿主移除视图锚点，主题仍保持选中；目标卸载或版本不兼容时，管理器显示 `disabledByDependency`，不注入其 CSS。
+
+目标功能插件通过 `contributes.themeParts: ["dev.example.editor.panel"]` 发布自己的 `data-part` 名称（最多 32 个，必须以自身 id 加 `.` 为前缀）。主题 CSS 示例：
+
+```css
+[data-amll-plugin-scope="dev.example.editor"] [data-part="dev.example.editor.panel"] {
+  color: var(--attt-color-text-primary);
+}
+```
+
+每个选择器都必须以精确作用域锚点开头，再选择后代 slot/part；part 白名单为宿主公开 part 加目标声明的 part。离线包解析只能检查命名空间，宿主在安装、激活和渲染时核对目标声明，避免目标更新后使用过期声明。禁止跨作用域的兄弟选择器、选择器列表伪类及全局 `@font-face`。宿主通过 CSS `@scope` 下边界排除嵌套插件根和受保护区域；不支持 `@scope` 的旧 WebView 不会应用作用域样式，不能视作已完成平台验收。
+
+锚点由宿主包裹 mode mainView、trusted settings/dialog view 和 titlebar group，声明式表单及安全 UI 不打插件锚点。插件 portal 不会自动继承锚点。作用域 token 定义在锚点元素上，禁止设置任何模式的 accent 或 surfaces；用户 override 在 `amll.user` 层覆盖所有作用域元素及其后代。
+
+可以同时启用一个全局主题和每个目标各一个主题。相同作用域最后应用者胜出，受保护对话框点名新旧主题和作用域，可确认或撤销本次应用。持久化保存应用时间，兼容原来的单一全局 id；启动冲突也会提醒。预览只临时替换对应作用域。安全模式、救援快捷键与恢复默认清空所有主题选择；退出安全模式不会自动重新启用主题。
 
 ## 7. 打包、安装与更新
 

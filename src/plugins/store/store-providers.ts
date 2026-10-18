@@ -211,7 +211,7 @@ export class StoreProviderClient {
 			if (entry.sha256 && winner.sha256 === entry.sha256)
 				entry.mirrorOf = winner.provider.name;
 			else
-				entry.blockedReason = `与 ${winner.provider.name} 的同名插件冲突，不可安装`;
+				entry.blockedReason = `「${entry.name}」（来自 ${entry.provider.name}）与「${winner.name}」（来自 ${winner.provider.name}）产生冲突，无法安装此版本。`;
 		}
 		return entries;
 	}

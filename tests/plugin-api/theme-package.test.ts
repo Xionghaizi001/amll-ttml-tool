@@ -83,6 +83,8 @@ describe("parseThemePackage", () => {
 	it("requires a dependency for plugin-scoped themes", () => {
 		const scoped = {
 			...validPackage,
+			tokens: { tokenVersion: 0 },
+			styles: { "theme.css": '[data-amll-plugin-scope="dev.example.editor"] [data-part="dev.example.editor.panel"] { color: red; }' },
 			manifest: {
 				...validPackage.manifest,
 				scope: { pluginId: "dev.example.editor" },

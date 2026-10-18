@@ -1,6 +1,7 @@
 import { dependencyOrder, missingDependencies, type DependencyNode } from "./dependencies";
 
 export interface InstalledDependencyNode extends DependencyNode {
+	contributes?: import("@amll-ttml-tool/plugin-api").FunctionContributions;
 	enabled: boolean;
 	/** Runtime readiness is stricter than the persisted enabled switch. */
 	ready: boolean;

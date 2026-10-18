@@ -49,6 +49,12 @@
 
 不执行代码。token、CSS 与资源引用必须通过解析器；主题不能覆盖带 `data-amll-protected` 的权限、插件管理和恢复 UI。应用主题、预览主题、用户 override 和安全模式是不同状态，不要合并写入。
 
+激活集按 global / pluginId 分组，更新 UI 时使用 `activeThemeIds`，旧 `activeThemeId` 仅表示全局主题。同作用域替换与启动恢复冲突必须保留受保护的确认/撤销入口，不能降级为 toast。锚点由宿主视图包装生成，不能包住表单或安全 UI。作用域 token 不得写 `:root` 或 html flag；用户层必须在作用域后代上声明 token，单纯根上的继承无法战胜后代声明。CSS `@scope` 下边界与目标 part 重校验不要删去；旧 WebView 支持需平台实测。
+
+回归集中在 `tests/kernel/theme/scoped-themes.test.ts`：协议负例、多作用域、冲突撤销、启动仲裁、依赖缺失和全量恢复。真实浏览器需额外检查计算样式、受保护对话框、宿主锚点及 portal 表单隔离；临时主题不可加入 factory/catalog 引用。
+
+面向用户的主题或插件冲突提示应直接点名双方，例如“「XX」主题与「YY」主题产生冲突，无法同时使用”，并说明当前使用哪一个、如何恢复。不要用“作用域重合”等技术概念解释操作结果；不同商店的同名插件应同时显示来源，便于区分。
+
 ### builtin 与 factory
 
 `builtin` 是宿主核心运行档；factory 是随应用交付的 trusted-js 来源。两者不是同一个维度。当前 `builtin.time-shift` 由外置仓库产生锁定 artifact，构建期校验 SHA-256 并生成 loader；高版本安装包可遮蔽 factory，pin 后回退到随应用副本。

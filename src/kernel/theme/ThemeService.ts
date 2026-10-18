@@ -40,9 +40,85 @@ const STORAGE_KEYS = {
 export class ThemeService {
 	private readonly themes = new Map<string, RegisteredTheme>();
 	private readonly listeners = new Set<() => void>();
-	private activeThemeId: string | null = null;
-	/** Persisted active id awaiting async hydration of installed themes. */
-	private pendingActiveId: string | null = null;
+	private active = new Map<string, { id: string; appliedAt: number }>();
+	private pendingActive: { id: string; appliedAt: number }[] = [];
+	private conflicts: { scope: string; previousId: string; nextId: string }[] =
+		[];
+	private get activeThemeId(): string | null {
+		return this.active.get("global")?.id ?? null;
+	}
+	private scopeOf(id: string): string {
+		const scope = this.themes.get(id)?.pkg.manifest.scope;
+		return typeof scope === "object" ? scope.pluginId : "global";
+	}
+	refreshDependencies(): void {
+		this.render();
+	}
+	isActive(id: string): boolean {
+		return [...this.active.values()].some((entry) => entry.id === id);
+	}
+	private persistActive(entries = [...this.active.values()]): void {
+		if (!entries.length) this.ports.storage.remove(STORAGE_KEYS.active);
+		else
+			this.ports.storage.set(
+				STORAGE_KEYS.active,
+				entries.length === 1 && this.scopeOf(entries[0].id) === "global"
+					? entries[0].id
+					: JSON.stringify(entries),
+			);
+	}
+	private restoreActive(): void {
+		for (const entry of [...this.pendingActive].sort(
+			(a, b) => a.appliedAt - b.appliedAt,
+		)) {
+			if (!this.themes.has(entry.id)) continue;
+			const scope = this.scopeOf(entry.id);
+			const previous = this.active.get(scope);
+			if (previous && previous.id !== entry.id) {
+				const incomingWins = entry.appliedAt >= previous.appliedAt;
+				this.conflicts.push({
+					scope,
+					previousId: incomingWins ? previous.id : entry.id,
+					nextId: incomingWins ? entry.id : previous.id,
+				});
+				if (!incomingWins) continue;
+			}
+			this.active.set(scope, entry);
+		}
+		this.pendingActive = this.pendingActive.filter(
+			(entry) => !this.themes.has(entry.id),
+		);
+	}
+	resolveConflict(undo: boolean): void {
+		const conflict = this.conflicts[0];
+		if (!conflict) return;
+		const next = new Map(this.active);
+		if (
+			undo &&
+			next.get(conflict.scope)?.id === conflict.nextId &&
+			this.themes.has(conflict.previousId)
+		) {
+			this.assertDependencies(conflict.previousId);
+			next.set(conflict.scope, {
+				id: conflict.previousId,
+				appliedAt: Date.now(),
+			});
+		}
+		this.persistActive([...next.values()]);
+		this.active = next;
+		this.conflicts.shift();
+		this.render();
+	}
+	deactivateTheme(id: string): void {
+		const next = new Map(
+			[...this.active].filter(([, entry]) => entry.id !== id),
+		);
+		this.persistActive([...next.values()]);
+		this.active = next;
+		this.pendingActive = this.pendingActive.filter((entry) => entry.id !== id);
+		if (this.previewThemeId === id) this.previewThemeId = null;
+		this.render();
+	}
 	private previewThemeId: string | null = null;
 	private safeMode = false;
 	private safeModeReason: SafeModeReason = null;
@@ -60,7 +136,7 @@ export class ThemeService {
 		return result;
 	}
 
-	constructor(private readonly ports: ThemeServicePorts) { }
+	constructor(private readonly ports: ThemeServicePorts) {}
 
 	/** Registers a trusted built-in theme; still runs full package validation. */
 	registerBuiltinTheme(input: unknown): ParseResult<ThemePackageV0> {
@@ -134,10 +210,23 @@ export class ThemeService {
 			}
 		}
 
-		const activeId = storage.get(STORAGE_KEYS.active);
-		this.pendingActiveId = activeId;
-		this.activeThemeId =
-			activeId !== null && this.themes.has(activeId) ? activeId : null;
+		const rawActive = storage.get(STORAGE_KEYS.active);
+		if (rawActive !== null && !this.safeMode) {
+			try {
+				const entries = rawActive.startsWith("[")
+					? JSON.parse(rawActive)
+					: [{ id: rawActive, appliedAt: 0 }];
+				this.pendingActive = entries.filter(
+					(entry: { id?: unknown; appliedAt?: unknown }) =>
+						typeof entry?.id === "string" &&
+						typeof entry.appliedAt === "number" &&
+						Number.isFinite(entry.appliedAt),
+				);
+				this.restoreActive();
+			} catch {
+				warn?.("Stored active themes are corrupted");
+			}
+		} else if (this.safeMode) storage.remove(STORAGE_KEYS.active);
 
 		// Marker protocol: set before the first injection, cleared once the
 		// host reports a stable startup. A crash in between means the next
@@ -146,9 +235,7 @@ export class ThemeService {
 		// after hydration.
 		if (
 			!this.safeMode &&
-			(this.activeThemeId !== null ||
-				(this.ports.packageStore !== undefined &&
-					this.pendingActiveId !== null))
+			(this.active.size > 0 || this.pendingActive.length > 0)
 		)
 			storage.set(STORAGE_KEYS.applyPending, "1");
 		this.initialized = true;
@@ -205,12 +292,7 @@ export class ThemeService {
 					installedAt: record.installedAt,
 				});
 		}
-		if (
-			this.activeThemeId === null &&
-			this.pendingActiveId !== null &&
-			this.themes.has(this.pendingActiveId)
-		)
-			this.activeThemeId = this.pendingActiveId;
+		this.restoreActive();
 		if (this.initialized) this.render();
 	}
 
@@ -227,6 +309,9 @@ export class ThemeService {
 				version: pkg.manifest.version,
 				description: pkg.manifest.description,
 				appearance: pkg.manifest.appearance,
+				scope: this.scopeOf(pkg.manifest.id),
+				disabledByDependency:
+					this.ports.checkDependencies?.(pkg.manifest, false) ?? undefined,
 				source,
 				store,
 				installedAt,
@@ -237,14 +322,17 @@ export class ThemeService {
 	dependencyNodes() {
 		return [...this.themes.values()].map(({ pkg }) => ({
 			...pkg.manifest,
-			enabled: this.activeThemeId === pkg.manifest.id && !this.safeMode,
-			ready: this.activeThemeId === pkg.manifest.id && !this.safeMode,
+			enabled: this.isActive(pkg.manifest.id) && !this.safeMode,
+			ready: this.isActive(pkg.manifest.id) && !this.safeMode,
 		}));
 	}
 
 	private assertDependencies(id: string) {
 		const theme = this.themes.get(id);
 		if (!theme) throw new Error(`Unknown theme ${id}`);
+		const parsed = this.validateTargetParts(theme.pkg);
+		if (!parsed.ok)
+			throw new Error(parsed.issues.map((issue) => issue.message).join("; "));
 		const error = this.ports.checkDependencies?.(theme.pkg.manifest, true);
 		if (error) throw new Error(error);
 	}
@@ -252,22 +340,29 @@ export class ThemeService {
 	/** Awaited compensation for a store batch, including metadata and selection. */
 	checkpoint(id: string): () => Promise<void> {
 		const previous = this.themes.get(id);
-		const active = this.activeThemeId;
+		const active = new Map(this.active);
+		const pending = [...this.pendingActive];
+		const conflicts = [...this.conflicts];
 		const preview = this.previewThemeId;
 		return async () => {
 			if (previous?.source === "installed") {
-				await this.ports.packageStore?.save(id, JSON.parse(JSON.stringify(previous.pkg)), {
-					store: previous.store, installedAt: previous.installedAt,
-				});
+				await this.ports.packageStore?.save(
+					id,
+					JSON.parse(JSON.stringify(previous.pkg)),
+					{
+						store: previous.store,
+						installedAt: previous.installedAt,
+					},
+				);
 			} else await this.ports.packageStore?.remove(id);
 			if (previous) this.themes.set(id, previous);
 			else this.themes.delete(id);
 			if (!this.ports.packageStore) this.persistInstalled();
-			this.activeThemeId = active;
-			this.pendingActiveId = active;
+			this.active = new Map(active);
+			this.pendingActive = pending;
+			this.conflicts = conflicts;
 			this.previewThemeId = preview;
-			if (active === null) this.ports.storage.remove(STORAGE_KEYS.active);
-			else this.ports.storage.set(STORAGE_KEYS.active, active);
+			this.persistActive();
 			this.render();
 		};
 	}
@@ -276,6 +371,18 @@ export class ThemeService {
 		if (this.stateSnapshot === null)
 			this.stateSnapshot = {
 				activeThemeId: this.activeThemeId,
+				activeThemeIds: [...this.active.values()].map((entry) => entry.id),
+				conflict: this.conflicts[0]
+					? {
+							...this.conflicts[0],
+							previousName:
+								this.themes.get(this.conflicts[0].previousId)?.pkg.manifest
+									.name ?? this.conflicts[0].previousId,
+							nextName:
+								this.themes.get(this.conflicts[0].nextId)?.pkg.manifest.name ??
+								this.conflicts[0].nextId,
+						}
+					: null,
 				previewThemeId: this.previewThemeId,
 				safeMode: this.safeMode,
 				safeModeReason: this.safeModeReason,
@@ -303,11 +410,25 @@ export class ThemeService {
 		if (id !== null) this.assertDependencies(id);
 		if (id !== null && !this.themes.has(id))
 			throw new Error(`Unknown theme ${id}`);
-		if (id === null) this.ports.storage.remove(STORAGE_KEYS.active);
-		else this.ports.storage.set(STORAGE_KEYS.active, id);
+		const next = new Map(this.active);
+		const scope = id === null ? "global" : this.scopeOf(id);
+		const previous = next.get(scope);
+		if (id === null) next.clear();
+		else
+			next.set(scope, {
+				id,
+				appliedAt: Math.max(
+					Date.now(),
+					...[...next.values()].map((entry) => entry.appliedAt + 1),
+				),
+			});
+		this.persistActive([...next.values()]);
 		this.previewThemeId = null;
-		this.activeThemeId = id;
-		this.pendingActiveId = id;
+		this.pendingActive = [];
+		this.active = next;
+		if (id === null) this.conflicts = [];
+		else if (previous && previous.id !== id)
+			this.conflicts.push({ scope, previousId: previous.id, nextId: id });
 		this.render();
 	}
 
@@ -328,8 +449,9 @@ export class ThemeService {
 	/** Back to the default look: no theme, no user overrides, no images. */
 	restoreDefaultTheme(): void {
 		this.previewThemeId = null;
-		this.activeThemeId = null;
-		this.pendingActiveId = null;
+		this.active.clear();
+		this.pendingActive = [];
+		this.conflicts = [];
 		this.userTokens = null;
 		this.userSurfaceImageResetVersion += 1;
 		this.userSurfaceImages = new Map();
@@ -343,11 +465,25 @@ export class ThemeService {
 	}
 
 	setSafeMode(enabled: boolean): void {
-		if (enabled) this.ports.storage.set(STORAGE_KEYS.safeMode, "1");
-		else this.ports.storage.remove(STORAGE_KEYS.safeMode);
-		this.safeMode = enabled;
-		this.safeModeReason = enabled ? "user" : null;
-		this.render();
+		if (enabled) {
+			this.active.clear();
+			this.pendingActive = [];
+			this.previewThemeId = null;
+			this.conflicts = [];
+			this.safeMode = true;
+			this.safeModeReason = "user";
+			try {
+				this.ports.storage.set(STORAGE_KEYS.safeMode, "1");
+				this.ports.storage.remove(STORAGE_KEYS.active);
+			} finally {
+				this.render();
+			}
+		} else {
+			this.ports.storage.remove(STORAGE_KEYS.safeMode);
+			this.safeMode = false;
+			this.safeModeReason = null;
+			this.render();
+		}
 	}
 
 	/**
@@ -404,13 +540,48 @@ export class ThemeService {
 		return parsed;
 	}
 
+	private validateTargetParts(
+		pkg: ThemePackageV0,
+	): ParseResult<ThemePackageV0> {
+		const scope = pkg.manifest.scope;
+		return parseThemePackage(JSON.parse(JSON.stringify(pkg)), {
+			targetParts:
+				typeof scope === "object"
+					? (this.ports.targetParts?.(scope.pluginId) ?? [])
+					: [],
+		});
+	}
+
 	private parseThemeImport(input: unknown): ParseResult<ThemePackageV0> {
 		const parsed = parseThemePackage(input);
 		if (!parsed.ok) return parsed;
+		const checked = this.validateTargetParts(parsed.value);
+		if (!checked.ok) return checked;
 		const id = parsed.value.manifest.id;
-		const dependencyError = this.ports.checkDependencies?.(parsed.value.manifest, false);
-		if (dependencyError) return { ok: false, issues: [{ path: "/manifest/dependencies", message: dependencyError }] };
+		const dependencyError = this.ports.checkDependencies?.(
+			parsed.value.manifest,
+			false,
+		);
+		if (dependencyError)
+			return {
+				ok: false,
+				issues: [{ path: "/manifest/dependencies", message: dependencyError }],
+			};
 		const existing = this.themes.get(id);
+		const incomingScope =
+			typeof parsed.value.manifest.scope === "object"
+				? parsed.value.manifest.scope.pluginId
+				: "global";
+		if (existing && this.isActive(id) && this.scopeOf(id) !== incomingScope)
+			return {
+				ok: false,
+				issues: [
+					{
+						path: "/manifest/scope",
+						message: "deactivate the theme before changing its scope",
+					},
+				],
+			};
 		if (existing?.source === "builtin")
 			return {
 				ok: false,
@@ -442,15 +613,25 @@ export class ThemeService {
 			store: store ? { ...store } : undefined,
 			installedAt: Date.now(),
 		};
-		if (this.ports.packageStore) await this.ports.packageStore.save(
-			id,
-			JSON.parse(JSON.stringify(parsed.value)),
-			metadata,
-		);
-		else this.ports.storage.set(STORAGE_KEYS.installed, JSON.stringify([
-			...[...this.themes.values()].filter((theme) => theme.source === "installed" && theme.pkg.manifest.id !== id).map((theme) => theme.pkg),
-			parsed.value,
-		]));
+		if (this.ports.packageStore)
+			await this.ports.packageStore.save(
+				id,
+				JSON.parse(JSON.stringify(parsed.value)),
+				metadata,
+			);
+		else
+			this.ports.storage.set(
+				STORAGE_KEYS.installed,
+				JSON.stringify([
+					...[...this.themes.values()]
+						.filter(
+							(theme) =>
+								theme.source === "installed" && theme.pkg.manifest.id !== id,
+						)
+						.map((theme) => theme.pkg),
+					parsed.value,
+				]),
+			);
 		this.themes.set(id, {
 			pkg: parsed.value,
 			source: "installed",
@@ -475,24 +656,38 @@ export class ThemeService {
 		const existing = this.themes.get(id);
 		if (existing === undefined || existing.source !== "installed") return;
 		const previousActive = this.ports.storage.get(STORAGE_KEYS.active);
-		if (this.activeThemeId === id) this.ports.storage.remove(STORAGE_KEYS.active);
+		const remainingActive = new Map(
+			[...this.active].filter(([, entry]) => entry.id !== id),
+		);
+		if (this.isActive(id)) this.persistActive([...remainingActive.values()]);
 		try {
 			if (this.ports.packageStore) await this.ports.packageStore.remove(id);
 			else {
-				const remaining = [...this.themes.values()].filter((theme) => theme.source === "installed" && theme.pkg.manifest.id !== id).map((theme) => theme.pkg);
-				if (remaining.length) this.ports.storage.set(STORAGE_KEYS.installed, JSON.stringify(remaining));
+				const remaining = [...this.themes.values()]
+					.filter(
+						(theme) =>
+							theme.source === "installed" && theme.pkg.manifest.id !== id,
+					)
+					.map((theme) => theme.pkg);
+				if (remaining.length)
+					this.ports.storage.set(
+						STORAGE_KEYS.installed,
+						JSON.stringify(remaining),
+					);
 				else this.ports.storage.remove(STORAGE_KEYS.installed);
 			}
 		} catch (error) {
-			if (previousActive !== null) this.ports.storage.set(STORAGE_KEYS.active, previousActive);
+			if (previousActive !== null)
+				this.ports.storage.set(STORAGE_KEYS.active, previousActive);
 			throw error;
 		}
 		this.themes.delete(id);
 		if (this.previewThemeId === id) this.previewThemeId = null;
-		if (this.activeThemeId === id) {
-			this.activeThemeId = null;
-			this.pendingActiveId = null;
-		}
+		this.active = remainingActive;
+		this.pendingActive = this.pendingActive.filter((entry) => entry.id !== id);
+		this.conflicts = this.conflicts.filter(
+			(entry) => entry.previousId !== id && entry.nextId !== id,
+		);
 		this.render();
 	}
 
@@ -567,7 +762,11 @@ export class ThemeService {
 	}
 
 	private activeThemeTokens(): ThemeTokensV0 | null {
-		const effectiveId = this.previewThemeId ?? this.activeThemeId;
+		const effectiveId =
+			this.previewThemeId !== null &&
+			this.scopeOf(this.previewThemeId) === "global"
+				? this.previewThemeId
+				: this.activeThemeId;
 		const theme =
 			effectiveId === null ? undefined : this.themes.get(effectiveId);
 		return theme?.pkg.tokens ?? null;
@@ -639,29 +838,49 @@ export class ThemeService {
 			this.notify();
 			return;
 		}
-		const effectiveId = this.previewThemeId ?? this.activeThemeId;
-		const theme =
-			effectiveId === null ? undefined : this.themes.get(effectiveId);
-		if (theme === undefined) {
-			this.ports.styles.setThemeCss("");
-		} else {
+		const effective = new Map(this.active);
+		if (this.previewThemeId)
+			effective.set(this.scopeOf(this.previewThemeId), {
+				id: this.previewThemeId,
+				appliedAt: 0,
+			});
+		const sections: string[] = [];
+		for (const [scope, { id }] of effective) {
+			const theme = this.themes.get(id);
+			if (!theme || !this.validateTargetParts(theme.pkg).ok) continue;
+			// Presence/version failures disable dependency consumers; a disabled target
+			// keeps its theme selected, but its host-owned view roots disappear.
+			if (this.ports.checkDependencies?.(theme.pkg.manifest, false)) continue;
 			const urls = new Map<string, string>();
 			for (const [name, asset] of Object.entries(theme.pkg.assets ?? {}))
 				urls.set(name, this.ports.assets.create(asset));
-			this.assetUrls = [...urls.values()];
+			this.assetUrls.push(...urls.values());
 			const resolveAsset = (name: string) => urls.get(name) ?? null;
+			const selector =
+				scope === "global" ? undefined : `[data-amll-plugin-scope="${scope}"]`;
 			const tokensCss = compileThemeTokensCss(theme.pkg.tokens, {
 				resolveAsset,
+				selector,
 			});
 			const stylesCss = Object.values(theme.pkg.styles ?? {})
 				.map((css) => substituteThemeAssetUrls(css, resolveAsset))
 				.join("\n");
-			this.ports.styles.setThemeCss(
-				[tokensCss, stylesCss].filter(Boolean).join("\n"),
+			const css = [tokensCss, stylesCss].filter(Boolean).join("\n");
+			// The lower boundary excludes nested plugin roots and protected host UI.
+			sections.push(
+				selector
+					? `${tokensCss}\n@scope (${selector}) to ([data-amll-plugin-scope], [data-amll-protected]) {\n${stylesCss.replaceAll(selector, ":scope")}\n}`
+					: css,
 			);
 		}
+		this.ports.styles.setThemeCss(sections.join("\n"));
 		const userCssSections = [
-			this.userTokens === null ? "" : compileThemeTokensCss(this.userTokens),
+			this.userTokens === null
+				? ""
+				: compileThemeTokensCss(this.userTokens, {
+						selector:
+							":root, [data-amll-plugin-scope], [data-amll-plugin-scope] *",
+					}),
 			this.userSurfaceImageCss(),
 		].filter(Boolean);
 		this.ports.styles.setUserCss(userCssSections.join("\n"));

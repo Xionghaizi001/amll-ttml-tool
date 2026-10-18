@@ -23,6 +23,7 @@ const contrastRatio = (first: number, second: number): number =>
 	(Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 
 export interface CompileThemeTokensOptions {
+	selector?: string;
 	/**
 	 * Resolves an `asset:<name>` reference from an image surface to a local
 	 * URL. Unresolved assets degrade to about:invalid so nothing is fetched.
@@ -168,16 +169,34 @@ export function compileThemeTokensCss(
 	if (tokens.spacing?.radius)
 		baseDeclarations.push(`--attt-spacing-radius: ${tokens.spacing.radius};`);
 	const sections = [
-		block(":root", baseDeclarations),
+		block(options.selector ?? ":root", baseDeclarations),
 		tokens.light
 			? block(
-					':root[data-amll-appearance="light"]',
+					options.selector
+						? options.selector
+								.split(",")
+								.map((selector) =>
+									selector.trim() === ":root"
+										? ':root[data-amll-appearance="light"]'
+										: `:root[data-amll-appearance="light"] ${selector.trim()}`,
+								)
+								.join(", ")
+						: ':root[data-amll-appearance="light"]',
 					groupDeclarations(tokens.light, options.resolveAsset),
 				)
 			: "",
 		tokens.dark
 			? block(
-					':root[data-amll-appearance="dark"]',
+					options.selector
+						? options.selector
+								.split(",")
+								.map((selector) =>
+									selector.trim() === ":root"
+										? ':root[data-amll-appearance="dark"]'
+										: `:root[data-amll-appearance="dark"] ${selector.trim()}`,
+								)
+								.join(", ")
+						: ':root[data-amll-appearance="dark"]',
 					groupDeclarations(tokens.dark, options.resolveAsset),
 				)
 			: "",

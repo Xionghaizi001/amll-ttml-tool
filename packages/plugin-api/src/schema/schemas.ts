@@ -333,6 +333,7 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 				contributes: {
 					type: "object",
 					properties: {
+						themeParts: { type: "array", maxItems: 32, items: { type: "string", maxLength: 192, pattern: "^[a-z0-9][a-z0-9.-]*$" } },
 						commands: { type: "array", items: commandContribution },
 						menus: { type: "array", items: menuContribution },
 						settings: { type: "array", items: settingsContribution },
@@ -388,7 +389,7 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 						{
 							type: "object",
 							required: ["pluginId"],
-							properties: { pluginId: { type: "string", minLength: 1, maxLength: 128 } },
+							properties: { pluginId },
 							additionalProperties: false,
 						},
 					],

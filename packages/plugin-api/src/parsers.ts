@@ -224,12 +224,12 @@ export function parseManifestSchema(
 		manifest.kind === "function"
 			? [{ value: manifest.entry, path: "$/entry" }]
 			: [
-					{ value: manifest.tokens, path: "$/tokens" },
-					...(manifest.styles ?? []).map((value, index) => ({
-						value,
-						path: `$/styles/${index}`,
-					})),
-				];
+				{ value: manifest.tokens, path: "$/tokens" },
+				...(manifest.styles ?? []).map((value, index) => ({
+					value,
+					path: `$/styles/${index}`,
+				})),
+			];
 	for (const item of paths) {
 		if (!relativePackagePath.test(item.value))
 			issues.push({
@@ -254,6 +254,10 @@ export function parseManifestSchema(
 				path: "/entry",
 				message: "builtin entry must be an internal identifier",
 			});
+		for (const part of manifest.contributes?.themeParts ?? []) {
+			if (!part.startsWith(`${manifest.id}.`) || part.length === manifest.id.length + 1)
+				issues.push({ path: "$/contributes/themeParts", message: "theme parts must use the pluginId. prefix and a non-empty name" });
+		}
 		const capabilitySet = new Set<string>();
 		manifest.capabilities.forEach((capability, index) => {
 			if (!isCapability(capability))

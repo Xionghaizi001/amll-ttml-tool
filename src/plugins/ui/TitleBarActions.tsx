@@ -15,6 +15,23 @@ const subscribeContributions = (listener: () => void) => {
 	return () => subscription.dispose();
 };
 
+let titleBarRevision = -1;
+let titleBarSnapshot = {
+	actions: extensionRegistry.contributions.getTitleBarActions(),
+	groups: extensionRegistry.contributions.getTrustedViews("titlebar-group"),
+};
+const getTitleBarSnapshot = () => {
+	const revision = extensionRegistry.contributions.getRevision();
+	if (titleBarRevision !== revision) {
+		titleBarRevision = revision;
+		titleBarSnapshot = {
+			actions: extensionRegistry.contributions.getTitleBarActions(),
+			groups: extensionRegistry.contributions.getTrustedViews("titlebar-group"),
+		};
+	}
+	return titleBarSnapshot;
+};
+
 const subscribeCommands = (listener: () => void) => {
 	const subscription = commandRegistry.subscribe(listener);
 	return () => subscription.dispose();
@@ -69,24 +86,45 @@ export const TitleBarActions = ({
 }: {
 	activeMode?: HostModeContribution;
 }) => {
-	useSyncExternalStore(
+	const { actions: registeredActions, groups } = useSyncExternalStore(
 		subscribeContributions,
-		() => extensionRegistry.contributions.getRevision(),
-		() => 0,
+		getTitleBarSnapshot,
+		getTitleBarSnapshot,
 	);
-	const actions = extensionRegistry.contributions
-		.getTitleBarActions()
-		.filter((action) => matchesWhenClause(action.when));
-	const groups =
-		extensionRegistry.contributions.getTrustedViews("titlebar-group");
+	const actions = registeredActions.filter((action) =>
+		matchesWhenClause(action.when),
+	);
 	const ModeActions = activeMode?.titleBarActions;
 	if (!ModeActions && groups.length === 0 && actions.length === 0) return null;
 	return (
 		<Flex align="center" gap="3" mr="2" flexShrink="0">
-			{ModeActions && <ModeActions />}
+			{ModeActions && activeMode && (
+				<div
+					style={{ display: "contents" }}
+					data-amll-plugin-scope={
+						activeMode.owner.kind === "plugin"
+							? activeMode.owner.pluginId
+							: activeMode.owner.id
+					}
+				>
+					<ModeActions />
+				</div>
+			)}
 			{groups.map((group) => {
 				const GroupView = group.view as ComponentType;
-				return <GroupView key={group.id} />;
+				return (
+					<div
+						key={group.id}
+						style={{ display: "contents" }}
+						data-amll-plugin-scope={
+							group.owner.kind === "plugin"
+								? group.owner.pluginId
+								: group.owner.id
+						}
+					>
+						<GroupView />
+					</div>
+				);
 			})}
 			{actions.map((action) => (
 				<DeclarativeTitleBarAction key={action.id} action={action} />

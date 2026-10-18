@@ -3,6 +3,9 @@ import type { ParseIssue, ParseResult } from "./types";
 import { THEME_PART_NAMES_V0, THEME_SLOT_NAMES_V0 } from "./types";
 
 export interface ThemeCssValidationOptions {
+	pluginId?: string;
+	/** Package-only validation may defer target declarations to the host. */
+	deferTargetParts?: boolean;
 	/** Allowed data-slot names; defaults to THEME_SLOT_NAMES_V0. */
 	slots?: readonly string[];
 	/** Allowed data-part names; defaults to THEME_PART_NAMES_V0. */
@@ -23,7 +26,7 @@ const ALLOWED_AT_RULES = new Set(["media", "supports", "font-face"]);
 // colon; this keeps them inert for every later text-level check.
 const SAFE_STRING_CONTENT = /^[^{};@\\:]*$/;
 const SELECTOR_ANCHOR =
-	/^(?:\[data-amll-appearance=(?:"dark"|"light")\]\s+)?\[data-(slot|part)="([a-z][a-z-]*)"\]/;
+	/^(?:\[data-amll-appearance=(?:"dark"|"light")\]\s+)?\[data-(slot|part)="([a-z0-9][a-z0-9.-]*)"\]/;
 const SELECTOR_REST = /^[\w\s"'[\]()>+~*.:#=,^$|-]*$/u;
 
 const lineOf = (text: string, index: number): number =>
@@ -205,8 +208,36 @@ const checkSelector = (
 	slots: readonly string[],
 	parts: readonly string[],
 	issues: ParseIssue[],
+	options: ThemeCssValidationOptions,
 ): void => {
-	const trimmed = selector.trim();
+	let trimmed = selector.trim();
+	if (options.pluginId) {
+		const prefix = `[data-amll-plugin-scope="${options.pluginId}"]`;
+		if (
+			!trimmed.startsWith(prefix) ||
+			!/^\s+(?:>\s*)?\[data-(slot|part)=/.test(trimmed.slice(prefix.length))
+		) {
+			issues.push({
+				path: "/css",
+				message: `selector must start with ${prefix} followed by a descendant slot/part`,
+			});
+			return;
+		}
+		trimmed = trimmed.slice(prefix.length).trim().replace(/^>\s*/, "");
+		// No selector-list functions or sibling traversal: keep every target below the host anchor.
+		if (
+			/[+~]|:(?:is|where|not|has|host|root|scope)\b|data-amll-plugin-scope/i.test(
+				trimmed,
+			)
+		) {
+			issues.push({
+				path: "/css",
+				message:
+					"scoped selectors cannot traverse siblings, nest scopes or use selector-list functions",
+			});
+			return;
+		}
+	}
 	if (trimmed.length === 0) {
 		issues.push({ path: "/css", message: `empty selector (line ${line})` });
 		return;
@@ -220,7 +251,15 @@ const checkSelector = (
 		return;
 	}
 	const allowed = anchor[1] === "slot" ? slots : parts;
-	if (!allowed.includes(anchor[2])) {
+	if (
+		!allowed.includes(anchor[2]) &&
+		!(
+			anchor[1] === "part" &&
+			options.deferTargetParts &&
+			options.pluginId &&
+			anchor[2].startsWith(`${options.pluginId}.`)
+		)
+	) {
 		issues.push({
 			path: "/css",
 			message: `unknown data-${anchor[1]} "${anchor[2]}" (line ${line})`,
@@ -262,6 +301,7 @@ const parseRuleList = (
 	slots: readonly string[],
 	parts: readonly string[],
 	issues: ParseIssue[],
+	options: ThemeCssValidationOptions,
 ): void => {
 	if (depth > MAX_NESTING_DEPTH) {
 		issues.push({ path: "/css", message: "rules are nested too deeply" });
@@ -303,8 +343,14 @@ const parseRuleList = (
 					slots,
 					parts,
 					issues,
+					options,
 				);
 			} else if (name === "font-face") {
+				if (options.pluginId)
+					issues.push({
+						path: "/css",
+						message: "scoped themes cannot declare global font faces",
+					});
 				if (block.hasNested)
 					issues.push({
 						path: "/css",
@@ -321,7 +367,7 @@ const parseRuleList = (
 				});
 			const line = lineOf(text, index);
 			for (const selector of splitSelectors(prelude))
-				checkSelector(selector, line, slots, parts, issues);
+				checkSelector(selector, line, slots, parts, issues, options);
 		}
 		index = block.end + 1;
 	}
@@ -356,6 +402,7 @@ export function validateThemeCss(
 		options.slots ?? THEME_SLOT_NAMES_V0,
 		options.parts ?? THEME_PART_NAMES_V0,
 		issues,
+		options,
 	);
 	return issues.length === 0
 		? { ok: true, value: stripped }

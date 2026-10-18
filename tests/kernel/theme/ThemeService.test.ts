@@ -148,7 +148,7 @@ describe("ThemeService", () => {
 		expect(second.userCss[second.userCss.length - 1]).toBe("");
 	});
 
-	it("safe mode suppresses styles until it is turned off", () => {
+	it("safe mode clears theme selections instead of reactivating them when turned off", () => {
 		const harness = createHarness();
 		harness.service.registerBuiltinTheme(themePackage("a.theme"));
 		harness.service.initialize();
@@ -157,7 +157,8 @@ describe("ThemeService", () => {
 		expect(lastThemeCss(harness)).toBe("");
 		expect(harness.store.get("amll.theme.v0.safeMode")).toBe("1");
 		harness.service.setSafeMode(false);
-		expect(lastThemeCss(harness)).toContain("--attt-color-accent");
+		expect(lastThemeCss(harness)).toBe("");
+		expect(harness.service.getState().activeThemeIds).toEqual([]);
 	});
 
 	it("honors forceSafeMode without persisting it", () => {

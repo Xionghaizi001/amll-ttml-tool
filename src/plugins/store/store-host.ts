@@ -201,12 +201,12 @@ export const pluginInstallationService = new PluginInstallationService({
 				themeService.setSafeMode(false);
 				themeService.applyTheme(id);
 			} else if (
-				themeService.getState().activeThemeId === id ||
+				themeService.isActive(id) ||
 				themeService.getState().previewThemeId === id
 			) {
 				themeService.cancelPreview();
-				if (themeService.getState().activeThemeId === id)
-					themeService.applyTheme(null);
+				if (themeService.isActive(id))
+					themeService.deactivateTheme(id);
 			}
 			return;
 		}

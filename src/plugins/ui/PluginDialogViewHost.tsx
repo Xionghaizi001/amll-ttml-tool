@@ -35,12 +35,11 @@ export const PluginDialogViewHost = () => {
 					>
 						<Dialog.Content
 							data-amll-modal-size="medium"
-							data-amll-plugin-scope={pluginId}
 						>
 							<Dialog.Title>
 								{localizeText(record.title, i18n.language)}
 							</Dialog.Title>
-							<View />
+							<div data-amll-plugin-scope={pluginId}><View /></div>
 						</Dialog.Content>
 					</Dialog.Root>
 				);

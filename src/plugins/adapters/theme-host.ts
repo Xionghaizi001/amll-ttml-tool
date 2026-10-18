@@ -1,4 +1,5 @@
-import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "../trusted/dependency-context";
+import { missingDependencies } from "../trusted/dependencies";
+import { installedDependencyNodes, checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "../trusted/dependency-context";
 import { ThemeService } from "$/kernel/theme";
 import { IndexedDbThemePackageStorage } from "$/platform/storage/IndexedDbThemePackageStorage";
 import { BrowserThemeAssetUrlAdapter } from "$/platform/theme/BrowserThemeAssetUrlAdapter";
@@ -14,9 +15,10 @@ const themePackageStorage = new IndexedDbThemePackageStorage();
  * IndexedDB (the legacy localStorage JSON is migrated on first hydrate).
  */
 export const themeService = new ThemeService({
+	targetParts: (id) => installedDependencyNodes().find((node) => node.id === id)?.contributes?.themeParts ?? [],
 	checkDependencies: (manifest, activating) => {
 		if (activating) return checkDependencyActivation(manifest);
-		try { checkDependencyGraph(manifest); return null; } catch (error) { return String(error instanceof Error ? error.message : error); }
+		try { checkDependencyGraph(manifest); const missing = missingDependencies(manifest, installedDependencyNodes(), () => true); return missing.length ? `缺少依赖：${missing.map((entry) => entry.id).join(", ")}` : null; } catch (error) { return String(error instanceof Error ? error.message : error); }
 	},
 	storage: {
 		get: (key) => localStorage.getItem(key),
