@@ -153,3 +153,9 @@ pnpm build
 首选项中的插件管理子页复用设置 Dialog.Content，保留 `data-amll-protected` 和 body portal；返回导航恢复原设置页。工具菜单不再提供商店入口。管理列表只订阅 `pluginInstallationService`，功能与主题 runtime 状态保留在 installation 附加字段，不在 UI 分别订阅两个 service。主题包安装、更新与卸载在管理器完成；主题设置继续负责预览、应用、恢复默认和用户 override。
 
 边界完整负例与合法对照由 `pnpm lint:boundaries:test` 在临时项目快照运行，保持真实配置和路径，不修改源码目录；桌面构建 quality job 必须运行该检查。
+
+## 局部覆盖协议维护与验收
+
+manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用同一个 resources 合同。新增字段必须保持只允许 LocalizedText 与白名单图标的边界，不能用通用对象 merge 实现。未知 key 由 resolveOverridePayload 过滤并返回 diagnostics，后续运行时必须记录覆盖方与目标身份；目标缺失不在安装时伪造白名单。
+
+合同测试：`tests/plugin-api/overrides.test.ts` 覆盖依赖、路径、HTML/大小/语言数、图标白名单、未知及禁止字段与嵌套表单；`tests/plugins/store/package-container.test.ts` 覆盖 ZIP 资源；`tests/plugins/trusted/installed-trusted-js.test.ts` 覆盖存储恢复与资源篡改摘要。修改时运行这些测试、plugin-api/store 测试、API/宿主类型检查和边界 lint。后续验收还需覆盖真实 UI 即时回退、目标禁用/缺失、冲突提醒与日志，当前协议通过不能代表这些功能完成。

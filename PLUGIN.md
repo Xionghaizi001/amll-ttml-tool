@@ -685,3 +685,15 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 同 id 同 SHA-256 标记镜像；不同摘要冲突时官方优先，其余按添加顺序选择首项并阻止冲突项安装。第三方不能覆盖 factory id；第三方条目必须提供 SHA-256 与 ZIP/JSON 包，不能通过裸 JS URL 自动执行。所有第三方安装经下载、摘要校验、容器解析、包身份与目录身份核对、原有 semantic gate / consent、IndexedDB 持久化，再从本地 Blob 加载。主题安装等待写入成功才发布新状态。JS consent 展示提供者名，仍按第三方权限措辞；原有桌面 consent 闸门不变。
 
 安装记录保留 provider id/name、artifact SHA-256、安装时间。移除来源不卸载插件，已安装页显示“来源已移除，不再更新”，原有本地运行和卸载保持可用。官方同源裸 JS 模块保留既有 loader 策略；第三方目录只参与商店展示和显式安装，不参与启动时的远程 load plan。
+
+## 局部覆盖协议（运行时接入待交付）
+
+功能与主题 manifest 均可声明 `overrides?: { pluginId, kind, entry }[]`，最多 32 项；kind 仅为 localization 或 icons。目标必须是非自身插件，且存在非 optional 的直接依赖，版本和启用关系复用依赖图。重复三元组被拒绝。
+
+entry 是规范包内 JSON 路径（最多 256 字符，ASCII 字母/数字/下划线开头的路径段，可含点和连字符）；拒绝绝对路径、URL、反斜杠、空段、点段及 URL 编码。JSON 包用 `resources[entry]` 携带解析后的对象；ZIP 用 `resources/<entry>` 文件，descriptor 不得内联 resources。两种容器最终经过相同包校验；缺文件、未声明资源、非法 UTF-8/JSON 被拒绝。trusted-js 存储和 consent 摘要包含资源，旧无资源包摘要保持兼容。
+
+Payload 是 surface key → LocalizedText / ActionIconV0 的平面映射，每个资源最多 512 key。文案沿用 ≤2048 字符、≤16 映射项（含 default）的 LocalizedText 合同，并拒绝 HTML；同一目标/key 跨文件也不能绕过 16 项上限。图标只接受现有 Fluent 图标白名单。资源文件名不决定 locale，语言由 LocalizedText 的映射键指定。
+
+Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长 1024 字符：`/commands/<id>/title|category`、`/titleBarActions/<id 或 command>/tooltip|icon`、`/formats/<id>/title`、`/settings/<id>/title`、`/settings/<id>/form/...`、`/strings/<key>`。表单只开放实际存在的 LocalizedText 字段；fields/options/actions 数组使用从 0 开始的索引。菜单沿用其 command 的标题，无独立标题地址。非 LocalizedText 的 placeholder、任何 id、命令引用、能力、激活事件、视图与转换行为均不在白名单。
+
+`resolveOverridePayload` 对目标 manifest 与调用者提供的字符串表枚举白名单，未知或不可覆盖 key 忽略并返回 diagnostics，调用方必须带覆盖方/目标身份记入诊断日志；不会修改目标。安装时目标可能尚未存在，因此包校验只检查 payload 合法性，目标 key 校验留给解析调用。当前交付为协议、容器、存储与过滤接口；contributes.strings、host.i18n.t、ExtensionRegistry 覆盖层、生命周期日志、冲突提醒与管理器展示仍待后续实现。

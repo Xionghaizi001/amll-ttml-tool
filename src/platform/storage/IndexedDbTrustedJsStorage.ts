@@ -10,6 +10,7 @@ export interface StoredTrustedJsRecord {
 	id: string;
 	manifest: TrustedJsPluginPackageV0["manifest"];
 	code: Blob;
+	resources?: TrustedJsPluginPackageV0["resources"];
 	sha256: string;
 	source: "user" | "dev" | "store";
 	installedAt: number;

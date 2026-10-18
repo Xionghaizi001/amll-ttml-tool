@@ -261,3 +261,29 @@ pnpm build
 目录公开读取无需管理员登录；管理员仅用于后端维护目录/上传。提供者警示与 localhost HTTP 放行仅用于本期技术原型。
 
 浏览器交互已于 2026-10-18 随提交 `82e406f0` 验收完成。后续回归使用 `tests/plugins/browser/index.html`，步骤、导航预期与平台边界见 [浏览器验收说明](../tests/plugins/browser/README.md)。插件管理器入口位于常规页，SDK 的动态 `settings-view` 贡献与管理器自身的“插件设置”分别覆盖；Tauri 真实 WebView 的 Blob 加载与共享 React 尚待平台实测。
+
+## 局部覆盖资源协议
+
+当前只交付协议校验和资源携带，安装后尚不会改变界面文案或图标。运行时覆盖、字符串表声明和 `host.i18n.t` 在后续交付。
+
+覆盖方 manifest 示例（片段）：
+
+```json
+{
+  "dependencies": [{ "id": "example.target", "version": "^1.0.0" }],
+  "overrides": [{ "pluginId": "example.target", "kind": "localization", "entry": "strings/zh-CN.json" }]
+}
+```
+
+对应资源：
+
+```json
+{
+  "/commands/example.target.run/title": { "default": "Run", "zh-CN": "运行" },
+  "/settings/example.target.settings/form/fields/0/label": { "default": "Name", "zh-CN": "名称" }
+}
+```
+
+JSON 安装包将此对象放入 `resources["strings/zh-CN.json"]`；ZIP 将它保存为 `resources/strings/zh-CN.json`，manifest.json descriptor 不内联 resources。现有独立工具链尚未扩展自动收集此资源，制作时须遵守此容器布局。文件名不指定语言，使用 LocalizedText 映射指定 locale；映射必须含 default，最多 16 项，每个字符串最多 2048 字符，无 HTML。icons 使用相同 key 映射形状，值为宿主白名单 ActionIconV0。
+
+完整地址与限制见 PLUGIN.md“局部覆盖协议”。目标不存在的地址只产生诊断；核心行为字段不能覆盖。表单数组索引绑定目标版本，目标结构改变时应调整依赖版本范围和资源。`resolveOverridePayload` 返回过滤后的 payload 和 diagnostics；调用者应记录诊断，不得把原始 payload 当作对象补丁合并到 manifest。

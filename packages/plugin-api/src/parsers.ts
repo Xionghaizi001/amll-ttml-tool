@@ -220,6 +220,18 @@ export function parseManifestSchema(
 		if (target === manifest.id)
 			issues.push({ path: "$/scope/pluginId", message: "scoped theme cannot target itself" });
 	}
+	const overrideDeclarations = new Set<string>();
+	manifest.overrides?.forEach((override, index) => {
+		const path = `$/overrides/${index}`;
+		if (override.pluginId === manifest.id)
+			issues.push({ path: `${path}/pluginId`, message: "override cannot target itself" });
+		if (!manifest.dependencies?.some((dependency) => dependency.id === override.pluginId && !dependency.optional))
+			issues.push({ path: `${path}/pluginId`, message: "override requires a required dependency on its target plugin" });
+		const key = JSON.stringify([override.pluginId, override.kind, override.entry]);
+		if (overrideDeclarations.has(key))
+			issues.push({ path, message: "duplicate override declaration" });
+		overrideDeclarations.add(key);
+	});
 	const paths =
 		manifest.kind === "function"
 			? [{ value: manifest.entry, path: "$/entry" }]

@@ -3,6 +3,7 @@ export * from "./document-ops";
 export * from "./enablement";
 export * from "./manifest";
 export * from "./network";
+export * from "./overrides";
 export * from "./parsers";
 export * from "./remote-catalog";
 export * from "./theme-css";

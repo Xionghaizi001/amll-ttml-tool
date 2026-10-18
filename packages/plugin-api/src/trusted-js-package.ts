@@ -1,4 +1,5 @@
 import { parseManifestSchema } from "./parsers";
+import { validateOverrideResources } from "./overrides";
 import { TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA } from "./schema/schemas";
 import { validate } from "./schema/validator";
 import type { ParseIssue, ParseResult, TrustedJsPluginPackageV0 } from "./types";
@@ -9,6 +10,7 @@ export function parseTrustedJsPackage(input: unknown): ParseResult<TrustedJsPlug
 	if (!parsed.ok) return parsed;
 	const manifest = parseManifestSchema(parsed.value.manifest);
 	const issues: ParseIssue[] = [];
+	if (manifest.ok) issues.push(...validateOverrideResources(manifest.value, parsed.value.resources));
 	if (!manifest.ok) issues.push(...manifest.issues.map((i) => ({ ...i, path: `/manifest${i.path}` })));
 	else if (manifest.value.kind !== "function" || manifest.value.runtime !== "trusted-js")
 		issues.push({ path: "/manifest/runtime", message: "trusted-js packages require a function manifest with runtime trusted-js" });

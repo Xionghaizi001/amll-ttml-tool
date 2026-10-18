@@ -22,6 +22,26 @@ const pkg = (code = "export function activate() {}") => ({
 	code,
 });
 
+it("preserves override resources across restore and binds the digest to their contents", async () => {
+	const f = fixture();
+	const base = pkg();
+	const resourcePackage = {
+		...base,
+		manifest: { ...base.manifest, dependencies: [{ id: "test.target", version: "*" }], overrides: [{ pluginId: "test.target", kind: "localization", entry: "strings/en.json" }] },
+		resources: { "strings/en.json": { "/commands/test.target.run/title": "Run" } },
+	};
+	await expect(f.installed.install(resourcePackage)).resolves.toMatchObject({ ok: true });
+	expect(f.records.get("test.local")?.resources).toEqual(resourcePackage.resources);
+	const restored = new InstalledTrustedJsService(f.storage, f.runtime, async () => {});
+	await restored.restore();
+	expect(restored.list()).toHaveLength(1);
+	const record = f.records.get("test.local")!;
+	f.records.set(record.id, { ...record, resources: { "strings/en.json": { "/commands/test.target.run/title": "Changed" } } });
+	const tampered = new InstalledTrustedJsService(f.storage, f.runtime, async () => {});
+	await tampered.restore();
+	expect(tampered.list()).toHaveLength(0);
+});
+
 function fixture(
 	options: {
 		desktop?: boolean;

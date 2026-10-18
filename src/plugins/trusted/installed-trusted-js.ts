@@ -17,8 +17,9 @@ export interface TrustedJsPackageStorage {
 export const digestTrustedJsPackage = async (
 	manifest: unknown,
 	code: string,
+	resources?: StoredTrustedJsRecord["resources"],
 ) => {
-	const bytes = new TextEncoder().encode(JSON.stringify({ manifest, code }));
+	const bytes = new TextEncoder().encode(JSON.stringify({ manifest, code, ...(resources === undefined ? {} : { resources }) }));
 	const hash = await crypto.subtle.digest("SHA-256", bytes);
 	return [...new Uint8Array(hash)]
 		.map((b) => b.toString(16).padStart(2, "0"))
@@ -71,11 +72,12 @@ export class InstalledTrustedJsService<THost> {
 					packageVersion: 0,
 					manifest: record.manifest,
 					code,
+					...(record.resources === undefined ? {} : { resources: record.resources }),
 				});
 				if (
 					!parsed.ok ||
 					record.id !== parsed.value.manifest.id ||
-					(await digestTrustedJsPackage(parsed.value.manifest, code)) !==
+					(await digestTrustedJsPackage(parsed.value.manifest, code, record.resources)) !==
 					record.sha256
 				)
 					continue;
@@ -113,7 +115,7 @@ export class InstalledTrustedJsService<THost> {
 				ok: false,
 				message: parsed.issues.map((i) => `${i.path}: ${i.message}`).join("\n"),
 			};
-		const { manifest, code } = parsed.value;
+		const { manifest, code, resources } = parsed.value;
 		const previous = this.records.get(manifest.id);
 		const restoreRuntime = this.runtime.checkpoint(manifest.id);
 		const restoreStorage =
@@ -124,8 +126,9 @@ export class InstalledTrustedJsService<THost> {
 		const record: StoredTrustedJsRecord = {
 			id: manifest.id,
 			manifest,
+			resources,
 			code: new Blob([code], { type: "text/javascript" }),
-			sha256: await digestTrustedJsPackage(manifest, code),
+			sha256: await digestTrustedJsPackage(manifest, code, resources),
 			source,
 			installedAt: Date.now(),
 			store: source === "store" && store ? { ...store } : undefined,

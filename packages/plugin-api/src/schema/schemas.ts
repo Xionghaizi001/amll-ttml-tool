@@ -268,8 +268,31 @@ const pluginId = {
 	pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
 };
 
+export const OVERRIDE_ENTRY_PATTERN_V0 = "^(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\.json$";
+export const LOCALIZATION_OVERRIDE_SCHEMA = {
+	type: "object", maxProperties: 512, additionalProperties: localizedText,
+} satisfies JsonSchema;
+export const ICONS_OVERRIDE_SCHEMA = {
+	type: "object", maxProperties: 512, additionalProperties: icon,
+} satisfies JsonSchema;
+const overrideResources = {
+	type: "object", maxProperties: 32, additionalProperties: { type: "object" },
+};
+
 const baseManifestProperties = {
 	id: pluginId,
+	overrides: {
+		type: "array", maxItems: 32,
+		items: {
+			type: "object", required: ["pluginId", "kind", "entry"],
+			properties: {
+				pluginId,
+				kind: { enum: ["localization", "icons"] },
+				entry: { type: "string", maxLength: 256, pattern: OVERRIDE_ENTRY_PATTERN_V0 },
+			},
+			additionalProperties: false,
+		},
+	},
 	dependencies: {
 		type: "array",
 		maxItems: DEPENDENCIES_PER_PLUGIN_LIMIT_V0,
@@ -759,6 +782,7 @@ export const THEME_PACKAGE_SCHEMA = {
 	type: "object",
 	required: ["packageVersion", "manifest", "tokens"],
 	properties: {
+		resources: overrideResources,
 		packageVersion: { const: 0 },
 		// The manifest itself re-runs full manifest validation in the parser;
 		// this keeps the discriminant errors readable.
@@ -835,6 +859,7 @@ export const TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA = {
 	type: "object",
 	required: ["packageVersion", "manifest", "code"],
 	properties: {
+		resources: overrideResources,
 		packageVersion: { const: 0 },
 		manifest: { type: "object" },
 		code: { type: "string", minLength: 1, maxLength: 16 * 1024 * 1024 },
@@ -913,6 +938,8 @@ export const REMOTE_PLUGIN_CATALOG_SCHEMA = {
 } satisfies JsonSchema;
 
 export const SCHEMA_CATALOG = {
+	localizationOverride: LOCALIZATION_OVERRIDE_SCHEMA,
+	iconsOverride: ICONS_OVERRIDE_SCHEMA,
 	manifest: PLUGIN_MANIFEST_SCHEMA,
 	pluginDocument: PLUGIN_DOCUMENT_SCHEMA,
 	lyricsApplyEdit: LYRICS_APPLY_EDIT_SCHEMA,

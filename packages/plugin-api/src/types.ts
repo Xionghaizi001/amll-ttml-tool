@@ -133,8 +133,22 @@ export interface PluginManifestBase {
 	homepage?: string;
 	license?: string;
 	dependencies?: PluginDependencyV0[];
+	overrides?: PluginOverrideV0[];
 	extensions?: Record<string, JsonValue>;
 }
+
+/** Declarative resources only; a required dependency on pluginId is mandatory. */
+export interface PluginOverrideV0 {
+	pluginId: string;
+	kind: "localization" | "icons";
+	/** Canonical package-relative JSON path, carried in package.resources. */
+	entry: string;
+}
+
+/** Surface key -> plain LocalizedText; keys never address executable behavior. */
+export type LocalizationOverridePayloadV0 = Record<string, LocalizedText>;
+export type IconsOverridePayloadV0 = Record<string, ActionIconV0>;
+export type OverrideResourcesV0 = Record<string, LocalizationOverridePayloadV0 | IconsOverridePayloadV0>;
 
 export type FunctionPluginRuntime = "builtin" | "trusted-js";
 export type ActivationEvent =
@@ -332,6 +346,7 @@ export interface TrustedJsPluginPackageV0 {
 	manifest: FunctionPluginManifest & { runtime: "trusted-js" };
 	/** UTF-8 JavaScript source for manifest.entry. */
 	code: string;
+	resources?: OverrideResourcesV0;
 }
 
 export const REMOTE_PLUGIN_CATALOG_VERSION = 0 as const;
@@ -672,6 +687,7 @@ export interface ThemePackageAssetV0 {
  * theme; assets become local object URLs at apply time.
  */
 export interface ThemePackageV0 {
+	resources?: OverrideResourcesV0;
 	packageVersion: 0;
 	manifest: ThemePluginManifest;
 	tokens: ThemeTokensV0;

@@ -415,3 +415,47 @@ it("checks theme package identity before the semantic install gate", async () =>
 	expect(ports.installThemePackage).not.toHaveBeenCalled();
 	expect(await installStoreArtifact(entry, ports)).toEqual({ ok: true });
 });
+
+it("round-trips separate ZIP JSON resources and rejects missing/corrupt/extra files", () => {
+	const override = {
+		pluginId: "test.target",
+		kind: "localization",
+		entry: "strings/zh-CN.json",
+	};
+	const resourceManifest = {
+		...manifest,
+		dependencies: [{ id: "test.target", version: "*" }],
+		overrides: [override],
+	};
+	const payload = { "/commands/test.target.run/title": "运行" };
+	const resourcePackage = {
+		...pkg,
+		manifest: resourceManifest,
+		resources: { [override.entry]: payload },
+	};
+	const files = {
+		"manifest.json": strToU8(
+			JSON.stringify({ packageVersion: 0, manifest: resourceManifest }),
+		),
+		"assets/index.js": strToU8(pkg.code),
+		[`resources/${override.entry}`]: strToU8(JSON.stringify(payload)),
+	};
+	expect(unpackPluginContainer(zipSync(files))).toEqual({
+		ok: true,
+		kind: "trusted-js",
+		pkg: resourcePackage,
+	});
+	for (const bytes of [new Uint8Array([255]), strToU8("{")])
+		expect(
+			unpackPluginContainer(
+				zipSync({ ...files, [`resources/${override.entry}`]: bytes }),
+			).ok,
+		).toBe(false);
+	expect(
+		unpackPluginContainer(
+			zipSync({ ...files, "resources/extra.json": strToU8("{}") }),
+		).ok,
+	).toBe(false);
+	delete files[`resources/${override.entry}`];
+	expect(unpackPluginContainer(zipSync(files)).ok).toBe(false);
+});

@@ -1,4 +1,5 @@
 import { unzipSync } from "fflate";
+import { parseManifest } from "@amll-ttml-tool/plugin-api";
 
 /** Unpack bounded ZIP/JSON containers; callers must validate package semantics. */
 
@@ -137,7 +138,7 @@ const assembleTrustedJsPackage = (
 	if (source === undefined)
 		return failed(`zip is missing the trusted-js entry ${assetPath}`);
 	const extras = [...files.keys()].filter(
-		(name) => name !== "manifest.json" && name !== assetPath,
+		(name) => name !== "manifest.json" && name !== assetPath && !Object.keys(descriptor.resources ?? {}).some((entry) => name === `resources/${entry}`),
 	);
 	if (extras.length > 0)
 		return failed(
@@ -182,6 +183,7 @@ const assembleThemePackage = (
 	}
 	const expected = new Set([
 		"manifest.json",
+		...Object.keys(descriptor.resources ?? {}).map((entry) => `resources/${entry}`),
 		...assetNames.map((name) => `assets/${name}`),
 	]);
 	const extras = [...files.keys()].filter((name) => !expected.has(name));
@@ -241,6 +243,22 @@ const unpackZipContainer = (bytes: Uint8Array): PluginContainerResult => {
 	let descriptor: ManifestDescriptor;
 	try {
 		descriptor = readDescriptor(manifestBytes);
+		const manifest = parseManifest(descriptor.manifest);
+		if (!manifest.ok) return failed(manifest.error.message);
+		if (descriptor.descriptor.resources !== undefined)
+			return failed("ZIP resources must be separate files, not inline descriptor resources");
+		const resources: Record<string, unknown> = {};
+		for (const override of manifest.value.overrides ?? []) {
+			const path = `resources/${override.entry}`;
+			const bytes = fileMap.get(path);
+			if (!bytes) return failed(`zip is missing override resource ${path}`);
+			try {
+				resources[override.entry] = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+			} catch {
+				return failed(`override resource ${path} must be valid UTF-8 JSON`);
+			}
+		}
+		if (Object.keys(resources).length) descriptor.descriptor.resources = resources;
 	} catch (error) {
 		if (error instanceof ContainerEntryError) return failed(error.message);
 		throw error;
