@@ -42,6 +42,21 @@ it("preserves override resources across restore and binds the digest to their co
 	expect(tampered.list()).toHaveLength(0);
 });
 
+it("hands the merged string table to the runtime entry", async () => {
+	const f = fixture();
+	const base = pkg();
+	const table = { greeting: { default: "Hello", ja: "こんにちは" } };
+	await expect(
+		f.installed.install({
+			...base,
+			manifest: { ...base.manifest, contributes: { strings: ["strings/base.json"] } },
+			resources: { "strings/base.json": table },
+		}),
+	).resolves.toMatchObject({ ok: true });
+	expect(f.installed.entry("test.local")?.strings).toEqual(table);
+	expect(f.runtime.getEntry("test.local")?.strings).toEqual(table);
+});
+
 function fixture(
 	options: {
 		desktop?: boolean;

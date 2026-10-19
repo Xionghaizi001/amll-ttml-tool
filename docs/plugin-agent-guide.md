@@ -158,4 +158,4 @@ pnpm build
 
 manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用同一个 resources 合同。新增字段必须保持只允许 LocalizedText 与白名单图标的边界，不能用通用对象 merge 实现。未知 key 由 resolveOverridePayload 过滤并返回 diagnostics，后续运行时必须记录覆盖方与目标身份；目标缺失不在安装时伪造白名单。
 
-合同测试：`tests/plugin-api/overrides.test.ts` 覆盖依赖、路径、HTML/大小/语言数、图标白名单、未知及禁止字段与嵌套表单；`tests/plugins/store/package-container.test.ts` 覆盖 ZIP 资源；`tests/plugins/trusted/installed-trusted-js.test.ts` 覆盖存储恢复与资源篡改摘要。修改时运行这些测试、plugin-api/store 测试、API/宿主类型检查和边界 lint。后续验收还需覆盖真实 UI 即时回退、目标禁用/缺失、冲突提醒与日志，当前协议通过不能代表这些功能完成。
+合同测试：`tests/plugin-api/overrides.test.ts` 覆盖依赖、路径、HTML/大小/语言数、图标白名单、未知及禁止字段与嵌套表单；`tests/plugins/store/package-container.test.ts` 覆盖 ZIP 资源；`tests/plugins/trusted/installed-trusted-js.test.ts` 覆盖存储恢复、资源篡改摘要与运行时字符串表；`tests/plugin-api/strings.test.ts` 覆盖字符串表合并、default/locale 规则与 `/strings/<key>` 地址；`i18n` 在 mock（`tests/plugin-sdk-js`）与真实宿主（`trusted-js-host-api.test.ts`）各有一条。字符串表与覆盖共用 `resources`，修改上限需同步 `packageResources` 的 maxProperties。修改时运行这些测试、plugin-api/store 测试、API/宿主类型检查和边界 lint。后续验收还需覆盖真实 UI 即时回退、目标禁用/缺失、冲突提醒与日志，当前协议通过不能代表这些功能完成。

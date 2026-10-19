@@ -6,11 +6,14 @@ import type {
 	HttpRequestV0,
 	HttpResponseV0,
 	JsonValue,
+	LocalizedText,
 	NotifyParams,
 	PluginSelectionV0,
 } from "@amll-ttml-tool/plugin-api";
 import {
 	evaluateEnablement,
+	formatPluginString,
+	localizeText,
 	parseEnablement,
 } from "@amll-ttml-tool/plugin-api";
 import type {
@@ -70,6 +73,9 @@ export interface TrustedJsHostPorts {
 	): () => void;
 	/** Read-only project identity (id + current save file name). */
 	getProjectInfo(): TrustedJsProjectInfoV0;
+	/** Host UI locale for `i18n`; the application passes i18next's language. */
+	getLocale(): string;
+	subscribeLocaleChanges(listener: (locale: string) => void): () => void;
 	showForm(schema: FormSchemaV0, signal: AbortSignal): Promise<FormResultV0>;
 	notify(params: NotifyParams, meta: { pluginId: string }): void;
 	/** The `amll-extensions/plugin-kv` namespace store, keyed by plugin id. */
@@ -113,7 +119,14 @@ export const createTrustedJsHost = (
 		pluginId,
 		scope,
 		signal,
-	}: { pluginId: string; scope: ExtensionScope; signal?: AbortSignal },
+		strings = {},
+	}: {
+		pluginId: string;
+		scope: ExtensionScope;
+		signal?: AbortSignal;
+		/** Validated `contributes.strings` table of the loaded package. */
+		strings?: Readonly<Record<string, LocalizedText>>;
+	},
 ): TrustedJsHostHandle => {
 	const nextSeed = ports.createEditSeed ?? defaultEditSeed;
 	const unsubscribers = new Set<() => void>();
@@ -179,6 +192,27 @@ export const createTrustedJsHost = (
 		},
 		project: {
 			getInfo: () => ports.getProjectInfo(),
+		},
+		i18n: {
+			get locale() {
+				return ports.getLocale();
+			},
+			t: (key, params) =>
+				Object.hasOwn(strings, key)
+					? formatPluginString(localizeText(strings[key], ports.getLocale()), params)
+					: key,
+			onLocaleChanged: (listener) => {
+				assertActive();
+				return track(
+					ports.subscribeLocaleChanges((locale) => {
+						try {
+							listener(locale);
+						} catch (error) {
+							console.warn(`Plugin ${pluginId} i18n.onLocaleChanged failed`, error);
+						}
+					}),
+				);
+			},
 		},
 		commands: {
 			register: (input) => {

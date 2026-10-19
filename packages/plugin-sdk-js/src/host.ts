@@ -197,6 +197,24 @@ export interface TrustedJsFormatsV0 {
 	register(provider: TrustedJsFormatProviderV0): DisposableV0;
 }
 
+/**
+ * The plugin's own string table (`contributes.strings`), resolved against
+ * the host UI locale with base-language then `default` fallback. Language
+ * pack plugins may replace entries through `/strings/<key>` overrides; text
+ * hard-coded in plugin code is outside their reach.
+ */
+export interface TrustedJsI18nV0 {
+	/** Current host UI locale (BCP-47, e.g. `zh-CN`). */
+	readonly locale: string;
+	/**
+	 * Looks up `key` and substitutes `{name}` placeholders from `params`.
+	 * An unknown key returns the key itself, so a missing entry stays visible.
+	 */
+	t(key: string, params?: Readonly<Record<string, string | number>>): string;
+	/** Fires after the host locale changes; re-read `t` for new text. */
+	onLocaleChanged(listener: (locale: string) => void): DisposableV0;
+}
+
 /** Host views are React components rendered by the application. */
 export type TrustedJsViewV0 = ComponentType;
 
@@ -243,6 +261,7 @@ export interface TrustedJsHostV0 {
 	document: TrustedJsDocumentV0;
 	selection: TrustedJsSelectionV0;
 	project: TrustedJsProjectV0;
+	i18n: TrustedJsI18nV0;
 	commands: TrustedJsCommandsV0;
 	menus: TrustedJsMenusV0;
 	titleBarActions: TrustedJsTitleBarActionsV0;

@@ -624,7 +624,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 ### 13.6 trusted-js SDK 合同要点
 
 - 分包 `packages/plugin-sdk-js`（`@amll-ttml-tool/plugin-sdk-js`，`./testing` 子路径导出 `MockTrustedJsHost` 与 `createTrustedJsHostUnderTest`）。不走 pnpm workspace，靠 tsconfig paths 与 Vite/Vitest alias 解析；React 只允许 `import type`。`pnpm plugin:sdk:check` 证明可脱离宿主编译。
-- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-extensions/plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
+- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`i18n.t/locale/onLocaleChanged` 读取包内字符串表；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-extensions/plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
 - 宿主共享服务 `src/plugins/adapters/host-services.ts` 接入 trusted-js 宿主，保证事务、revision 冲突、来源标记与 KV 命名空间。`createTrustedJsHost` 为端口注入的纯工厂，可在 Node 中与 `EditorDocumentService` 组成真实宿主。
 - 加载合同：`createHost({ pluginId, scope, signal })` 返回 handle；`activate({ pluginId, host, signal })` 返回 cleanup；unload 顺序固定为 abort → cleanup → host handle dispose → scope dispose；activation 抛错同样 abort 并全清理。
 - 合同测试入口 `runHostContractTests` 由 MockTrustedJsHost 与真实 trusted-js 宿主共用。
@@ -696,4 +696,10 @@ Payload 是 surface key → LocalizedText / ActionIconV0 的平面映射，每�
 
 Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长 1024 字符：`/commands/<id>/title|category`、`/titleBarActions/<id 或 command>/tooltip|icon`、`/formats/<id>/title`、`/settings/<id>/title`、`/settings/<id>/form/...`、`/strings/<key>`。表单只开放实际存在的 LocalizedText 字段；fields/options/actions 数组使用从 0 开始的索引。菜单沿用其 command 的标题，无独立标题地址。非 LocalizedText 的 placeholder、任何 id、命令引用、能力、激活事件、视图与转换行为均不在白名单。
 
-`resolveOverridePayload` 对目标 manifest 与调用者提供的字符串表枚举白名单，未知或不可覆盖 key 忽略并返回 diagnostics，调用方必须带覆盖方/目标身份记入诊断日志；不会修改目标。安装时目标可能尚未存在，因此包校验只检查 payload 合法性，目标 key 校验留给解析调用。当前交付为协议、容器、存储与过滤接口；contributes.strings、host.i18n.t、ExtensionRegistry 覆盖层、生命周期日志、冲突提醒与管理器展示仍待后续实现。
+`resolveOverridePayload` 对目标 manifest 与调用者提供的字符串表枚举白名单，未知或不可覆盖 key 忽略并返回 diagnostics，调用方必须带覆盖方/目标身份记入诊断日志；不会修改目标。安装时目标可能尚未存在，因此包校验只检查 payload 合法性，目标 key 校验留给解析调用。当前交付为协议、容器、存储、过滤接口与字符串表；ExtensionRegistry 覆盖层（含 `host.i18n.t` 经 `/strings/<key>` 的覆盖）、生命周期日志、冲突提醒与管理器展示仍待后续实现。
+
+### 字符串表
+
+功能插件以 `contributes.strings?: string[]`（最多 16 项）声明包内 JSON 资源，路径规则与 override entry 相同，且不得与任何 override entry 重名；包资源总数上限 48。每个文件是 key → 文本的平面映射，最多 512 key；key 为 ≤128 字符的字母、数字、`_`、`.`、`-`，不以 `.`/`-` 开头。值是字符串（即 default）或 locale → 字符串映射，单条 ≤2048 字符、无 HTML。同一 key 可按 locale 拆在多个文件，合并后必须有 default、同一 locale 不得重复、总映射项 ≤16。合并由 `mergeStringTables`/`resolvePluginStrings` 完成，包校验（`validatePackageResources`）与运行时共用同一结果。
+
+安装记录、出厂 lock 收集器分别从包资源计算合并表，经 `TrustedJsPluginEntry.strings` 传给 `createHost`。`host.i18n.t(key, params?)` 按宿主 i18next 当前语言做 locale → 基础语言 → default 回退，只替换 `{name}` 占位符（不是 ICU）；未知 key 返回 key 本身。`i18n.locale` 实时读取，`onLocaleChanged` 监听随 host handle dispose 移除。代码内硬编码文案不在覆盖范围内。同源裸 JS 目录条目没有包资源，因此没有字符串表。

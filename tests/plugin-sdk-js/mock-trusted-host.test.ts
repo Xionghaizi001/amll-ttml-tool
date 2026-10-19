@@ -145,6 +145,21 @@ describe("MockTrustedJsHost", () => {
 		host.ui.notify({ level: "info", message: "hello" });
 		expect(host.notifications).toEqual([{ level: "info", message: "hello" }]);
 	});
+
+	it("resolves its string table against a scripted locale", () => {
+		const host = new MockTrustedJsHost({
+			pluginId: "mock.i18n",
+			strings: { count: { default: "{n} lines", "zh-CN": "{n} 行" } },
+		});
+		expect(host.i18n.locale).toBe("en");
+		expect(host.i18n.t("count", { n: 2 })).toBe("2 lines");
+		const listener = vi.fn();
+		host.i18n.onLocaleChanged(listener);
+		host.setLocale("zh-CN");
+		expect(listener).toHaveBeenCalledWith("zh-CN");
+		expect(host.i18n.t("count", { n: 2 })).toBe("2 行");
+		expect(host.i18n.t("absent")).toBe("absent");
+	});
 });
 
 it("rejects obsolete form controls before exposing them to the UI callback", async () => {
@@ -158,4 +173,5 @@ it("rejects obsolete form controls before exposing them to the UI callback", asy
 		} as never),
 	).rejects.toThrow("Invalid form schema");
 	expect(host.shownForms).toHaveLength(0);
+
 });

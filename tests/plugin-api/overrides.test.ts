@@ -6,7 +6,7 @@ import {
 	parseThemePackage,
 	parseTrustedJsPackage,
 	resolveOverridePayload,
-	validateOverrideResources,
+	validatePackageResources,
 	type FunctionPluginManifest,
 	type PluginOverrideV0,
 } from "@amll-ttml-tool/plugin-api";
@@ -216,7 +216,7 @@ describe("scoped override protocol", () => {
 			]),
 		);
 		expect(
-			validateOverrideResources(
+			validatePackageResources(
 				{ ...manifest, overrides: declarations },
 				resources,
 			),

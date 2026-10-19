@@ -386,4 +386,28 @@ describe("createTrustedJsHost (real host over the SDK surface)", () => {
 		setSelection({ lineIds: ["line-2"], wordIds: [] });
 		expect(host.selection.get().lineIds).toEqual(["line-2"]);
 	});
+
+	it("reads the package string table at the live locale and drops locale listeners on dispose", () => {
+		const { host, handle, setLocale, localeListenerCount } = createRealTrustedHost({
+			pluginId: "p",
+			locale: "zh-CN",
+			strings: { greeting: { default: "Hello {name}", zh: "你好 {name}" } },
+		});
+		expect(host.i18n.locale).toBe("zh-CN");
+		expect(host.i18n.t("greeting", { name: "A" })).toBe("你好 A");
+		expect(host.i18n.t("missing")).toBe("missing");
+		expect(host.i18n.t("toString")).toBe("toString");
+		const listener = vi.fn(() => {
+			throw new Error("plugin bug");
+		});
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		host.i18n.onLocaleChanged(listener);
+		setLocale("en");
+		expect(listener).toHaveBeenCalledWith("en");
+		expect(host.i18n.t("greeting", { name: "A" })).toBe("Hello A");
+		warn.mockRestore();
+		handle.dispose();
+		expect(localeListenerCount()).toBe(0);
+		expect(() => host.i18n.onLocaleChanged(() => {})).toThrow();
+	});
 });

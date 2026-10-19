@@ -5,6 +5,7 @@ import type {
 	HttpRequestV0,
 	HttpResponseV0,
 	JsonValue,
+	LocalizedText,
 	MenuItemContribution,
 	MenuLocation,
 	NotifyParams,
@@ -14,6 +15,8 @@ import type {
 } from "@amll-ttml-tool/plugin-api";
 import {
 	applyDocumentOpsV0,
+	formatPluginString,
+	localizeText,
 	parseHttpRequest,
 	parseFormSchema,
 	TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
@@ -44,6 +47,10 @@ export interface MockTrustedJsHostOptions {
 	) => HttpResponseV0 | Promise<HttpResponseV0>;
 	/** Starts the host with the offline switch on. */
 	offline?: boolean;
+	/** Merged string table, as `resolvePluginStrings` returns for a package. */
+	strings?: Record<string, LocalizedText>;
+	/** Initial host locale; defaults to `en`. */
+	locale?: string;
 }
 
 /** One committed `applyEdit` call, for asserting single-transaction behavior. */
@@ -151,6 +158,8 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 	private readonly openViewIds = new Set<string>();
 	private projectInfo: TrustedJsProjectInfoV0;
 	private offlineState: boolean;
+	private localeState: string;
+	private readonly localeListeners = new Set<(locale: string) => void>();
 	private idSequence = 0;
 
 	constructor(private readonly options: MockTrustedJsHostOptions) {
@@ -163,6 +172,7 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 			options.project ?? { projectId: "mock-project", fileName: "lyric.ttml" },
 		);
 		this.offlineState = options.offline ?? false;
+		this.localeState = options.locale ?? "en";
 	}
 
 	private requireOwnNamespace(id: string, what: string): void {
@@ -199,6 +209,25 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 	readonly project: TrustedJsHostV0["project"] = {
 		getInfo: () => clone(this.projectInfo),
 	};
+
+	readonly i18n: TrustedJsHostV0["i18n"] = (() => {
+		const host = this;
+		return {
+			get locale() {
+				return host.localeState;
+			},
+			t: (key, params) => {
+				const strings = host.options.strings ?? {};
+				return Object.hasOwn(strings, key)
+					? formatPluginString(localizeText(strings[key], host.localeState), params)
+					: key;
+			},
+			onLocaleChanged: (listener) => {
+				host.localeListeners.add(listener);
+				return { dispose: () => host.localeListeners.delete(listener) };
+			},
+		} satisfies TrustedJsHostV0["i18n"];
+	})();
 
 	readonly commands: TrustedJsHostV0["commands"] = {
 		register: (input) => {
@@ -411,6 +440,13 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.offlineState = offline;
 	}
 
+	/** Switches the host UI locale and notifies `i18n.onLocaleChanged`. */
+	setLocale(locale: string): void {
+		if (locale === this.localeState) return;
+		this.localeState = locale;
+		for (const listener of [...this.localeListeners]) listener(locale);
+	}
+
 	/** Reverts the last committed edit as one record (host undo semantics). */
 	undo(): boolean {
 		const previous = this.undoStack.pop();
@@ -437,6 +473,7 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.openViewIds.clear();
 		this.changeListeners.clear();
 		this.selectionListeners.clear();
+		this.localeListeners.clear();
 	}
 
 	// ---- internals ---------------------------------------------------------

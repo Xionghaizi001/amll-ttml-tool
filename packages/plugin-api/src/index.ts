@@ -6,6 +6,7 @@ export * from "./network";
 export * from "./overrides";
 export * from "./parsers";
 export * from "./remote-catalog";
+export * from "./strings";
 export * from "./theme-css";
 export * from "./theme-package";
 export * from "./trusted-js-package";

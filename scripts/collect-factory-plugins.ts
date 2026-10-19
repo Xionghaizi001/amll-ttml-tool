@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { unpackPluginContainer } from "../src/plugins/store/package-container.ts";
 import { createServer } from "vite";
 
 /** Locked artifact collector. No plugin source compilation or evaluation. */
@@ -12,11 +11,22 @@ export async function collectFactoryPlugins(root: string) {
 		appType: "custom",
 		optimizeDeps: { noDiscovery: true, include: [] },
 		server: { middlewareMode: true },
+		// package-container imports the workspace package, which has no node_modules link.
+		resolve: {
+			alias: {
+				"@amll-ttml-tool/plugin-api": resolve(root, "packages/plugin-api/src/index.ts"),
+			},
+		},
 	});
 	let parseTrustedJsPackage: typeof import("../packages/plugin-api/src/trusted-js-package").parseTrustedJsPackage;
+	let resolvePluginStrings: typeof import("../packages/plugin-api/src/strings").resolvePluginStrings;
+	let unpackPluginContainer: typeof import("../src/plugins/store/package-container").unpackPluginContainer;
 	try {
-		({ parseTrustedJsPackage } = await server.ssrLoadModule(
+		({ parseTrustedJsPackage, resolvePluginStrings } = await server.ssrLoadModule(
 			"/packages/plugin-api/src/index.ts",
+		));
+		({ unpackPluginContainer } = await server.ssrLoadModule(
+			"/src/plugins/store/package-container.ts",
 		));
 	} finally {
 		await server.close();
@@ -52,7 +62,7 @@ export async function collectFactoryPlugins(root: string) {
 			throw new Error("Expected trusted-js factory artifact");
 		const parsed = parseTrustedJsPackage(unpacked.pkg);
 		if (!parsed.ok) throw new Error("Invalid factory package");
-		const { manifest, code } = parsed.value;
+		const { manifest, code, resources } = parsed.value;
 		if (manifest.id !== item.id || manifest.version !== item.version)
 			throw new Error("Factory identity mismatch");
 		const moduleName = `${item.sha256}.js`;
@@ -65,7 +75,7 @@ export async function collectFactoryPlugins(root: string) {
 		const index = imports.length;
 		imports.push(`import * as plugin${index} from "./${moduleName}";`);
 		entries.push(
-			`{ ...${JSON.stringify(manifest)}, firstParty: true, loadModule: async () => plugin${index} }`,
+			`{ ...${JSON.stringify(manifest)}, strings: ${JSON.stringify(resolvePluginStrings(manifest, resources))}, firstParty: true, loadModule: async () => plugin${index} }`,
 		);
 		catalog.push({
 			id: manifest.id,

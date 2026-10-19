@@ -3,13 +3,14 @@ import {
 	LOCALIZATION_OVERRIDE_SCHEMA,
 } from "./schema/schemas";
 import { validate } from "./schema/validator";
+import { localizedTextHasHtml, mergeStringTables } from "./strings";
 import type {
 	FormFieldV0,
 	FormSchemaV0,
 	IconsOverridePayloadV0,
 	LocalizationOverridePayloadV0,
 	LocalizedText,
-	OverrideResourcesV0,
+	PackageResourcesV0,
 	ParseIssue,
 	ParseResult,
 	PluginManifest,
@@ -40,30 +41,28 @@ export function parseOverridePayload(
 				message:
 					"key must be a surface JSON pointer of at most 1024 characters",
 			});
-		if (kind !== "localization") continue;
-		for (const text of typeof value === "string"
-			? [value]
-			: Object.values(value)) {
-			if (
-				typeof text === "string" &&
-				/<\s*(?:\/?[a-z][^>]*|![^>]*|\?[^>]*)>/iu.test(text)
-			)
-				issues.push({
-					path: `/${escapeKey(key)}`,
-					message: "override text must not contain HTML",
-				});
-		}
+		if (kind === "localization" && localizedTextHasHtml(value as LocalizedText))
+			issues.push({
+				path: `/${escapeKey(key)}`,
+				message: "override text must not contain HTML",
+			});
 	}
 	return issues.length ? { ok: false, issues } : parsed;
 }
 
-/** Package gate: all declared resources must exist, all carried resources be declared. */
-export function validateOverrideResources(
+/**
+ * Package gate for override payloads and string tables: all declared
+ * resources must exist and validate, all carried resources be declared.
+ */
+export function validatePackageResources(
 	manifest: PluginManifest,
-	resources: OverrideResourcesV0 = {},
+	resources: PackageResourcesV0 = {},
 ): ParseIssue[] {
-	const issues: ParseIssue[] = [];
-	const declared = new Set<string>();
+	const strings = mergeStringTables(manifest, resources);
+	const issues: ParseIssue[] = strings.ok ? [] : [...strings.issues];
+	const declared = new Set<string>(
+		manifest.kind === "function" ? manifest.contributes?.strings : [],
+	);
 	const locales = new Map<string, Set<string>>();
 	for (const override of manifest.overrides ?? []) {
 		declared.add(override.entry);
@@ -109,7 +108,7 @@ export function validateOverrideResources(
 		if (!declared.has(entry))
 			issues.push({
 				path: `/resources/${escapeKey(entry)}`,
-				message: "undeclared override resource",
+				message: "undeclared package resource",
 			});
 	}
 	return issues;

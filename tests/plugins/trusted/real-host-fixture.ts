@@ -4,6 +4,7 @@ import type {
 	HttpRequestV0,
 	HttpResponseV0,
 	JsonValue,
+	LocalizedText,
 	NotifyParams,
 	PluginSelectionV0,
 } from "@amll-ttml-tool/plugin-api";
@@ -73,6 +74,8 @@ export interface RealTrustedHostOptions {
 	) => HttpResponseV0 | Promise<HttpResponseV0>;
 	offline?: boolean;
 	project?: TrustedJsProjectInfoV0;
+	strings?: Record<string, LocalizedText>;
+	locale?: string;
 	ports?: Partial<TrustedJsHostPorts>;
 }
 
@@ -102,6 +105,8 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	};
 	const selectionListeners = new Set<(selection: PluginSelectionV0) => void>();
 	let offline = options.offline ?? false;
+	let locale = options.locale ?? "en";
+	const localeListeners = new Set<(locale: string) => void>();
 	const requests: HttpRequestV0[] = [];
 	const views = new PluginViewService(extensions.contributions);
 	let seedSequence = 0;
@@ -124,6 +129,11 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		},
 		getProjectInfo: () =>
 			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
+		getLocale: () => locale,
+		subscribeLocaleChanges: (listener) => {
+			localeListeners.add(listener);
+			return () => localeListeners.delete(listener);
+		},
 		showForm: async (schema) => {
 			const parsed = parseFormSchema(schema);
 			if (!parsed.ok) throw new Error("Invalid form schema");
@@ -181,6 +191,7 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		pluginId: options.pluginId,
 		scope,
 		signal: options.signal,
+		strings: options.strings,
 	});
 	return {
 		host: handle.host,
@@ -197,6 +208,11 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		setOffline: (next: boolean) => {
 			offline = next;
 		},
+		setLocale: (next: string) => {
+			locale = next;
+			for (const listener of [...localeListeners]) listener(next);
+		},
+		localeListenerCount: () => localeListeners.size,
 		setSelection: (next: PluginSelectionV0) => {
 			selection = next;
 			for (const listener of [...selectionListeners]) listener(next);

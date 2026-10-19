@@ -131,6 +131,7 @@ export default definePlugin({
 `TrustedJsHostV0` 当前提供：
 
 - `document`、`selection`、`project`
+- `i18n.t/locale/onLocaleChanged`（包内字符串表，见“字符串表”）
 - `commands`、`menus`、`titleBarActions`
 - `ui.showForm/notify/openView/closeView`
 - `storage.kv`
@@ -264,7 +265,7 @@ pnpm build
 
 ## 局部覆盖资源协议
 
-当前只交付协议校验和资源携带，安装后尚不会改变界面文案或图标。运行时覆盖、字符串表声明和 `host.i18n.t` 在后续交付。
+当前只交付协议校验和资源携带，安装后尚不会改变界面文案或图标。运行时覆盖在后续交付；字符串表与 `host.i18n.t` 已可用，见下一节。
 
 覆盖方 manifest 示例（片段）：
 
@@ -287,3 +288,25 @@ pnpm build
 JSON 安装包将此对象放入 `resources["strings/zh-CN.json"]`；ZIP 将它保存为 `resources/strings/zh-CN.json`，manifest.json descriptor 不内联 resources。现有独立工具链尚未扩展自动收集此资源，制作时须遵守此容器布局。文件名不指定语言，使用 LocalizedText 映射指定 locale；映射必须含 default，最多 16 项，每个字符串最多 2048 字符，无 HTML。icons 使用相同 key 映射形状，值为宿主白名单 ActionIconV0。
 
 完整地址与限制见 PLUGIN.md“局部覆盖协议”。目标不存在的地址只产生诊断；核心行为字段不能覆盖。表单数组索引绑定目标版本，目标结构改变时应调整依赖版本范围和资源。`resolveOverridePayload` 返回过滤后的 payload 和 diagnostics；调用者应记录诊断，不得把原始 payload 当作对象补丁合并到 manifest。
+
+## 字符串表
+
+代码里需要展示给用户的文案应放入字符串表，语言包插件才能经 `/strings/<key>` 覆盖它们；硬编码字符串不可覆盖。
+
+```json
+{ "contributes": { "strings": ["strings/base.json", "strings/ja.json"] } }
+```
+
+```json
+// strings/base.json
+{ "shift.done": { "default": "Shifted {count} lines", "zh-CN": "已平移 {count} 行" } }
+// strings/ja.json —— 可只放一个语言，合并后须有 default
+{ "shift.done": { "ja": "{count} 行をシフトしました" } }
+```
+
+```ts
+host.ui.notify({ level: "info", message: host.i18n.t("shift.done", { count: 3 }) });
+host.i18n.onLocaleChanged(() => rerender());
+```
+
+JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆盖资源相同；独立工具链尚未自动收集这些文件。语言按 `zh-CN` → `zh` → `default` 回退；占位符只支持 `{name}`；未知 key 返回 key 本身。key、数量与长度限制见 PLUGIN.md“字符串表”。测试可用 `new MockTrustedJsHost({ pluginId, strings, locale })` 与 `setLocale()`。

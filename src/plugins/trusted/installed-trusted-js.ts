@@ -1,4 +1,4 @@
-import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
+import { parseTrustedJsPackage, resolvePluginStrings } from "@amll-ttml-tool/plugin-api";
 import type { StoreInstallationProvenance } from "$/kernel/extensions/installation-provenance";
 import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
 import type {
@@ -56,6 +56,7 @@ export class InstalledTrustedJsService<THost> {
 		if (!record) return;
 		return {
 			...record.manifest,
+			strings: resolvePluginStrings(record.manifest, record.resources),
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,
@@ -135,6 +136,7 @@ export class InstalledTrustedJsService<THost> {
 		};
 		const entry: TrustedJsPluginEntry = {
 			...manifest,
+			strings: resolvePluginStrings(manifest, resources),
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,

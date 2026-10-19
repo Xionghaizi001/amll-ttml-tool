@@ -1,5 +1,5 @@
 import { parseManifestSchema } from "./parsers";
-import { validateOverrideResources } from "./overrides";
+import { validatePackageResources } from "./overrides";
 import {
 	THEME_ASSET_NAME_PATTERN,
 	THEME_PACKAGE_SCHEMA,
@@ -34,7 +34,7 @@ export function parseThemePackage(
 	const issues: ParseIssue[] = [];
 
 	const manifest = parseManifestSchema(parsed.value.manifest);
-	if (manifest.ok) issues.push(...validateOverrideResources(manifest.value, parsed.value.resources));
+	if (manifest.ok) issues.push(...validatePackageResources(manifest.value, parsed.value.resources));
 	if (!manifest.ok) issues.push(...prefixIssues(manifest.issues, "/manifest"));
 	else if (manifest.value.kind !== "theme")
 		issues.push({

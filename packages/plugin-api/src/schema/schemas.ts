@@ -275,8 +275,17 @@ export const LOCALIZATION_OVERRIDE_SCHEMA = {
 export const ICONS_OVERRIDE_SCHEMA = {
 	type: "object", maxProperties: 512, additionalProperties: icon,
 } satisfies JsonSchema;
-const overrideResources = {
-	type: "object", maxProperties: 32, additionalProperties: { type: "object" },
+export const STRING_TABLE_SCHEMA = {
+	type: "object", maxProperties: 512,
+	additionalProperties: {
+		oneOf: [
+			{ type: "string", minLength: 1, maxLength: 2048 },
+			{ type: "object", maxProperties: 16, additionalProperties: { type: "string", minLength: 1, maxLength: 2048 } },
+		],
+	},
+} satisfies JsonSchema;
+const packageResources = {
+	type: "object", maxProperties: 48, additionalProperties: { type: "object" },
 };
 
 const baseManifestProperties = {
@@ -369,6 +378,11 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 							type: "array",
 							maxItems: FORMATS_PER_PLUGIN_LIMIT_V0,
 							items: formatContribution,
+						},
+						strings: {
+							type: "array",
+							maxItems: 16,
+							items: { type: "string", maxLength: 256, pattern: OVERRIDE_ENTRY_PATTERN_V0 },
 						},
 					},
 					additionalProperties: false,
@@ -782,7 +796,7 @@ export const THEME_PACKAGE_SCHEMA = {
 	type: "object",
 	required: ["packageVersion", "manifest", "tokens"],
 	properties: {
-		resources: overrideResources,
+		resources: packageResources,
 		packageVersion: { const: 0 },
 		// The manifest itself re-runs full manifest validation in the parser;
 		// this keeps the discriminant errors readable.
@@ -859,7 +873,7 @@ export const TRUSTED_JS_PLUGIN_PACKAGE_SCHEMA = {
 	type: "object",
 	required: ["packageVersion", "manifest", "code"],
 	properties: {
-		resources: overrideResources,
+		resources: packageResources,
 		packageVersion: { const: 0 },
 		manifest: { type: "object" },
 		code: { type: "string", minLength: 1, maxLength: 16 * 1024 * 1024 },
@@ -940,6 +954,7 @@ export const REMOTE_PLUGIN_CATALOG_SCHEMA = {
 export const SCHEMA_CATALOG = {
 	localizationOverride: LOCALIZATION_OVERRIDE_SCHEMA,
 	iconsOverride: ICONS_OVERRIDE_SCHEMA,
+	stringTable: STRING_TABLE_SCHEMA,
 	manifest: PLUGIN_MANIFEST_SCHEMA,
 	pluginDocument: PLUGIN_DOCUMENT_SCHEMA,
 	lyricsApplyEdit: LYRICS_APPLY_EDIT_SCHEMA,

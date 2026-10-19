@@ -111,6 +111,8 @@ export interface FunctionContributions {
 	settings?: SettingsPageContribution[];
 	titleBarActions?: TitleBarActionContribution[];
 	formats?: FormatContribution[];
+	/** Package resource entries (`strings/<name>.json`) merged into the table `host.i18n.t` reads; at most 16. */
+	strings?: string[];
 }
 
 export const DEPENDENCIES_PER_PLUGIN_LIMIT_V0 = 16;
@@ -148,7 +150,16 @@ export interface PluginOverrideV0 {
 /** Surface key -> plain LocalizedText; keys never address executable behavior. */
 export type LocalizationOverridePayloadV0 = Record<string, LocalizedText>;
 export type IconsOverridePayloadV0 = Record<string, ActionIconV0>;
-export type OverrideResourcesV0 = Record<string, LocalizationOverridePayloadV0 | IconsOverridePayloadV0>;
+/**
+ * String key -> text, the shape of each `contributes.strings` resource. An
+ * object may omit `default` when another file of the same table supplies it.
+ */
+export type StringTableV0 = Record<string, string | Record<string, string>>;
+/** Package-relative JSON resources: override payloads and string tables. */
+export type PackageResourcesV0 = Record<
+	string,
+	LocalizationOverridePayloadV0 | IconsOverridePayloadV0 | StringTableV0
+>;
 
 export type FunctionPluginRuntime = "builtin" | "trusted-js";
 export type ActivationEvent =
@@ -346,7 +357,7 @@ export interface TrustedJsPluginPackageV0 {
 	manifest: FunctionPluginManifest & { runtime: "trusted-js" };
 	/** UTF-8 JavaScript source for manifest.entry. */
 	code: string;
-	resources?: OverrideResourcesV0;
+	resources?: PackageResourcesV0;
 }
 
 export const REMOTE_PLUGIN_CATALOG_VERSION = 0 as const;
@@ -687,7 +698,7 @@ export interface ThemePackageAssetV0 {
  * theme; assets become local object URLs at apply time.
  */
 export interface ThemePackageV0 {
-	resources?: OverrideResourcesV0;
+	resources?: PackageResourcesV0;
 	packageVersion: 0;
 	manifest: ThemePluginManifest;
 	tokens: ThemeTokensV0;

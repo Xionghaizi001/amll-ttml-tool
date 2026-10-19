@@ -459,3 +459,27 @@ it("round-trips separate ZIP JSON resources and rejects missing/corrupt/extra fi
 	delete files[`resources/${override.entry}`];
 	expect(unpackPluginContainer(zipSync(files)).ok).toBe(false);
 });
+
+it("carries contributes.strings files as ZIP resources", () => {
+	const stringsManifest = {
+		...manifest,
+		contributes: { strings: ["strings/base.json"] },
+	};
+	const table = { greeting: { default: "Hello", "zh-CN": "你好" } };
+	const files = {
+		"manifest.json": strToU8(
+			JSON.stringify({ packageVersion: 0, manifest: stringsManifest }),
+		),
+		"assets/index.js": strToU8(pkg.code),
+		"resources/strings/base.json": strToU8(JSON.stringify(table)),
+	};
+	const unpacked = unpackPluginContainer(zipSync(files));
+	expect(unpacked).toEqual({
+		ok: true,
+		kind: "trusted-js",
+		pkg: { ...pkg, manifest: stringsManifest, resources: { "strings/base.json": table } },
+	});
+	if (unpacked.ok) expect(parseTrustedJsPackage(unpacked.pkg).ok).toBe(true);
+	delete files["resources/strings/base.json"];
+	expect(unpackPluginContainer(zipSync(files)).ok).toBe(false);
+});

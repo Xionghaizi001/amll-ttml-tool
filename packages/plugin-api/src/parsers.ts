@@ -232,6 +232,13 @@ export function parseManifestSchema(
 			issues.push({ path, message: "duplicate override declaration" });
 		overrideDeclarations.add(key);
 	});
+	const resourceEntries = new Set(manifest.overrides?.map((override) => override.entry));
+	if (manifest.kind === "function")
+		manifest.contributes?.strings?.forEach((entry, index) => {
+			if (resourceEntries.has(entry))
+				issues.push({ path: `$/contributes/strings/${index}`, message: "string table entry is already declared as another package resource" });
+			resourceEntries.add(entry);
+		});
 	const paths =
 		manifest.kind === "function"
 			? [{ value: manifest.entry, path: "$/entry" }]

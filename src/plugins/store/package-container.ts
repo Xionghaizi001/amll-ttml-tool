@@ -248,14 +248,18 @@ const unpackZipContainer = (bytes: Uint8Array): PluginContainerResult => {
 		if (descriptor.descriptor.resources !== undefined)
 			return failed("ZIP resources must be separate files, not inline descriptor resources");
 		const resources: Record<string, unknown> = {};
-		for (const override of manifest.value.overrides ?? []) {
-			const path = `resources/${override.entry}`;
+		const entries = [
+			...(manifest.value.overrides ?? []).map((override) => override.entry),
+			...(manifest.value.kind === "function" ? (manifest.value.contributes?.strings ?? []) : []),
+		];
+		for (const entry of entries) {
+			const path = `resources/${entry}`;
 			const bytes = fileMap.get(path);
-			if (!bytes) return failed(`zip is missing override resource ${path}`);
+			if (!bytes) return failed(`zip is missing package resource ${path}`);
 			try {
-				resources[override.entry] = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+				resources[entry] = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
 			} catch {
-				return failed(`override resource ${path} must be valid UTF-8 JSON`);
+				return failed(`package resource ${path} must be valid UTF-8 JSON`);
 			}
 		}
 		if (Object.keys(resources).length) descriptor.descriptor.resources = resources;

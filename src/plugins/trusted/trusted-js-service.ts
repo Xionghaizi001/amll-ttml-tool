@@ -37,6 +37,8 @@ export interface TrustedJsPluginEntry {
 	/** Development consent and crash accounting stay in this session. */
 	development?: boolean;
 	dependencies?: import("@amll-ttml-tool/plugin-api").PluginDependencyV0[];
+	/** Merged `contributes.strings` table (`resolvePluginStrings`) for `host.i18n`. */
+	strings?: Record<string, import("@amll-ttml-tool/plugin-api").LocalizedText>;
 }
 
 /**
@@ -115,6 +117,7 @@ export interface TrustedJsLoaderPorts<THost> {
 		pluginId: string;
 		scope: ExtensionScope;
 		signal: AbortSignal;
+		strings?: TrustedJsPluginEntry["strings"];
 	}): TrustedJsHostHandle<THost>;
 	requestConsent(request: TrustedJsConsentRequest): Promise<boolean>;
 	state: TrustedJsStatePort;
@@ -419,6 +422,7 @@ export class TrustedJsPluginService<THost> {
 				pluginId: entry.id,
 				scope,
 				signal: abort.signal,
+				strings: entry.strings,
 			});
 			const cleanup = await module.activate({
 				pluginId: entry.id,

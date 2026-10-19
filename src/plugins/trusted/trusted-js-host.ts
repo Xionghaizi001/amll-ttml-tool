@@ -1,6 +1,7 @@
 import { TrustedJsStateStorage } from "./trusted-js-state-storage";
 import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { toast } from "react-toastify";
+import i18n from "i18next";
 import semverGt from "semver/functions/gt";
 import { parseTrustedJsPackage } from "@amll-ttml-tool/plugin-api";
 import { IndexedDbTrustedJsStorage } from "$/platform/storage/IndexedDbTrustedJsStorage";
@@ -51,6 +52,11 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	getSelection: getHostSelection,
 	subscribeSelectionChanges: subscribeHostSelectionChanges,
 	getProjectInfo: getHostProjectInfo,
+	getLocale: () => i18n.language,
+	subscribeLocaleChanges: (listener) => {
+		i18n.on("languageChanged", listener);
+		return () => i18n.off("languageChanged", listener);
+	},
 	showForm: (schema, signal) => declarativeFormService.showForm(schema, signal),
 	notify: ({ level, message, detail, timeoutMs }, { pluginId }) => {
 		toast[level](
@@ -101,8 +107,8 @@ export const trustedJsPluginService =
 				runtime: "trusted-js",
 				trusted: true,
 			}),
-		createHost: ({ pluginId, scope, signal }) =>
-			createTrustedJsHost(trustedJsHostPorts, { pluginId, scope, signal }),
+		createHost: ({ pluginId, scope, signal, strings }) =>
+			createTrustedJsHost(trustedJsHostPorts, { pluginId, scope, signal, strings }),
 		requestConsent: (request) => trustedJsConsentService.request(request),
 		state: localStorageStatePort,
 		isDesktop,
