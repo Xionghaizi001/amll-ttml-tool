@@ -122,7 +122,7 @@ export const installStoreEntry = async (entry: RemotePluginCatalogEntryV0): Prom
 	if (!root) return { ok: false, message: "来源已移除或目录已变化，请刷新后重试" };
 	try {
 		const plan = await resolveStoreDependencies(root, current, installedDependencyNodes(), (candidate) =>
-			prepareStorePackage(candidate, { fetchArtifact: (path) => fetchArtifact(path), digestSha256 }),
+			prepareStorePackage(candidate, { fetchArtifact: () => fetchArtifact(candidate.artifactUrl), digestSha256 }),
 		);
 		const snapshot = new Map(current.map((item) => [`${item.provider.id}:${item.id}`, item.version]));
 		const result = await installStoreBatch(plan, {
