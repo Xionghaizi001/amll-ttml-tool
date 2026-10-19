@@ -12,12 +12,13 @@ interface FakeHost {
 	tag: string;
 }
 
-const createService = () => {
+const createService = (
+	states = new Map<string, TrustedJsPluginStateRecord>(),
+) => {
 	const importModule = vi.fn(async (_url: string) => ({
 		activate: vi.fn(),
 	}));
 	const requestConsent = vi.fn(async () => true);
-	const states = new Map<string, TrustedJsPluginStateRecord>();
 	const scopeDisposed: string[] = [];
 	const hostDisposed: string[] = [];
 	const createdHosts: { pluginId: string; signal: AbortSignal }[] = [];
@@ -71,6 +72,63 @@ const bundledEntry = (
 });
 
 describe("TrustedJsPluginService activation contract", () => {
+	it("blocks the fourth startup after three crashes before stability confirmation", async () => {
+		const states = new Map<string, TrustedJsPluginStateRecord>();
+		const activate = vi.fn();
+		const entry = bundledEntry("crashing", activate);
+		for (let crashes = 0; crashes < 3; crashes += 1) {
+			const { service } = createService(states);
+			expect(await service.load(entry)).toEqual({ ok: true });
+			expect(states.get(entry.id)).toMatchObject({ crashes, pending: true });
+			// Simulate process death: keep storage, without unload or stable confirmation.
+		}
+		const { service } = createService(states);
+		expect(await service.load(entry)).toMatchObject({
+			ok: false,
+			reason: "crash-disabled",
+		});
+		expect(states.get(entry.id)).toMatchObject({ crashes: 3, pending: false });
+		expect(activate).toHaveBeenCalledTimes(3);
+		expect(service.isLoaded(entry.id)).toBe(false);
+	});
+
+	it("clears accumulated crashes only when startup is confirmed stable", async () => {
+		const { service, states } = createService();
+		const entry = bundledEntry("recovering", () => undefined);
+		states.set(entry.id, { crashes: 1, pending: true });
+		expect(await service.load(entry)).toEqual({ ok: true });
+		expect(states.get(entry.id)).toMatchObject({ crashes: 2, pending: true });
+		service.confirmStartupStable();
+		expect(states.get(entry.id)).toMatchObject({ crashes: 0, pending: false });
+		const nextBoot = createService(states);
+		expect(await nextBoot.service.load(entry)).toEqual({ ok: true });
+		expect(states.get(entry.id)).toMatchObject({ crashes: 0, pending: true });
+	});
+
+	it.each(["before", "during"])(
+		"resets crashes when stability is confirmed %s activation",
+		async (timing) => {
+			const { service, states } = createService();
+			const started = Promise.withResolvers<void>();
+			const activation = Promise.withResolvers<void>();
+			const entry = bundledEntry("late", () => {
+				started.resolve();
+				return activation.promise;
+			});
+			states.set(entry.id, { crashes: 1, pending: false });
+			if (timing === "before") service.confirmStartupStable();
+			const loading = service.load(entry);
+			await started.promise;
+			if (timing === "during") service.confirmStartupStable();
+			activation.resolve();
+			expect(await loading).toEqual({ ok: true });
+			expect(states.get(entry.id)).toMatchObject({
+				crashes: 0,
+				pending: false,
+			});
+		},
+	);
+
 	it.each([false, true])(
 		"cancels activation without restoring disabled state (reject=%s)",
 		async (reject) => {

@@ -427,7 +427,7 @@ export class TrustedJsPluginService<THost> {
 			});
 			activationCleanup = typeof cleanup === "function" ? cleanup : null;
 			abort.signal.throwIfAborted();
-			state.crashes = 0;
+			if (this.startupStable) state.crashes = 0;
 			state.pending = !entry.development && !this.startupStable;
 			statePort.set(entry.id, state);
 			this.instances.set(entry.id, {
