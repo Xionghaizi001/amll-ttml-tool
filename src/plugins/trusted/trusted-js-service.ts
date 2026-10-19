@@ -128,6 +128,7 @@ export interface TrustedJsLoaderPorts<THost> {
 
 export type TrustedJsLoadRejection =
 	| "already-loaded"
+	| "load-cancelled"
 	| "api-version"
 	| "cross-origin"
 	| "desktop-disabled"
@@ -201,6 +202,10 @@ const resolveModule = <THost>(
  */
 export class TrustedJsPluginService<THost> {
 	private readonly instances = new Map<string, LoadedInstance<THost>>();
+	private readonly loading = new Map<
+		string,
+		{ abort: AbortController; cancelled: boolean }
+	>();
 	private readonly listeners = new Set<() => void>();
 	private startupStable = false;
 	private readonly developmentStates = new Map<
@@ -273,11 +278,30 @@ export class TrustedJsPluginService<THost> {
 	}
 
 	async load(entry: TrustedJsPluginEntry, approvedConsentKey?: string): Promise<TrustedJsLoadResult> {
-		if (this.instances.has(entry.id))
+		if (this.instances.has(entry.id) || this.loading.has(entry.id))
 			return rejected(
 				"already-loaded",
-				`Plugin ${entry.id} is already loaded; unload it before reloading`,
+				`Plugin ${entry.id} is already loaded or loading`,
 			);
+		const abort = new AbortController();
+		const operation = { abort, cancelled: false };
+		this.loading.set(entry.id, operation);
+		try {
+			return await this.loadEntry(entry, abort, approvedConsentKey);
+		} catch (error) {
+			if (operation.cancelled)
+				return rejected("load-cancelled", `Plugin ${entry.id} load was cancelled`);
+			throw error;
+		} finally {
+			this.loading.delete(entry.id);
+		}
+	}
+
+	private async loadEntry(
+		entry: TrustedJsPluginEntry,
+		abort: AbortController,
+		approvedConsentKey?: string,
+	): Promise<TrustedJsLoadResult> {
 		if (entry.apiVersion !== PLUGIN_API_VERSION)
 			return rejected(
 				"api-version",
@@ -352,6 +376,7 @@ export class TrustedJsPluginService<THost> {
 				providerName: entry.providerName,
 				tier: this.ports.isDesktop() ? "desktop" : "browser",
 			});
+			abort.signal.throwIfAborted();
 			if (!approved)
 				return rejected(
 					"consent-declined",
@@ -368,11 +393,11 @@ export class TrustedJsPluginService<THost> {
 		statePort.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
-		const abort = new AbortController();
 		let objectUrl: string | null = null;
 		let activationCleanup: TrustedJsCleanup | null = null;
 		try {
 			await entry.beforeImport?.();
+			abort.signal.throwIfAborted();
 			if (entry.moduleBlob) {
 				const blob = entry.development
 					? new Blob([entry.moduleBlob, `\n//# sourceURL=amll-plugin:///${encodeURIComponent(entry.id)}/module.js\n`], { type: "text/javascript" })
@@ -383,6 +408,7 @@ export class TrustedJsPluginService<THost> {
 			const moduleExports = bundled
 				? await entry.loadModule?.()
 				: await this.ports.importModule(url as string);
+			abort.signal.throwIfAborted();
 			const module = resolveModule<THost>(moduleExports);
 			if (module === null)
 				throw new TrustedJsInvalidModuleError(
@@ -400,6 +426,7 @@ export class TrustedJsPluginService<THost> {
 				signal: abort.signal,
 			});
 			activationCleanup = typeof cleanup === "function" ? cleanup : null;
+			abort.signal.throwIfAborted();
 			state.crashes = 0;
 			state.pending = !entry.development && !this.startupStable;
 			statePort.set(entry.id, state);
@@ -423,6 +450,7 @@ export class TrustedJsPluginService<THost> {
 			if (objectUrl) URL.revokeObjectURL(objectUrl);
 			hostHandle?.dispose();
 			scope?.dispose();
+			if (this.loading.get(entry.id)?.cancelled) throw error;
 			state.pending = false;
 			if (!entry.development) state.crashes += 1;
 			try { statePort.set(entry.id, state); } catch (storageError) {
@@ -463,6 +491,14 @@ export class TrustedJsPluginService<THost> {
 	}
 
 	async unload(pluginId: string): Promise<void> {
+		const loading = this.loading.get(pluginId);
+		if (loading) {
+			loading.cancelled = true;
+			loading.abort.abort();
+			const state = this.ports.state.get(pluginId);
+			if (state?.pending)
+				this.ports.state.set(pluginId, { ...state, pending: false });
+		}
 		const instance = this.instances.get(pluginId);
 		if (!instance) return;
 		const state = this.ports.state.get(pluginId);
@@ -486,7 +522,10 @@ export class TrustedJsPluginService<THost> {
 	}
 
 	async unloadAll(): Promise<void> {
-		for (const pluginId of [...this.instances.keys()])
+		for (const pluginId of new Set([
+			...this.loading.keys(),
+			...this.instances.keys(),
+		]))
 			await this.unload(pluginId);
 	}
 

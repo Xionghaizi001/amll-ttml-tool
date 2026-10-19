@@ -71,6 +71,108 @@ const bundledEntry = (
 });
 
 describe("TrustedJsPluginService activation contract", () => {
+	it.each([false, true])(
+		"cancels activation without restoring disabled state (reject=%s)",
+		async (reject) => {
+			const { service, states, hostDisposed, scopeDisposed } = createService();
+			const started = Promise.withResolvers<AbortSignal>();
+			const activation = Promise.withResolvers<() => void>();
+			const cleanup = vi.fn();
+			const entry = bundledEntry("pending", ({ signal }) => {
+				started.resolve(signal);
+				return activation.promise;
+			});
+			const loading = service.load(entry);
+			const signal = await started.promise;
+			expect(await service.load(entry)).toMatchObject({
+				reason: "already-loaded",
+			});
+			await service.setEnabled(entry.id, false);
+			expect(signal.aborted).toBe(true);
+			if (reject) activation.reject(new Error("aborted activation"));
+			else activation.resolve(cleanup);
+			expect(await loading).toMatchObject({
+				ok: false,
+				reason: "load-cancelled",
+			});
+			expect(service.getLoaded()).toEqual([]);
+			expect(states.get(entry.id)).toMatchObject({
+				disabled: true,
+				pending: false,
+				crashes: 0,
+			});
+			expect(hostDisposed).toEqual([entry.id]);
+			expect(scopeDisposed).toEqual([entry.id]);
+			expect(cleanup).toHaveBeenCalledTimes(reject ? 0 : 1);
+			await service.setEnabled(entry.id, true);
+			expect(
+				await service.load(bundledEntry(entry.id, () => undefined)),
+			).toEqual({ ok: true });
+		},
+	);
+
+	it("cancels consent without importing or overwriting the disabled state", async () => {
+		const { service, states, requestConsent, importModule } = createService();
+		const consent = Promise.withResolvers<boolean>();
+		requestConsent.mockReturnValue(consent.promise);
+		const entry = {
+			...bundledEntry("consent", () => undefined),
+			loadModule: undefined,
+			entry: "/plugin.js",
+		};
+		const loading = service.load(entry);
+		expect(await service.load(entry)).toMatchObject({
+			reason: "already-loaded",
+		});
+		expect(requestConsent).toHaveBeenCalledTimes(1);
+		await service.setEnabled(entry.id, false);
+		consent.resolve(true);
+		expect(await loading).toMatchObject({ reason: "load-cancelled" });
+		expect(importModule).not.toHaveBeenCalled();
+		expect(states.get(entry.id)).toMatchObject({
+			disabled: true,
+			crashes: 0,
+			pending: false,
+		});
+	});
+
+	it.each(["beforeImport", "import"])(
+		"unloadAll cancels at %s and releases the loading slot",
+		async (stage) => {
+			const { service, states, createdHosts } = createService();
+			const started = Promise.withResolvers<void>();
+			const gate = Promise.withResolvers<void>();
+			const activate = vi.fn();
+			const wait = () => {
+				started.resolve();
+				return gate.promise;
+			};
+			const entry = {
+				...bundledEntry("pending", activate),
+				beforeImport: stage === "beforeImport" ? wait : undefined,
+				loadModule: async () => {
+					if (stage === "import") await wait();
+					return { activate };
+				},
+			};
+			const loading = service.load(entry);
+			await started.promise;
+			await service.unloadAll();
+			expect(await service.load(entry)).toMatchObject({
+				reason: "already-loaded",
+			});
+			gate.resolve();
+			expect(await loading).toMatchObject({ reason: "load-cancelled" });
+			expect(activate).not.toHaveBeenCalled();
+			expect(createdHosts).toEqual([]);
+			expect(states.get(entry.id)).toMatchObject({
+				pending: false,
+				crashes: 0,
+			});
+			expect(await service.load(entry)).toEqual({ ok: true });
+		},
+	);
+
 	it("loads factory modules without consent regardless of first-party labeling", async () => {
 		const { service, requestConsent, importModule } = createService();
 		requestConsent.mockResolvedValue(false);
