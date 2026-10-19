@@ -22,7 +22,8 @@ class DeclarativeFormService {
 		return () => this.listeners.delete(listener);
 	};
 
-	showForm(schema: FormSchemaV0): Promise<FormResultV0> {
+	showForm(schema: FormSchemaV0, signal?: AbortSignal): Promise<FormResultV0> {
+		if (signal?.aborted) return Promise.resolve({ submitted: false });
 		// The host renders whatever lands here, so re-validate even for
 		// callers that should have validated already (defense in depth).
 		const parsed = parseFormSchema(schema);
@@ -35,10 +36,16 @@ class DeclarativeFormService {
 				),
 			);
 		this.resolveCurrent?.({ submitted: false });
-		this.current = { id: this.nextId++, schema: parsed.value };
-		this.emitChange();
+		const id = this.nextId++;
+		this.current = { id, schema: parsed.value };
 		return new Promise((resolve) => {
-			this.resolveCurrent = resolve;
+			const cancel = () => this.cancel(id);
+			this.resolveCurrent = (result) => {
+				signal?.removeEventListener("abort", cancel);
+				resolve(result);
+			};
+			signal?.addEventListener("abort", cancel, { once: true });
+			this.emitChange();
 		});
 	}
 

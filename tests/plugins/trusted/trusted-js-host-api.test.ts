@@ -2,11 +2,138 @@ import type { TrustedJsViewV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { atom, createStore } from "jotai/vanilla";
 import { describe, expect, it, vi } from "vitest";
 import { EditorDocumentAtomAdapter } from "$/plugins/adapters/editor-document";
+import type { TrustedJsHostPorts } from "$/plugins/trusted/trusted-js-host-api";
+import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
 import { createRealTrustedHost } from "./real-host-fixture";
 
 const View = (() => null) as unknown as TrustedJsViewV0;
 
 describe("createTrustedJsHost (real host over the SDK surface)", () => {
+	it.each(["dispose", "abort"])(
+		"%s cancels forms and prevents stale host writes and subscriptions",
+		async (action) => {
+			const controller = new AbortController();
+			const showForm = vi.fn<TrustedJsHostPorts["showForm"]>((schema, signal) =>
+				declarativeFormService.showForm(schema, signal),
+			);
+			const { host, handle, service, kv, setSelection } = createRealTrustedHost(
+				{
+					pluginId: "p",
+					signal: controller.signal,
+					ports: { showForm },
+				},
+			);
+			await host.storage.kv.set("keep", "original");
+			const listener = vi.fn();
+			host.document.onChanged(listener);
+			host.selection.onChanged(listener);
+			const form = host.ui.showForm({ title: "Old", fields: [] });
+			const request = declarativeFormService.getSnapshot();
+			if (!request) throw new Error("missing request");
+			const continuation = form.then(() =>
+				host.document.applyEdit(
+					[
+						{
+							op: "updateLine",
+							lineId: "line-1",
+							patch: { translation: "stale" },
+						},
+					],
+					"stale edit",
+				),
+			);
+			if (action === "dispose") handle.dispose();
+			else controller.abort();
+			expect(declarativeFormService.getSnapshot()).toBeNull();
+			declarativeFormService.complete(request.id, {
+				submitted: true,
+				values: {},
+			});
+			await expect(form).resolves.toEqual({ submitted: false });
+			await expect(continuation).resolves.toMatchObject({
+				ok: false,
+				error: { code: "cancelled" },
+			});
+			expect(service.getRevision()).toBe(0);
+			expect(service.readSnapshot().lyricLines[0].translatedLyric).toBe(
+				"before",
+			);
+			expect(() => host.document.onChanged(listener)).toThrow("disposed");
+			expect(() => host.selection.onChanged(listener)).toThrow("disposed");
+			await expect(host.storage.kv.set("new", "stale")).rejects.toThrow(
+				"disposed",
+			);
+			await expect(host.storage.kv.delete("keep")).rejects.toThrow("disposed");
+			expect(kv.get("p")).toEqual({ keep: "original" });
+			await expect(
+				host.ui.showForm({ title: "Stale", fields: [] }),
+			).resolves.toEqual({ submitted: false });
+			expect(showForm).toHaveBeenCalledTimes(1);
+			service.transact({ source: "user", label: "new edit" }, (draft) => {
+				draft.lyricLines[0].translatedLyric = "new";
+			});
+			setSelection({ lineIds: ["line-1"], wordIds: [] });
+			expect(listener).not.toHaveBeenCalled();
+			handle.dispose();
+		},
+	);
+
+	it("rejects registrations and UI effects from a disposed host", () => {
+		const { host, handle, notifications } = createRealTrustedHost({
+			pluginId: "p",
+		});
+		handle.dispose();
+		for (const call of [
+			() => host.commands.register({ id: "p.cmd", handler: () => undefined }),
+			() => host.menus.register({ command: "p.cmd", menu: "menu.edit" }),
+			() =>
+				host.titleBarActions.register({
+					command: "p.cmd",
+					icon: { source: "@fluentui/react-icons", name: "AddRegular" },
+					tooltip: "Run",
+				}),
+			() =>
+				host.formats.register({
+					formatId: "p.txt",
+					title: "Text",
+					extensions: ["txt"],
+				}),
+			() =>
+				host.views.registerMode({
+					modeId: "p.mode",
+					title: "Mode",
+					mainView: View,
+				}),
+			() =>
+				host.views.registerView({
+					id: "p.view",
+					kind: "dialog-view",
+					title: "View",
+					view: View,
+				}),
+			() => host.ui.openView("p.view"),
+			() => host.ui.notify({ level: "info", message: "stale" }),
+		])
+			expect(call).toThrow("disposed");
+		expect(notifications).toEqual([]);
+	});
+
+	it("disposing an old host does not cancel a replacement host's form", async () => {
+		const ports = {
+			showForm: (schema, signal) =>
+				declarativeFormService.showForm(schema, signal),
+		} satisfies Partial<TrustedJsHostPorts>;
+		const old = createRealTrustedHost({ pluginId: "p", ports });
+		const current = createRealTrustedHost({ pluginId: "p", ports });
+		const first = old.host.ui.showForm({ title: "Old", fields: [] });
+		const second = current.host.ui.showForm({ title: "Current", fields: [] });
+		old.handle.dispose();
+		await expect(first).resolves.toEqual({ submitted: false });
+		expect(declarativeFormService.getSnapshot()?.schema.title).toBe("Current");
+		current.handle.dispose();
+		await expect(second).resolves.toEqual({ submitted: false });
+	});
+
 	it.each(["throw", "reject"])(
 		"isolates a document listener %s without interrupting publication",
 		async (failure) => {

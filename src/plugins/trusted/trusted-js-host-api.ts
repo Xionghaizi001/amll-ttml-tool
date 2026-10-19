@@ -70,7 +70,7 @@ export interface TrustedJsHostPorts {
 	): () => void;
 	/** Read-only project identity (id + current save file name). */
 	getProjectInfo(): TrustedJsProjectInfoV0;
-	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
+	showForm(schema: FormSchemaV0, signal: AbortSignal): Promise<FormResultV0>;
 	notify(params: NotifyParams, meta: { pluginId: string }): void;
 	/** The `amll-extensions/plugin-kv` namespace store, keyed by plugin id. */
 	kv: TrustedJsKvPort;
@@ -109,11 +109,19 @@ const defaultEditSeed = (pluginId: string): string => {
  */
 export const createTrustedJsHost = (
 	ports: TrustedJsHostPorts,
-	{ pluginId, scope }: { pluginId: string; scope: ExtensionScope },
+	{
+		pluginId,
+		scope,
+		signal,
+	}: { pluginId: string; scope: ExtensionScope; signal?: AbortSignal },
 ): TrustedJsHostHandle => {
 	const nextSeed = ports.createEditSeed ?? defaultEditSeed;
 	const unsubscribers = new Set<() => void>();
-	const networkController = new AbortController();
+	const lifecycle = new AbortController();
+	const assertActive = () => {
+		if (lifecycle.signal.aborted)
+			throw new Error(`Plugin ${pluginId} host is disposed`);
+	};
 	const track = (unsubscribe: () => void) => {
 		unsubscribers.add(unsubscribe);
 		return {
@@ -130,15 +138,25 @@ export const createTrustedJsHost = (
 			get revision() {
 				return ports.documents.getRevision();
 			},
-			applyEdit: (ops, label, options) =>
-				ports.documents.applyEdit({
+			applyEdit: (ops, label, options) => {
+				if (lifecycle.signal.aborted)
+					return {
+						ok: false,
+						error: {
+							code: "cancelled",
+							message: `Plugin ${pluginId} host is disposed`,
+						},
+					};
+				return ports.documents.applyEdit({
 					pluginId,
 					label,
 					expectedRevision: options?.expectedRevision ?? -1,
 					ops: [...ops],
 					idSeed: nextSeed(pluginId),
-				}),
+				});
+			},
 			onChanged: (listener) => {
+				assertActive();
 				const reportError = (error: unknown) =>
 					console.warn(`Plugin ${pluginId} document.onChanged failed`, error);
 				return track(
@@ -154,13 +172,17 @@ export const createTrustedJsHost = (
 		},
 		selection: {
 			get: () => ports.getSelection(),
-			onChanged: (listener) => track(ports.subscribeSelectionChanges(listener)),
+			onChanged: (listener) => {
+				assertActive();
+				return track(ports.subscribeSelectionChanges(listener));
+			},
 		},
 		project: {
 			getInfo: () => ports.getProjectInfo(),
 		},
 		commands: {
 			register: (input) => {
+				assertActive();
 				const enablement =
 					input.enablement === undefined
 						? undefined
@@ -183,16 +205,32 @@ export const createTrustedJsHost = (
 			},
 		},
 		menus: {
-			register: (input) => scope.registerMenu(input),
+			register: (input) => {
+				assertActive();
+				return scope.registerMenu(input);
+			},
 		},
 		titleBarActions: {
-			register: (input) => scope.registerTitleBarAction(input),
+			register: (input) => {
+				assertActive();
+				return scope.registerTitleBarAction(input);
+			},
 		},
 		ui: {
-			showForm: (schema) => ports.showForm(schema),
-			notify: (params) => ports.notify(params, { pluginId }),
-			openView: (viewId) => ports.views.open(pluginId, viewId),
+			showForm: (schema) =>
+				lifecycle.signal.aborted
+					? Promise.resolve({ submitted: false })
+					: ports.showForm(schema, lifecycle.signal),
+			notify: (params) => {
+				assertActive();
+				ports.notify(params, { pluginId });
+			},
+			openView: (viewId) => {
+				assertActive();
+				ports.views.open(pluginId, viewId);
+			},
 			closeView: (viewId) => {
+				if (lifecycle.signal.aborted) return;
 				// A plugin may only close its own dialogs; foreign ids are ignored.
 				if (viewId.startsWith(`${pluginId}.`))
 					ports.views.close(viewId, pluginId);
@@ -202,21 +240,30 @@ export const createTrustedJsHost = (
 			request: (request) =>
 				ports.network.request(request, {
 					pluginId,
-					signal: networkController.signal,
+					signal: lifecycle.signal,
 				}),
 			isOffline: () => ports.network.isOffline(),
 		},
 		storage: {
 			kv: {
 				get: async (key) => (await ports.kv.read(pluginId))[key] ?? null,
-				set: (key, value) =>
-					ports.kv.apply(pluginId, { set: { [key]: value }, deleted: [] }),
-				delete: (key) => ports.kv.apply(pluginId, { set: {}, deleted: [key] }),
+				set: async (key, value) => {
+					assertActive();
+					await ports.kv.apply(pluginId, {
+						set: { [key]: value },
+						deleted: [],
+					});
+				},
+				delete: async (key) => {
+					assertActive();
+					await ports.kv.apply(pluginId, { set: {}, deleted: [key] });
+				},
 				keys: async () => Object.keys(await ports.kv.read(pluginId)).sort(),
 			},
 		},
 		formats: {
 			register: (provider) => {
+				assertActive();
 				const { importer, exporter } = provider;
 				return scope.registerFormatProvider({
 					formatId: provider.formatId,
@@ -248,18 +295,26 @@ export const createTrustedJsHost = (
 			},
 		},
 		views: {
-			registerMode: (input) => ports.registerMode(scope, input),
-			registerView: (input) => scope.registerTrustedView(input),
+			registerMode: (input) => {
+				assertActive();
+				return ports.registerMode(scope, input);
+			},
+			registerView: (input) => {
+				assertActive();
+				return scope.registerTrustedView(input);
+			},
 		},
 	};
 
-	return {
-		host,
-		dispose: () => {
-			networkController.abort();
-			for (const unsubscribe of [...unsubscribers]) unsubscribe();
-			unsubscribers.clear();
-			ports.views.closeAllOf(pluginId);
-		},
+	const dispose = () => {
+		if (lifecycle.signal.aborted) return;
+		signal?.removeEventListener("abort", dispose);
+		lifecycle.abort();
+		for (const unsubscribe of [...unsubscribers]) unsubscribe();
+		unsubscribers.clear();
+		ports.views.closeAllOf(pluginId);
 	};
+	if (signal?.aborted) dispose();
+	else signal?.addEventListener("abort", dispose, { once: true });
+	return { host, dispose };
 };

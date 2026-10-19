@@ -64,6 +64,7 @@ export interface TrustedJsDocumentV0 {
 	 * Commits one batch of ops as a single transaction: one revision, one
 	 * undo record, labeled plugin provenance. Fields the projection does not
 	 * carry survive untouched because ops patch by id.
+	 * Returns `cancelled` after the plugin host is disposed.
 	 */
 	applyEdit(
 		ops: readonly DocumentOpV0[],
@@ -117,7 +118,7 @@ export interface TrustedJsTitleBarActionsV0 {
 }
 
 export interface TrustedJsUiV0 {
-	/** Renders a declarative form and resolves with the sanitized result. */
+	/** Renders a declarative form; unloading the plugin resolves with `{ submitted: false }`. */
 	showForm(schema: FormSchemaV0): Promise<FormResultV0>;
 	notify(params: NotifyParams): void;
 	/**

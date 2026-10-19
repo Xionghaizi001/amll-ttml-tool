@@ -51,7 +51,7 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	getSelection: getHostSelection,
 	subscribeSelectionChanges: subscribeHostSelectionChanges,
 	getProjectInfo: getHostProjectInfo,
-	showForm: (schema) => declarativeFormService.showForm(schema),
+	showForm: (schema, signal) => declarativeFormService.showForm(schema, signal),
 	notify: ({ level, message, detail, timeoutMs }, { pluginId }) => {
 		toast[level](
 			[message, detail, `(${pluginId})`].filter(Boolean).join("\n"),
@@ -101,8 +101,8 @@ export const trustedJsPluginService =
 				runtime: "trusted-js",
 				trusted: true,
 			}),
-		createHost: ({ pluginId, scope }) =>
-			createTrustedJsHost(trustedJsHostPorts, { pluginId, scope }),
+		createHost: ({ pluginId, scope, signal }) =>
+			createTrustedJsHost(trustedJsHostPorts, { pluginId, scope, signal }),
 		requestConsent: (request) => trustedJsConsentService.request(request),
 		state: localStorageStatePort,
 		isDesktop,

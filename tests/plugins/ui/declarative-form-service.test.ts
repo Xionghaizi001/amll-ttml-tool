@@ -1,7 +1,68 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
 
 describe("declarativeFormService", () => {
+	it("cancels on abort even during the initial render notification", async () => {
+		const controller = new AbortController();
+		const unsubscribe = declarativeFormService.subscribe(() => {
+			if (declarativeFormService.getSnapshot()) controller.abort();
+		});
+		try {
+			await expect(
+				declarativeFormService.showForm(
+					{ title: "Form", fields: [] },
+					controller.signal,
+				),
+			).resolves.toEqual({ submitted: false });
+			expect(declarativeFormService.getSnapshot()).toBeNull();
+		} finally {
+			unsubscribe();
+		}
+	});
+
+	it("detaches a replaced form's abort listener and preserves the new form", async () => {
+		const controller = new AbortController();
+		const remove = vi.spyOn(controller.signal, "removeEventListener");
+		const first = declarativeFormService.showForm(
+			{ title: "Old", fields: [] },
+			controller.signal,
+		);
+		const second = declarativeFormService.showForm({
+			title: "New",
+			fields: [],
+		});
+		await expect(first).resolves.toEqual({ submitted: false });
+		expect(remove).toHaveBeenCalledWith("abort", expect.any(Function));
+		controller.abort();
+		const current = declarativeFormService.getSnapshot();
+		expect(current?.schema.title).toBe("New");
+		if (!current) throw new Error("missing request");
+		declarativeFormService.complete(current.id, {
+			submitted: true,
+			values: {},
+		});
+		await expect(second).resolves.toEqual({ submitted: true, values: {} });
+		remove.mockRestore();
+	});
+
+	it("does not replace the current form when a cancelled owner requests a form", async () => {
+		const current = declarativeFormService.showForm({
+			title: "Current",
+			fields: [],
+		});
+		const request = declarativeFormService.getSnapshot();
+		await expect(
+			declarativeFormService.showForm(
+				{ title: "Cancelled", fields: [] },
+				AbortSignal.abort(),
+			),
+		).resolves.toEqual({ submitted: false });
+		expect(declarativeFormService.getSnapshot()).toBe(request);
+		if (!request) throw new Error("missing request");
+		declarativeFormService.cancel(request.id);
+		await expect(current).resolves.toEqual({ submitted: false });
+	});
+
 	it("rejects schemas that fail protocol validation before rendering", async () => {
 		await expect(
 			declarativeFormService.showForm({

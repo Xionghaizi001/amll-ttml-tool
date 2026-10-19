@@ -63,6 +63,7 @@ export const realHostFixture = (): TTMLLyric => ({
 
 export interface RealTrustedHostOptions {
 	pluginId: string;
+	signal?: AbortSignal;
 	document?: TTMLLyric;
 	selection?: PluginSelectionV0;
 	onShowForm?: (schema: FormSchemaV0) => FormResultV0 | Promise<FormResultV0>;
@@ -179,6 +180,7 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const handle = createTrustedJsHost(ports, {
 		pluginId: options.pluginId,
 		scope,
+		signal: options.signal,
 	});
 	return {
 		host: handle.host,
