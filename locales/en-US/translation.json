@@ -728,6 +728,12 @@
 	"pluginStore": {
 		"overriddenBy": "Overridden by {name}",
 		"overrideSource": "Override: {name} ({id}, {kinds})",
+		"overrideConflictTitle": "Override conflict",
+		"overrideConflictDescription": "“{winner}” and “{losers}” both override {count} texts or icons of “{target}”. “{winner}” was enabled last and takes precedence.",
+		"overrideConflictDisable": "Disable “{name}”",
+		"overrideConflictKeep": "Keep “{name}”",
+		"overrideChain": "Override chain (later enabled wins)",
+		"overrideShadowed": "{count} replaced by {names}",
 		"title": "Plugin manager",
 		"back": "Back to preferences",
 		"available": "Available plugins",

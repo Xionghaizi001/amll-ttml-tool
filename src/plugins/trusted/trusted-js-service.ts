@@ -82,6 +82,11 @@ export interface TrustedJsPluginStateRecord {
 	pending: boolean;
 	disabled?: boolean;
 	disabledReason?: "user" | "missingDependency";
+	/**
+	 * Last user enable, else first activation. Orders this plugin's overrides
+	 * so the last enabled overrider wins across restarts and load order.
+	 */
+	enabledAt?: number;
 }
 
 export interface TrustedJsStatePort {
@@ -400,6 +405,7 @@ export class TrustedJsPluginService<THost> {
 		// Marker down before any plugin code runs; a session-killing crash
 		// during import/activate is charged to this plugin on the next boot.
 		state.pending = !entry.development;
+		state.enabledAt ??= Date.now();
 		statePort.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
@@ -427,7 +433,7 @@ export class TrustedJsPluginService<THost> {
 			scope = this.ports.createScope(entry.id);
 			// Owned by this scope: disable, unload or a failed activation reverts them.
 			for (const override of this.ports.resolveOverrides?.(entry) ?? [])
-				scope.registerOverride(override);
+				scope.registerOverride({ ...override, enabledAt: state.enabledAt });
 			hostHandle = this.ports.createHost({
 				pluginId: entry.id,
 				scope,
@@ -559,7 +565,7 @@ export class TrustedJsPluginService<THost> {
 			disabled: !enabled,
 			...(!enabled ? { pending: false } : {}),
 		disabledReason: enabled ? undefined : "user",
-			...(enabled ? { crashes: 0 } : {}),
+			...(enabled ? { crashes: 0, enabledAt: Date.now() } : {}),
 		});
 		if (!enabled) await this.unload(pluginId);
 		this.emitChange();

@@ -2,7 +2,7 @@ import {
 	type FunctionPluginManifest,
 	resolveOverridePayload,
 } from "@amll-ttml-tool/plugin-api";
-import type { ExtensionScope } from "$/kernel/extensions";
+import type { ExtensionScope, OverrideLayer } from "$/kernel/extensions";
 import type { TrustedJsPluginEntry } from "./trusted-js-service";
 
 type ResolvedOverride = Parameters<ExtensionScope["registerOverride"]>[0];
@@ -44,3 +44,76 @@ export const resolveEntryOverrides = (
 			},
 		];
 	});
+
+export interface OverrideConflictNotice {
+	targetPluginId: string;
+	winnerPluginId: string;
+	loserPluginIds: string[];
+	keys: string[];
+}
+
+/**
+ * Strong-reminder queue for override conflicts, shown like theme scope
+ * conflicts. Only a winner enabled at or after `since` (this session) is
+ * announced: restoring the persisted order at startup or reloading an
+ * unchanged winner (update, hot reload) repeats nothing the user already saw.
+ */
+export const createOverrideConflictNotices = (
+	layer: Pick<OverrideLayer, "onConflict">,
+	since: number,
+) => {
+	const notices: OverrideConflictNotice[] = [];
+	const listeners = new Set<() => void>();
+	const announced = new Set<string>();
+	const emit = () => {
+		for (const listener of [...listeners]) listener();
+	};
+	layer.onConflict((conflicts) => {
+		let changed = false;
+		for (const conflict of conflicts) {
+			if ((conflict.winnerEnabledAt ?? Number.NEGATIVE_INFINITY) < since) continue;
+			const identity = JSON.stringify([
+				conflict.targetPluginId,
+				conflict.winnerPluginId,
+				conflict.winnerEnabledAt,
+				conflict.loserPluginId,
+				conflict.kind,
+			]);
+			if (announced.has(identity)) continue;
+			announced.add(identity);
+			const notice = notices.find(
+				(candidate) =>
+					candidate.targetPluginId === conflict.targetPluginId &&
+					candidate.winnerPluginId === conflict.winnerPluginId,
+			);
+			if (!notice)
+				notices.push({
+					targetPluginId: conflict.targetPluginId,
+					winnerPluginId: conflict.winnerPluginId,
+					loserPluginIds: [conflict.loserPluginId],
+					keys: [...conflict.keys],
+				});
+			else {
+				if (!notice.loserPluginIds.includes(conflict.loserPluginId))
+					notice.loserPluginIds = [...notice.loserPluginIds, conflict.loserPluginId];
+				notice.keys = [...new Set([...notice.keys, ...conflict.keys])];
+				// New identity so useSyncExternalStore re-renders the open dialog.
+				notices[notices.indexOf(notice)] = { ...notice };
+			}
+			changed = true;
+		}
+		if (changed) emit();
+	});
+	return {
+		current: (): OverrideConflictNotice | undefined => notices[0],
+		dismiss: () => {
+			if (notices.shift()) emit();
+		},
+		subscribe: (listener: () => void) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+	};
+};

@@ -728,6 +728,12 @@
 	"pluginStore": {
 		"overriddenBy": "已被 {name} 覆盖",
 		"overrideSource": "覆盖：{name}（{id}，{kinds}）",
+		"overrideConflictTitle": "覆盖冲突",
+		"overrideConflictDescription": "「{winner}」与「{losers}」同时覆盖了「{target}」的 {count} 处文案或图标。最后启用的「{winner}」优先生效。",
+		"overrideConflictDisable": "停用「{name}」",
+		"overrideConflictKeep": "继续使用「{name}」",
+		"overrideChain": "覆盖链（后启用者优先）",
+		"overrideShadowed": "{count} 处被 {names} 取代",
 		"title": "插件管理",
 		"back": "返回首选项",
 		"available": "可用插件",

@@ -254,18 +254,37 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 		},
 		() => extensionRegistry.contributions.getRevision()
 	);
+	// Override chain in enable order: later sources win the keys they share.
 	const overriddenBy = (pluginId: string) => {
-		const sources = new Map<string, Set<string>>();
-		for (const source of extensionRegistry.contributions.overrides.getSources(pluginId))
-			sources.set(source.sourcePluginId, (sources.get(source.sourcePluginId) ?? new Set()).add(source.kind));
-		return [...sources].map(([id, kinds]) => {
+		const sources = new Map<string, { kinds: Set<string>; shadowedBy: Map<string, Set<string>> }>();
+		for (const source of extensionRegistry.contributions.overrides.getSources(pluginId)) {
+			const merged = sources.get(source.sourcePluginId) ?? { kinds: new Set(), shadowedBy: new Map() };
+			merged.kinds.add(source.kind);
+			for (const later of source.shadowedBy) {
+				const keys = merged.shadowedBy.get(later.sourcePluginId) ?? new Set();
+				for (const key of later.keys) keys.add(`${source.kind}:${key}`);
+				merged.shadowedBy.set(later.sourcePluginId, keys);
+			}
+			// Re-insert so the order follows each source's latest (winning) entry.
+			sources.delete(source.sourcePluginId);
+			sources.set(source.sourcePluginId, merged);
+		}
+		const nameOf = (id: string) => installations.find((candidate) => candidate.id === id)?.name ?? id;
+		return [...sources].map(([id, { kinds, shadowedBy }]) => {
 			const by = installations.find((candidate) => candidate.id === id);
+			const shadowed = new Set([...shadowedBy.values()].flatMap((keys) => [...keys]));
 			return {
 				id,
-				name: by?.name ?? id,
+				name: nameOf(id),
 				kinds: [...kinds].join(", "),
 				origin: by
 					? `${t(`pluginStore.source.${by.source}`, by.source)}${by.store ? ` · ${by.store.providerName}` : ""}`
+					: undefined,
+				shadowed: shadowed.size
+					? t("pluginStore.overrideShadowed", "{count} 处被 {names} 取代", {
+							count: shadowed.size,
+							names: [...shadowedBy.keys()].map(nameOf).join("、"),
+						})
 					: undefined,
 			};
 		});
@@ -385,14 +404,19 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									</span>
 								)}
 							</span>
-							{overrides.map((source) => (
+							{overrides.length > 1 && (
+								<span>{t("pluginStore.overrideChain", "覆盖链（后启用者优先）")}</span>
+							)}
+							{overrides.map((source, index) => (
 								<span key={source.id} style={{ overflowWrap: "anywhere" }}>
+									{overrides.length > 1 ? `${index + 1}. ` : ""}
 									{t("pluginStore.overrideSource", "覆盖：{name}（{id}，{kinds}）", {
 										name: source.name,
 										id: source.id,
 										kinds: source.kinds,
 									})}
 									{source.origin ? ` · ${source.origin}` : ""}
+									{source.shadowed ? ` · ${source.shadowed}` : ""}
 								</span>
 							))}
 						</Flex>

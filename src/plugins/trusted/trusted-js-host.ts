@@ -40,7 +40,7 @@ import {
 
 } from "./trusted-js-service";
 import { dependencyOrder } from "./dependencies";
-import { resolveEntryOverrides } from "./plugin-overrides";
+import { createOverrideConflictNotices, resolveEntryOverrides } from "./plugin-overrides";
 import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "./dependency-context";
 
 /**
@@ -126,6 +126,12 @@ export const trustedJsPluginService =
 				(message) => console.warn(message),
 			),
 	});
+
+/** Override conflicts caused by enables in this session, for the protected dialog. */
+export const overrideConflictNotices = createOverrideConflictNotices(
+	extensionRegistry.contributions.overrides,
+	Date.now(),
+);
 
 const currentPlatform = (): "web" | "desktop" =>
 	isDesktop() ? "desktop" : "web";

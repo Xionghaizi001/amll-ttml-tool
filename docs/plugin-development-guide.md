@@ -265,7 +265,7 @@ pnpm build
 
 ## 局部覆盖资源协议
 
-trusted-js 覆盖方启用后，目标插件的命令标题/分类、标题栏动作 tooltip/图标、格式标题及 `host.i18n.t` 字符串即时切换，禁用或卸载覆盖方即回退。文案按 locale 合并：覆盖方提供的 locale（含必填的 default）替换目标同 locale 文本，未提供的保持原样，因此只补一种语言时 default 宜沿用目标原文。多个覆盖方覆盖同一 key 时最后启用者胜出。目标需已加载；被过滤的地址会在 console 输出 `[overrides]` 诊断。主题包中的 overrides 与 `settings` 表单地址暂无运行时效果。
+trusted-js 覆盖方启用后，目标插件的命令标题/分类、标题栏动作 tooltip/图标、格式标题及 `host.i18n.t` 字符串即时切换，禁用或卸载覆盖方即回退。文案按 locale 合并：覆盖方提供的 locale（含必填的 default）替换目标同 locale 文本，未提供的保持原样，因此只补一种语言时 default 宜沿用目标原文。多个覆盖方覆盖同一 key（同一 locale）时最后启用者胜出，重启后保持；启用时宿主弹出冲突提醒，可停用新启用者回退，插件管理器的目标条目列出覆盖链。目标需已加载；被过滤的地址会在 console 输出 `[overrides]` 诊断。主题包中的 overrides 与 `settings` 表单地址暂无运行时效果。
 
 覆盖方 manifest 示例（片段）：
 

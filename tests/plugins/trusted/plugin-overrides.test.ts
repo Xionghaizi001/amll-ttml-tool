@@ -2,7 +2,10 @@ import { PLUGIN_API_VERSION } from "@amll-ttml-tool/plugin-api";
 import { describe, expect, it, vi } from "vitest";
 import { CommandRegistry } from "$/kernel/commands";
 import { ExtensionRegistry, type ExtensionScope } from "$/kernel/extensions";
-import { resolveEntryOverrides } from "$/plugins/trusted/plugin-overrides";
+import {
+	createOverrideConflictNotices,
+	resolveEntryOverrides,
+} from "$/plugins/trusted/plugin-overrides";
 import {
 	type TrustedJsPluginEntry,
 	TrustedJsPluginService,
@@ -45,6 +48,10 @@ const packEntry = (id: string, title: string): TrustedJsPluginEntry => ({
 		"strings/l10n.json": {
 			"/commands/target.run/title": title,
 			"/commands/target.run/id": "hijack",
+			"/commands/target.run/handler": "hijack",
+			"/commands/target.run/enablement": "hijack",
+			"/capabilities": "hijack",
+			"/activationEvents": "hijack",
 			"/strings/hello": `${title}!`,
 		},
 	},
@@ -74,7 +81,7 @@ const createLoader = () => {
 			resolveOverrides: (entry) =>
 				resolveEntryOverrides(entry, (id) => service.getEntry(id), warn),
 		});
-	return { commands, extensions, service, warn };
+	return { commands, extensions, service, states, warn };
 };
 
 describe("trusted-js localization overrides", () => {
@@ -87,6 +94,9 @@ describe("trusted-js localization overrides", () => {
 			expect.stringMatching(/pack\.a -> target .*\/commands\/target\.run\/id unknown or non-overridable/),
 		);
 		await expect(commands.execute("target.run")).resolves.toBe("ran");
+		for (const key of ["handler", "enablement", "capabilities", "activationEvents"])
+			expect(warn).toHaveBeenCalledWith(expect.stringContaining(`${key} unknown or non-overridable`));
+		expect(commands.get("target.run")?.id).toBe("target.run");
 
 		await service.load(packEntry("pack.b", "B"));
 		expect(commands.get("target.run")?.title).toEqual({ default: "B" });
@@ -125,5 +135,57 @@ describe("trusted-js localization overrides", () => {
 		pack.dispose();
 		expect(host.i18n.t("hello", { name: "A" })).toBe("Bonjour A");
 		expect(listener).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps the last user-enabled language pack winning across a restart in any load order", async () => {
+		const first = createLoader();
+		await first.service.load(targetEntry);
+		await first.service.load(packEntry("pack.a", "A"));
+		await first.service.load(packEntry("pack.b", "B"));
+		await first.service.setEnabled("pack.a", false);
+		await first.service.setEnabled("pack.a", true);
+		await first.service.load(packEntry("pack.a", "A"));
+		expect(first.commands.get("target.run")?.title).toEqual({ default: "A" });
+		const enabledAt = first.states.get("pack.a")?.enabledAt ?? 0;
+		expect(enabledAt).toBeGreaterThanOrEqual(first.states.get("pack.b")?.enabledAt ?? Infinity);
+
+		// Next session restores pack.a before pack.b; pack.a still wins.
+		const next = createLoader();
+		for (const [id, state] of first.states) next.states.set(id, { ...state, pending: false });
+		await next.service.load(targetEntry);
+		await next.service.load(packEntry("pack.a", "A"));
+		await next.service.load(packEntry("pack.b", "B"));
+		expect(next.commands.get("target.run")?.title).toEqual({ default: "A" });
+		expect(next.states.get("pack.a")?.enabledAt).toBe(enabledAt);
+	});
+
+	it("announces only conflicts whose winner was enabled this session, once per enable", async () => {
+		const { extensions, service, states } = createLoader();
+		states.set("pack.old", { crashes: 0, pending: false, enabledAt: 1 });
+		const notices = createOverrideConflictNotices(extensions.contributions.overrides, 10);
+		const listener = vi.fn();
+		notices.subscribe(listener);
+		await service.load(targetEntry);
+		states.set("pack.b", { crashes: 0, pending: false, enabledAt: 2 });
+		await service.load(packEntry("pack.b", "B"));
+		// Restored order from an earlier session: no reminder.
+		await service.load(packEntry("pack.old", "Old"));
+		expect(notices.current()).toBeUndefined();
+
+		await service.setEnabled("pack.c", true);
+		await service.load(packEntry("pack.c", "C"));
+		expect(notices.current()).toEqual({
+			targetPluginId: "target",
+			winnerPluginId: "pack.c",
+			loserPluginIds: ["pack.old", "pack.b"],
+			keys: ["/commands/target.run/title", "/strings/hello"],
+		});
+		expect(listener).toHaveBeenCalled();
+		notices.dismiss();
+
+		// Reloading an unchanged winner (update / hot reload) does not repeat it.
+		await service.unload("pack.c");
+		await service.load(packEntry("pack.c", "C"));
+		expect(notices.current()).toBeUndefined();
 	});
 });

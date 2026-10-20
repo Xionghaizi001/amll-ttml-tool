@@ -4,13 +4,14 @@ import {
 	initializeTrustedJsPlugins,
 	trustedJsPluginService,
 } from "$/plugins/trusted/trusted-js-host";
+import { OverrideConflictDialog } from "./OverrideConflictDialog";
 import { TrustedJsConsentDialog } from "./TrustedJsConsentDialog";
 
 let initialized = false;
 
 /**
  * Mounts the trusted-js plugin host: loads the same-origin catalog once per
- * session and renders the protected consent prompt. It is
+ * session and renders the protected consent and override conflict prompts. It is
  * deliberately not torn down on unmount (StrictMode double-mount safe).
  * Startup is declared stable on the same 5s timer the theme system uses;
  * until then a session crash is charged to the plugins that were live.
@@ -30,5 +31,10 @@ export const TrustedJsHost = () => {
 		}, 5000);
 		return () => window.clearTimeout(stableTimer);
 	}, []);
-	return <TrustedJsConsentDialog />;
+	return (
+		<>
+			<TrustedJsConsentDialog />
+			<OverrideConflictDialog />
+		</>
+	);
 };

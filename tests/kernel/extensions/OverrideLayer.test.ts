@@ -81,8 +81,14 @@ describe("localization override layer", () => {
 					"/titleBarActions/target.run/tooltip",
 					"/formats/target.fmt/title",
 				],
+				shadowedBy: [],
 			},
-			{ sourcePluginId: "pack", kind: "icons", keys: ["/titleBarActions/target.run/icon"] },
+			{
+				sourcePluginId: "pack",
+				kind: "icons",
+				keys: ["/titleBarActions/target.run/icon"],
+				shadowedBy: [],
+			},
 		]);
 		// Behavior and ids are untouched.
 		await expect(commands.execute("target.run")).resolves.toBe("ran");
@@ -120,6 +126,67 @@ describe("localization override layer", () => {
 			"zh-CN": "运行",
 			ja: "一",
 		});
+	});
+
+	it("orders sources by enabledAt rather than load order and reports key+locale conflicts", () => {
+		const { commands, registry } = setup();
+		const conflicts = vi.fn();
+		registry.contributions.overrides.onConflict(conflicts);
+		const newer = pluginScope(registry, "newer");
+		const older = pluginScope(registry, "older");
+		newer.registerOverride({
+			targetPluginId: "target",
+			kind: "localization",
+			enabledAt: 200,
+			payload: {
+				"/commands/target.run/title": { default: "Newer" },
+				"/commands/target.run/category": { ja: "道具" },
+			},
+		});
+		expect(conflicts).not.toHaveBeenCalled();
+		// Startup may load the older overrider second; it must still lose.
+		older.registerOverride({
+			targetPluginId: "target",
+			kind: "localization",
+			enabledAt: 100,
+			payload: {
+				"/commands/target.run/title": { default: "Older", ja: "古い" },
+				"/commands/target.run/category": "Older tools",
+			},
+		});
+		expect(commands.get("target.run")?.title).toEqual({
+			default: "Newer",
+			"zh-CN": "运行",
+			ja: "古い",
+		});
+		// Different locales of the same key are a merge, not a conflict.
+		expect(conflicts).toHaveBeenCalledTimes(1);
+		expect(conflicts).toHaveBeenCalledWith([
+			{
+				targetPluginId: "target",
+				kind: "localization",
+				winnerPluginId: "newer",
+				winnerEnabledAt: 200,
+				loserPluginId: "older",
+				keys: ["/commands/target.run/title"],
+			},
+		]);
+		expect(registry.contributions.overrides.getSources("target")).toEqual([
+			expect.objectContaining({
+				sourcePluginId: "older",
+				shadowedBy: [{ sourcePluginId: "newer", keys: ["/commands/target.run/title"] }],
+			}),
+			expect.objectContaining({ sourcePluginId: "newer", shadowedBy: [] }),
+		]);
+
+		// One plugin's own resources never conflict with each other.
+		older.registerOverride({
+			targetPluginId: "target",
+			kind: "localization",
+			enabledAt: 100,
+			payload: { "/commands/target.run/title": { ja: "古い2" } },
+		});
+		expect(conflicts).toHaveBeenCalledTimes(1);
 	});
 
 	it("never creates a surface, touches builtin owners or lets a plugin override itself", () => {
