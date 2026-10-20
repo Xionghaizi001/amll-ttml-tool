@@ -6,10 +6,14 @@ import type {
 	MenuLocation,
 	TitleBarActionContribution,
 } from "@amll-ttml-tool/plugin-api";
-import { TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0 } from "@amll-ttml-tool/plugin-api";
+import {
+	escapeOverrideKeySegment,
+	TITLEBAR_ACTIONS_PER_PLUGIN_LIMIT_V0,
+} from "@amll-ttml-tool/plugin-api";
 import type {
 	CommandEnablement,
 	CommandHandler,
+	CommandRegistration,
 	CommandRegistry,
 	Disposable,
 } from "../commands";
@@ -19,6 +23,7 @@ import {
 	type LyricFormatProvider,
 	normalizeFormatExtension,
 } from "../formats/LyricFormatProvider";
+import { OverrideLayer, type OverrideRegistration } from "./OverrideLayer";
 
 /**
  * Fail-safe mode. It must always exist and may never be conditionally
@@ -172,6 +177,12 @@ export class ContributionRegistry<TView = unknown> {
 	private readonly contributions = new Map<string, ContributionRecord<TView>>();
 	private readonly listeners = new Set<() => void>();
 	private revision = 0;
+	/** Plugin-owned LocalizedText/icons are read through this layer. */
+	readonly overrides = new OverrideLayer();
+
+	constructor() {
+		this.overrides.subscribe(() => this.emitChange());
+	}
 
 	register(record: ContributionRecord<TView>): Disposable {
 		if (this.contributions.has(record.id))
@@ -433,6 +444,14 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 		event: string,
 		listener: (payload: T) => void,
 	): Disposable;
+	/** Owned by this (source) scope; payload must already be whitelist-filtered. */
+	registerOverride(
+		input: Omit<OverrideRegistration, "sourcePluginId">,
+	): Disposable;
+	/** Override-merged text of one of the owner's own surfaces (e.g. `/strings/<key>`). */
+	resolveOwnText<T extends LocalizedText | undefined>(key: string, text: T): T;
+	/** Fires when an override targeting this owner is added or removed. */
+	onOwnOverridesChanged(listener: () => void): Disposable;
 }
 
 export class ExtensionRegistry<TView = unknown> {
@@ -444,7 +463,10 @@ export class ExtensionRegistry<TView = unknown> {
 	constructor(
 		readonly commands: CommandRegistry,
 		readonly contributions = new ContributionRegistry<TView>(),
-	) {}
+	) {
+		// Command titles are override-backed getters; tell command consumers too.
+		contributions.overrides.subscribe(() => commands.notifyEnablementChanged());
+	}
 
 	createScope(owner: ContributionOwner): ExtensionScope<TView> {
 		const disposables = new DisposableStore();
@@ -457,17 +479,51 @@ export class ExtensionRegistry<TView = unknown> {
 					`Plugin ${owner.pluginId} cannot register ${what} ${id} outside its own namespace`,
 				);
 		};
+		const overrides = this.contributions.overrides;
+		// Plugin-owned surfaces read their LocalizedText/icon fields through the
+		// override layer, so every consumer sees language-pack text and the
+		// original returns as soon as the overriding scope is disposed.
+		const overlay = <T extends object>(
+			record: T,
+			base: string,
+			texts: readonly (keyof T & string)[],
+			icons: readonly (keyof T & string)[] = [],
+		): T => {
+			if (owner.kind !== "plugin") return record;
+			const target = owner.pluginId;
+			for (const field of [...texts, ...icons]) {
+				const original = record[field];
+				if (original === undefined) continue;
+				const key = `${base}/${field}`;
+				Object.defineProperty(record, field, {
+					configurable: true,
+					enumerable: true,
+					get: () =>
+						icons.includes(field)
+							? overrides.resolveIcon(target, key, original as ActionIconV0)
+							: overrides.resolveText(target, key, original as LocalizedText),
+				});
+			}
+			return record;
+		};
 		return {
 			registerCommand: (input) => {
 				requireOwnNamespace(input.id, "command");
+				const registration: CommandRegistration = {
+					...input,
+					source:
+						owner.kind === "plugin"
+							? { kind: "plugin", pluginId: owner.pluginId }
+							: { kind: "builtin", id: owner.id },
+				};
 				return disposables.add(
-					this.commands.register({
-						...input,
-						source:
-							owner.kind === "plugin"
-								? { kind: "plugin", pluginId: owner.pluginId }
-								: { kind: "builtin", id: owner.id },
-					}),
+					this.commands.register(
+						overlay(
+							registration,
+							`/commands/${escapeOverrideKeySegment(input.id)}`,
+							["title", "category"],
+						),
+					),
 				);
 			},
 			registerMenu: (input) => {
@@ -529,37 +585,53 @@ export class ExtensionRegistry<TView = unknown> {
 				);
 				if (input.id !== undefined)
 					requireOwnNamespace(input.id, "title bar action");
+				const record: TitleBarActionContributionRecord = {
+					kind: "titlebar-action",
+					id: input.id ?? `${ownerId(owner)}.titlebar.${input.command}`,
+					owner,
+					commandId: input.command,
+					icon: input.icon,
+					tooltip: input.tooltip,
+					order: input.order,
+					when: input.when,
+				};
+				// Manifest surface address: the declared id, else the command.
 				return disposables.add(
-					this.contributions.register({
-						kind: "titlebar-action",
-						id: input.id ?? `${ownerId(owner)}.titlebar.${input.command}`,
-						owner,
-						commandId: input.command,
-						icon: input.icon,
-						tooltip: input.tooltip,
-						order: input.order,
-						when: input.when,
-					}),
+					this.contributions.register(
+						overlay(
+							record,
+							`/titleBarActions/${escapeOverrideKeySegment(input.id ?? input.command)}`,
+							["tooltip"],
+							["icon"],
+						),
+					),
 				);
 			},
 			registerFormatProvider: (input) => {
 				requireOwnNamespace(input.formatId, "format provider");
 				if (input.id !== undefined)
 					requireOwnNamespace(input.id, "format provider contribution");
+				const record: FormatProviderContributionRecord = {
+					kind: "format-provider",
+					id: input.id ?? `${ownerId(owner)}.format.${input.formatId}`,
+					owner,
+					formatId: input.formatId,
+					title: input.title,
+					extensions: input.extensions.map(normalizeFormatExtension),
+					mimeType: input.mimeType,
+					order: input.order,
+					hostNative: input.hostNative,
+					importer: input.importer,
+					exporter: input.exporter,
+				};
 				return disposables.add(
-					this.contributions.register({
-						kind: "format-provider",
-						id: input.id ?? `${ownerId(owner)}.format.${input.formatId}`,
-						owner,
-						formatId: input.formatId,
-						title: input.title,
-						extensions: input.extensions.map(normalizeFormatExtension),
-						mimeType: input.mimeType,
-						order: input.order,
-						hostNative: input.hostNative,
-						importer: input.importer,
-						exporter: input.exporter,
-					}),
+					this.contributions.register(
+						overlay(
+							record,
+							`/formats/${escapeOverrideKeySegment(input.formatId)}`,
+							["title"],
+						),
+					),
 				);
 			},
 			addEventListener: <T>(event: string, listener: (payload: T) => void) => {
@@ -577,6 +649,25 @@ export class ExtensionRegistry<TView = unknown> {
 					},
 				});
 			},
+			registerOverride: (input) => {
+				if (owner.kind !== "plugin")
+					throw new Error(`Builtin scope ${owner.id} cannot register overrides`);
+				if (input.targetPluginId === owner.pluginId)
+					throw new Error(`Plugin ${owner.pluginId} cannot override itself`);
+				return disposables.add(
+					overrides.register({ ...input, sourcePluginId: owner.pluginId }),
+				);
+			},
+			resolveOwnText: (key, text) =>
+				owner.kind === "plugin"
+					? overrides.resolveText(owner.pluginId, key, text)
+					: text,
+			onOwnOverridesChanged: (listener) =>
+				disposables.add(
+					overrides.subscribe((target) => {
+						if (owner.kind === "plugin" && target === owner.pluginId) listener();
+					}),
+				),
 			dispose: () => disposables.dispose(),
 		};
 	}

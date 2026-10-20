@@ -35,10 +35,12 @@ import {
 } from "./trusted-js-load-plan";
 import {
 	TrustedJsPluginService,
+	type TrustedJsPluginEntry,
 	type TrustedJsPluginStateRecord,
 
 } from "./trusted-js-service";
 import { dependencyOrder } from "./dependencies";
+import { resolveEntryOverrides } from "./plugin-overrides";
 import { checkDependencyActivation, checkDependencyGraph, registerDependencySource } from "./dependency-context";
 
 /**
@@ -115,6 +117,14 @@ export const trustedJsPluginService =
 		isDesktopTrustEnabled: isDesktopTrustedJsEnabled,
 		warn: (message) => console.warn(message),
 		checkDependencies: checkDependencyActivation,
+		// Targets are required dependencies, so they are live before the overrider.
+		resolveOverrides: (entry) =>
+			resolveEntryOverrides(
+				entry,
+				(id): TrustedJsPluginEntry | undefined =>
+					trustedJsPluginService.getEntry(id),
+				(message) => console.warn(message),
+			),
 	});
 
 const currentPlatform = (): "web" | "desktop" =>

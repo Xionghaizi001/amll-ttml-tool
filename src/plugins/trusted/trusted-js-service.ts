@@ -39,6 +39,9 @@ export interface TrustedJsPluginEntry {
 	dependencies?: import("@amll-ttml-tool/plugin-api").PluginDependencyV0[];
 	/** Merged `contributes.strings` table (`resolvePluginStrings`) for `host.i18n`. */
 	strings?: Record<string, import("@amll-ttml-tool/plugin-api").LocalizedText>;
+	overrides?: import("@amll-ttml-tool/plugin-api").PluginOverrideV0[];
+	/** Validated package resources; override payloads are resolved from here at activation. */
+	resources?: import("@amll-ttml-tool/plugin-api").PackageResourcesV0;
 }
 
 /**
@@ -127,6 +130,10 @@ export interface TrustedJsLoaderPorts<THost> {
 	warn?(message: string): void;
 	/** Returns a stable reason before any plugin bytes are imported. */
 	checkDependencies?(entry: TrustedJsPluginEntry): string | null;
+	/** Whitelist-filtered overrides the entry applies to its (already live) targets. */
+	resolveOverrides?(
+		entry: TrustedJsPluginEntry,
+	): Parameters<ExtensionScope["registerOverride"]>[0][];
 }
 
 export type TrustedJsLoadRejection =
@@ -418,6 +425,9 @@ export class TrustedJsPluginService<THost> {
 					`Plugin ${entry.id} module does not export an activate() function`,
 				);
 			scope = this.ports.createScope(entry.id);
+			// Owned by this scope: disable, unload or a failed activation reverts them.
+			for (const override of this.ports.resolveOverrides?.(entry) ?? [])
+				scope.registerOverride(override);
 			hostHandle = this.ports.createHost({
 				pluginId: entry.id,
 				scope,

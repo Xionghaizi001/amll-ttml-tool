@@ -726,6 +726,8 @@
 		"description": "对 CJK 音节的时间轴进行平滑处理\n不会平滑其他语言的音节"
 	},
 	"pluginStore": {
+		"overriddenBy": "已被 {name} 覆盖",
+		"overrideSource": "覆盖：{name}（{id}，{kinds}）",
 		"title": "插件管理",
 		"back": "返回首选项",
 		"available": "可用插件",

@@ -40,7 +40,7 @@ export interface FormatCommandFlowPort {
 export const createFormatCommandReconciler = (
 	contributions: Pick<
 		ContributionRegistry,
-		"getFormatProviders" | "subscribe"
+		"getFormatProvider" | "getFormatProviders" | "subscribe"
 	>,
 	commands: CommandRegistry,
 	flow: FormatCommandFlowPort,
@@ -52,13 +52,19 @@ export const createFormatCommandReconciler = (
 		for (const provider of contributions.getFormatProviders()) {
 			// 宿主原生格式（TTML）走“打开/保存文件”命令，不进入导入/导出菜单。
 			if (provider.hostNative) continue;
-			const { formatId, title } = provider;
+			const { formatId } = provider;
+			// Read the provider title on demand so localization overrides of
+			// the format title reach the derived command without re-registering.
+			const currentTitle = () =>
+				contributions.getFormatProvider(formatId)?.title ?? provider.title;
 			if (provider.importer) {
 				const id = formatImportCommandId(formatId);
 				wanted.set(id, () =>
 					commands.register({
 						id,
-						title: importCommandTitle(title),
+						get title() {
+							return importCommandTitle(currentTitle());
+						},
 						handler: () => flow.importWithPicker(formatId),
 						source: { kind: "builtin", id: "core.formats" },
 					}),
@@ -69,7 +75,9 @@ export const createFormatCommandReconciler = (
 				wanted.set(id, () =>
 					commands.register({
 						id,
-						title: exportCommandTitle(title),
+						get title() {
+							return exportCommandTitle(currentTitle());
+						},
 						handler: () => flow.exportDocumentAs(formatId),
 						source: { kind: "builtin", id: "core.formats" },
 					}),

@@ -726,6 +726,8 @@
 		"description": "Smooth the timeline for CJK syllables.\nDoes not smooth syllables from other languages."
 	},
 	"pluginStore": {
+		"overriddenBy": "Overridden by {name}",
+		"overrideSource": "Override: {name} ({id}, {kinds})",
 		"title": "Plugin manager",
 		"back": "Back to preferences",
 		"available": "Available plugins",

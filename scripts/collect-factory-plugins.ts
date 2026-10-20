@@ -75,7 +75,7 @@ export async function collectFactoryPlugins(root: string) {
 		const index = imports.length;
 		imports.push(`import * as plugin${index} from "./${moduleName}";`);
 		entries.push(
-			`{ ...${JSON.stringify(manifest)}, strings: ${JSON.stringify(resolvePluginStrings(manifest, resources))}, firstParty: true, loadModule: async () => plugin${index} }`,
+			`{ ...${JSON.stringify(manifest)}, strings: ${JSON.stringify(resolvePluginStrings(manifest, resources))}, ${manifest.overrides?.length ? `resources: ${JSON.stringify(resources)}, ` : ""}firstParty: true, loadModule: async () => plugin${index} }`,
 		);
 		catalog.push({
 			id: manifest.id,

@@ -57,6 +57,7 @@ export class InstalledTrustedJsService<THost> {
 		return {
 			...record.manifest,
 			strings: resolvePluginStrings(record.manifest, record.resources),
+			resources: record.resources,
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,
@@ -137,6 +138,7 @@ export class InstalledTrustedJsService<THost> {
 		const entry: TrustedJsPluginEntry = {
 			...manifest,
 			strings: resolvePluginStrings(manifest, resources),
+			resources,
 			entry: "installed",
 			firstParty: false,
 			moduleBlob: record.code,

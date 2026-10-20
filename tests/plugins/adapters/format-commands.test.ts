@@ -118,6 +118,25 @@ describe("format command reconciler", () => {
 			kind: "builtin",
 			id: "core.formats",
 		});
+		// Derived titles follow the provider title's localization overrides.
+		const pack = registry.createScope({
+			kind: "plugin",
+			pluginId: "example.pack",
+			runtime: "trusted-js",
+			trusted: true,
+		});
+		pack.registerOverride({
+			targetPluginId: "example.formats",
+			kind: "localization",
+			payload: { "/formats/example.formats.krc/title": "Kugou" },
+		});
+		expect(commands.get(commandId)?.title).toMatchObject({
+			default: "Import from Kugou file",
+		});
+		pack.dispose();
+		expect(commands.get(commandId)?.title).toMatchObject({
+			default: "Import from KRC file",
+		});
 
 		plugin.dispose();
 		expect(commands.get(commandId)).toBeUndefined();

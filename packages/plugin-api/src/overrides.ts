@@ -18,7 +18,8 @@ import type {
 } from "./types";
 
 type Payload = LocalizationOverridePayloadV0 | IconsOverridePayloadV0;
-const escapeKey = (key: string): string =>
+/** JSON Pointer segment escaping used by override surface keys. */
+export const escapeOverrideKeySegment = (key: string): string =>
 	key.replace(/~/g, "~0").replace(/\//g, "~1");
 
 /** Validate even unknown keys before filtering; payloads are never object patches. */
@@ -37,13 +38,13 @@ export function parseOverridePayload(
 	for (const [key, value] of Object.entries(parsed.value)) {
 		if (!key.startsWith("/") || key.length > 1024 || /~(?![01])/u.test(key))
 			issues.push({
-				path: `/${escapeKey(key)}`,
+				path: `/${escapeOverrideKeySegment(key)}`,
 				message:
 					"key must be a surface JSON pointer of at most 1024 characters",
 			});
 		if (kind === "localization" && localizedTextHasHtml(value as LocalizedText))
 			issues.push({
-				path: `/${escapeKey(key)}`,
+				path: `/${escapeOverrideKeySegment(key)}`,
 				message: "override text must not contain HTML",
 			});
 	}
@@ -66,7 +67,7 @@ export function validatePackageResources(
 	const locales = new Map<string, Set<string>>();
 	for (const override of manifest.overrides ?? []) {
 		declared.add(override.entry);
-		const path = `/resources/${escapeKey(override.entry)}`;
+		const path = `/resources/${escapeOverrideKeySegment(override.entry)}`;
 		if (!Object.hasOwn(resources, override.entry)) {
 			issues.push({
 				path,
@@ -107,7 +108,7 @@ export function validatePackageResources(
 	for (const entry of Object.keys(resources)) {
 		if (!declared.has(entry))
 			issues.push({
-				path: `/resources/${escapeKey(entry)}`,
+				path: `/resources/${escapeOverrideKeySegment(entry)}`,
 				message: "undeclared package resource",
 			});
 	}
@@ -127,21 +128,21 @@ export function getOverrideSurfaceKeys(
 	};
 	if (kind === "localization")
 		for (const key of Object.keys(strings))
-			keys.add(`/strings/${escapeKey(key)}`);
+			keys.add(`/strings/${escapeOverrideKeySegment(key)}`);
 	if (target.kind !== "function") return keys;
 	const contributions = target.contributes;
 	for (const action of contributions?.titleBarActions ?? []) {
 		add(
 			action,
-			`/titleBarActions/${escapeKey(action.id ?? action.command)}`,
+			`/titleBarActions/${escapeOverrideKeySegment(action.id ?? action.command)}`,
 			kind === "icons" ? ["icon"] : ["tooltip"],
 		);
 	}
 	if (kind === "icons") return keys;
 	for (const command of contributions?.commands ?? [])
-		add(command, `/commands/${escapeKey(command.id)}`, ["title", "category"]);
+		add(command, `/commands/${escapeOverrideKeySegment(command.id)}`, ["title", "category"]);
 	for (const format of contributions?.formats ?? [])
-		add(format, `/formats/${escapeKey(format.id)}`, ["title"]);
+		add(format, `/formats/${escapeOverrideKeySegment(format.id)}`, ["title"]);
 	const fields = (items: FormFieldV0[], base: string) => {
 		items.forEach((field, index) => {
 			const path = `${base}/${index}`;
@@ -161,7 +162,7 @@ export function getOverrideSurfaceKeys(
 		});
 	};
 	for (const setting of contributions?.settings ?? []) {
-		const base = `/settings/${escapeKey(setting.id)}`;
+		const base = `/settings/${escapeOverrideKeySegment(setting.id)}`;
 		add(setting, base, ["title"]);
 		form(setting.form, `${base}/form`);
 	}

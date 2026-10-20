@@ -39,6 +39,7 @@ import {
 	installStoreEntry,
 	pluginInstallationService,
 } from "$/plugins/store/store-host";
+import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import { isStoreUpdateAvailable } from "$/plugins/store/store-install";
 import type { ProviderCatalogEntry } from "$/plugins/store/store-providers";
 import { FACTORY_TRUSTED_JS_PLUGINS } from "$/plugins/trusted/factory-plugins";
@@ -245,6 +246,30 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 		refresh();
 		return pluginInstallationService.subscribe(refresh);
 	}, []);
+	// Override sources live in the contribution layer, not in installations.
+	useSyncExternalStore(
+		(listener) => {
+			const subscription = extensionRegistry.contributions.subscribe(listener);
+			return () => subscription.dispose();
+		},
+		() => extensionRegistry.contributions.getRevision()
+	);
+	const overriddenBy = (pluginId: string) => {
+		const sources = new Map<string, Set<string>>();
+		for (const source of extensionRegistry.contributions.overrides.getSources(pluginId))
+			sources.set(source.sourcePluginId, (sources.get(source.sourcePluginId) ?? new Set()).add(source.kind));
+		return [...sources].map(([id, kinds]) => {
+			const by = installations.find((candidate) => candidate.id === id);
+			return {
+				id,
+				name: by?.name ?? id,
+				kinds: [...kinds].join(", "),
+				origin: by
+					? `${t(`pluginStore.source.${by.source}`, by.source)}${by.store ? ` · ${by.store.providerName}` : ""}`
+					: undefined,
+			};
+		});
+	};
 	const refresh = useCallback(async (force = false) => {
 		setLoading(true);
 		try {
@@ -298,6 +323,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 					? updates.find((entry) => entry.id === item.id)
 					: undefined;
 			const mutable = item.source !== "builtin" || trusted?.hasInstalledPackage;
+			const overrides = item.kind === "function" ? overriddenBy(item.id) : [];
 			return (
 				<SettingsRow
 					key={`${item.kind}:${item.id}`}
@@ -327,6 +353,13 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									依赖不可用：{item.theme.disabledByDependency}
 								</Badge>
 							)}
+							{overrides.map((source) => (
+								<Badge key={source.id} color="blue">
+									{t("pluginStore.overriddenBy", "已被 {name} 覆盖", {
+										name: source.name,
+									})}
+								</Badge>
+							))}
 							{trusted?.status && (
 								<Badge color="gray">
 									{t(`pluginStore.status.${trusted.status}`, trusted.status)}
@@ -352,6 +385,16 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 									</span>
 								)}
 							</span>
+							{overrides.map((source) => (
+								<span key={source.id} style={{ overflowWrap: "anywhere" }}>
+									{t("pluginStore.overrideSource", "覆盖：{name}（{id}，{kinds}）", {
+										name: source.name,
+										id: source.id,
+										kinds: source.kinds,
+									})}
+									{source.origin ? ` · ${source.origin}` : ""}
+								</span>
+							))}
 						</Flex>
 					}
 					action={

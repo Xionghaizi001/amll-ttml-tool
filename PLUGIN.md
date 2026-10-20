@@ -686,7 +686,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 
 安装记录保留 provider id/name、artifact SHA-256、安装时间。移除来源不卸载插件，已安装页显示“来源已移除，不再更新”，原有本地运行和卸载保持可用。官方同源裸 JS 模块保留既有 loader 策略；第三方目录只参与商店展示和显式安装，不参与启动时的远程 load plan。
 
-## 局部覆盖协议（运行时接入待交付）
+## 局部覆盖协议
 
 功能与主题 manifest 均可声明 `overrides?: { pluginId, kind, entry }[]`，最多 32 项；kind 仅为 localization 或 icons。目标必须是非自身插件，且存在非 optional 的直接依赖，版本和启用关系复用依赖图。重复三元组被拒绝。
 
@@ -696,7 +696,13 @@ Payload 是 surface key → LocalizedText / ActionIconV0 的平面映射，每�
 
 Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长 1024 字符：`/commands/<id>/title|category`、`/titleBarActions/<id 或 command>/tooltip|icon`、`/formats/<id>/title`、`/settings/<id>/title`、`/settings/<id>/form/...`、`/strings/<key>`。表单只开放实际存在的 LocalizedText 字段；fields/options/actions 数组使用从 0 开始的索引。菜单沿用其 command 的标题，无独立标题地址。非 LocalizedText 的 placeholder、任何 id、命令引用、能力、激活事件、视图与转换行为均不在白名单。
 
-`resolveOverridePayload` 对目标 manifest 与调用者提供的字符串表枚举白名单，未知或不可覆盖 key 忽略并返回 diagnostics，调用方必须带覆盖方/目标身份记入诊断日志；不会修改目标。安装时目标可能尚未存在，因此包校验只检查 payload 合法性，目标 key 校验留给解析调用。当前交付为协议、容器、存储、过滤接口与字符串表；ExtensionRegistry 覆盖层（含 `host.i18n.t` 经 `/strings/<key>` 的覆盖）、生命周期日志、冲突提醒与管理器展示仍待后续实现。
+`resolveOverridePayload` 对目标 manifest 与调用者提供的字符串表枚举白名单，未知或不可覆盖 key 忽略并返回 diagnostics，调用方必须带覆盖方/目标身份记入诊断日志；不会修改目标。安装时目标可能尚未存在，因此包校验只检查 payload 合法性，目标 key 校验留给解析调用。当前交付为协议、容器、存储、过滤接口、字符串表与运行时解析；多覆盖方冲突的强提醒与管理器覆盖链仍待后续实现。
+
+运行时解析：trusted-js 覆盖方激活时，加载器在创建其 scope 后、调用 activate 前，经 `resolveOverrides` 端口（`src/plugins/trusted/plugin-overrides.ts`）对每个已加载目标的 manifest 与字符串表过滤 payload，诊断以 `[overrides] <覆盖方> -> <目标> (<entry>)` 前缀记入 console；目标未加载时跳过该项，不使覆盖方激活失败。过滤结果经 `scope.registerOverride` 注册进 `ContributionRegistry.overrides`（`src/kernel/extensions/OverrideLayer.ts`），归属覆盖方 scope：禁用、卸载或激活失败即撤销，registry revision 递增，订阅者即时回退。插件 owner 注册的命令 title/category、标题栏动作 tooltip/icon 与格式 provider title 在 `ExtensionScope` 内改为经覆盖层读取的 getter，消费方无需改动；格式派生的导入/导出命令标题随之变化。builtin owner 不参与覆盖，覆盖不能新增目标原本没有的字段。
+
+文案按目标 pluginId + surface key + locale 合并：每个覆盖方提供的 locale（含 default）替换目标或更早覆盖方的同 locale 文本，未提供的 locale 保持原值；图标整体替换。注册顺序即启用顺序，最后启用者胜出，其撤销后回退到前一覆盖方。`host.i18n.t` 经 `scope.resolveOwnText("/strings/<key>")` 读取；`onLocaleChanged` 在作用于本插件的覆盖增减时也以当前 locale 触发，插件据此重读文案。插件管理器在目标条目上显示“已被 X 覆盖”及覆盖方 id、种类和安装来源。
+
+尚未接入：主题包声明的 overrides 不会注册（ThemeService 无 scope 接入）；宿主当前不渲染 `settings` 声明式表单贡献，`/settings/...` 地址可通过校验但暂无可见效果；`ui.showForm` 的临时表单不在地址白名单内。覆盖在覆盖方激活时按当时的目标过滤，目标升级后需重新启用覆盖方才会按新 manifest 重新过滤。
 
 ### 字符串表
 

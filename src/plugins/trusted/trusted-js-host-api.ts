@@ -199,19 +199,33 @@ export const createTrustedJsHost = (
 			},
 			t: (key, params) =>
 				Object.hasOwn(strings, key)
-					? formatPluginString(localizeText(strings[key], ports.getLocale()), params)
+					? formatPluginString(
+							localizeText(
+								scope.resolveOwnText(`/strings/${key}`, strings[key]),
+								ports.getLocale(),
+							),
+							params,
+						)
 					: key,
+			// Also fires when a language pack overriding this table is enabled
+			// or disabled: either way the plugin must re-read its texts.
 			onLocaleChanged: (listener) => {
 				assertActive();
-				return track(
-					ports.subscribeLocaleChanges((locale) => {
-						try {
-							listener(locale);
-						} catch (error) {
-							console.warn(`Plugin ${pluginId} i18n.onLocaleChanged failed`, error);
-						}
-					}),
+				const notify = (locale: string) => {
+					try {
+						listener(locale);
+					} catch (error) {
+						console.warn(`Plugin ${pluginId} i18n.onLocaleChanged failed`, error);
+					}
+				};
+				const overrides = scope.onOwnOverridesChanged(() =>
+					notify(ports.getLocale()),
 				);
+				const unsubscribe = ports.subscribeLocaleChanges(notify);
+				return track(() => {
+					unsubscribe();
+					overrides.dispose();
+				});
 			},
 		},
 		commands: {
