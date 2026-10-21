@@ -23,9 +23,20 @@ export const OverrideConflictDialog = () => {
 		),
 		overrideConflictNotices.current,
 	);
+	// Conflicts fire before activation publishes the winner's live entry.
+	const winnerEntry = useSyncExternalStore(
+		useCallback(
+			(listener: () => void) => trustedJsPluginService.subscribe(listener),
+			[],
+		),
+		() =>
+			notice
+				? trustedJsPluginService.getEntry(notice.winnerPluginId)
+				: undefined,
+	);
 	if (!notice) return null;
 	const name = (id: string) => trustedJsPluginService.getEntry(id)?.name ?? id;
-	const winner = name(notice.winnerPluginId);
+	const winner = winnerEntry?.name ?? notice.winnerPluginId;
 	const disable = async () => {
 		setBusy(true);
 		try {

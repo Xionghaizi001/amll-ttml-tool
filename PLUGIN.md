@@ -688,6 +688,8 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 
 ## 局部覆盖协议
 
+当前交付范围已于 2026-10-20 完成合同与真实 Chromium UI 验收，验证步骤及未交付边界见 [验收记录](docs/local-overrides-acceptance.md)。
+
 功能与主题 manifest 均可声明 `overrides?: { pluginId, kind, entry }[]`，最多 32 项；kind 仅为 localization 或 icons。目标必须是非自身插件，且存在非 optional 的直接依赖，版本和启用关系复用依赖图。重复三元组被拒绝。
 
 entry 是规范包内 JSON 路径（最多 256 字符，ASCII 字母/数字/下划线开头的路径段，可含点和连字符）；拒绝绝对路径、URL、反斜杠、空段、点段及 URL 编码。JSON 包用 `resources[entry]` 携带解析后的对象；ZIP 用 `resources/<entry>` 文件，descriptor 不得内联 resources。两种容器最终经过相同包校验；缺文件、未声明资源、非法 UTF-8/JSON 被拒绝。trusted-js 存储和 consent 摘要包含资源，旧无资源包摘要保持兼容。
@@ -700,7 +702,7 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 
 运行时解析：trusted-js 覆盖方激活时，加载器在创建其 scope 后、调用 activate 前，经 `resolveOverrides` 端口（`src/plugins/trusted/plugin-overrides.ts`）对每个已加载目标的 manifest 与字符串表过滤 payload，诊断以 `[overrides] <覆盖方> -> <目标> (<entry>)` 前缀记入 console；目标未加载时跳过该项，不使覆盖方激活失败。过滤结果经 `scope.registerOverride` 注册进 `ContributionRegistry.overrides`（`src/kernel/extensions/OverrideLayer.ts`），归属覆盖方 scope：禁用、卸载或激活失败即撤销，registry revision 递增，订阅者即时回退。插件 owner 注册的命令 title/category、标题栏动作 tooltip/icon 与格式 provider title 在 `ExtensionScope` 内改为经覆盖层读取的 getter，消费方无需改动；格式派生的导入/导出命令标题随之变化。builtin owner 不参与覆盖，覆盖不能新增目标原本没有的字段。
 
-文案按目标 pluginId + surface key + locale 合并：每个覆盖方提供的 locale（含 default）替换目标或更早覆盖方的同 locale 文本，未提供的 locale 保持原值；图标整体替换。覆盖方按插件状态中持久化的 `enabledAt`（用户最近一次启用，缺省为首次激活）排序，与加载顺序无关、重启后保持；最后启用者胜出，其撤销后回退到前一覆盖方。`host.i18n.t` 经 `scope.resolveOwnText("/strings/<key>")` 读取；`onLocaleChanged` 在作用于本插件的覆盖增减时也以当前 locale 触发，插件据此重读文案。插件管理器在目标条目上显示“已被 X 覆盖”，并按启用顺序列出覆盖链（覆盖方 id、种类、安装来源及被后者取代的 key 数）。
+文案按目标 pluginId + surface key + locale 合并：每个覆盖方提供的 locale（含 default）替换目标或更早覆盖方的同 locale 文本，未提供的 locale 保持原值；图标整体替换。覆盖方按插件状态中持久化的 `enabledAt`（用户最近一次启用，缺省为首次激活）排序；新值以已观察的最大值为基准严格递增，避免同毫秒或时钟回拨造成平局，恢复已有值不改写。覆盖顺序与加载顺序无关、重启后保持；最后启用者胜出，其撤销后回退到前一覆盖方。`host.i18n.t` 经 `scope.resolveOwnText("/strings/<key>")` 读取；`onLocaleChanged` 在作用于本插件的覆盖增减时也以当前 locale 触发，插件据此重读文案。插件管理器在目标条目上显示“已被 X 覆盖”，并按启用顺序列出覆盖链（覆盖方 id、种类、安装来源及被后者取代的 key 数）。
 
 冲突：两个覆盖方对同一目标设置同一 key（文案还须同一 locale；同一覆盖方的多个资源不算）时，`OverrideLayer.onConflict` 报告胜者与败者。宿主经 `overrideConflictNotices` 弹出与主题作用域冲突相同的受保护对话框，可“停用胜者”回退或继续使用。只提醒胜者 `enabledAt` 落在本会话内的冲突，且每次启用只提醒一次；启动恢复既有顺序、更新或热重载未改变胜者时不重复提醒。
 

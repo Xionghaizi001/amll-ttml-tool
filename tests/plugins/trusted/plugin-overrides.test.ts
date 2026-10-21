@@ -1,5 +1,5 @@
 import { PLUGIN_API_VERSION } from "@amll-ttml-tool/plugin-api";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CommandRegistry } from "$/kernel/commands";
 import { ExtensionRegistry, type ExtensionScope } from "$/kernel/extensions";
 import {
@@ -85,6 +85,7 @@ const createLoader = () => {
 };
 
 describe("trusted-js localization overrides", () => {
+	afterEach(() => vi.restoreAllMocks());
 	it("applies a language pack at activation, logs ignored keys and reverts on unload", async () => {
 		const { commands, extensions, service, warn } = createLoader();
 		await service.load(targetEntry);
@@ -137,26 +138,53 @@ describe("trusted-js localization overrides", () => {
 		expect(listener).toHaveBeenCalledTimes(2);
 	});
 
-	it("keeps the last user-enabled language pack winning across a restart in any load order", async () => {
-		const first = createLoader();
-		await first.service.load(targetEntry);
-		await first.service.load(packEntry("pack.a", "A"));
-		await first.service.load(packEntry("pack.b", "B"));
-		await first.service.setEnabled("pack.a", false);
-		await first.service.setEnabled("pack.a", true);
-		await first.service.load(packEntry("pack.a", "A"));
-		expect(first.commands.get("target.run")?.title).toEqual({ default: "A" });
-		const enabledAt = first.states.get("pack.a")?.enabledAt ?? 0;
-		expect(enabledAt).toBeGreaterThanOrEqual(first.states.get("pack.b")?.enabledAt ?? Infinity);
+	it.each([100, 50])(
+		"keeps the last enabled pack winning across restart when the clock stays at or rolls back to %i",
+		async (now) => {
+			const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+			const first = createLoader();
+			await first.service.load(targetEntry);
+			await first.service.load(packEntry("pack.a", "A"));
+			await first.service.load(packEntry("pack.b", "B"));
+			clock.mockReturnValue(now);
+			await first.service.setEnabled("pack.a", false);
+			await first.service.setEnabled("pack.a", true);
+			await first.service.load(packEntry("pack.a", "A"));
+			expect(first.commands.get("target.run")?.title).toEqual({ default: "A" });
+			const enabledAt = first.states.get("pack.a")?.enabledAt ?? 0;
+			expect(enabledAt).toBeGreaterThan(
+				first.states.get("pack.b")?.enabledAt ?? Infinity,
+			);
 
-		// Next session restores pack.a before pack.b; pack.a still wins.
-		const next = createLoader();
-		for (const [id, state] of first.states) next.states.set(id, { ...state, pending: false });
-		await next.service.load(targetEntry);
-		await next.service.load(packEntry("pack.a", "A"));
-		await next.service.load(packEntry("pack.b", "B"));
-		expect(next.commands.get("target.run")?.title).toEqual({ default: "A" });
-		expect(next.states.get("pack.a")?.enabledAt).toBe(enabledAt);
+			// Next session restores pack.a before pack.b; pack.a still wins.
+			const next = createLoader();
+			for (const [id, state] of first.states)
+				next.states.set(id, { ...state, pending: false });
+			await next.service.load(targetEntry);
+			await next.service.load(packEntry("pack.a", "A"));
+			await next.service.load(packEntry("pack.b", "B"));
+			expect(next.commands.get("target.run")?.title).toEqual({ default: "A" });
+			expect(next.states.get("pack.a")?.enabledAt).toBe(enabledAt);
+			await next.service.setEnabled("pack.b", false);
+			await next.service.setEnabled("pack.b", true);
+			await next.service.load(packEntry("pack.b", "B"));
+			expect(next.commands.get("target.run")?.title).toEqual({ default: "B" });
+			expect(next.states.get("pack.b")?.enabledAt).toBeGreaterThan(enabledAt);
+		},
+	);
+
+	it("uses the latest user enable for a development language pack too", async () => {
+		vi.spyOn(Date, "now").mockReturnValue(100);
+		const { service, commands } = createLoader();
+		const development = { ...packEntry("pack.dev", "Dev"), development: true };
+		await service.load(targetEntry);
+		await service.load(development);
+		await service.load(packEntry("pack.b", "B"));
+		expect(commands.get("target.run")?.title).toEqual({ default: "B" });
+		await service.setEnabled(development.id, false);
+		await service.setEnabled(development.id, true);
+		await service.load(development);
+		expect(commands.get("target.run")?.title).toEqual({ default: "Dev" });
 	});
 
 	it("announces only conflicts whose winner was enabled this session, once per enable", async () => {

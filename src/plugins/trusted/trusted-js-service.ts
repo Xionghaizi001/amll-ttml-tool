@@ -223,6 +223,7 @@ export class TrustedJsPluginService<THost> {
 	>();
 	private readonly listeners = new Set<() => void>();
 	private startupStable = false;
+	private lastEnabledAt = 0;
 	private readonly developmentStates = new Map<
 		string,
 		TrustedJsPluginStateRecord
@@ -405,7 +406,8 @@ export class TrustedJsPluginService<THost> {
 		// Marker down before any plugin code runs; a session-killing crash
 		// during import/activate is charged to this plugin on the next boot.
 		state.pending = !entry.development;
-		state.enabledAt ??= Date.now();
+		state.enabledAt ??= Math.max(Date.now(), this.lastEnabledAt + 1);
+		this.lastEnabledAt = Math.max(this.lastEnabledAt, state.enabledAt);
 		statePort.set(entry.id, state);
 		let scope: ExtensionScope | null = null;
 		let hostHandle: TrustedJsHostHandle<THost> | null = null;
@@ -560,13 +562,23 @@ export class TrustedJsPluginService<THost> {
 			crashes: 0,
 			pending: false,
 		};
+		// Same-millisecond enables and clock rollback must not tie after restart.
+		if (enabled)
+			this.lastEnabledAt = Math.max(
+				Date.now(),
+				this.lastEnabledAt + 1,
+				(state.enabledAt ?? 0) + 1,
+			);
 		this.ports.state.set(pluginId, {
 			...state,
 			disabled: !enabled,
 			...(!enabled ? { pending: false } : {}),
 		disabledReason: enabled ? undefined : "user",
-			...(enabled ? { crashes: 0, enabledAt: Date.now() } : {}),
+			...(enabled ? { crashes: 0, enabledAt: this.lastEnabledAt } : {}),
 		});
+		const developmentState = this.developmentStates.get(pluginId);
+		if (enabled && developmentState)
+			developmentState.enabledAt = this.lastEnabledAt;
 		if (!enabled) await this.unload(pluginId);
 		this.emitChange();
 	}
