@@ -696,6 +696,7 @@
 		"description": "Smooth the timeline for CJK syllables.\nDoes not smooth syllables from other languages."
 	},
 	"pluginStore": {
+		"factoryDisableReloadHint": "Some built-in plugins take full effect only after the page is reloaded",
 		"overriddenBy": "Overridden by {name}",
 		"overrideSource": "Override: {name} ({id}, {kinds})",
 		"overrideConflictTitle": "Override conflict",

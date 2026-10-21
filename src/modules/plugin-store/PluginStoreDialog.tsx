@@ -482,13 +482,20 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 								checked={item.enabled}
 								disabled={busy !== null || item.theme?.safeMode}
 								onCheckedChange={(enabled) =>
-									void run(item.id, () =>
-										pluginInstallationService.setEnabled(
+									void run(item.id, async () => {
+										await pluginInstallationService.setEnabled(
 											item.kind,
 											item.id,
 											enabled
-										)
-									)
+										);
+										if (!enabled && trusted?.hasFactory)
+											toast.info(
+												t(
+													"pluginStore.factoryDisableReloadHint",
+													"部分内置插件禁用后需刷新页面才能完全生效"
+												)
+											);
+									})
 								}
 							/>
 						</Flex>

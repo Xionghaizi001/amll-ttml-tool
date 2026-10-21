@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已有独立技术原型（`../amll-ttml-tool-plugin-store/`）：Fastify/SQLite、本地管理员、ZIP 校验上传、不可变版本、待验收/上架/下架、公开清单与下载、运营记录。尚不具备正式 GitHub 身份、组织资格、受限下载、kill switch 与可信 CI 发布链路，不能视为阶段 10 完成。
-- 阶段 8 已开始：外围辅助工具（同步行时间戳、纯文本导入）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除；真实宿主禁用/恢复验收待补。
+- 阶段 8 已开始：外围辅助工具（同步行时间戳、纯文本导入）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
 - 尚未落地：阶段 8/9 其余业务迁移、商店生产能力与宿主控制状态联调、工具链/插件远端发布；平台实测与文档补齐贯穿实施。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -67,7 +67,7 @@
 
 执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
 
-- [ ] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import` 已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试通过。余下：真实浏览器中禁用后入口消失、重新启用与刷新后恢复的验收。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
+- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import` 已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
 - [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。`ContributionRegistry` 已有 `sidebar` view kind 但宿主没有渲染位；渲染器随节拍器一起落地，contribution 字段（标题、图标、顺序、默认展开）由这两个消费者的实际需要决定，不预先扩协议。
 - [ ] 元数据、Ruby、分词。
 - [ ] 帮助、设置和更新。
