@@ -24,10 +24,6 @@
 			"title": "Bekræft ny fil",
 			"description": "Du har ikke-gemte ændringer. Hvis du fortsætter, vil disse ændringer gå tabt. Er du sikker på, at du vil oprette en ny fil?"
 		},
-		"syncLineTimestamps": {
-			"title": "Bekræft synkronisering af tidsstempler",
-			"description": "Denne handling vil automatisk synkronisere start- og sluttiderne for alle linjer baseret på tidsstemplerne for hvert ord i linjen, matchende start- og sluttiderne for første og sidste stavelse. Er du sikker på, at du vil fortsætte?"
-		},
 		"openFile": {
 			"title": "Bekræft åbn fil",
 			"description": "Du har ikke-gemte ændringer. Hvis du fortsætter, vil disse ændringer gå tabt. Er du sikker på, at du vil åbne en ny fil?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Auto-segmentering",
 			"rubySegment": "Ruby Segmentating",
 			"advancedSegment": "Avanceret segmentering...",
-			"syncLineTimestamps": "Synkroniser linjetidsstempler",
 			"distributeRomanization": "Distribuer romanisering...",
 			"help": "Hjælp",
 			"helpDoc": "Dokumentation (CN)",
 			"importLyric": {
 				"import": "Importér sangtekster",
-				"fromPlainText": "Importér fra almindelig tekst…",
 				"fromLRCLIB": "Importér fra LRCLIB...",
 				"fromLyRiC": "Importér fra LyRiC-fil…",
 				"fromESLyRiC": "Importér fra ESLyRiC-fil…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"textImportDialog": {
-		"title": "Importér sangtekster fra almindelig tekst",
-		"actionButton": "Importér",
-		"contentMode": {
-			"caption": "Tekstindhold",
-			"lyric": "Kun sangtekster",
-			"withTranslation": "Sangtekster med oversættelse",
-			"withRoman": "Sangtekster med romanisering",
-			"withBoth": "Sangtekster med begge"
-		},
-		"separationMode": {
-			"caption": "Oversættelses-/romaniseringsformat",
-			"multipleLine": "Sammenflettet flere linjer",
-			"sameLine": "Samme linje adskillelse"
-		},
-		"separator": "Linjeseparator",
-		"swapTransAndRoman": "Byt oversættelses- og romaniseringslinjer",
-		"wordSeparator": "Ordseparator",
-		"enableSpecialPrefix": "Aktiver specielt præfiks",
-		"bgLyricPrefix": "Baggrundssangtekst-præfiks",
-		"duetLyricPrefix": "Duetsangtekst-præfiks",
-		"enableEmptyBeat": "Aktiver tom takt",
-		"emptyBeatSymbol": "Tom takt-symbol"
 	},
 	"metadataDialog": {
 		"openLink": "Åbn link",

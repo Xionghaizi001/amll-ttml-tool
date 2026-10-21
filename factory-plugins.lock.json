@@ -6,6 +6,18 @@
       "version": "1.1.1",
       "sha256": "0e3fbe3127c16aa9351cad47130336b43d155f1e5e938a37aea013c00bc89108",
       "source": "vendor/plugin-store/0e3fbe3127c16aa9351cad47130336b43d155f1e5e938a37aea013c00bc89108.zip"
+    },
+    {
+      "id": "builtin.sync-line-timestamps",
+      "version": "1.0.0",
+      "sha256": "15e2dc559e33392bdcf28d2c5d69ef1e37c44609e4f331c9956e4762f59c69f0",
+      "source": "vendor/plugin-store/15e2dc559e33392bdcf28d2c5d69ef1e37c44609e4f331c9956e4762f59c69f0.zip"
+    },
+    {
+      "id": "builtin.plain-text-import",
+      "version": "1.0.0",
+      "sha256": "95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185",
+      "source": "vendor/plugin-store/95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185.zip"
     }
   ]
 }

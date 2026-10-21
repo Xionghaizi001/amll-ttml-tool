@@ -89,8 +89,25 @@ export interface TrustedJsProjectInfoV0 {
 	fileName: string;
 }
 
+/** Document a plugin hands to `project.importDocument`. */
+export interface TrustedJsImportDocumentV0 {
+	lines: NewLineV0[];
+	metadata: PluginMetadataEntryV0[];
+}
+
 export interface TrustedJsProjectV0 {
 	getInfo(): TrustedJsProjectInfoV0;
+	/**
+	 * Replaces the open document the way File → Open does: asks before
+	 * discarding unsaved changes, commits one undoable transaction, then
+	 * assigns import identity (project id, default author metadata, save file
+	 * name) and clears the selection. Resolves `cancelled` when the user keeps
+	 * the current document or the plugin host is disposed.
+	 */
+	importDocument(
+		document: TrustedJsImportDocumentV0,
+		label: string,
+	): Promise<HostResult<{ revision: number }>>;
 }
 
 export interface TrustedJsCommandRegistrationV0 {

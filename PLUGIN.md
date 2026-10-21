@@ -209,7 +209,9 @@ trusted-js 对宿主拥有与应用代码相同的实际权限。`TrustedJsHostV
 当前存在两种“随应用交付”概念：
 
 - **宿主核心**：编辑模式、宿主原生 TTML 格式、内置主题等直接由宿主注册，公开插件接口不开放替换；它们提供默认功能与恢复基座。
-- **factory 插件**：已插件化但仍随应用离线交付的功能。当前 `builtin.time-shift` 由独立仓库构建 artifact，宿主用 `factory-plugins.lock.json` 锁定版本与 SHA-256，并在构建期生成 bundled loader。
+- **factory 插件**：已插件化但仍随应用离线交付的功能。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import` 各由独立仓库构建 artifact，宿主用 `factory-plugins.lock.json` 锁定版本与 SHA-256，并在构建期生成 bundled loader。
+
+factory 插件的菜单入口沿用迁出前的位置：`PINNED_FACTORY_COMMANDS`（`src/plugins/ui/ContributionMenuItems.tsx`）列出的命令由宿主在原槽位渲染，并从通用插件菜单区排除；插件仍正常注册 menu contribution。这是出厂插件的例外，开放菜单位置自定义后改由配置决定。
 
 factory 是来源/分发策略，`trusted-js` 是运行档。两者不应在未来的统一模型中合并成一个枚举。
 
@@ -624,7 +626,7 @@ slot：app-root、background-layer、title-bar、ribbon-bar、sidebar、lyric-ed
 ### 13.6 trusted-js SDK 合同要点
 
 - 分包 `packages/plugin-sdk-js`（`@amll-ttml-tool/plugin-sdk-js`，`./testing` 子路径导出 `MockTrustedJsHost` 与 `createTrustedJsHostUnderTest`）。不走 pnpm workspace，靠 tsconfig paths 与 Vite/Vitest alias 解析；React 只允许 `import type`。`pnpm plugin:sdk:check` 证明可脱离宿主编译。
-- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`i18n.t/locale/onLocaleChanged` 读取包内字符串表；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-extensions/plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
+- `TrustedJsHostV0`：`document.readSnapshot()` 返回含 ruby 的 `PluginDocumentV0`；`revision` 为 getter；`applyEdit(ops, label, { expectedRevision? })` 省略 expectedRevision 即不校验冲突；`onChanged` 事件含 `sourcePluginId`；`selection.get()` 只读并有 `selection.onChanged`；`project.getInfo()` 只读，`project.importDocument(document, label)` 走“打开文件”的提交路径（未保存确认、项目 ID、默认作者元数据、保存文件名与清空选区，一个可撤销事务；用户保留当前文档时返回 `cancelled`）；`i18n.t/locale/onLocaleChanged` 读取包内字符串表；`commands`/`menus`/`titleBarActions`/`formats`/`views` 均是 ExtensionScope 薄封装；formats provider 以投影转换（importer 返回 `NewLineV0[]` + metadata，宿主分配 id）；`storage.kv` 直读写 `amll-extensions/plugin-kv` 命名空间；`views.registerMode` 经 `registerHostMode`。
 - 宿主共享服务 `src/plugins/adapters/host-services.ts` 接入 trusted-js 宿主，保证事务、revision 冲突、来源标记与 KV 命名空间。`createTrustedJsHost` 为端口注入的纯工厂，可在 Node 中与 `EditorDocumentService` 组成真实宿主。
 - 加载合同：`createHost({ pluginId, scope, signal })` 返回 handle；`activate({ pluginId, host, signal })` 返回 cleanup；unload 顺序固定为 abort → cleanup → host handle dispose → scope dispose；activation 抛错同样 abort 并全清理。
 - 合同测试入口 `runHostContractTests` 由 MockTrustedJsHost 与真实 trusted-js 宿主共用。

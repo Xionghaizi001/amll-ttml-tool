@@ -129,6 +129,10 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		},
 		getProjectInfo: () =>
 			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
+		importDocument: async (lyric, { label }) => {
+			service.replace(lyric, { source: "user", label });
+			return true;
+		},
 		getLocale: () => locale,
 		subscribeLocaleChanges: (listener) => {
 			localeListeners.add(listener);

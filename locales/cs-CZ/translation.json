@@ -24,10 +24,6 @@
 			"title": "Potvrdit nový soubor",
 			"description": "Máte neuložené změny. Pokud budete pokračovat, tyto změny budou ztraceny. Opravdu chcete vytvořit nový soubor?"
 		},
-		"syncLineTimestamps": {
-			"title": "Potvrdit synchronizaci časových značek",
-			"description": "Tato akce automaticky synchronizuje časy začátku a konce všech řádků na základě časových značek každého slova v řádku, odpovídající časům začátku a konce první a poslední slabiky. Opravdu chcete pokračovat?"
-		},
 		"openFile": {
 			"title": "Potvrdit otevření souboru",
 			"description": "Máte neuložené změny. Pokud budete pokračovat, tyto změny budou ztraceny. Opravdu chcete otevřít nový soubor?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Automatická segmentace",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Pokročilá segmentace...",
-			"syncLineTimestamps": "Synchronizovat časové značky řádků",
 			"distributeRomanization": "Distribuovat romanizaci...",
 			"help": "Nápověda",
 			"helpDoc": "Dokumentace (ČLR)",
 			"importLyric": {
 				"import": "Importovat titulky",
-				"fromPlainText": "Importovat z prostého textu…",
 				"fromLRCLIB": "Importovat z LRCLIB...",
 				"fromLyRiC": "Importovat ze souboru LyRiC…",
 				"fromESLyRiC": "Importovat ze souboru ESLyRiC…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"textImportDialog": {
-		"title": "Importovat titulky z prostého textu",
-		"actionButton": "Importovat",
-		"contentMode": {
-			"caption": "Obsah textu",
-			"lyric": "Pouze titulky",
-			"withTranslation": "titulky s překladem",
-			"withRoman": "titulky s romanizací",
-			"withBoth": "titulky s obojím"
-		},
-		"separationMode": {
-			"caption": "Formát překladu/romanizace",
-			"multipleLine": "Prokládané více řádků",
-			"sameLine": "Oddělení na stejném řádku"
-		},
-		"separator": "Oddělovač řádků",
-		"swapTransAndRoman": "Prohodit řádky překladu a romanizace",
-		"wordSeparator": "Oddělovač slov",
-		"enableSpecialPrefix": "Povolit speciální předponu",
-		"bgLyricPrefix": "Předpona doprovodné titulky",
-		"duetLyricPrefix": "Předpona duetové titulky",
-		"enableEmptyBeat": "Povolit prázdnou dobu",
-		"emptyBeatSymbol": "Symbol prázdné doby"
 	},
 	"metadataDialog": {
 		"openLink": "Otevřít odkaz",

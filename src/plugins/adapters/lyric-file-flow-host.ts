@@ -54,12 +54,13 @@ export const lyricFileFlow = new LyricFileFlow({
 		globalStore.set(selectedWordsAtom, new Set<string>());
 	},
 	isDirty: () => globalStore.get(isDirtyAtom),
-	requestConfirm: ({ title, description, onConfirm }) =>
+	requestConfirm: ({ title, description, onConfirm, onCancel }) =>
 		globalStore.set(confirmDialogAtom, {
 			open: true,
 			title,
 			description,
 			onConfirm,
+			onCancel,
 		}),
 	notifyError: (message) => toast.error(message),
 	notifyWarning: (message) => toast.warn(message),

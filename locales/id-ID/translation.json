@@ -28,10 +28,6 @@
 			"title": "Konfirmasi file baru",
 			"description": "File saat ini memiliki perubahan yang belum disimpan. Jika dilanjutkan, perubahan ini akan hilang. Anda yakin ingin membuat file baru?"
 		},
-		"syncLineTimestamps": {
-			"title": "Konfirmasi sinkronisasi penanda waktu baris",
-			"description": "Tindakan ini akan secara otomatis menyinkronkan waktu awal dan akhir semua baris berdasarkan penanda waktu kata pertama dan terakhir dalam setiap baris. Lanjutkan?"
-		},
 		"openFile": {
 			"title": "Konfirmasi buka file",
 			"description": "File saat ini memiliki perubahan yang belum disimpan. Jika dilanjutkan, perubahan ini akan hilang. Anda yakin ingin membuka file baru?"
@@ -196,7 +192,6 @@
 			"autoSegment": "Segmentasi Otomatis",
 			"rubySegment": "Segmentasi Furigana/Ruby",
 			"advancedSegment": "Segmentasi Lanjutan...",
-			"syncLineTimestamps": "Sinkronkan Penanda Waktu Baris",
 			"perWordRomanization": {
 				"index": "Romanisasi Per Kata",
 				"check": "Periksa Konsistensi Romanisasi Per Kata",
@@ -207,7 +202,6 @@
 			"helpDoc": "Panduan Pengguna",
 			"importLyric": {
 				"import": "Impor Lirik",
-				"fromPlainText": "Impor dari Teks Polos…",
 				"fromLRCLIB": "Impor dari LRCLIB...",
 				"fromLyRiC": "Impor dari File LyRiC…",
 				"fromESLyRiC": "Impor dari File ESLyRiC…",
@@ -446,31 +440,6 @@
 	},
 	"metadata": {
 		"title": "Informasi Metadata"
-	},
-	"textImportDialog": {
-		"title": "Impor Lirik Teks Polos",
-		"actionButton": "Impor Lirik",
-		"contentMode": {
-			"caption": "Mode Impor",
-			"lyric": "Hanya Lirik",
-			"withTranslation": "Lirik dan Terjemahan",
-			"withRoman": "Lirik dan Romanisasi",
-			"withBoth": "Lirik, Terjemahan, dan Romanisasi"
-		},
-		"separationMode": {
-			"caption": "Mode Pemisah Baris (Terjemahan dan Romanisasi)",
-			"multipleLine": "Pemisah Baris Berselang-seling",
-			"sameLine": "Pemisah di Baris yang Sama"
-		},
-		"separator": "Pemisah Baris Lirik",
-		"swapTransAndRoman": "Tukarkan Baris Terjemahan dan Romanisasi",
-		"wordSeparator": "Pemisah Kata",
-		"enableSpecialPrefix": "Aktifkan Prefiks Khusus",
-		"bgLyricPrefix": "Prefiks Lirik Latar",
-		"duetLyricPrefix": "Prefiks Lirik Duet",
-		"enableEmptyBeat": "Aktifkan Ketukan Kosong",
-		"emptyBeatSymbol": "Simbol Ketukan Kosong",
-		"importFailed": "Gagal mengimpor lirik teks polos, mohon periksa apakah teks masukan atau pengaturan impor sudah benar"
 	},
 	"metadataDialog": {
 		"openLink": "Buka Tautan",

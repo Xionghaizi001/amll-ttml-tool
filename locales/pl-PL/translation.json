@@ -24,10 +24,6 @@
 			"title": "Potwierdź nowy plik",
 			"description": "Masz niezapisane zmiany. Jeśli kontynuujesz, te zmiany zostaną utracone. Czy na pewno chcesz utworzyć nowy plik?"
 		},
-		"syncLineTimestamps": {
-			"title": "Potwierdź synchronizację znaczników czasu",
-			"description": "Ta akcja automatycznie zsynchronizuje czasy początkowe i końcowe wszystkich wierszy na podstawie znaczników czasu każdego słowa w wierszu, dopasowując czasy początkowe i końcowe pierwszej i ostatniej sylaby. Czy na pewno chcesz kontynuować?"
-		},
 		"openFile": {
 			"title": "Potwierdź otwarcie pliku",
 			"description": "Masz niezapisane zmiany. Jeśli kontynuujesz, te zmiany zostaną utracone. Czy na pewno chcesz otworzyć nowy plik?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Automatyczna segmentacja",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Zaawansowana segmentacja...",
-			"syncLineTimestamps": "Synchronizuj znaczniki czasu wierszy",
 			"distributeRomanization": "Dystrybuuj romanizację...",
 			"help": "Pomoc",
 			"helpDoc": "Dokumentacja (CN)",
 			"importLyric": {
 				"import": "Importuj tekst",
-				"fromPlainText": "Importuj z tekstu nieformatowanego…",
 				"fromLRCLIB": "Importuj z LRCLIB...",
 				"fromLyRiC": "Importuj z pliku LyRiC…",
 				"fromESLyRiC": "Importuj z pliku ESLyRiC…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadane"
-	},
-	"textImportDialog": {
-		"title": "Importuj tekst z tekstu nieformatowanego",
-		"actionButton": "Importuj",
-		"contentMode": {
-			"caption": "Zawartość tekstu",
-			"lyric": "Tylko tekst",
-			"withTranslation": "Tekst z tłumaczeniem",
-			"withRoman": "Tekst z romanizacją",
-			"withBoth": "Tekst z oboma"
-		},
-		"separationMode": {
-			"caption": "Format tłumaczenia/romanizacji",
-			"multipleLine": "Przeplatane wiele linii",
-			"sameLine": "Separacja w tej samej linii"
-		},
-		"separator": "Separator linii",
-		"swapTransAndRoman": "Zamień linie tłumaczenia i romanizacji",
-		"wordSeparator": "Separator słów",
-		"enableSpecialPrefix": "Włącz specjalny prefiks",
-		"bgLyricPrefix": "Prefiks linii w tle",
-		"duetLyricPrefix": "Prefiks lnii w duecie",
-		"enableEmptyBeat": "Włącz pusty takt",
-		"emptyBeatSymbol": "Symbol pustego taktu"
 	},
 	"metadataDialog": {
 		"openLink": "Otwórz link",

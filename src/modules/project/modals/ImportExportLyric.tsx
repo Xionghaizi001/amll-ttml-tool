@@ -9,14 +9,14 @@ import {
 	formatExportCommandId,
 	formatImportCommandId,
 } from "$/plugins/adapters/format-commands";
-import { localizeText } from "$/plugins/ui/localize";
 import {
-	importFromLRCLIBDialogAtom,
-	importFromTextDialogAtom,
-} from "$/states/dialogs.ts";
+	PINNED_FACTORY_COMMANDS,
+	PinnedCommandMenuItem,
+} from "$/plugins/ui/ContributionMenuItems";
+import { localizeText } from "$/plugins/ui/localize";
+import { importFromLRCLIBDialogAtom } from "$/states/dialogs.ts";
 
 const commandIds = {
-	importText: "core.file.import.text",
 	importLrcLib: "core.file.import.lrclib",
 } as const;
 
@@ -26,7 +26,6 @@ const commandIds = {
  * 菜单项只引用由宿主派生的 command ID。
  */
 export const ImportExportLyric = () => {
-	const setImportFromTextDialog = useSetAtom(importFromTextDialogAtom);
 	const setImportFromLRCLIBDialog = useSetAtom(importFromLRCLIBDialogAtom);
 	const { t, i18n } = useTranslation();
 
@@ -44,7 +43,6 @@ export const ImportExportLyric = () => {
 	const importProviders = providers.filter((provider) => provider.importer);
 	const exportProviders = providers.filter((provider) => provider.exporter);
 
-	useLocalCommand(commandIds.importText, () => setImportFromTextDialog(true));
 	useLocalCommand(commandIds.importLrcLib, () =>
 		setImportFromLRCLIBDialog(true),
 	);
@@ -56,9 +54,9 @@ export const ImportExportLyric = () => {
 					{t("topBar.menu.importLyric.import", "导入歌词...")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<CommandMenuItem commandId={commandIds.importText}>
-						{t("topBar.menu.importLyric.fromPlainText", "从纯文本导入")}
-					</CommandMenuItem>
+					<PinnedCommandMenuItem
+						commandId={PINNED_FACTORY_COMMANDS.plainTextImport}
+					/>
 					<CommandMenuItem commandId={commandIds.importLrcLib}>
 						{t("topBar.menu.importLyric.fromLRCLIB", "从 LRCLIB 导入...")}
 					</CommandMenuItem>

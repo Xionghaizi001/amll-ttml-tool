@@ -24,10 +24,6 @@
 			"title": "Confirmar novo arquivo",
 			"description": "Você tem alterações não salvas. Se continuar, essas alterações serão perdidas. Tem certeza de que deseja criar um novo arquivo?"
 		},
-		"syncLineTimestamps": {
-			"title": "Confirmar sincronização de marcas de tempo",
-			"description": "Esta ação sincronizará automaticamente os tempos de início e fim de todas as linhas com base nas marcas de tempo de cada palavra na linha, correspondendo aos tempos de início e fim das primeira e última sílabas. Tem certeza de que deseja continuar?"
-		},
 		"openFile": {
 			"title": "Confirmar abertura de arquivo",
 			"description": "Você tem alterações não salvas. Se continuar, essas alterações serão perdidas. Tem certeza de que deseja abrir um novo arquivo?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Segmentação automática",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Segmentação avançada...",
-			"syncLineTimestamps": "Sincronizar marcas de tempo das linhas",
 			"distributeRomanization": "Distribuir romanização...",
 			"help": "Ajuda",
 			"helpDoc": "Documentação (CN)",
 			"importLyric": {
 				"import": "Importar letras",
-				"fromPlainText": "Importar de texto simples…",
 				"fromLRCLIB": "Importar do LRCLIB...",
 				"fromLyRiC": "Importar de arquivo LyRiC…",
 				"fromESLyRiC": "Importar de arquivo ESLyRiC…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadados"
-	},
-	"textImportDialog": {
-		"title": "Importar letras de texto simples",
-		"actionButton": "Importar",
-		"contentMode": {
-			"caption": "Conteúdo do texto",
-			"lyric": "Apenas letras",
-			"withTranslation": "Letras com tradução",
-			"withRoman": "Letras com romanização",
-			"withBoth": "Letras com ambos"
-		},
-		"separationMode": {
-			"caption": "Formato de tradução/romanização",
-			"multipleLine": "Múltiplas linhas intercaladas",
-			"sameLine": "Separação na mesma linha"
-		},
-		"separator": "Separador de linha",
-		"swapTransAndRoman": "Trocar linhas de tradução e romanização",
-		"wordSeparator": "Separador de palavras",
-		"enableSpecialPrefix": "Ativar prefixo especial",
-		"bgLyricPrefix": "Prefixo de letra de fundo",
-		"duetLyricPrefix": "Prefixo de letra de dueto",
-		"enableEmptyBeat": "Ativar batida vazia",
-		"emptyBeatSymbol": "Símbolo de batida vazia"
 	},
 	"metadataDialog": {
 		"openLink": "Abrir link",

@@ -92,7 +92,7 @@ export async function collectFactoryPlugins(root: string) {
 	}
 	await writeFile(
 		resolve(generated, "factory.ts"),
-		`${imports.join("\n")}\nexport const factoryPlugins = [${entries.join(",\n")}];\n`,
+		`${imports.join("\n")}\nexport const factoryPlugins: readonly import("../trusted/trusted-js-service").TrustedJsPluginEntry[] = [${entries.join(",\n")}];\n`,
 	);
 	return catalog;
 }

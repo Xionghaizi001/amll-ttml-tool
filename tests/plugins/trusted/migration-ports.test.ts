@@ -19,6 +19,47 @@ describe("migration SDK ports", () => {
 		expect(changed).toHaveBeenCalledTimes(1);
 	});
 
+	it("imports a plugin document through the host import path unless the user keeps the current one", async () => {
+		const answers = [false, true];
+		const imported: string[] = [];
+		const { host, service } = createRealTrustedHost({
+			pluginId: "p",
+			ports: {
+				importDocument: async (lyric, { label }) => {
+					if (!answers.shift()) return false;
+					imported.push(label);
+					service.replace(lyric, { source: "user", label });
+					return true;
+				},
+			},
+		});
+		const document = {
+			lines: [
+				{
+					words: [
+						{ text: "hi", startTime: 0, endTime: 0, emptyBeat: 1, romanText: "" },
+					],
+					translation: "t",
+					romanization: "",
+					isBackground: true,
+					isDuet: false,
+					startTime: 0,
+					endTime: 0,
+					ignoreSync: false,
+				},
+			],
+			metadata: [],
+		};
+		const kept = await host.project.importDocument(document, "Import");
+		expect(kept).toMatchObject({ ok: false, error: { code: "cancelled" } });
+		const result = await host.project.importDocument(document, "Import");
+		expect(result).toEqual({ ok: true, value: { revision: host.document.revision } });
+		expect(imported).toEqual(["Import"]);
+		const [line] = host.document.readSnapshot().lines;
+		expect(line).toMatchObject({ translation: "t", isBackground: true });
+		expect(line.words[0]).toMatchObject({ text: "hi", emptyBeat: 1 });
+	});
+
 	it("opens only owned dialogs and closes them when contributions disappear", () => {
 		const { host, scope, views } = createRealTrustedHost({ pluginId: "p" });
 		const register = () =>

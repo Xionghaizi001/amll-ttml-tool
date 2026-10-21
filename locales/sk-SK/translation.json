@@ -24,10 +24,6 @@
 			"title": "Potvrdiť nový súbor",
 			"description": "Máte neuložené zmeny. Ak budete pokračovať, tieto zmeny budú stratené. Naozaj chcete vytvoriť nový súbor?"
 		},
-		"syncLineTimestamps": {
-			"title": "Potvrdiť synchronizáciu časových značiek",
-			"description": "Táto akcia automaticky synchronizuje časy začiatku a konca všetkých riadkov na základe časových značiek každého slova v riadku, zodpovedajúce časom začiatku a konca prvej a poslednej slabiky. Naozaj chcete pokračovať?"
-		},
 		"openFile": {
 			"title": "Potvrdiť otvorenie súboru",
 			"description": "Máte neuložené zmeny. Ak budete pokračovať, tieto zmeny budú stratené. Naozaj chcete otvoriť nový súbor?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Automatická segmentácia",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Pokročilá segmentácia...",
-			"syncLineTimestamps": "Synchronizovať časové značky riadkov",
 			"distributeRomanization": "Distribuovať romanizáciu...",
 			"help": "Pomoc",
 			"helpDoc": "Dokumentácia (ČĽR)",
 			"importLyric": {
 				"import": "Importovať texty",
-				"fromPlainText": "Importovať z obyčajného textu…",
 				"fromLRCLIB": "Importovať z LRCLIB...",
 				"fromLyRiC": "Importovať zo súboru LyRiC…",
 				"fromESLyRiC": "Importovať zo súboru ESLyRiC…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadáta"
-	},
-	"textImportDialog": {
-		"title": "Importovať texty z obyčajného textu",
-		"actionButton": "Importovať",
-		"contentMode": {
-			"caption": "Obsah textu",
-			"lyric": "Iba texty",
-			"withTranslation": "Texty s prekladom",
-			"withRoman": "Texty s romanizáciou",
-			"withBoth": "Texty s oboma"
-		},
-		"separationMode": {
-			"caption": "Formát prekladu/romanizácie",
-			"multipleLine": "Prekladané viac riadkov",
-			"sameLine": "Oddelenie na rovnakom riadku"
-		},
-		"separator": "Oddeľovač riadkov",
-		"swapTransAndRoman": "Prehodiť riadky prekladu a romanizácie",
-		"wordSeparator": "Oddeľovač slov",
-		"enableSpecialPrefix": "Povoliť špeciálnu predponu",
-		"bgLyricPrefix": "Predpona sprievodného textu",
-		"duetLyricPrefix": "Predpona duetového textu",
-		"enableEmptyBeat": "Povoliť prázdnu dobu",
-		"emptyBeatSymbol": "Symbol prázdnej doby"
 	},
 	"metadataDialog": {
 		"openLink": "Otvoriť odkaz",

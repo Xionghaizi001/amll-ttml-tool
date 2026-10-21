@@ -11,9 +11,12 @@ import {
 	cmdOpenLatencyTest,
 	cmdOpenSyllableSmoothing,
 	cmdRubySegment,
-	cmdSyncLineTimestamps,
 } from "$/modules/keyboard/commands";
-import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
+import {
+	ContributionMenuItems,
+	PINNED_FACTORY_COMMANDS,
+	PinnedCommandMenuItem,
+} from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
 type ToolMenuProps = {
@@ -46,9 +49,9 @@ const ToolMenuItems = () => {
 			<CommandMenuItem commandId={cmdOpenSyllableSmoothing.id}>
 				{t("topBar.menu.syllableSmoothing", "平滑时间轴...")}
 			</CommandMenuItem>
-			<CommandMenuItem commandId={cmdSyncLineTimestamps.id}>
-				{t("topBar.menu.syncLineTimestamps", "同步行时间戳")}
-			</CommandMenuItem>
+			<PinnedCommandMenuItem
+				commandId={PINNED_FACTORY_COMMANDS.syncLineTimestamps}
+			/>
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger>
 					{t("topBar.menu.perWordRomanization.index", "逐字音译")}

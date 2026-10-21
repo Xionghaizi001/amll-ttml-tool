@@ -100,6 +100,7 @@ export interface ConfirmRequest {
 	title: string;
 	description: string;
 	onConfirm: () => void;
+	onCancel?: () => void;
 }
 
 export interface LyricFileFlowPorts {
@@ -158,6 +159,18 @@ export class LyricFileFlow {
 		} else {
 			action();
 		}
+	}
+
+	/** Promise form of `confirmIfDirty`: false when the user keeps the current document. */
+	confirmDiscard(texts: { title: string; description: string }): Promise<boolean> {
+		if (!this.ports.isDirty()) return Promise.resolve(true);
+		return new Promise((resolve) =>
+			this.ports.requestConfirm({
+				...texts,
+				onConfirm: () => resolve(true),
+				onCancel: () => resolve(false),
+			}),
+		);
 	}
 
 	/**

@@ -10,6 +10,36 @@ import { matchesWhenClause } from "../adapters/when-clause";
 import { localizeText } from "./localize";
 
 /**
+ * Factory plugin commands the host shows at their pre-plugin menu positions
+ * instead of the generic contribution area.
+ * shortcut: fixed host list; replace with user-configurable menu placement when that is scheduled.
+ */
+export const PINNED_FACTORY_COMMANDS = {
+	plainTextImport: "builtin.plain-text-import.run",
+	syncLineTimestamps: "builtin.sync-line-timestamps.run",
+} as const;
+const pinnedCommandIds = new Set<string>(Object.values(PINNED_FACTORY_COMMANDS));
+
+/** A pinned factory command at its host slot; absent while the plugin is disabled or uninstalled. */
+export const PinnedCommandMenuItem = ({ commandId }: { commandId: string }) => {
+	const { i18n } = useTranslation();
+	const title = useSyncExternalStore(
+		(listener) => {
+			const subscription = commandRegistry.subscribe(listener);
+			return () => subscription.dispose();
+		},
+		() => commandRegistry.get(commandId)?.title,
+		() => undefined,
+	);
+	if (title === undefined) return null;
+	return (
+		<CommandMenuItem commandId={commandId}>
+			{localizeText(title, i18n.language)}
+		</CommandMenuItem>
+	);
+};
+
+/**
  * Renders every plugin/builtin menu contribution registered for one protocol
  * location. `variant` picks the Radix primitive family: "dropdown" for the
  * top menus, "context" for right-click menus (context.lyricLine/lyricWord).
@@ -37,6 +67,7 @@ export const ContributionMenuItems = ({
 		.getMenus(location)
 		.filter(
 			(item) =>
+				!pinnedCommandIds.has(item.commandId) &&
 				commandRegistry.get(item.commandId)?.title !== undefined &&
 				matchesWhenClause(item.when),
 		);

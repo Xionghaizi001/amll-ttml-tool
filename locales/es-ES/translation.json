@@ -24,10 +24,6 @@
 			"title": "Confirmar nuevo archivo",
 			"description": "Tienes cambios sin guardar. Si continúas, estos cambios se perderán. ¿Estás seguro de que deseas crear un nuevo archivo?"
 		},
-		"syncLineTimestamps": {
-			"title": "Confirmar sincronización de marcas de tiempo",
-			"description": "Esta acción sincronizará automáticamente los tiempos de inicio y fin de todas las líneas según las marcas de tiempo de cada palabra en la línea, coincidiendo con los tiempos de inicio y fin de la primera y última sílaba. ¿Estás seguro de que deseas continuar?"
-		},
 		"openFile": {
 			"title": "Confirmar abrir archivo",
 			"description": "Tienes cambios sin guardar. Si continúas, estos cambios se perderán. ¿Estás seguro de que deseas abrir un nuevo archivo?"
@@ -181,13 +177,11 @@
 			"autoSegment": "Segmentación automática",
 			"rubySegment": "Segmentación Ruby",
 			"advancedSegment": "Segmentación avanzada...",
-			"syncLineTimestamps": "Sincronizar marcas de tiempo de líneas",
 			"distributeRomanization": "Distribuir romanización...",
 			"help": "Ayuda",
 			"helpDoc": "Documentación (CN)",
 			"importLyric": {
 				"import": "Importar letras",
-				"fromPlainText": "Importar desde texto plano…",
 				"fromLRCLIB": "Importar desde LRCLIB...",
 				"fromLyRiC": "Importar desde archivo LyRiC…",
 				"fromESLyRiC": "Importar desde archivo ESLyRiC…",
@@ -424,30 +418,6 @@
 	},
 	"metadata": {
 		"title": "Metadatos"
-	},
-	"textImportDialog": {
-		"title": "Importar letras desde texto plano",
-		"actionButton": "Importar",
-		"contentMode": {
-			"caption": "Contenido del texto",
-			"lyric": "Solo letras",
-			"withTranslation": "Letras con traducción",
-			"withRoman": "Letras con romanización",
-			"withBoth": "Letras con ambos"
-		},
-		"separationMode": {
-			"caption": "Formato de traducción/romanización",
-			"multipleLine": "Múltiples líneas intercaladas",
-			"sameLine": "Separación en misma línea"
-		},
-		"separator": "Separador de línea",
-		"swapTransAndRoman": "Intercambiar líneas de traducción y romanización",
-		"wordSeparator": "Separador de palabras",
-		"enableSpecialPrefix": "Habilitar prefijo especial",
-		"bgLyricPrefix": "Prefijo de letra de fondo",
-		"duetLyricPrefix": "Prefijo de letra de dueto",
-		"enableEmptyBeat": "Habilitar tiempo vacío",
-		"emptyBeatSymbol": "Símbolo de tiempo vacío"
 	},
 	"metadataDialog": {
 		"openLink": "Abrir enlace",

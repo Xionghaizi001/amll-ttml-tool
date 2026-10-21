@@ -7,7 +7,6 @@ export const hasDismissedSyllableSmoothingTipAtom = atomWithStorage(
 	false,
 );
 
-export const importFromTextDialogAtom = atom(false);
 export const metadataEditorDialogAtom = atom(false);
 export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
@@ -24,6 +23,7 @@ export const confirmDialogAtom = atom<{
 	title: string;
 	description: string;
 	onConfirm?: () => void;
+	onCancel?: () => void;
 }>({
 	open: false,
 	title: "",

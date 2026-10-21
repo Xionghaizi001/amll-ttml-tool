@@ -28,10 +28,6 @@
 			"title": "Confirm New File",
 			"description": "You have unsaved changes. If you proceed, these changes will be lost. Are you sure you want to create a new file?"
 		},
-		"syncLineTimestamps": {
-			"title": "Confirm Sync Line Timestamps",
-			"description": "This action will automatically synchronize the start and end times of all lines based on the timestamps of each word in the line, matching the start and end times of the first and last syllables. Are you sure you want to proceed?"
-		},
 		"openFile": {
 			"title": "Confirm Open File",
 			"description": "You have unsaved changes. If you proceed, these changes will be lost. Are you sure you want to open a new file?"
@@ -236,7 +232,6 @@
 			"autoSegment": "Auto Segment",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
-			"syncLineTimestamps": "Sync Line Timestamps",
 			"perWordRomanization": {
 				"index": "Per-Word Romanization",
 				"distribute": "Distribute Romanization...",
@@ -246,7 +241,6 @@
 			"tool": "Tools",
 			"importLyric": {
 				"import": "Import lyrics",
-				"fromPlainText": "Import from plain text…",
 				"fromLRCLIB": "Import from LRCLIB...",
 				"fromLyRiC": "Import from LyRiC file…",
 				"fromESLyRiC": "Import from ESLyRiC file…",
@@ -525,30 +519,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"textImportDialog": {
-		"title": "Import Lyrics from Plain Text",
-		"actionButton": "Import",
-		"contentMode": {
-			"caption": "Text content",
-			"lyric": "Lyrics Only",
-			"withTranslation": "Lyrics with translation",
-			"withRoman": "Lyrics with romanization",
-			"withBoth": "Lyrics with both"
-		},
-		"separationMode": {
-			"caption": "Translation/Romanization Format",
-			"multipleLine": "Interleaved Multiple Lines",
-			"sameLine": "Same Line Separation"
-		},
-		"separator": "Line Separator",
-		"swapTransAndRoman": "Swap translation and romanization lines",
-		"wordSeparator": "Word Separator",
-		"enableSpecialPrefix": "Enable Special Prefix",
-		"bgLyricPrefix": "Background Lyric Prefix",
-		"duetLyricPrefix": "Duet Lyric Prefix",
-		"enableEmptyBeat": "Enable Empty Beat",
-		"emptyBeatSymbol": "Empty Beat Symbol"
 	},
 	"metadataDialog": {
 		"emptyItem": "No entries have been added to this section yet.",

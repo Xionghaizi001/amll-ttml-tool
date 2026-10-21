@@ -24,6 +24,7 @@ import type {
 } from "@amll-ttml-tool/plugin-sdk-js";
 import { TRUSTED_JS_SDK_VERSION } from "@amll-ttml-tool/plugin-sdk-js";
 import type { Disposable } from "$/kernel/commands";
+import type { TTMLLyric } from "$/types/ttml";
 import type { ExtensionScope } from "$/kernel/extensions";
 import {
 	createDocumentFromPluginLines,
@@ -73,6 +74,8 @@ export interface TrustedJsHostPorts {
 	): () => void;
 	/** Read-only project identity (id + current save file name). */
 	getProjectInfo(): TrustedJsProjectInfoV0;
+	/** File → Open commit path; resolves false when the user keeps the current document. */
+	importDocument(lyric: TTMLLyric, options: { label: string }): Promise<boolean>;
 	/** Host UI locale for `i18n`; the application passes i18next's language. */
 	getLocale(): string;
 	subscribeLocaleChanges(listener: (locale: string) => void): () => void;
@@ -192,6 +195,23 @@ export const createTrustedJsHost = (
 		},
 		project: {
 			getInfo: () => ports.getProjectInfo(),
+			importDocument: async ({ lines, metadata }, label) => {
+				const cancelled = {
+					ok: false as const,
+					error: {
+						code: "cancelled" as const,
+						message: "The current document was kept",
+					},
+				};
+				if (lifecycle.signal.aborted) return cancelled;
+				const lyric = createDocumentFromPluginLines(
+					lines,
+					metadata,
+					createSeededIdAllocator(nextSeed(pluginId)),
+				);
+				if (!(await ports.importDocument(lyric, { label }))) return cancelled;
+				return { ok: true, value: { revision: ports.documents.getRevision() } };
+			},
 		},
 		i18n: {
 			get locale() {

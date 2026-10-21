@@ -147,6 +147,18 @@ describe("LyricFileFlow", () => {
 		await vi.waitFor(() => expect(state.replaced).toHaveLength(1));
 	});
 
+	it("resolves the discard prompt with the user's answer", async () => {
+		const texts = { title: "t", description: "d" };
+		expect(await createHarness().flow.confirmDiscard(texts)).toBe(true);
+		const { state, flow } = createHarness({ dirty: true });
+		const kept = flow.confirmDiscard(texts);
+		state.confirms[0].onCancel?.();
+		expect(await kept).toBe(false);
+		const discarded = flow.confirmDiscard(texts);
+		state.confirms[1].onConfirm();
+		expect(await discarded).toBe(true);
+	});
+
 	it("rejects unsupported extensions with a user-facing error", async () => {
 		const { state, flow } = createHarness();
 		flow.openLyricSource({ name: "song.krc", text: async () => "" });

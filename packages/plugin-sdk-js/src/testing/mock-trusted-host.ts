@@ -51,6 +51,8 @@ export interface MockTrustedJsHostOptions {
 	strings?: Record<string, LocalizedText>;
 	/** Initial host locale; defaults to `en`. */
 	locale?: string;
+	/** Answer to the host's discard-unsaved-changes prompt for `project.importDocument`; defaults to confirm. */
+	onConfirmImport?: () => boolean | Promise<boolean>;
 }
 
 /** One committed `applyEdit` call, for asserting single-transaction behavior. */
@@ -208,6 +210,25 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 
 	readonly project: TrustedJsHostV0["project"] = {
 		getInfo: () => clone(this.projectInfo),
+		importDocument: async ({ lines, metadata }, label) => {
+			if (!(await (this.options.onConfirmImport?.() ?? true)))
+				return {
+					ok: false,
+					error: { code: "cancelled", message: "Import was not confirmed" },
+				};
+			const result = this.applyEdit(
+				[{ op: "replaceDocument", lines, metadata }],
+				label,
+			);
+			if (!result.ok) return result;
+			this.idSequence += 1;
+			this.projectInfo = {
+				...this.projectInfo,
+				projectId: `mock-project-${this.idSequence}`,
+			};
+			this.setSelection({ lineIds: [], wordIds: [] });
+			return { ok: true, value: { revision: result.value.revision } };
+		},
 	};
 
 	readonly i18n: TrustedJsHostV0["i18n"] = (() => {

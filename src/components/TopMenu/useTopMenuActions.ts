@@ -2,7 +2,6 @@ import { open } from "@tauri-apps/plugin-shell";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { withImmer } from "jotai-immer";
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
 import {
 	distributeDocumentRomanization,
 	generateDocumentRuby,
@@ -36,7 +35,6 @@ import {
 	cmdSelectInverted,
 	cmdSelectWordsOfMatchedSelection,
 	cmdSubmitToAMLLDB,
-	cmdSyncLineTimestamps,
 	cmdUndo,
 	cmdUnselectAll,
 } from "$/modules/keyboard/commands";
@@ -55,7 +53,6 @@ import {
 import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host";
 import {
 	advancedSegmentationDialogAtom,
-	confirmDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	pluginStoreDialogAtom,
@@ -75,13 +72,11 @@ import { createLogger } from "$/utils/logger";
 const topMenuLogger = createLogger("TopMenu");
 
 export const useTopMenuActions = () => {
-	const { t } = useTranslation();
 	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
 	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setHistoryRestoreDialog = useSetAtom(historyRestoreDialogAtom);
 	const setAdvancedSegmentationDialog = useSetAtom(
 		advancedSegmentationDialogAtom,
@@ -313,44 +308,6 @@ export const useTopMenuActions = () => {
 		});
 	}, [buildRubySegments, editLyricLines, store]);
 
-	const onSyncLineTimestamps = useCallback(() => {
-		const action = () => {
-			editLyricLines((draft) => {
-				for (let i = 0; i < draft.lyricLines.length; i++) {
-					const line = draft.lyricLines[i];
-					if (line.words.length === 0) continue;
-
-					let startTime = line.words[0].startTime;
-					let endTime = line.words[line.words.length - 1].endTime;
-
-					if (i + 1 < draft.lyricLines.length) {
-						const nextLine = draft.lyricLines[i + 1];
-						if (nextLine.isBG && nextLine.words.length > 0) {
-							const nextLineStart = nextLine.words[0].startTime;
-							const nextLineEnd =
-								nextLine.words[nextLine.words.length - 1].endTime;
-							startTime = Math.min(startTime, nextLineStart);
-							endTime = Math.max(endTime, nextLineEnd);
-						}
-					}
-
-					line.startTime = startTime;
-					line.endTime = endTime;
-				}
-			});
-		};
-
-		setConfirmDialog({
-			open: true,
-			title: t("confirmDialog.syncLineTimestamps.title", "确认同步行时间戳"),
-			description: t(
-				"confirmDialog.syncLineTimestamps.description",
-				"此操作将根据每行单词的时间戳自动同步所有行的起始和结束时间为第一个和最后一个音节的开始和结束时间。确定要继续吗？",
-			),
-			onConfirm: action,
-		});
-	}, [editLyricLines, setConfirmDialog, t]);
-
 	const onOpenDistributeRomanization = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
 		const { failures } = distributeDocumentRomanization(
@@ -411,7 +368,6 @@ export const useTopMenuActions = () => {
 	useCommandHandler(cmdRubySegment, onRubySegment);
 	useCommandHandler(cmdOpenAdvancedSegmentation, onOpenAdvancedSegmentation);
 	useCommandHandler(cmdOpenSyllableSmoothing, onOpenSyllableSmoothing);
-	useCommandHandler(cmdSyncLineTimestamps, onSyncLineTimestamps);
 	useCommandHandler(cmdDistributeRomanization, onOpenDistributeRomanization);
 	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
 	useCommandHandler(cmdAutoRuby, onAutoRuby);
@@ -441,7 +397,6 @@ export const useTopMenuActions = () => {
 		onAutoSegment,
 		onRubySegment,
 		onOpenAdvancedSegmentation,
-		onSyncLineTimestamps,
 		onOpenDistributeRomanization,
 		onAutoRuby,
 		onCheckRomanizationWarnings,

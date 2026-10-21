@@ -17,6 +17,7 @@ import {
 	subscribeHostDocumentChanges,
 	subscribeHostSelectionChanges,
 } from "$/plugins/adapters/host-services";
+import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host";
 import { registerHostMode } from "$/plugins/adapters/mode-contributions";
 import { loadRemotePluginCatalog } from "$/plugins/store/catalog-client";
 import { declarativeFormService } from "$/plugins/ui/declarative-form-service";
@@ -54,6 +55,21 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	getSelection: getHostSelection,
 	subscribeSelectionChanges: subscribeHostSelectionChanges,
 	getProjectInfo: getHostProjectInfo,
+	importDocument: async (lyric, { label }) => {
+		const confirmed = await lyricFileFlow.confirmDiscard({
+			title: i18n.t("confirmDialog.importFile.title", "确认导入歌词"),
+			description: i18n.t(
+				"confirmDialog.importFile.description",
+				"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？",
+			),
+		});
+		if (!confirmed) return false;
+		await lyricFileFlow.commitImportedLyric(lyric, {
+			label,
+			expectedRevision: pluginDocumentGateway.getRevision(),
+		});
+		return true;
+	},
 	getLocale: () => i18n.language,
 	subscribeLocaleChanges: (listener) => {
 		i18n.on("languageChanged", listener);

@@ -130,7 +130,7 @@ export default definePlugin({
 
 `TrustedJsHostV0` 当前提供：
 
-- `document`、`selection`、`project`
+- `document`、`selection`、`project`（`getInfo`；`importDocument` 以“打开文件”语义替换整个文档）
 - `i18n.t/locale/onLocaleChanged`（包内字符串表，见“字符串表”）
 - `commands`、`menus`、`titleBarActions`
 - `ui.showForm/notify/openView/closeView`
@@ -202,7 +202,7 @@ const external = (id: string) => [
 
 ZIP 可复现打包由独立 toolkit 保证：输入文件名、字节及锁定依赖一致时，条目按 UTF-16 码元排序，固定压缩级别、DOS 时间和平台属性，得到相同 SHA-256；文件 mtime、项目路径、语言与时区不参与产物。源码换行及 JSON 键顺序不自动归一化，发布需统一 checkout 换行并使用 frozen lockfile。验收运行 toolkit 的 `pnpm test`（含跨语言/时区进程与 trusted-js/theme 固定摘要），其 CI 在 Windows/Linux/macOS 核对同一摘要基线；配置矩阵不等于已通过远端实测。
 
-当前验收进度（2026-10-18）：toolkit 在 Windows / Node 24.12.0 / pnpm 10.28.2 下 `pnpm test` 9/9 通过，包含四组语言/时区固定摘要回归；Windows/Linux/macOS CI 已配置但尚未远端执行。后续需记录三个平台通过同一摘要基线的 run URL，桌面 WebView 运行验收独立进行。
+当前验收进度（2026-10-21）：toolkit 在 Windows / Node 24.12.0 / pnpm 10.28.2 下 `pnpm test` 11/11 通过，包含四组语言/时区固定摘要回归；Windows/Linux/macOS CI 已配置但尚未远端执行。后续需记录三个平台通过同一摘要基线的 run URL，桌面 WebView 运行验收独立进行。
 
 宿主按 magic bytes 识别 JSON 或 ZIP，不依赖文件扩展名：
 
@@ -311,4 +311,4 @@ host.ui.notify({ level: "info", message: host.i18n.t("shift.done", { count: 3 })
 host.i18n.onLocaleChanged(() => rerender());
 ```
 
-JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆盖资源相同；独立工具链尚未自动收集这些文件。语言按 `zh-CN` → `zh` → `default` 回退；占位符只支持 `{name}`；未知 key 返回 key 本身。key、数量与长度限制见 PLUGIN.md“字符串表”。测试可用 `new MockTrustedJsHost({ pluginId, strings, locale })` 与 `setLocale()`。
+JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆盖资源相同；toolkit `pack` 按根 `manifest.json` 的 `contributes.strings` 与 `overrides[].entry` 收集并校验这些文件（`definePlugin()` 生成的 manifest 不含 contributes，需要字符串表时使用根 manifest）。开发模式目录不携带字符串表。命令标题等 contribution 文案可直接引用同一 JSON 的条目作为 LocalizedText，见 `amll-ttml-tool-plugin-sync-line-timestamps`。语言按 `zh-CN` → `zh` → `default` 回退；占位符只支持 `{name}`；未知 key 返回 key 本身。key、数量与长度限制见 PLUGIN.md“字符串表”。测试可用 `new MockTrustedJsHost({ pluginId, strings, locale })` 与 `setLocale()`。

@@ -328,10 +328,6 @@ export const cmdOpenSyllableSmoothing = registerMenuCommand(
 	"tool.openSyllableSmoothing",
 	t("topBar.menu.syllableSmoothing"),
 );
-export const cmdSyncLineTimestamps = registerMenuCommand(
-	"tool.syncLineTimestamps",
-	t("topBar.menu.syncLineTimestamps"),
-);
 export const cmdDistributeRomanization = registerMenuCommand(
 	"tool.distributeRomanization",
 	t("topBar.menu.perWordRomanization.distribute"),
