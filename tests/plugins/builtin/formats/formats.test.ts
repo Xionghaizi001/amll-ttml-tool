@@ -40,47 +40,21 @@ describe("builtin format providers", () => {
 	it("registers every builtin format with TTML as the host-native provider", () => {
 		expect(contributions.getFormatProviders().map((p) => p.formatId)).toEqual([
 			"ttml",
-			"lrc",
-			"eslrc",
-			"qrc",
-			"yrc",
-			"lys",
 			"ass",
 		]);
 		const native = contributions.getHostNativeFormatProvider();
 		expect(native?.formatId).toBe("ttml");
 		expect(native?.importer).toBeDefined();
 		expect(native?.exporter).toBeDefined();
-		expect(contributions.findFormatProviderForExtension("qrc")?.formatId).toBe(
-			"qrc",
-		);
 		expect(contributions.getFormatProvider("ass")?.importer).toBeUndefined();
 	});
 
-	it("imports LRC text into a normalized document", async () => {
-		const provider = contributions.getFormatProvider("lrc");
-		const importer = provider?.importer;
-		expect(importer).toBeDefined();
-		if (!importer) return;
-		const lyric = await importer({
-			text: "[00:01.00]Hello world",
-			fileName: "song.lrc",
-		});
-		expect(lyric.lyricLines).toHaveLength(1);
-		const line = lyric.lyricLines[0];
-		expect(line.id).toBeTruthy();
-		expect(line.ignoreSync).toBe(false);
-		expect(line.words[0].id).toBeTruthy();
-		expect(line.words.map((word) => word.word).join("")).toContain("Hello");
-	});
-
-	it("exports through the upstream stringifiers", async () => {
-		const exporter = contributions.getFormatProvider("lrc")?.exporter;
-		expect(exporter).toBeDefined();
-		if (!exporter) return;
+	it("exports ASS through the upstream stringifier", async () => {
+		const exporter = contributions.getFormatProvider("ass")?.exporter;
+		if (!exporter) throw new Error("missing");
 		const content = await exporter({
 			lyric: sampleLyric(),
-			fileName: "song.lrc",
+			fileName: "song.ass",
 		});
 		expect(content).toContain("Hello");
 	});

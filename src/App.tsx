@@ -52,6 +52,7 @@ import { lyricFileFlow } from "./plugins/adapters/lyric-file-flow-host.ts";
 import { ensureBuiltinFormatsRegistered } from "./plugins/builtin/formats/index.ts";
 import { ensureBuiltinModesRegistered } from "./plugins/builtin/modes/index.tsx";
 import { ThemeHost } from "./plugins/ui/ThemeHost.tsx";
+import { factoryPluginsLoaded } from "./plugins/trusted/trusted-js-host.ts";
 import { TrustedJsHost } from "./plugins/ui/TrustedJsHost.tsx";
 import { useActiveMode } from "./plugins/ui/mode-host.ts";
 import { settingsDialogAtom, settingsTabAtom } from "./states/dialogs.ts";
@@ -200,6 +201,7 @@ function EditorApp() {
 
 		(async () => {
 			const file = await getTauriStartupOpenedFile();
+			await factoryPluginsLoaded;
 
 			if (file) {
 				appLogger.debug("File data from tauri args", file.name);

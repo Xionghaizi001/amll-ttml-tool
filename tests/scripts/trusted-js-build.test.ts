@@ -51,6 +51,11 @@ describe("trusted-js artifact boundary", () => {
 		);
 		expect(JSON.stringify(output)).toContain("react/jsx-runtime");
 	});
+	it("accepts regex end anchors that look like the host alias", async () => {
+		await expect(
+			artifact("export const closes = (s) => /[)）]$/.test(s);"),
+		).resolves.toBeDefined();
+	});
 	it.each([
 		'import "jotai"; export const x = 1;',
 		'export { x } from "https://example.com/x.js";',
@@ -58,6 +63,7 @@ describe("trusted-js artifact boundary", () => {
 		"export const x = (name) => import(name);",
 		'export const x = () => require("react");',
 		'export const x = "$/states";',
+		"export const x = `$/states`;",
 		'import "react/private"; export const x = 1;',
 	])("rejects unsupported output: %s", async (code) => {
 		await expect(artifact(code, () => true)).rejects.toThrow();

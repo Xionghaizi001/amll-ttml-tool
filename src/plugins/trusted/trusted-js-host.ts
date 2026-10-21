@@ -291,16 +291,20 @@ const loadPlanItem = async (item: TrustedJsLoadPlanItem): Promise<void> => {
  */
 export async function initializeTrustedJsPlugins(): Promise<void> {
 	try {
-		await installedTrustedJsService.restore();
-	} catch (error) {
-		console.warn("Installed JS restore failed", error);
-	}
-	for (const entry of dependencyOrder(FACTORY_TRUSTED_JS_PLUGINS)) {
-		const result = await trustedJsPluginService.load(entry);
-		if (!result.ok)
-			console.warn(
-				`[trusted-js] factory plugin ${entry.id} not loaded (${result.reason}): ${result.message}`,
-			);
+		try {
+			await installedTrustedJsService.restore();
+		} catch (error) {
+			console.warn("Installed JS restore failed", error);
+		}
+		for (const entry of dependencyOrder(FACTORY_TRUSTED_JS_PLUGINS)) {
+			const result = await trustedJsPluginService.load(entry);
+			if (!result.ok)
+				console.warn(
+					`[trusted-js] factory plugin ${entry.id} not loaded (${result.reason}): ${result.message}`,
+				);
+		}
+	} finally {
+		markFactoryPluginsLoaded();
 	}
 	const { plan } = await resolveCurrentLoadPlan();
 	for (const { item } of dependencyOrder(plan.map((item) => ({ ...item.entry, item })), (id) => !getTrustedJsPluginState(id)?.disabled)) {
@@ -310,6 +314,16 @@ export async function initializeTrustedJsPlugins(): Promise<void> {
 		await loadPlanItem(item);
 	}
 }
+
+let markFactoryPluginsLoaded!: () => void;
+/**
+ * Settles once every factory plugin has had its activation attempt (the
+ * catalog/network pass is not awaited). Startup file opens wait on it so a
+ * bundled format provider such as LRC is registered first.
+ */
+export const factoryPluginsLoaded = new Promise<void>((resolve) => {
+	markFactoryPluginsLoaded = resolve;
+});
 
 /** Store page data: per-factory-plugin update/pin state from the catalog. */
 export async function getTrustedJsUpdateStates(options?: {

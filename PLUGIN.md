@@ -209,7 +209,7 @@ trusted-js 对宿主拥有与应用代码相同的实际权限。`TrustedJsHostV
 当前存在两种“随应用交付”概念：
 
 - **宿主核心**：编辑模式、宿主原生 TTML 格式、内置主题等直接由宿主注册，公开插件接口不开放替换；它们提供默认功能与恢复基座。
-- **factory 插件**：已插件化但仍随应用离线交付的功能。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import` 各由独立仓库构建 artifact，宿主用 `factory-plugins.lock.json` 锁定版本与 SHA-256，并在构建期生成 bundled loader。
+- **factory 插件**：已插件化但仍随应用离线交付的功能。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import`、`builtin.formats`（LRC/ESLRC/QRC/YRC/LYS 格式 provider）各由独立仓库构建 artifact，宿主用 `factory-plugins.lock.json` 锁定版本与 SHA-256，并在构建期生成 bundled loader。
 
 factory 插件的菜单入口沿用迁出前的位置：`PINNED_FACTORY_COMMANDS`（`src/plugins/ui/ContributionMenuItems.tsx`）列出的命令由宿主在原槽位渲染，并从通用插件菜单区排除；插件仍正常注册 menu contribution。这是出厂插件的例外，开放菜单位置自定义后改由配置决定。
 

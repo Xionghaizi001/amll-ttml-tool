@@ -19,7 +19,8 @@ export function assertTrustedJsArtifact(
 	fileName: string,
 	ast: unknown,
 ): void {
-	if (code.includes("$/"))
+	// A quoted `$/` is a leftover host alias; regex end-anchors like `/x$/` are fine.
+	if (/["'`]\$\//.test(code))
 		throw new Error(`${fileName}: host alias $/ remains`);
 	const check = (node: unknown) => {
 		const value = node as { type?: string; value?: unknown } | undefined;

@@ -57,7 +57,7 @@
 
 ### builtin 与 factory
 
-`builtin` 是宿主核心运行档；factory 是随应用交付的 trusted-js 来源。两者不是同一个维度。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import` 由各自外置仓库产生锁定 artifact，构建期校验 SHA-256 并生成 loader；高版本安装包可遮蔽 factory，pin 后回退到随应用副本。
+`builtin` 是宿主核心运行档；factory 是随应用交付的 trusted-js 来源。两者不是同一个维度。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import`、`builtin.formats` 由各自外置仓库产生锁定 artifact。Tauri 启动参数中的文件在 `factoryPluginsLoaded` 之后才打开，保证出厂格式 provider 已注册，构建期校验 SHA-256 并生成 loader；高版本安装包可遮蔽 factory，pin 后回退到随应用副本。
 
 ## 4. 改动流程
 

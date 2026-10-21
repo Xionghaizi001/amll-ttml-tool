@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已有独立技术原型（`../amll-ttml-tool-plugin-store/`）：Fastify/SQLite、本地管理员、ZIP 校验上传、不可变版本、待验收/上架/下架、公开清单与下载、运营记录。尚不具备正式 GitHub 身份、组织资格、受限下载、kill switch 与可信 CI 发布链路，不能视为阶段 10 完成。
-- 阶段 8 已开始：外围辅助工具（同步行时间戳、纯文本导入）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
+- 阶段 8 已开始：外围辅助工具（同步行时间戳、纯文本导入、LRC/ESLRC/QRC/YRC/LYS 导入导出）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
 - 尚未落地：阶段 8/9 其余业务迁移、商店生产能力与宿主控制状态联调、工具链/插件远端发布；平台实测与文档补齐贯穿实施。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -67,11 +67,11 @@
 
 执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
 
-- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import` 已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
+- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。格式插件的实机禁用/恢复验收待补；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
 - [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。`ContributionRegistry` 已有 `sidebar` view kind 但宿主没有渲染位；渲染器随节拍器一起落地，contribution 字段（标题、图标、顺序、默认展开）由这两个消费者的实际需要决定，不预先扩协议。
 - [ ] 元数据、Ruby、分词。
 - [ ] 帮助、设置和更新。
-- [ ] 文件与格式支持。
+- [ ] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
 - [ ] 网络服务（先迁移 LRCLIB 等业务消费者，并接入网络端口与离线总开关）；GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
 
@@ -91,12 +91,12 @@
 | 元数据编辑 | `src/modules/project/modals/MetadataEditor.tsx`、`src/modules/project/logic` | 元数据读取/编辑、文件名推导；通过 document/project API，不持有宿主 atom |
 | Ruby/罗马音 | `src/modules/lyric-editor/tools/RubyEditor.tsx`、`src/modules/segmentation/utils/Transliteration` | Ruby 生成、分配与批量应用；与分词的共享通过插件依赖声明表达 |
 | 分词与词级编辑辅助 | `src/modules/segmentation`、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法与交互编辑器均走 trusted-js；统一使用 document-ops |
-| 外围辅助工具 | 同步行时间戳、纯文本导入（已外置）；`src/modules/lyric-drag` 保留 | 仅迁出可由 contribution、command、声明式表单表达的功能；拖拽宿主手势保留，业务变更通过插件命令提交 |
+| 外围辅助工具 | 同步行时间戳、纯文本导入、非 TTML 格式 provider（已外置）；`src/modules/lyric-drag` 保留 | 仅迁出可由 contribution、command、声明式表单表达的功能；拖拽宿主手势保留，业务变更通过插件命令提交 |
 | 节拍器、大纲 | 定制版 sidebar 面板 | sidebar contribution 的首批消费者；渲染器随之落地，见阶段 8 执行清单 |
 | 交付文件 i18n 支持 | 定制版 toolbar 模块 | toolbar contribution 的首批消费者；渲染器随之落地，审阅 toolbar items 在阶段 9 复用 |
 | 帮助、设置和更新扩展 | `src/modules/settings` 中可独立关闭的业务页/工具 | 设置壳、插件管理、权限与恢复入口留在宿主；可替换的业务设置页/更新检查器再插件化 |
 | 网络服务与定制功能 | `src/modules/lrclib`、GitHub/歌词站/NCM 等阶段 9 功能 | 通过明确的网络 capability 与离线总开关接入；凭据由宿主持有，插件只经宿主端口操作 |
-| 可选格式 provider | 阶段 7 已定义的非 TTML provider 及未来第三方格式 | 复用 `core.formats` registry；TTML 不在此项迁出 |
+| 可选格式 provider | LRC/ESLRC/QRC/YRC/LYS 已迁入 `builtin.formats`；未来第三方格式 | 复用 `core.formats` registry；TTML 与 ASS 导出不在此项迁出 |
 
 #### 明确保留在宿主的功能
 
@@ -129,7 +129,7 @@
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
 | 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | 纯文本导入已使用；LRCLIB 迁移复用同一端口 |
 | 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
-| 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | core.formats/core.modes/内置主题仍保留宿主身份，未复制源码 |
+| 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | LRC/ESLRC/QRC/YRC/LYS 已由 `builtin.formats` 提供；TTML 与 ASS 导出、core.modes、内置主题仍在宿主 |
 | 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 只有注册接口，宿主无渲染位；渲染器随首个消费者落地 |
 | 交付 i18n、审阅工具条（toolbar） | `registerToolbar` | 只有注册接口，宿主无渲染位；渲染器随首个消费者落地 |
 
@@ -187,13 +187,13 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 
 ## 插件工具链与 time-shift 外置
 
-本地独立仓库位于同级 `amll-ttml-tool-plugin-toolkit/`、`amll-ttml-tool-plugin-time-shift/`、`amll-ttml-tool-plugin-sync-line-timestamps/`、`amll-ttml-tool-plugin-plain-text-import/`，均未配置 remote。toolkit `vendor/` 的 API/SDK tarball 已于 2026-10-21 与宿主同步；宿主 SDK 变更后须重新同步并更新各插件仓库的 vendor 副本（time-shift 仍为旧副本，下次升版时同步）。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。toolkit 的 create/build/test/pack/serve、SDK tarball 与 Release workflow、`factory-plugins.lock.json` 收集器、本地静态源与 Chrome 夹具均已落地，操作见 `docs/plugin-development-guide.md`。
+本地独立仓库位于同级 `amll-ttml-tool-plugin-toolkit/`、`amll-ttml-tool-plugin-time-shift/`、`amll-ttml-tool-plugin-sync-line-timestamps/`、`amll-ttml-tool-plugin-plain-text-import/`、`amll-ttml-tool-plugin-formats/`，均未配置 remote。toolkit `vendor/` 的 API/SDK tarball 已于 2026-10-21 与宿主同步；宿主 SDK 变更后须重新同步并更新各插件仓库的 vendor 副本（time-shift 仍为旧副本，下次升版时同步）。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。toolkit 的 create/build/test/pack/serve、SDK tarball 与 Release workflow、`factory-plugins.lock.json` 收集器、本地静态源与 Chrome 夹具均已落地，操作见 `docs/plugin-development-guide.md`。
 
 - [ ] 远端交付（后置）：创建/绑定各插件与工具链的远端仓库，发布 SDK/工具链 Release 附件与 time-shift 静态商店，随后把 lock source 指向正式 HTTPS 地址；等待商店后端完成后再推进。当前本地镜像不等于远端已发布；发布后宿主升版才可做到仅改 lock。
 - [ ] ZIP 跨平台验收：绑定远端仓库后执行已配置的 Windows/Linux/macOS CI，确认三个 job 均通过同一固定摘要基线，记录 run URL；尚无远端执行结果。
 - [ ] 桌面平台补测：Windows 开发模式 Blob/共享 React 已通过；继续验证 macOS/Linux 原生 WebView 与桌面生产包，不以工具链打包测试替代宿主运行验收。
 
-ZIP 本地验收基线（2026-10-21）：Windows、Node 24.12.0、pnpm 10.28.2，toolkit `pnpm test` 11/11 通过（含字符串表资源打包），包含四组语言/时区独立进程、Unicode 条目排序、mtime 变化及 trusted-js/theme 固定摘要与 catalog 一致性。可复现性限定相同输入字节与锁定依赖；测试及基线维护方式见 toolkit README。
+ZIP 本地验收基线（2026-10-21）：Windows、Node 24.12.0、pnpm 10.28.2，toolkit `pnpm test` 12/12 通过（含字符串表资源打包与产物守卫），包含四组语言/时区独立进程、Unicode 条目排序、mtime 变化及 trusted-js/theme 固定摘要与 catalog 一致性。可复现性限定相同输入字节与锁定依赖；测试及基线维护方式见 toolkit README。
 
 阶段 8 新插件直接沿用外置模板；依赖声明与求解已可使用，跨插件业务调用仍须补公开端口，依赖声明本身不提供模块共享。
 

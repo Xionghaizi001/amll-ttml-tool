@@ -18,6 +18,12 @@
       "version": "1.0.0",
       "sha256": "95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185",
       "source": "vendor/plugin-store/95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185.zip"
+    },
+    {
+      "id": "builtin.formats",
+      "version": "1.0.0",
+      "sha256": "0d9a95d25aa2d0dd6dc30f80c17b165cc70ea0cfc3bd332989ca620f64f1339a",
+      "source": "vendor/plugin-store/0d9a95d25aa2d0dd6dc30f80c17b165cc70ea0cfc3bd332989ca620f64f1339a.zip"
     }
   ]
 }

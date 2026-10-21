@@ -64,6 +64,28 @@ describe("sync line timestamps artifact on the real trusted host", () => {
 	});
 });
 
+describe("lyric formats artifact on the real trusted host", () => {
+	it("registers namespaced providers that import and export through the host registry", async () => {
+		const id = "builtin.formats";
+		const { activate } = await loadLockedArtifact(id);
+		const fixture = createRealTrustedHost({ pluginId: id });
+		await activate({ pluginId: id, host: fixture.host, signal: new AbortController().signal });
+		const contributions = fixture.extensions.contributions;
+		expect(contributions.getFormatProviders().map((p) => p.formatId)).toEqual(
+			["lrc", "eslrc", "qrc", "yrc", "lys"].map((format) => `${id}.${format}`),
+		);
+		const lrc = contributions.findFormatProviderForExtension("lrc");
+		if (!lrc?.importer || !lrc.exporter) throw new Error("missing LRC provider");
+		const lyric = await lrc.importer({ text: "[00:01.00]Hello\n[00:01.00]你好\n[00:02.00]", fileName: "a.lrc" });
+		expect(lyric.lyricLines[0]).toMatchObject({ startTime: 1000, endTime: 2000, translatedLyric: "你好" });
+		expect(lyric.lyricLines[0].words[0]).toMatchObject({ word: "Hello", obscene: false });
+		expect(await lrc.exporter({ lyric: realHostFixture(), fileName: "a.lrc" })).toContain("hello");
+
+		fixture.scope.dispose();
+		expect(contributions.getFormatProviders()).toEqual([]);
+	});
+});
+
 describe("plain text import artifact on the real trusted host", () => {
 	it("imports pasted text through the host import port and remembers its options", async () => {
 		const id = "builtin.plain-text-import";
