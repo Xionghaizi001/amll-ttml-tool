@@ -137,11 +137,11 @@ export default definePlugin({
 - `storage.kv`
 - `network.request/isOffline`
 - `formats.register`
-- `views.registerMode/registerView`
+- `views.registerMode/registerView`（`dialog-view` 可设 `size: "small" | "medium" | "large" | "full"`，`full` 为视口宽度）
 
 网络端口仅允许 HTTPS 或本机 HTTP，不附加凭据、不跟随重定向，请求体上限 1 MiB、响应体上限 8 MiB。用户的离线开关只约束这个端口，不能阻止全权 JS 自行发起网络访问。
 
-React 与 React DOM 由宿主固定为 19.2.7。构建时必须 externalize：
+React 与 React DOM 由宿主固定为 19.2.7，Radix Themes 为 3.3.0（受信任视图可直接使用宿主同款组件，渲染在宿主 `<Theme>` 内）。构建时必须 externalize：
 
 ```ts
 const external = (id: string) => [
@@ -151,10 +151,11 @@ const external = (id: string) => [
   "react/compiler-runtime",
   "react-dom",
   "react-dom/client",
+  "@radix-ui/themes",
 ].includes(id);
 ```
 
-产物保留 bare import，由宿主 import map 解析。不要打包第二份 React，不要引用 CDN、宿主 chunk 或私有 alias。toolkit 会拒绝非白名单依赖、运行时 `require`、不可静态确定的动态 import 和额外资源。
+产物保留 bare import，由宿主 import map 解析。不要打包第二份 React 或 Radix Themes（会丢失宿主主题上下文），不要引用 CDN、宿主 chunk 或私有 alias。toolkit 会拒绝非白名单依赖、运行时 `require`、不可静态确定的动态 import 和额外资源。
 
 非 factory 包在 import 前经过 API 版本、manifest、来源、用户禁用、崩溃状态与 consent 检查。内容 SHA-256 用于识别变更并触发重新授权，不是签名或安全认证。factory 副本随应用交付；严格更高版本可以遮蔽它，卸载更新后可 pin 回 factory。
 

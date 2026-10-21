@@ -78,6 +78,7 @@ export interface TrustedViewContributionRecord<TView = unknown>
 	kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
 	title: LocalizedText;
 	view: TView;
+	size?: "small" | "medium" | "large" | "full";
 }
 
 /**
@@ -415,6 +416,7 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 		kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
 		title: LocalizedText;
 		view: TView;
+		size?: "small" | "medium" | "large" | "full";
 	}): Disposable;
 	registerMode(input: {
 		id?: string;

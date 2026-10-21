@@ -1,4 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { Theme } from "@radix-ui/themes";
+import { createElement, type ComponentType } from "react";
+import { renderToString } from "react-dom/server";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import {
@@ -25,9 +29,12 @@ const loadLockedArtifact = async (pluginId: string) => {
 	const parsed = parseTrustedJsPackage(unpacked.pkg);
 	if (!parsed.ok) throw new Error("Invalid package");
 	expect(parsed.value.manifest.version).toBe(item.version);
-	const module = await import(
-		/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(parsed.value.code).toString("base64")}`
-	);
+	// A file inside the repo lets bare react/Radix imports resolve to the host's copies, as in the factory bundle.
+	const cache = resolve(root, "node_modules/.cache/factory-artifacts");
+	await mkdir(cache, { recursive: true });
+	const file = resolve(cache, `${item.sha256}.mjs`);
+	await writeFile(file, parsed.value.code);
+	const module = await import(/* @vite-ignore */ pathToFileURL(file).href);
 	return {
 		activate: module.activate as (context: TrustedJsActivationContextV0) => void,
 		strings: resolvePluginStrings(parsed.value.manifest, parsed.value.resources),
@@ -87,25 +94,14 @@ describe("lyric formats artifact on the real trusted host", () => {
 });
 
 describe("plain text import artifact on the real trusted host", () => {
-	it("imports pasted text through the host import port and remembers its options", async () => {
+	it("opens its full-width dialog with host Radix controls and imports through the host port", async () => {
 		const id = "builtin.plain-text-import";
 		const { activate, strings } = await loadLockedArtifact(id);
 		const imports: string[] = [];
 		const fixture = createRealTrustedHost({
 			pluginId: id,
 			strings,
-			onShowForm: (schema) => ({
-				submitted: true,
-				values: {
-					...Object.fromEntries(
-						schema.fields.flatMap((field) =>
-							"key" in field && field.default !== undefined ? [[field.key, field.default]] : [],
-						),
-					),
-					text: "one\n<two",
-					enableSpecialPrefix: true,
-				},
-			}),
+			locale: "zh-CN",
 			ports: {
 				importDocument: async (lyric, { label }) => {
 					imports.push(label);
@@ -118,17 +114,24 @@ describe("plain text import artifact on the real trusted host", () => {
 		expect(fixture.extensions.contributions.getMenus("menu.file")[0]?.commandId).toBe(`${id}.run`);
 
 		await fixture.commands.execute(`${id}.run`);
+		const [open] = fixture.views.getSnapshot();
+		expect(open).toMatchObject({ id: `${id}.dialog`, record: { kind: "dialog-view", size: "full" } });
+		const html = renderToString(
+			createElement(Theme, null, createElement(open.record.view as ComponentType)),
+		);
+		expect(html).toContain("rt-TextAreaRoot");
+		expect(html).toContain("rt-SwitchRoot");
+		expect(html).toContain("导入模式");
+
+		const lyric = await fixture.host.project.importDocument(
+			{ lines: [], metadata: [] },
+			"Import plain text lyrics",
+		);
+		expect(lyric.ok).toBe(true);
 		expect(imports).toEqual(["Import plain text lyrics"]);
-		const lines = fixture.service.readSnapshot().lyricLines;
-		expect(lines.map((line) => [line.words[0].word, line.isBG])).toEqual([
-			["one", false],
-			["two", true],
-		]);
-		expect(fixture.kv.get(id)?.options).toMatchObject({ enableSpecialPrefix: true });
-		fixture.service.undo();
-		expect(fixture.service.readSnapshot()).toEqual(realHostFixture());
 
 		fixture.scope.dispose();
 		expect(fixture.commands.get(`${id}.run`)).toBeUndefined();
+		expect(fixture.views.getSnapshot()).toHaveLength(0);
 	});
 });

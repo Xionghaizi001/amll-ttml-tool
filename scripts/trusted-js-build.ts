@@ -1,6 +1,10 @@
 import type { Plugin } from "vite";
 
-/** Exact runtime surface shared by the host; arbitrary package subpaths fail closed. */
+/**
+ * Exact runtime surface shared by the host; arbitrary package subpaths fail
+ * closed. Radix Themes is shared so trusted views render host-identical
+ * controls inside the host `<Theme>`; a private copy would lose its context.
+ */
 export const SHARED_REACT_IMPORTS = [
 	"react",
 	"react/jsx-runtime",
@@ -8,7 +12,13 @@ export const SHARED_REACT_IMPORTS = [
 	"react/compiler-runtime",
 	"react-dom",
 	"react-dom/client",
+	"@radix-ui/themes",
 ] as const;
+
+/** ESM-only shared packages: re-exported as-is, without the CJS named-export bridge. */
+const ESM_SHARED_IMPORTS: ReadonlySet<string> = new Set(["@radix-ui/themes"]);
+export const isEsmSharedImport = (id: string): boolean =>
+	ESM_SHARED_IMPORTS.has(id);
 
 export const isSharedReactImport = (id: string): boolean =>
 	SHARED_REACT_IMPORTS.some((specifier) => specifier === id);
@@ -77,7 +87,7 @@ export function trustedJsArtifactGuard(): Plugin {
 				}
 				for (const id of item.moduleIds) {
 					if (
-						/node_modules[\\/](?:\.pnpm[\\/][^/\\]+[\\/]node_modules[\\/])?(react|react-dom)[\\/]/.test(
+						/node_modules[\\/](?:\.pnpm[\\/][^/\\]+[\\/]node_modules[\\/])?(react|react-dom|@radix-ui[\\/]themes)[\\/]/.test(
 							id,
 						)
 					) {

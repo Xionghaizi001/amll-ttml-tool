@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import type { Plugin, ResolvedConfig } from "vite";
-import { SHARED_REACT_IMPORTS } from "./trusted-js-build.ts";
+import { isEsmSharedImport, SHARED_REACT_IMPORTS } from "./trusted-js-build.ts";
 
 const require = createRequire(import.meta.url);
 const prefix = "virtual:amll-shared-react/";
@@ -26,6 +26,8 @@ export function sharedReact(): Plugin {
 			const specifier = id.slice(prefix.length + 1);
 			if (!SHARED_REACT_IMPORTS.some((value) => value === specifier))
 				throw new Error(`Unknown React bridge: ${specifier}`);
+			if (isEsmSharedImport(specifier))
+				return `export * from ${JSON.stringify(specifier)};`;
 			// CJS export-star cannot reliably expose React DOM/client named exports.
 			// Enumerate the pinned package surface and bind values from the shared runtime.
 			const names = Object.keys(require(specifier)).filter(

@@ -68,6 +68,12 @@ describe("trusted-js artifact boundary", () => {
 	])("rejects unsupported output: %s", async (code) => {
 		await expect(artifact(code, () => true)).rejects.toThrow();
 	});
+	it("keeps the shared Radix Themes import external", async () => {
+		const output = await artifact(
+			'import { Button } from "@radix-ui/themes"; export const b = Button;',
+		);
+		expect(JSON.stringify(output)).toContain("@radix-ui/themes");
+	});
 	it("rejects a bundled second React", async () => {
 		await expect(
 			artifact('export { useState } from "react";', () => false),
@@ -86,7 +92,7 @@ describe("host React import map", () => {
 				);
 				await writeFile(
 					resolve(directory, "host.js"),
-					'import * as React from "react"; import * as dom from "react-dom"; import * as client from "react-dom/client"; import { renderToString } from "react-dom/server.browser"; globalThis.__sdkHost = { React, dom, client, renderToString, context: React.createContext("host") };',
+					'import * as React from "react"; import * as dom from "react-dom"; import * as client from "react-dom/client"; import { renderToString } from "react-dom/server.browser"; import * as radix from "@radix-ui/themes"; globalThis.__sdkHost = { React, dom, client, radix, renderToString, context: React.createContext("host") };',
 				);
 				await build({
 					configFile: false,
@@ -123,6 +129,7 @@ describe("host React import map", () => {
 							React: typeof import("react");
 							dom: typeof import("react-dom");
 							client: typeof import("react-dom/client");
+							radix: typeof import("@radix-ui/themes");
 							context: import("react").Context<string>;
 							renderToString: typeof import("react-dom/server").renderToString;
 						};
@@ -152,6 +159,9 @@ describe("host React import map", () => {
 				);
 				expect((await load(map["react-dom/client"])).createRoot).toBe(
 					host.client.createRoot,
+				);
+				expect((await load(map["@radix-ui/themes"])).Button).toBe(
+					host.radix.Button,
 				);
 				for (const url of Object.values(map)) await load(url as string);
 			});

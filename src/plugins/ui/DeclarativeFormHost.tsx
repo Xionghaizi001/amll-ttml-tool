@@ -30,7 +30,7 @@ const localize = (text: LocalizedText, locale: string): string => {
 	return text[locale] ?? text[locale.split("-")[0]] ?? text.default;
 };
 
-const formWidths = { small: "450px", medium: "560px", large: "720px" } as const;
+export const formWidths = { small: "450px", medium: "560px", large: "720px" } as const;
 export const DeclarativeFormHost = () => {
 	const { i18n, t } = useTranslation();
 	const request = useSyncExternalStore(

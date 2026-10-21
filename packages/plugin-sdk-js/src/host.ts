@@ -260,6 +260,8 @@ export interface TrustedJsTrustedViewV0 {
 	kind: TrustedJsTrustedViewKindV0;
 	title: LocalizedText;
 	view: TrustedJsViewV0;
+	/** `dialog-view` width: the form sizes plus `full` (viewport width). Defaults to the host dialog width. */
+	size?: "small" | "medium" | "large" | "full";
 }
 
 /** Trusted-tier only: first-class pages and host view slots. */

@@ -16,8 +16,8 @@
     {
       "id": "builtin.plain-text-import",
       "version": "1.0.0",
-      "sha256": "95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185",
-      "source": "vendor/plugin-store/95d93465a212d97ae64bae559f95127f6b165fea681de67a245d0bdea7dd4185.zip"
+      "sha256": "6d26b92d6047b9486f339d4c4143dcac2756f8078f1880bd4b842c8b70a23956",
+      "source": "vendor/plugin-store/6d26b92d6047b9486f339d4c4143dcac2756f8078f1880bd4b842c8b70a23956.zip"
     },
     {
       "id": "builtin.formats",

@@ -67,7 +67,7 @@
 
 执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
 
-- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。格式插件的实机禁用/恢复验收待补；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
+- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。纯文本导入已改用共享 Radix 的 `dialog-view`（`size: "full"`）还原原版布局，需实机复核样式；格式插件的实机禁用/恢复验收待补；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
 - [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。`ContributionRegistry` 已有 `sidebar` view kind 但宿主没有渲染位；渲染器随节拍器一起落地，contribution 字段（标题、图标、顺序、默认展开）由这两个消费者的实际需要决定，不预先扩协议。
 - [ ] 元数据、Ruby、分词。
 - [ ] 帮助、设置和更新。

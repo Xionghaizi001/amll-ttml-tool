@@ -2,6 +2,7 @@ import { Dialog } from "@radix-ui/themes";
 import type { ComponentType } from "react";
 import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { formWidths } from "./DeclarativeFormHost";
 import { localizeText } from "./localize";
 import { pluginViewService } from "./plugin-view-host";
 
@@ -34,7 +35,14 @@ export const PluginDialogViewHost = () => {
 						}}
 					>
 						<Dialog.Content
-							data-amll-modal-size="medium"
+							data-amll-modal-size={
+								record.size === "full" ? "large" : (record.size ?? "medium")
+							}
+							maxWidth={
+								record.size === "full"
+									? "100%"
+									: record.size && formWidths[record.size]
+							}
 						>
 							<Dialog.Title>
 								{localizeText(record.title, i18n.language)}
