@@ -129,6 +129,15 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		},
 		getProjectInfo: () =>
 			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
+		getAudioState: () => ({ engineState: "idle", loaded: false, durationMs: 0, currentTimeMs: 0, playbackRate: 1 }),
+		subscribeAudioChanges: () => () => {},
+		getBpmState: () => ({ status: "idle", scale: 1, followPlaybackRate: true, showBeatLines: false }),
+		subscribeBpmChanges: () => () => {},
+		setBpmScale: () => {},
+		setBpmFollowPlaybackRate: () => {},
+		setShowBeatLines: () => {},
+		tapBpm: () => {},
+		resetBpm: () => {},
 		importDocument: async (lyric, { label }) => {
 			service.replace(lyric, { source: "user", label });
 			return true;

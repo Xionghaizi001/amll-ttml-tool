@@ -110,6 +110,47 @@ export interface TrustedJsProjectV0 {
 	): Promise<HostResult<{ revision: number }>>;
 }
 
+export type TrustedJsAudioEngineStateV0 = "idle" | "loading" | "ready" | "playing" | "paused" | "error";
+
+export interface TrustedJsAudioStateV0 {
+	engineState: TrustedJsAudioEngineStateV0;
+	loaded: boolean;
+	durationMs: number;
+	currentTimeMs: number;
+	playbackRate: number;
+}
+
+export interface TrustedJsAudioV0 {
+	getState(): TrustedJsAudioStateV0;
+	onChanged(listener: (state: TrustedJsAudioStateV0) => void): DisposableV0;
+}
+
+export type TrustedJsBpmStateV0 =
+	| { status: "idle" | "analyzing"; scale: number; followPlaybackRate: boolean; showBeatLines: boolean }
+	| {
+			status: "completed";
+			bpm: number;
+			baseBpm: number;
+			anchorTick: number;
+			confidence: number;
+			ticks: number[];
+			calculationTimeMs: number;
+			scale: number;
+			followPlaybackRate: boolean;
+			showBeatLines: boolean;
+		}
+	| { status: "error"; error: string; scale: number; followPlaybackRate: boolean; showBeatLines: boolean };
+
+export interface TrustedJsBpmV0 {
+	getState(): TrustedJsBpmStateV0;
+	onChanged(listener: (state: TrustedJsBpmStateV0) => void): DisposableV0;
+	setScale(scale: number): void;
+	setFollowPlaybackRate(value: boolean): void;
+	setShowBeatLines(value: boolean): void;
+	tap(timeSeconds?: number): void;
+	reset(): void;
+}
+
 export interface TrustedJsCommandRegistrationV0 {
 	/** Must be prefixed with `<pluginId>.`. */
 	id: string;
@@ -280,6 +321,8 @@ export interface TrustedJsHostV0 {
 	document: TrustedJsDocumentV0;
 	selection: TrustedJsSelectionV0;
 	project: TrustedJsProjectV0;
+	audio: TrustedJsAudioV0;
+	bpm: TrustedJsBpmV0;
 	i18n: TrustedJsI18nV0;
 	commands: TrustedJsCommandsV0;
 	menus: TrustedJsMenusV0;

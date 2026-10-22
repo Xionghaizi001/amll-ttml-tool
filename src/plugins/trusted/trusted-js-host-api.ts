@@ -19,6 +19,8 @@ import {
 import type {
 	DocumentChangedEventV0,
 	TrustedJsHostV0,
+	TrustedJsAudioStateV0,
+	TrustedJsBpmStateV0,
 	TrustedJsModeV0,
 	TrustedJsProjectInfoV0,
 } from "@amll-ttml-tool/plugin-sdk-js";
@@ -74,6 +76,15 @@ export interface TrustedJsHostPorts {
 	): () => void;
 	/** Read-only project identity (id + current save file name). */
 	getProjectInfo(): TrustedJsProjectInfoV0;
+	getAudioState(): TrustedJsAudioStateV0;
+	subscribeAudioChanges(listener: (state: TrustedJsAudioStateV0) => void): () => void;
+	getBpmState(): TrustedJsBpmStateV0;
+	subscribeBpmChanges(listener: (state: TrustedJsBpmStateV0) => void): () => void;
+	setBpmScale(scale: number): void;
+	setBpmFollowPlaybackRate(value: boolean): void;
+	setShowBeatLines(value: boolean): void;
+	tapBpm(timeSeconds?: number): void;
+	resetBpm(): void;
 	/** File → Open commit path; resolves false when the user keeps the current document. */
 	importDocument(lyric: TTMLLyric, options: { label: string }): Promise<boolean>;
 	/** Host UI locale for `i18n`; the application passes i18next's language. */
@@ -212,6 +223,25 @@ export const createTrustedJsHost = (
 				if (!(await ports.importDocument(lyric, { label }))) return cancelled;
 				return { ok: true, value: { revision: ports.documents.getRevision() } };
 			},
+		},
+		audio: {
+			getState: () => ports.getAudioState(),
+			onChanged: (listener) => {
+				assertActive();
+				return track(ports.subscribeAudioChanges(listener));
+			},
+		},
+		bpm: {
+			getState: () => ports.getBpmState(),
+			onChanged: (listener) => {
+				assertActive();
+				return track(ports.subscribeBpmChanges(listener));
+			},
+			setScale: (scale) => { assertActive(); ports.setBpmScale(scale); },
+			setFollowPlaybackRate: (value) => { assertActive(); ports.setBpmFollowPlaybackRate(value); },
+			setShowBeatLines: (value) => { assertActive(); ports.setShowBeatLines(value); },
+			tap: (timeSeconds) => { assertActive(); ports.tapBpm(timeSeconds); },
+			reset: () => { assertActive(); ports.resetBpm(); },
 		},
 		i18n: {
 			get locale() {

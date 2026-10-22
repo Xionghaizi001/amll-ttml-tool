@@ -231,6 +231,21 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		},
 	};
 
+	readonly audio: TrustedJsHostV0["audio"] = {
+		getState: () => ({ engineState: "idle", loaded: false, durationMs: 0, currentTimeMs: 0, playbackRate: 1 }),
+		onChanged: () => ({ dispose() {} }),
+	};
+
+	readonly bpm: TrustedJsHostV0["bpm"] = {
+		getState: () => ({ status: "idle", scale: 1, followPlaybackRate: true, showBeatLines: false }),
+		onChanged: () => ({ dispose() {} }),
+		setScale: () => {},
+		setFollowPlaybackRate: () => {},
+		setShowBeatLines: () => {},
+		tap: () => {},
+		reset: () => {},
+	};
+
 	readonly i18n: TrustedJsHostV0["i18n"] = (() => {
 		const host = this;
 		return {

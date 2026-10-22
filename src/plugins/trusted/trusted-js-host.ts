@@ -10,6 +10,15 @@ import { getHostEnablementContext } from "$/plugins/adapters/enablement-context"
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import {
 	getHostProjectInfo,
+	getHostAudioState,
+	subscribeHostAudioChanges,
+	getHostBpmState,
+	subscribeHostBpmChanges,
+	setHostBpmScale,
+	setHostBpmFollowPlaybackRate,
+	setHostShowBeatLines,
+	tapHostBpm,
+	resetHostBpm,
 	getHostSelection,
 	pluginDocumentGateway,
 	pluginKvStorage,
@@ -55,6 +64,15 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	getSelection: getHostSelection,
 	subscribeSelectionChanges: subscribeHostSelectionChanges,
 	getProjectInfo: getHostProjectInfo,
+	getAudioState: getHostAudioState,
+	subscribeAudioChanges: subscribeHostAudioChanges,
+	getBpmState: getHostBpmState,
+	subscribeBpmChanges: subscribeHostBpmChanges,
+	setBpmScale: setHostBpmScale,
+	setBpmFollowPlaybackRate: setHostBpmFollowPlaybackRate,
+	setShowBeatLines: setHostShowBeatLines,
+	tapBpm: tapHostBpm,
+	resetBpm: resetHostBpm,
 	importDocument: async (lyric, { label }) => {
 		const confirmed = await lyricFileFlow.confirmDiscard({
 			title: i18n.t("confirmDialog.importFile.title", "确认导入歌词"),
