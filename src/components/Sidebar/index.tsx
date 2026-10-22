@@ -12,6 +12,8 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { localizeText } from "$/plugins/ui/localize";
+import { usePluginSidebarViews } from "$/plugins/ui/plugin-sidebar-views";
 import {
 	activeSidebarTabAtom,
 	closeTabAtom,
@@ -32,6 +34,8 @@ export interface SidebarTab {
 	id: Exclude<SidebarPanelType, "none">;
 	getTitle: (t: TFunction) => string;
 	component: FC;
+	/** Owning plugin of a contributed panel; marks its theme scope. */
+	scope?: string;
 }
 
 export const SIDEBAR_TABS: SidebarTab[] = [
@@ -48,7 +52,8 @@ export const SIDEBAR_TABS: SidebarTab[] = [
 ];
 
 export const Sidebar = () => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const pluginViews = usePluginSidebarViews();
 	const openTabs = useAtomValue(openSidebarTabsAtom);
 	const [activePanel, setActivePanel] = useAtom(activeSidebarTabAtom);
 	const closeTab = useSetAtom(closeTabAtom);
@@ -58,13 +63,25 @@ export const Sidebar = () => {
 	const [tempWidth, setTempWidth] = useState(savedWidth);
 	const sidebarRef = useRef<HTMLDivElement>(null);
 
-	const visibleTabs = useMemo(
-		() =>
-			openTabs
-				.map((id) => SIDEBAR_TABS.find((tab) => tab.id === id))
-				.filter((tab): tab is SidebarTab => tab !== undefined),
-		[openTabs],
-	);
+	const visibleTabs = useMemo(() => {
+		const allTabs: SidebarTab[] = [
+			...SIDEBAR_TABS,
+			...pluginViews.map((view) => ({
+				id: view.id,
+				getTitle: () => localizeText(view.title, i18n.language),
+				component: view.view as FC,
+				scope:
+					view.owner.kind === "plugin" ? view.owner.pluginId : view.owner.id,
+			})),
+		];
+		// Open tabs whose contribution is gone stay persisted but hidden, so
+		// re-enabling the plugin restores them.
+		return openTabs
+			.map((id) => allTabs.find((tab) => tab.id === id))
+			.filter((tab): tab is SidebarTab => tab !== undefined);
+	}, [openTabs, pluginViews, i18n.language]);
+	const shownTab =
+		visibleTabs.find((tab) => tab.id === activePanel) ?? visibleTabs.at(-1);
 
 	const lastNonEmptyTabsCountRef = useRef(visibleTabs.length);
 	if (visibleTabs.length > 0) {
@@ -154,7 +171,7 @@ export const Sidebar = () => {
 					<div className={styles.header} data-single-tab={isSingleTab}>
 						<SidebarTabBar
 							tabs={visibleTabs}
-							activePanel={activePanel}
+							activePanel={shownTab?.id ?? "none"}
 							onSelectTab={setActivePanel}
 							onCloseTab={(id) => closeTab(id)}
 						/>
@@ -170,11 +187,18 @@ export const Sidebar = () => {
 					</div>
 
 					<Box className={styles.content}>
-						{SIDEBAR_TABS.map((tab) => {
-							if (activePanel !== tab.id) return null;
-							const Comp = tab.component;
-							return <Comp key={tab.id} />;
-						})}
+						{shownTab &&
+							(shownTab.scope === undefined ? (
+								<shownTab.component key={shownTab.id} />
+							) : (
+								<div
+									key={shownTab.id}
+									style={{ display: "contents" }}
+									data-amll-plugin-scope={shownTab.scope}
+								>
+									<shownTab.component />
+								</div>
+							))}
 					</Box>
 				</div>
 			</motion.div>

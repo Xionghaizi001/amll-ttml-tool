@@ -137,7 +137,7 @@ export default definePlugin({
 - `storage.kv`
 - `network.request/isOffline`
 - `formats.register`
-- `views.registerMode/registerView`（`dialog-view` 可设 `size: "small" | "medium" | "large" | "full"`，`full` 为视口宽度）
+- `views.registerMode/registerView`（`dialog-view` 可设 `size: "small" | "medium" | "large" | "full"`，`full` 为视口宽度；`sidebar` 在编辑模式 ribbon“视图”区出现同名开关，打开后成为侧边栏标签页）
 
 网络端口仅允许 HTTPS 或本机 HTTP，不附加凭据、不跟随重定向，请求体上限 1 MiB、响应体上限 8 MiB。用户的离线开关只约束这个端口，不能阻止全权 JS 自行发起网络访问。
 

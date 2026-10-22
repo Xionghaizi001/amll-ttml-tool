@@ -2,9 +2,9 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 /**
- * 侧边栏可显示的标签页 ID
+ * 侧边栏可显示的标签页 ID：宿主面板（"outline"、"bpm"）或插件 sidebar contribution id
  */
-export type SidebarTabId = "outline" | "bpm";
+export type SidebarTabId = string;
 
 /**
  * 侧边栏可能显示的面板类型
@@ -35,7 +35,7 @@ export const activeSidebarTabAtom = atom(
 	(get) => {
 		const active = get(baseActiveSidebarTabAtom);
 		const openTabs = get(openSidebarTabsAtom);
-		if (active !== "none" && !openTabs.includes(active as SidebarTabId)) {
+		if (active !== "none" && !openTabs.includes(active)) {
 			return openTabs.length > 0 ? openTabs[openTabs.length - 1] : "none";
 		}
 		return active;

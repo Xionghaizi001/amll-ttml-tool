@@ -47,6 +47,8 @@ import {
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
+import { localizeText } from "$/plugins/ui/localize";
+import { usePluginSidebarViews } from "$/plugins/ui/plugin-sidebar-views";
 import { openSidebarTabsAtom, toggleTabAtom } from "$/states/sidebar.ts";
 import { type LyricLine, type LyricWord, newLyricLine } from "$/types/ttml";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
@@ -737,8 +739,9 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 		const isBpmOpen = openTabs.includes("bpm");
 		const idOutline = useId();
 		const idBpm = useId();
+		const pluginSidebarViews = usePluginSidebarViews();
 
-		const { t } = useTranslation();
+		const { t, i18n } = useTranslation();
 
 		return (
 			<RibbonFrame ref={ref}>
@@ -939,6 +942,27 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 								}}
 							/>
 						</Flex>
+						{pluginSidebarViews.map((view) => (
+							<Text
+								key={view.id}
+								as="label"
+								size="1"
+								style={{
+									display: "flex",
+									alignItems: "center",
+									gap: "var(--space-3)",
+									userSelect: "none",
+								}}
+							>
+								{localizeText(view.title, i18n.language)}
+								<Checkbox
+									checked={openTabs.includes(view.id)}
+									onCheckedChange={(checked) => {
+										toggleTab({ tabId: view.id, open: Boolean(checked) });
+									}}
+								/>
+							</Text>
+						))}
 					</Flex>
 				</RibbonSection>
 			</RibbonFrame>
