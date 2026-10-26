@@ -173,5 +173,23 @@ it("rejects obsolete form controls before exposing them to the UI callback", asy
 		} as never),
 	).rejects.toThrow("Invalid form schema");
 	expect(host.shownForms).toHaveLength(0);
+});
 
+it("reveals existing lines, emits selection and rejects invalid/disposed requests", () => {
+	const host = new MockTrustedJsHost({
+		pluginId: "p",
+		document: fixture(),
+		selection: { lineIds: [], wordIds: ["word-1"] },
+	});
+	const changed = vi.fn();
+	host.selection.onChanged(changed);
+	host.editor.revealLine("line-1");
+	expect(host.selection.get()).toEqual({ lineIds: ["line-1"], wordIds: [] });
+	expect(changed).toHaveBeenCalledOnce();
+	expect(host.revealedLines).toEqual(["line-1"]);
+	expect(host.document.revision).toBe(0);
+	expect(() => host.editor.revealLine("missing")).toThrow();
+	expect(changed).toHaveBeenCalledOnce();
+	host.dispose();
+	expect(() => host.editor.revealLine("line-1")).toThrow("disposed");
 });

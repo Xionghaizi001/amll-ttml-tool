@@ -15,7 +15,8 @@ import {
 
 export interface UseLyricListDragOptions {
 	containerRef: React.RefObject<HTMLElement | null>;
-	source: "main" | "outline";
+	source: string;
+	signal?: AbortSignal;
 	disableDrag?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const useLyricListDrag = ({
 	containerRef,
 	source,
 	disableDrag = false,
+	signal,
 }: UseLyricListDragOptions) => {
 	const store = useStore();
 
@@ -263,7 +265,6 @@ export const useLyricListDrag = ({
 		},
 		[setIsCopyModeGlobal],
 	);
-	1;
 
 	const handleGlobalPointerMove = useCallback(
 		(e: PointerEvent) => {
@@ -323,7 +324,7 @@ export const useLyricListDrag = ({
 	);
 
 	const handleGlobalPointerEnd = useCallback(
-		(_e: PointerEvent, isCancel: boolean) => {
+		(_e: PointerEvent | null, isCancel: boolean) => {
 			if (!ctx.current.active) return;
 
 			ctx.current.active = false;
@@ -359,11 +360,11 @@ export const useLyricListDrag = ({
 				setIsDraggingGlobal(false);
 				setDraggedCount(0);
 				setDragSource(null);
-				setIsCopyModeGlobal(false);
 				document.documentElement.style.removeProperty("--drag-ghost-x");
 				document.documentElement.style.removeProperty("--drag-ghost-y");
 			}
 
+			setIsCopyModeGlobal(false);
 			ctx.current.draggedIds.forEach((id) => {
 				document.querySelectorAll(`[data-line-id="${id}"]`).forEach((el) => {
 					el.removeAttribute("data-is-dragged");
@@ -388,7 +389,7 @@ export const useLyricListDrag = ({
 
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent, lineId: string, index: number) => {
-			if (e.button !== 0) return;
+			if (e.button !== 0 || signal?.aborted) return;
 
 			e.currentTarget.setPointerCapture(e.pointerId);
 
@@ -396,7 +397,7 @@ export const useLyricListDrag = ({
 
 			const controller = new AbortController();
 			abortControllerRef.current = controller;
-			const { signal } = controller;
+			const { signal: dragSignal } = controller;
 
 			const isCopyInitial = e.ctrlKey || e.metaKey;
 
@@ -417,22 +418,23 @@ export const useLyricListDrag = ({
 			};
 
 			window.addEventListener("pointermove", handleGlobalPointerMove, {
-				signal,
+				signal: dragSignal,
 			});
 			window.addEventListener(
 				"pointerup",
 				(ev) => handleGlobalPointerEnd(ev, false),
-				{ signal },
+				{ signal: dragSignal },
 			);
 			window.addEventListener(
 				"pointercancel",
 				(ev) => handleGlobalPointerEnd(ev, true),
-				{ signal },
+				{ signal: dragSignal },
 			);
-			window.addEventListener("keydown", handleKeyDown, { signal });
-			window.addEventListener("keyup", handleKeyUp, { signal });
+			window.addEventListener("keydown", handleKeyDown, { signal: dragSignal });
+			window.addEventListener("keyup", handleKeyUp, { signal: dragSignal });
 		},
 		[
+			signal,
 			handleGlobalPointerMove,
 			handleGlobalPointerEnd,
 			handleKeyDown,
@@ -442,11 +444,13 @@ export const useLyricListDrag = ({
 	);
 
 	useEffect(() => {
+		const cancel = () => handleGlobalPointerEnd(null, true);
+		signal?.addEventListener("abort", cancel);
 		return () => {
-			abortControllerRef.current?.abort();
-			stopAutoScroll();
+			signal?.removeEventListener("abort", cancel);
+			cancel();
 		};
-	}, [stopAutoScroll]);
+	}, [signal, handleGlobalPointerEnd]);
 
 	return {
 		onPointerDown,

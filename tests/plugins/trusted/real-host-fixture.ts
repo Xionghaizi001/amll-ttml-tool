@@ -114,6 +114,19 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const media = new MockTrustedJsHost({ pluginId: options.pluginId });
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
+		createEditor: () => ({
+			...media.editor,
+			revealLine: (id) => {
+				if (
+					!gateway
+						.getDocument({ includeRuby: true })
+						.lines.some((line) => line.id === id)
+				)
+					throw new Error("Unknown lyric line");
+				selection = { lineIds: [id], wordIds: [] };
+				for (const listener of selectionListeners) listener(selection);
+			},
+		}),
 		subscribeDocumentChanges: (listener) =>
 			service.subscribe((event) =>
 				listener({

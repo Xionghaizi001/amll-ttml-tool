@@ -38,7 +38,7 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import { outlineJumpActionAtom } from "$/states/sidebar.ts";
+import { revealLineActionAtom } from "$/states/sidebar.ts";
 import { type LyricLine, newLyricLine } from "$/types/ttml.ts";
 import styles from "./index.module.css";
 import { LyricLineView } from "./lyric-line-view";
@@ -160,7 +160,7 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 		}
 	}, [locateAction, handleLocate]);
 
-	const jumpAction = useAtomValue(outlineJumpActionAtom);
+	const jumpAction = useAtomValue(revealLineActionAtom);
 	useEffect(() => {
 		if (!jumpAction) return;
 		const targetIndex = lyricLines.findIndex((l) => l.id === jumpAction.id);

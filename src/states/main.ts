@@ -151,7 +151,7 @@ export const draggedCountAtom = atom(0);
 /**
  * 拖拽操作是哪里触发的
  */
-export const dragSourceAtom = atom<"main" | "outline" | null>(null);
+export const dragSourceAtom = atom<string | null>(null);
 
 /**
  * 当前拖拽是否为复制模式

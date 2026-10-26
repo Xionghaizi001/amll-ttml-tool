@@ -1,3 +1,4 @@
+import { createPluginEditor } from "$/plugins/ui/plugin-editor";
 import { TrustedJsStateStorage } from "./trusted-js-state-storage";
 import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
 import { toast } from "react-toastify";
@@ -61,6 +62,7 @@ import { checkDependencyActivation, checkDependencyGraph, registerDependencySour
  */
 const trustedJsHostPorts: TrustedJsHostPorts = {
 	documents: pluginDocumentGateway,
+ createEditor: createPluginEditor,
 	subscribeDocumentChanges: subscribeHostDocumentChanges,
 	getSelection: getHostSelection,
 	subscribeSelectionChanges: subscribeHostSelectionChanges,

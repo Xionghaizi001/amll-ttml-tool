@@ -2,7 +2,7 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 /**
- * 侧边栏可显示的标签页 ID：宿主面板（"outline"）或插件 sidebar contribution id
+ * 侧边栏可显示的标签页 ID：插件 sidebar contribution id
  */
 export type SidebarTabId = string;
 
@@ -18,11 +18,15 @@ export type SidebarPanelType = "none" | SidebarTabId;
  */
 const storedOpenSidebarTabsAtom = atomWithStorage<SidebarTabId[]>(
 	"openSidebarTabs",
-	["outline"],
+	["builtin.outline.sidebar"],
 );
 
 const migrateTab = (id: string) =>
-	id === "bpm" ? "builtin.metronome.sidebar" : id;
+	id === "bpm"
+		? "builtin.metronome.sidebar"
+		: id === "outline"
+			? "builtin.outline.sidebar"
+			: id;
 export const openSidebarTabsAtom = atom(
 	(get) => get(storedOpenSidebarTabsAtom).map(migrateTab),
 	(_get, set, tabs: SidebarTabId[]) =>
@@ -30,7 +34,7 @@ export const openSidebarTabsAtom = atom(
 );
 const baseActiveSidebarTabAtom = atomWithStorage<SidebarPanelType>(
 	"activeSidebarTab",
-	"outline",
+	"builtin.outline.sidebar",
 );
 
 /**
@@ -129,6 +133,6 @@ export const sidebarWidthAtom = atomWithStorage("sidebarWidth", 300);
 /**
  * 用于触发编辑器跳转的事件 Atom
  */
-export const outlineJumpActionAtom = atom<{ id: string; ts: number } | null>(
+export const revealLineActionAtom = atom<{ id: string; ts: number } | null>(
 	null,
 );

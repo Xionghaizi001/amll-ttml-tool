@@ -723,3 +723,9 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 `host.bpm.connect(sidebarViewId, onTap)` 取得唯一显示/输入连接，返回可释放句柄；host dispose 自动释放。`setTapMode` 切换键盘/频谱输入，`tap` 无参数时按宿主音频时钟、输出延迟及按键判定校准，传值时单位为秒。插件负责最近十拍窗口、BPM/锚点计算，经 `applyCalibration` 提交；`reset` 恢复本次音频的原始分析。`getTapKeyLabel` 显示用户当前快捷键，输入绑定随设置更新。BPM scale 限制为 1/64–64，结果校验拒绝非法数值和超过十万个 tick；所有 tick 与 anchorTick 均为秒。
 
 禁用时隐藏侧栏、音频 BPM 入口、频谱拍线与开关，停止打拍并解除订阅；保留用户跟随倍速/拍线偏好，重新启用恢复。旧 `bpm` 标签记录映射到新 id；校准提示改存插件 KV。手动校准结果与原来一样属于当前音频会话，重新启动后重新分析，不保存为项目内容。
+
+### 大纲出厂插件（2026-10-27）
+
+独立项目为同级 `amll-ttml-tool-plugin-outline/`，插件 id 为 `builtin.outline`，侧栏 id 为 `builtin.outline.sidebar`。宿主仅按 `factory-plugins.lock.json` 消费已打包 ZIP，不编译插件源项目。列表、背景行编号、对唱样式及原有语言文案归插件；旧 OutlinePanel 和 ribbon 固定入口已删除。旧 `outline` 标签页配置自动映射到插件 id，默认展开行为保留。
+
+新增公开 `host.editor`：`revealLine(id)` 验证行存在、选中该行并滚动编辑器；React hook `useLineList(containerRef)` 复用宿主多选、拖拽复制/排序和撤销事务；`LineContextMenu` 包装一行并复用完整右键菜单（含插件贡献）。行容器必须提供 `data-line-id` / `data-absolute-index`，插入指示器读取 `--drop-indicator-display` / `--drop-indicator-y`。编辑模式外只保留选择，禁止拖拽修改和右键编辑；卸载或组件卸载取消手势。SDK Mock 支持 reveal/选区断言，DOM 手势需在浏览器验证。SDK 仍是 v0 开发快照，此插件要求包含这些端口的新宿主，旧宿主不兼容。

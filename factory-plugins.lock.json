@@ -30,6 +30,12 @@
       "version": "1.0.0",
       "sha256": "3b577cbd43c927ece198b9f1137d648b2c1c4d0ddb3270ecfba4e770ef9fcfa0",
       "source": "vendor/plugin-store/3b577cbd43c927ece198b9f1137d648b2c1c4d0ddb3270ecfba4e770ef9fcfa0.zip"
+    },
+    {
+      "id": "builtin.outline",
+      "version": "1.0.0",
+      "sha256": "26ee2bc9e9f950c7d1331daba027d98c28ba7a702b85c7291c53c0fcbb5fa4d0",
+      "source": "vendor/plugin-store/26ee2bc9e9f950c7d1331daba027d98c28ba7a702b85c7291c53c0fcbb5fa4d0.zip"
     }
   ]
 }

@@ -735,8 +735,6 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
 		const openTabs = useAtomValue(openSidebarTabsAtom);
 		const toggleTab = useSetAtom(toggleTabAtom);
-		const isOutlineOpen = openTabs.includes("outline");
-		const idOutline = useId();
 		const pluginSidebarViews = usePluginSidebarViews();
 
 		const { t, i18n } = useTranslation();
@@ -902,26 +900,6 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 						align="start"
 						justify="center"
 					>
-						<Flex gap="3" align="center">
-							<Text size="1" asChild>
-								<label
-									htmlFor={idOutline}
-									style={{
-										userSelect: "none",
-									}}
-								>
-									{t("ribbonBar.editMode.showOutline", "大纲")}
-								</label>
-							</Text>
-							<Checkbox
-								id={idOutline}
-								checked={isOutlineOpen}
-								onCheckedChange={(checked) => {
-									toggleTab({ tabId: "outline", open: Boolean(checked) });
-								}}
-							/>
-						</Flex>
-
 						{pluginSidebarViews.map((view) => (
 							<Text
 								key={view.id}

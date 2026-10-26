@@ -22,7 +22,6 @@ import {
 	sidebarWidthAtom,
 } from "$/states/sidebar.ts";
 import styles from "./index.module.css";
-import { OutlinePanel } from "./OutlinePanel";
 import { SidebarTabBar } from "./SidebarTabBar";
 
 const MIN_WIDTH = 200;
@@ -37,14 +36,6 @@ export interface SidebarTab {
 	scope?: string;
 }
 
-export const SIDEBAR_TABS: SidebarTab[] = [
-	{
-		id: "outline",
-		getTitle: (t) => t("sidebar.outline.title", "大纲"),
-		component: OutlinePanel,
-	},
-];
-
 export const Sidebar = () => {
 	const { t, i18n } = useTranslation();
 	const pluginViews = usePluginSidebarViews();
@@ -58,16 +49,12 @@ export const Sidebar = () => {
 	const sidebarRef = useRef<HTMLDivElement>(null);
 
 	const visibleTabs = useMemo(() => {
-		const allTabs: SidebarTab[] = [
-			...SIDEBAR_TABS,
-			...pluginViews.map((view) => ({
-				id: view.id,
-				getTitle: () => localizeText(view.title, i18n.language),
-				component: view.view as FC,
-				scope:
-					view.owner.kind === "plugin" ? view.owner.pluginId : view.owner.id,
-			})),
-		];
+		const allTabs: SidebarTab[] = pluginViews.map((view) => ({
+			id: view.id,
+			getTitle: () => localizeText(view.title, i18n.language),
+			component: view.view as FC,
+			scope: view.owner.kind === "plugin" ? view.owner.pluginId : view.owner.id,
+		}));
 		// Open tabs whose contribution is gone stay persisted but hidden, so
 		// re-enabling the plugin restores them.
 		return openTabs

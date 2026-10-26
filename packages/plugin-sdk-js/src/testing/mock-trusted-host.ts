@@ -200,6 +200,24 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		} satisfies TrustedJsHostV0["document"];
 	})();
 
+	/** Last reveal request. DOM gestures and menus are exercised in the browser, not this mock. */
+	private disposed = false;
+	readonly revealedLines: string[] = [];
+	readonly editor: TrustedJsHostV0["editor"] = {
+		revealLine: (id) => {
+			if (this.disposed) throw new Error("Plugin editor is disposed");
+			if (!this.document.readSnapshot().lines.some((line) => line.id === id))
+				throw new Error("Unknown lyric line");
+			this.setSelection({ lineIds: [id], wordIds: [] });
+			this.revealedLines.push(id);
+		},
+		useLineList: () => ({
+			isDragging: false,
+			isDraggingSource: false,
+			onPointerDown: () => {},
+		}),
+		LineContextMenu: ({ children }) => children,
+	};
 	readonly selection: TrustedJsHostV0["selection"] = {
 		get: () => clone(this.selectionState),
 		onChanged: (listener) => {
@@ -610,6 +628,7 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 
 	/** Simulates the host disposing the plugin scope: every registration goes. */
 	dispose(): void {
+		this.disposed = true;
 		this.commandRegistry.clear();
 		this.menuRegistry.clear();
 		this.titleBarRegistry.clear();

@@ -19,7 +19,13 @@ import type {
 	PluginSelectionV0,
 	TitleBarActionContribution,
 } from "@amll-ttml-tool/plugin-api";
-import type { ComponentType } from "react";
+import type {
+	ComponentRef,
+	ComponentType,
+	PointerEvent,
+	ReactElement,
+	RefObject,
+} from "react";
 
 /**
  * Trusted-js runtime SDK (v0). A trusted-js plugin is application-grade code
@@ -346,12 +352,29 @@ export interface TrustedJsViewsV0 {
 	registerView(input: TrustedJsTrustedViewV0): DisposableV0;
 }
 
+/** Host editing gestures and menus for plugin-owned lyric lists. */
+export interface TrustedJsEditorV0 {
+	/** Selects one existing line, clears word selection and scrolls it into view. Unknown ids throw. */
+	revealLine(lineId: string): void;
+	/** React hook. Rows need data-line-id and data-absolute-index; indicator CSS uses
+	 * --drop-indicator-display and --drop-indicator-y. Unmount/unload cancels a drag.
+	 * Selection remains available outside edit mode; reordering is edit-only. */
+	useLineList(containerRef: RefObject<ComponentRef<"div"> | null>): {
+		isDragging: boolean;
+		isDraggingSource: boolean;
+		onPointerDown(event: PointerEvent, lineId: string): void;
+	};
+	/** Wrap one row with the shared edit-only context menu, including contributed actions. */
+	LineContextMenu: ComponentType<{ lineId: string; children: ReactElement }>;
+}
+
 /**
  * Everything a trusted-js plugin may reach. Implemented by the application
  * host and by `MockTrustedJsHost` (testing); both pass the same contract
  * suite, which is the freeze gate for this tier.
  */
 export interface TrustedJsHostV0 {
+	editor: TrustedJsEditorV0;
 	readonly sdkVersion: typeof TRUSTED_JS_SDK_VERSION;
 	document: TrustedJsDocumentV0;
 	selection: TrustedJsSelectionV0;

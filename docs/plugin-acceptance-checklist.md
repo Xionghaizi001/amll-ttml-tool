@@ -6,3 +6,9 @@
 - Tauri 生产包、macOS/Linux WebView 与真实音频硬件的延迟复核仍待平台验收。
 
 2026-10-26 Chromium 自动化：真实 App 加载锁定出厂插件并渲染原面板；经公开输入桥接校准为 120 BPM，unload 后显示连接清空、模式回到 off，重新加载侧栏恢复且拍线偏好保持，无 pageerror。此项使用程序驱动宿主端口，不替代真实音频硬件与用户按键的延迟实测。
+
+### 大纲迁移（2026-10-27）
+
+自动回归覆盖 factory ZIP 摘要/渲染/贡献卸载与恢复，编号规则，以及真实页面的默认展开、多选、跳转、共享右键动作、排序/复制/撤销、拖拽中卸载清理、禁用跨刷新和旧侧栏配置迁移。
+复现：启动独立 Vite 端口后执行 `node tests/plugins/browser/outline.browser-check.mjs http://127.0.0.1:5187/`；依赖同级 toolkit 的 playwright-core 和本机 Chrome，使用全新浏览器上下文。
+待实机：Windows 原生 WebView、macOS/Linux 与正式安装包；重点复核触屏/触控板、长列表自动滚动及编辑模式切换。

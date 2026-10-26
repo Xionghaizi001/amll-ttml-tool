@@ -67,6 +67,10 @@ export interface TrustedJsViewPort {
 export interface TrustedJsHostPorts {
 	/** One transaction path and revision conflict rule for plugin edits. */
 	documents: PluginDocumentGateway;
+	createEditor(
+		pluginId: string,
+		signal: AbortSignal,
+	): TrustedJsHostV0["editor"];
 	subscribeDocumentChanges(
 		listener: (event: DocumentChangedEventV0) => void,
 	): () => void;
@@ -176,8 +180,16 @@ export const createTrustedJsHost = (
 		};
 	};
 
+	const editor = ports.createEditor(pluginId, lifecycle.signal);
 	const host: TrustedJsHostV0 = {
 		sdkVersion: TRUSTED_JS_SDK_VERSION,
+		editor: {
+			...editor,
+			revealLine: (id) => {
+				assertActive();
+				editor.revealLine(id);
+			},
+		},
 		document: {
 			readSnapshot: () => ports.documents.getDocument({ includeRuby: true }),
 			get revision() {

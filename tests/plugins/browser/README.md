@@ -55,3 +55,7 @@ pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
 2026-10-18：使用临时生产编译入口，在 Codex 内置 Chromium 验证一个全局主题与两个不同插件主题同时生效；检查计算样式，宿主 slot、宿主表单及锚点内部的受保护区域未被作用域 CSS 修改；用户 token 在插件后代也覆盖主题声明。真实 ThemeHost 的受保护冲突弹窗点名两个主题与目标，点击“撤销本次应用”恢复原主题；标题栏 contribution dispose 后宿主锚点消失且主题保持选择；救援快捷键清空所有作用域。临时主题、入口和产物均不保留项目引用。
 
 复验时还应检查目标卸载后的 `disabledByDependency`、重启冲突按应用时间仲裁，以及 mode mainView、settings/dialog view 的宿主锚点。Node 合同测试集中在 `tests/kernel/theme/scoped-themes.test.ts`；真实 WebView 必须支持 CSS `@scope`，本次结果不代表 macOS/Linux 或桌面生产包验收。
+
+## 大纲插件自动回归
+
+启动独立 Vite 端口，运行 `node tests/plugins/browser/outline.browser-check.mjs http://127.0.0.1:5187/`。需要同级 toolkit 已安装依赖和本机 Chrome。脚本创建全新无头上下文，操作测试文档与该上下文的偏好，不接管个人浏览器；覆盖选择/跳转/右键编辑、排序复制及撤销、拖拽中卸载、禁用刷新/启用和旧侧栏 id 迁移。

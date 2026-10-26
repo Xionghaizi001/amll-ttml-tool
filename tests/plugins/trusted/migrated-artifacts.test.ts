@@ -152,3 +152,45 @@ describe('metronome factory artifact',()=>{
  const second=new AbortController();const next=createRealTrustedHost({pluginId:id,strings});await activate({host:next.host,pluginId:id,signal:second.signal});expect(next.extensions.contributions.getTrustedViews('sidebar')).toHaveLength(1);second.abort();next.handle.dispose();next.scope.dispose();
  });
 });
+
+describe("outline factory artifact", () => {
+	it("renders projection and selection, reveals lines, and removes its contribution on unload", async () => {
+		const id = "builtin.outline";
+		const { activate, strings } = await loadLockedArtifact(id);
+		const document = realHostFixture();
+		document.lyricLines[1].isBG = true;
+		document.lyricLines[1].isDuet = true;
+		const fixture = createRealTrustedHost({
+			pluginId: id,
+			strings,
+			locale: "zh-CN",
+			document,
+			selection: { lineIds: ["line-1"], wordIds: ["word-1"] },
+		});
+		await activate({
+			host: fixture.host,
+			pluginId: id,
+			signal: new AbortController().signal,
+		});
+		const view = fixture.extensions.contributions.getTrustedViews("sidebar")[0];
+		expect(view.id).toBe(id + ".sidebar");
+		const html = renderToString(createElement(view.view as ComponentType));
+		expect(html).toContain("hello");
+		expect(html).toContain(">空</span>");
+		expect(html).toContain('data-selected="true"');
+		expect(html).toContain("amll-outline-isBG amll-outline-isDuet");
+		expect(html.match(/class="amll-outline-lineNumber">1</g)).toHaveLength(2);
+		fixture.host.editor.revealLine("line-2");
+		expect(fixture.host.selection.get()).toEqual({
+			lineIds: ["line-2"],
+			wordIds: [],
+		});
+		expect(() => fixture.host.editor.revealLine("missing")).toThrow();
+		fixture.handle.dispose();
+		fixture.scope.dispose();
+		expect(
+			fixture.extensions.contributions.getTrustedViews("sidebar"),
+		).toHaveLength(0);
+		expect(() => fixture.host.editor.revealLine("line-1")).toThrow("disposed");
+	});
+});
