@@ -89,6 +89,12 @@ export const ImportExportLyric = () => {
 					<DropdownMenu.Item onClick={() => onImportLyric("lrc")}>
 						{t("topBar.menu.importLyric.fromLyRiC", "从 LyRiC 文件导入")}
 					</DropdownMenu.Item>
+					<DropdownMenu.Item onClick={() => onImportLyric("krl")}>
+						{t(
+							"topBar.menu.importLyric.fromKRL",
+							"从 Rhythmical Lyrics 文件导入",
+						)}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item onClick={() => onImportLyric("eslrc")}>
 						{t("topBar.menu.importLyric.fromESLyRiC", "从 ESLyRiC 文件导入")}
 					</DropdownMenu.Item>

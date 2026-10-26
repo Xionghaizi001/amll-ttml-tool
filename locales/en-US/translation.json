@@ -389,6 +389,7 @@
 				"fromLRCLIB": "Import from LRCLIB...",
 				"fromLyRiC": "Import from LyRiC file…",
 				"fromESLyRiC": "Import from ESLyRiC file…",
+				"fromKRL": "Import from Rhythmical Lyrics file…",
 				"fromQRC": "Import from QRC file…",
 				"fromYRC": "Import from YRC file…",
 				"fromLrcfySylb": "Import from Lyricify Syllable file…"

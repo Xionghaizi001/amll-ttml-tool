@@ -394,6 +394,7 @@
 				"fromLRCLIB": "从 LRCLIB 导入...",
 				"fromLyRiC": "从 LyRiC 文件导入…",
 				"fromESLyRiC": "从 ESLyRiC 文件导入…",
+				"fromKRL": "从 Rhythmical Lyrics 文件导入…",
 				"fromQRC": "从 QRC 文件导入…",
 				"fromYRC": "从 YRC 文件导入…",
 				"fromLrcfySylb": "从 Lyricify Syllable 文件导入…"

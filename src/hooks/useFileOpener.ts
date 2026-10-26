@@ -38,12 +38,14 @@ import {
 import { pushNotificationAtom } from "$/states/notifications";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
+import { parseKrl } from "$/utils/parse-krl";
 import { parseLrc } from "$/utils/parse-lrc";
 
 const fileOpenerLogger = createLogger("FileOpener");
 
 const LYRIC_PARSERS: Record<string, (text: string) => LyricLine[]> = {
 	lrc: parseLrc,
+	krl: parseKrl,
 	eslrc: parseEslrc,
 	qrc: parseQrc,
 	yrc: parseYrc,
