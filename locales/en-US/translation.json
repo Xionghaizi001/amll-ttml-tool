@@ -65,8 +65,7 @@
 			"layoutMode": "Layout",
 			"auxiliaryLineDisplay": "Auxiliary Line Display",
 			"views": "Views",
-			"showOutline": "Outline",
-			"showBpmPanel": "BPM"
+			"showOutline": "Outline"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
@@ -665,21 +664,6 @@
 		"outline": {
 			"emptyLine": "Empty",
 			"title": "Outline"
-		},
-		"bpm": {
-			"title": "BPM",
-			"analyzing": "Analyzing",
-			"halve": "Halve BPM",
-			"double": "Double BPM",
-			"reset": "Reset BPM",
-			"followPlaybackRate": "Follow audio playback speed",
-			"manualCalibration": "Manual tap calibration",
-			"tapInstructionPrefix": "Press ",
-			"tapInstructionSuffix": " or click here to the beat",
-			"showBeatLines": "Show beats on spectrogram",
-			"slidingWindowTip": "Only the last 10 calibration points are used to calculate BPM",
-			"spectrogramCalibration": "Calibrate with Spectrogram",
-			"clickOnSpectrogramToCalibrate": "Click on spectrogram to calibrate"
 		}
 	},
 	"syllableSmoothingDialog": {

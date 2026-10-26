@@ -65,8 +65,7 @@
 			"layoutMode": "布局模式",
 			"auxiliaryLineDisplay": "辅助行显示",
 			"views": "视图",
-			"showOutline": "大纲",
-			"showBpmPanel": "BPM"
+			"showOutline": "大纲"
 		},
 		"previewMode": {
 			"lyrics": "歌词",
@@ -665,21 +664,6 @@
 		"outline": {
 			"emptyLine": "空",
 			"title": "大纲"
-		},
-		"bpm": {
-			"title": "BPM",
-			"analyzing": "正在分析",
-			"halve": "减半 BPM",
-			"double": "加倍 BPM",
-			"reset": "重置 BPM",
-			"followPlaybackRate": "跟随音频播放倍速",
-			"manualCalibration": "手动打拍校准",
-			"tapInstructionPrefix": "根据节拍按下 ",
-			"tapInstructionSuffix": " 键或点击此处",
-			"showBeatLines": "在频谱图上显示拍子",
-			"slidingWindowTip": "只会使用最近 10 次校准数据计算 BPM",
-			"spectrogramCalibration": "使用频谱图校准",
-			"clickOnSpectrogramToCalibrate": "在频谱图上点击以校准"
 		}
 	},
 	"syllableSmoothingDialog": {

@@ -110,7 +110,13 @@ export interface TrustedJsProjectV0 {
 	): Promise<HostResult<{ revision: number }>>;
 }
 
-export type TrustedJsAudioEngineStateV0 = "idle" | "loading" | "ready" | "playing" | "paused" | "error";
+export type TrustedJsAudioEngineStateV0 =
+	| "idle"
+	| "loading"
+	| "ready"
+	| "playing"
+	| "paused"
+	| "error";
 
 export interface TrustedJsAudioStateV0 {
 	engineState: TrustedJsAudioEngineStateV0;
@@ -125,8 +131,13 @@ export interface TrustedJsAudioV0 {
 	onChanged(listener: (state: TrustedJsAudioStateV0) => void): DisposableV0;
 }
 
-export type TrustedJsBpmStateV0 =
-	| { status: "idle" | "analyzing"; scale: number; followPlaybackRate: boolean; showBeatLines: boolean }
+export type TrustedJsBpmStateV0 = { tapMode?: TrustedJsTapModeV0 } & (
+	| {
+			status: "idle" | "analyzing";
+			scale: number;
+			followPlaybackRate: boolean;
+			showBeatLines: boolean;
+	  }
 	| {
 			status: "completed";
 			bpm: number;
@@ -138,10 +149,34 @@ export type TrustedJsBpmStateV0 =
 			scale: number;
 			followPlaybackRate: boolean;
 			showBeatLines: boolean;
-		}
-	| { status: "error"; error: string; scale: number; followPlaybackRate: boolean; showBeatLines: boolean };
+	  }
+	| {
+			status: "error";
+			error: string;
+			scale: number;
+			followPlaybackRate: boolean;
+			showBeatLines: boolean;
+	  }
+);
 
+/** Seconds on the analysis timeline; no host-internal WASM type. */
+export interface TrustedJsBeatResultV0 {
+	bpm: number;
+	baseBpm: number;
+	anchorTick: number;
+	confidence: number;
+	ticks: number[];
+}
+export type TrustedJsTapModeV0 = "off" | "key" | "spectrogram";
 export interface TrustedJsBpmV0 {
+	/** Owns the host BPM display and input bridge until disposed. Only one provider at a time. */
+	connect(
+		sidebarViewId: string,
+		onTap: (timeSeconds: number) => void,
+	): DisposableV0;
+	setTapMode(mode: TrustedJsTapModeV0): void;
+	getTapKeyLabel(): string;
+	applyCalibration(result: TrustedJsBeatResultV0): void;
 	getState(): TrustedJsBpmStateV0;
 	onChanged(listener: (state: TrustedJsBpmStateV0) => void): DisposableV0;
 	setScale(scale: number): void;

@@ -159,3 +159,11 @@ pnpm build
 manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用同一个 resources 合同。新增字段必须保持只允许 LocalizedText 与白名单图标的边界，不能用通用对象 merge 实现。未知 key 由 resolveOverridePayload 过滤并返回 diagnostics，后续运行时必须记录覆盖方与目标身份；目标缺失不在安装时伪造白名单。
 
 合同测试：`tests/plugin-api/overrides.test.ts` 覆盖依赖、路径、HTML/大小/语言数、图标白名单、未知及禁止字段与嵌套表单；`tests/plugins/store/package-container.test.ts` 覆盖 ZIP 资源；`tests/plugins/trusted/installed-trusted-js.test.ts` 覆盖存储恢复、资源篡改摘要与运行时字符串表；`tests/plugin-api/strings.test.ts` 覆盖字符串表合并、default/locale 规则与 `/strings/<key>` 地址；`i18n` 在 mock（`tests/plugin-sdk-js`）与真实宿主（`trusted-js-host-api.test.ts`）各有一条。字符串表与覆盖共用 `resources`，修改上限需同步 `packageResources` 的 maxProperties。修改时运行这些测试、plugin-api/store 测试、API/宿主类型检查和边界 lint。运行时覆盖层：`tests/kernel/extensions/OverrideLayer.test.ts` 覆盖 getter 读取、locale 合并、最后启用者胜出、按 enabledAt 而非加载顺序排序、key+locale 冲突报告与覆盖链、dispose 回退、不新增字段与 builtin 隔离；`tests/plugins/trusted/plugin-overrides.test.ts` 经真实加载器覆盖激活注册、诊断日志（含 id/handler/能力/激活事件被拒）、卸载回退、目标缺失、`i18n.t`、跨重启的启用顺序及冲突提醒的去重；`tests/plugins/adapters/format-commands.test.ts` 覆盖派生命令标题。消费方必须读取 registry 记录的字段（getter），不得在注册时拷贝 LocalizedText 快照。真实 Chromium 生产编译 UI 回归已于 2026-10-20 通过，步骤及平台/消费者边界见 [局部覆盖验收记录](local-overrides-acceptance.md)。冲突提示早于胜者实例发布，修改弹窗时须保留运行实例订阅，避免首次加载只显示 id。
+
+### 节拍器出厂插件（2026-10-26）
+
+独立源码位于同级 `amll-ttml-tool-plugin-metronome/`，插件 id 为 `builtin.metronome`，侧栏 id 为 `builtin.metronome.sidebar`。宿主仅消费 factory lock 锁定的 ZIP；原 BPM 面板与两个业务 hook 已删除。BPM 分析与波形共用的 worker、播放时钟/硬件延迟、快捷键配置及频谱绘制保留在宿主。
+
+`host.bpm.connect(sidebarViewId, onTap)` 取得唯一显示/输入连接，返回可释放句柄；host dispose 自动释放。`setTapMode` 切换键盘/频谱输入，`tap` 无参数时按宿主音频时钟、输出延迟及按键判定校准，传值时单位为秒。插件负责最近十拍窗口、BPM/锚点计算，经 `applyCalibration` 提交；`reset` 恢复本次音频的原始分析。`getTapKeyLabel` 显示用户当前快捷键，输入绑定随设置更新。BPM scale 限制为 1/64–64，结果校验拒绝非法数值和超过十万个 tick；所有 tick 与 anchorTick 均为秒。
+
+禁用时隐藏侧栏、音频 BPM 入口、频谱拍线与开关，停止打拍并解除订阅；保留用户跟随倍速/拍线偏好，重新启用恢复。旧 `bpm` 标签记录映射到新 id；校准提示改存插件 KV。手动校准结果与原来一样属于当前音频会话，重新启动后重新分析，不保存为项目内容。

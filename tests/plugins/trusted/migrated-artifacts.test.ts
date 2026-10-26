@@ -135,3 +135,20 @@ describe("plain text import artifact on the real trusted host", () => {
 		expect(fixture.views.getSnapshot()).toHaveLength(0);
 	});
 });
+
+describe('metronome factory artifact',()=>{
+ it('renders the migrated panel, calibrates through public ports and restores after disposal',async()=>{
+ const id='builtin.metronome';const {activate,strings}=await loadLockedArtifact(id);
+ const fixture=createRealTrustedHost({pluginId:id,strings,locale:'zh-CN'});
+ const signal=new AbortController();await activate({host:fixture.host,pluginId:id,signal:signal.signal});
+ const view=fixture.extensions.contributions.getTrustedViews('sidebar')[0];expect(view.id).toBe(id+'.sidebar');
+ const html=renderToString(createElement(Theme,null,createElement(view.view as ComponentType)));
+ expect(html).toContain('手动打拍校准');expect(html).toContain('使用频谱图校准');
+ fixture.host.bpm.setTapMode('spectrogram');fixture.host.bpm.tap(1);fixture.host.bpm.tap(1.5);
+ expect(fixture.host.bpm.getState()).toMatchObject({status:'completed',bpm:120});
+ fixture.host.bpm.setShowBeatLines(true);signal.abort();fixture.handle.dispose();fixture.scope.dispose();
+ expect(fixture.extensions.contributions.getTrustedViews('sidebar')).toHaveLength(0);
+ expect(()=>fixture.host.bpm.tap(2)).toThrow('disposed');
+ const second=new AbortController();const next=createRealTrustedHost({pluginId:id,strings});await activate({host:next.host,pluginId:id,signal:second.signal});expect(next.extensions.contributions.getTrustedViews('sidebar')).toHaveLength(1);second.abort();next.handle.dispose();next.scope.dispose();
+ });
+});

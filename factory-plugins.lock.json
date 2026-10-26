@@ -24,6 +24,12 @@
       "version": "1.0.0",
       "sha256": "0d9a95d25aa2d0dd6dc30f80c17b165cc70ea0cfc3bd332989ca620f64f1339a",
       "source": "vendor/plugin-store/0d9a95d25aa2d0dd6dc30f80c17b165cc70ea0cfc3bd332989ca620f64f1339a.zip"
+    },
+    {
+      "id": "builtin.metronome",
+      "version": "1.0.0",
+      "sha256": "3b577cbd43c927ece198b9f1137d648b2c1c4d0ddb3270ecfba4e770ef9fcfa0",
+      "source": "vendor/plugin-store/3b577cbd43c927ece198b9f1137d648b2c1c4d0ddb3270ecfba4e770ef9fcfa0.zip"
     }
   ]
 }

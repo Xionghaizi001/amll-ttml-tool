@@ -16,6 +16,8 @@ export type BpmState =
 			error: string;
 	  };
 
+export const analyzedBpmStateAtom = atom<BpmState>({ status: "idle" });
+export const bpmSidebarViewAtom = atom<string | null>(null);
 export const bpmStateAtom = atom<BpmState>({ status: "idle" });
 export const bpmScaleAtom = atom<number>(1);
 export const bpmFollowPlaybackRateAtom = atomWithStorage(
@@ -39,9 +41,4 @@ export const pcmDataReadyAtom = atom(false);
 
 export type BpmTapMode = "off" | "key" | "spectrogram";
 export const bpmTapModeAtom = atom<BpmTapMode>("off");
-export const tapTimesAtom = atom<number[]>([]);
 export const totalTapCountAtom = atom<number>(0);
-export const hasSeenTapWindowTipAtom = atomWithStorage(
-	"hasSeenTapWindowTip",
-	false,
-);

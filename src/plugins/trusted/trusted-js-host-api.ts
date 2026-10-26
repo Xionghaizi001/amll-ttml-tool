@@ -76,17 +76,35 @@ export interface TrustedJsHostPorts {
 	): () => void;
 	/** Read-only project identity (id + current save file name). */
 	getProjectInfo(): TrustedJsProjectInfoV0;
+	connectBpm(
+		sidebarViewId: string,
+		onTap: (timeSeconds: number) => void,
+	): () => void;
+	setBpmTapMode(
+		mode: import("@amll-ttml-tool/plugin-sdk-js").TrustedJsTapModeV0,
+	): void;
+	getBpmTapKeyLabel(): string;
+	applyBpmCalibration(
+		result: import("@amll-ttml-tool/plugin-sdk-js").TrustedJsBeatResultV0,
+	): void;
 	getAudioState(): TrustedJsAudioStateV0;
-	subscribeAudioChanges(listener: (state: TrustedJsAudioStateV0) => void): () => void;
+	subscribeAudioChanges(
+		listener: (state: TrustedJsAudioStateV0) => void,
+	): () => void;
 	getBpmState(): TrustedJsBpmStateV0;
-	subscribeBpmChanges(listener: (state: TrustedJsBpmStateV0) => void): () => void;
+	subscribeBpmChanges(
+		listener: (state: TrustedJsBpmStateV0) => void,
+	): () => void;
 	setBpmScale(scale: number): void;
 	setBpmFollowPlaybackRate(value: boolean): void;
 	setShowBeatLines(value: boolean): void;
 	tapBpm(timeSeconds?: number): void;
 	resetBpm(): void;
 	/** File → Open commit path; resolves false when the user keeps the current document. */
-	importDocument(lyric: TTMLLyric, options: { label: string }): Promise<boolean>;
+	importDocument(
+		lyric: TTMLLyric,
+		options: { label: string },
+	): Promise<boolean>;
 	/** Host UI locale for `i18n`; the application passes i18next's language. */
 	getLocale(): string;
 	subscribeLocaleChanges(listener: (locale: string) => void): () => void;
@@ -232,16 +250,46 @@ export const createTrustedJsHost = (
 			},
 		},
 		bpm: {
+			connect: (viewId, onTap) => {
+				assertActive();
+				if (!viewId.startsWith(pluginId + "."))
+					throw new Error("BPM view must belong to the plugin");
+				return track(ports.connectBpm(viewId, onTap));
+			},
+			setTapMode: (mode) => {
+				assertActive();
+				ports.setBpmTapMode(mode);
+			},
+			getTapKeyLabel: () => ports.getBpmTapKeyLabel(),
+			applyCalibration: (result) => {
+				assertActive();
+				ports.applyBpmCalibration(result);
+			},
 			getState: () => ports.getBpmState(),
 			onChanged: (listener) => {
 				assertActive();
 				return track(ports.subscribeBpmChanges(listener));
 			},
-			setScale: (scale) => { assertActive(); ports.setBpmScale(scale); },
-			setFollowPlaybackRate: (value) => { assertActive(); ports.setBpmFollowPlaybackRate(value); },
-			setShowBeatLines: (value) => { assertActive(); ports.setShowBeatLines(value); },
-			tap: (timeSeconds) => { assertActive(); ports.tapBpm(timeSeconds); },
-			reset: () => { assertActive(); ports.resetBpm(); },
+			setScale: (scale) => {
+				assertActive();
+				ports.setBpmScale(scale);
+			},
+			setFollowPlaybackRate: (value) => {
+				assertActive();
+				ports.setBpmFollowPlaybackRate(value);
+			},
+			setShowBeatLines: (value) => {
+				assertActive();
+				ports.setShowBeatLines(value);
+			},
+			tap: (timeSeconds) => {
+				assertActive();
+				ports.tapBpm(timeSeconds);
+			},
+			reset: () => {
+				assertActive();
+				ports.resetBpm();
+			},
 		},
 		i18n: {
 			get locale() {
@@ -265,7 +313,10 @@ export const createTrustedJsHost = (
 					try {
 						listener(locale);
 					} catch (error) {
-						console.warn(`Plugin ${pluginId} i18n.onLocaleChanged failed`, error);
+						console.warn(
+							`Plugin ${pluginId} i18n.onLocaleChanged failed`,
+							error,
+						);
 					}
 				};
 				const overrides = scope.onOwnOverridesChanged(() =>

@@ -43,33 +43,12 @@
 - [ ] 收口官方同源裸 trusted-js 路径：取消直接 import，或改为 fetch → 摘要校验 → Blob import，使 consent key 绑定实际执行字节；第三方已经只能走包安装路径。
 - [ ] 将余下远程完整性失败与恢复场景加入现有合同测试；复用已通过的 command → form → transaction → undo、启停清理、崩溃恢复、factory 回退与安装持久化失败回归。
 
-## 插件间关系：主题作用域与局部覆盖
-
-动机：阶段 8 会把原本在宿主内部互相调用的功能拆成多个插件（如元数据、Ruby、分词），阶段 9 的定制功能需要为宿主与其他插件提供语言包与专属视觉，这些都要求插件之间可以声明关系。两项顺序为 1 → 2：主题作用域与局部覆盖都以"目标插件存在且启用"为前提，复用已完成的依赖解析与级联规则。安装来源支持与依赖求解这两项前置已完成。主题作用域与局部覆盖可与阶段 8 并行，须在阶段 9 开始前就位。
-
-### 1. 主题作用域（已就绪）
-
-协议、宿主视图锚点、目标 part 校验、多作用域激活与恢复、受保护冲突确认/撤销和全量救援已落地。目标禁用保持主题选择；缺失/版本不兼容显示 `disabledByDependency` 并停止注入。合同与开发方法见 `PLUGIN.md` §6.2、`docs/plugin-development-guide.md` 的“插件作用域主题”；局部覆盖验收见下一节。
-
-2026-10-18 验证：新增两个集中合同测试；真实 Chromium 生产编译夹具验证一个全局与两个插件作用域、宿主/表单/受保护区域隔离、标题栏宿主锚点、用户 override 优先、冲突对话框撤销、视图 dispose 与救援清空。临时主题、入口和构建产物已移除，不纳入 factory/catalog。旧 WebView 的 CSS `@scope` 支持仍随平台验收检查。
-
-### 2. 作用域内的局部覆盖
-
-- [x] 原则：只开放不影响被覆盖者核心功能的声明式表面。v0 可覆盖种类限定为 `localization`（命令 / 菜单 / 标题栏动作 / 设置表单 / 格式 provider 标题等 contribution 的 LocalizedText，以及插件自有字符串表）与 `icons`（宿主图标白名单内的替换）；命令处理器、文档操作、能力、激活事件、格式转换行为、视图组件与任何 id 一律不可覆盖。
-- [x] 协议：覆盖方 manifest 声明 `overrides?: { pluginId, kind, entry }[]`，`entry` 指向包内资源（如 `strings/<locale>.json`），且必须同时声明对目标插件的依赖（复用第 1 项）；覆盖 payload 沿用 LocalizedText 体积上限（≤2048 字符、≤16 语言）与无 HTML 约束；目标中不存在的 key 忽略并记诊断日志。
-- [x] 字符串表：为使插件代码内的文案也可被覆盖，SDK 增加 `host.i18n.t(key)`，读取插件包内声明的字符串表（`contributes.strings` 指向 `strings/<locale>.json`）；覆盖包提供同形状文件。硬编码在代码中的字符串不在覆盖范围内，迁移插件时应走字符串表。
-- [x] 解析：`ExtensionRegistry` 在读取 LocalizedText 时经过按目标 pluginId + contribution id + 字段 + locale 索引的覆盖层；覆盖项归属覆盖方 scope，scope dispose 即撤销、文案即时回退。语言包类覆盖不需要目标插件同意，但插件管理器在目标插件条目上显示"已被 X 覆盖"及来源。
-- [x] 冲突：多个插件覆盖同一目标同一 key 时，最后启用者胜出，并以与主题作用域相同的强提醒方式告知；插件管理器列出覆盖链。
-- [x] 当前交付验收：2026-10-20，真实 Chromium 生产编译宿主验证 JSON 包安装、菜单、通过 `host.i18n.t` 构建的表单与代码内通知切换，原处理器和表单提交行为保持；禁用/卸载即时回退；两个语言包触发受保护冲突提醒，保留/停用胜者、管理器来源与覆盖链、重新启用后的顺序反转及刷新恢复均通过；id、handler、能力、激活事件和未知 key 被过滤并记诊断。全量合同测试 411 项通过，详见 [验收记录](docs/local-overrides-acceptance.md)。临时插件与源码入口已清理，未加入 factory/catalog；构建与截图仅留在忽略的 release/。
-
-边界：主题包 overrides、`settings` 声明式表单渲染与 `/settings/...` 运行时消费随对应消费者落地，不计为本次已通过；`ui.showForm` 不接受 `/settings/...` 地址覆盖，表单文案由插件在打开时读取字符串表。目标升级后的重新过滤仍需重新启用覆盖方。macOS/Linux WebView 与 Tauri 桌面生产包保留到正式平台验收。
-
 ## 阶段 8：批量迁移外围功能
 
 执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
 
 - [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。纯文本导入已改用共享 Radix 的 `dialog-view`（`size: "full"`）还原原版布局；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
-- [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器已落地（2026-10-22）：`sidebar` trusted view 以 contribution id 为标签页 id，编辑模式 ribbon“视图”区按 title 生成开关，贡献消失时隐藏、重新注册后恢复；余下为节拍器、大纲迁出及其禁用/恢复验收，图标、顺序、默认展开等字段由这两个消费者的实际需要决定，不预先扩协议。
+- [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器已落地（2026-10-22）：`sidebar` trusted view 以 contribution id 为标签页 id，编辑模式 ribbon“视图”区按 title 生成开关，贡献消失时隐藏、重新注册后恢复；节拍器已迁至独立 `amll-ttml-tool-plugin-metronome` 并接入锁定出厂 ZIP（2026-10-26），旧面板/业务 hook 已删除，音频分析与输入/绘制适配留在宿主；余下为大纲迁出及平台实机验收，图标、顺序、默认展开等字段由这两个消费者的实际需要决定，不预先扩协议。
 - [ ] 元数据、Ruby、分词。
 - [ ] 帮助、设置和更新。
 - [ ] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
@@ -131,7 +110,7 @@
 | 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | 纯文本导入已使用；LRCLIB 迁移复用同一端口 |
 | 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
 | 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | LRC/ESLRC/QRC/YRC/LYS 已由 `builtin.formats` 提供；TTML 与 ASS 导出、core.modes、内置主题仍在宿主 |
-| 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 渲染器已就绪（侧边栏标签页 + ribbon 视图开关）；节拍器、大纲尚未迁出 |
+| 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 渲染器已就绪（侧边栏标签页 + ribbon 视图开关）；节拍器已外置为 `builtin.metronome`；大纲尚未迁出 |
 | 交付 i18n、审阅工具条（toolbar） | `registerToolbar` | 只有注册接口，宿主无渲染位；渲染器随首个消费者落地 |
 
 实现约束：新增接口不暴露 Jotai、内部 TTMLLyric 或凭据；选择订阅在 host handle dispose 时清理；dialog 按实际 owner 检查，注册消失后自动关闭。网络请求禁携带宿主授权头/cookie，仅允许 HTTPS 和本机 HTTP 开发地址；请求体上限按 UTF-8 字节计算，响应流限制 8 MiB，超时与卸载中断请求，拒绝重定向。离线开关仅拦截经插件端口发起的新请求，不宣称覆盖尚未迁移的宿主网络调用或 trusted-js 自行调用 fetch。

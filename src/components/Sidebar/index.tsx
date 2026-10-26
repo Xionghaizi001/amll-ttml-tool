@@ -21,7 +21,6 @@ import {
 	type SidebarPanelType,
 	sidebarWidthAtom,
 } from "$/states/sidebar.ts";
-import { BpmPanel } from "./BpmPanel";
 import styles from "./index.module.css";
 import { OutlinePanel } from "./OutlinePanel";
 import { SidebarTabBar } from "./SidebarTabBar";
@@ -43,11 +42,6 @@ export const SIDEBAR_TABS: SidebarTab[] = [
 		id: "outline",
 		getTitle: (t) => t("sidebar.outline.title", "大纲"),
 		component: OutlinePanel,
-	},
-	{
-		id: "bpm",
-		getTitle: (t) => t("sidebar.bpm.title", "BPM"),
-		component: BpmPanel,
 	},
 ];
 

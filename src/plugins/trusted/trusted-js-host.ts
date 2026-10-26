@@ -11,6 +11,7 @@ import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import {
 	getHostProjectInfo,
 	getHostAudioState,
+ connectHostBpm, setHostBpmTapMode, getHostBpmTapKeyLabel, applyHostBpmCalibration,
 	subscribeHostAudioChanges,
 	getHostBpmState,
 	subscribeHostBpmChanges,
@@ -65,6 +66,7 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	subscribeSelectionChanges: subscribeHostSelectionChanges,
 	getProjectInfo: getHostProjectInfo,
 	getAudioState: getHostAudioState,
+ connectBpm: connectHostBpm, setBpmTapMode: setHostBpmTapMode, getBpmTapKeyLabel: getHostBpmTapKeyLabel, applyBpmCalibration: applyHostBpmCalibration,
 	subscribeAudioChanges: subscribeHostAudioChanges,
 	getBpmState: getHostBpmState,
 	subscribeBpmChanges: subscribeHostBpmChanges,

@@ -32,8 +32,7 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 		let intervalS = 0;
 
 		if (rawTicks.length > 0) {
-			const isMs = rawTicks[rawTicks.length - 1] > durationS * 2;
-			const ticksInSeconds = isMs ? rawTicks.map((t) => t / 1000) : rawTicks;
+			const ticksInSeconds = rawTicks;
 
 			if (ticksInSeconds.length >= 2) {
 				intervalS =
@@ -69,13 +68,10 @@ export const BeatLinesOverlay: FC<BeatLinesOverlayProps> = ({
 
 			intervalS = 60 / effectiveBpm;
 			const anchorTick = result.anchorTick ?? 0;
-			const anchorS = anchorTick > 500 ? anchorTick / 1000 : anchorTick;
+			const anchorS = anchorTick;
 
 			const beats: number[] = [];
-			let t = anchorS;
-			while (t - intervalS >= 0) {
-				t -= intervalS;
-			}
+			let t = anchorS % intervalS;
 			while (t <= durationS + intervalS) {
 				if (t >= 0 && t <= durationS) {
 					beats.push(t);

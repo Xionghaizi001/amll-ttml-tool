@@ -715,3 +715,11 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 功能插件以 `contributes.strings?: string[]`（最多 16 项）声明包内 JSON 资源，路径规则与 override entry 相同，且不得与任何 override entry 重名；包资源总数上限 48。每个文件是 key → 文本的平面映射，最多 512 key；key 为 ≤128 字符的字母、数字、`_`、`.`、`-`，不以 `.`/`-` 开头。值是字符串（即 default）或 locale → 字符串映射，单条 ≤2048 字符、无 HTML。同一 key 可按 locale 拆在多个文件，合并后必须有 default、同一 locale 不得重复、总映射项 ≤16。合并由 `mergeStringTables`/`resolvePluginStrings` 完成，包校验（`validatePackageResources`）与运行时共用同一结果。
 
 安装记录、出厂 lock 收集器分别从包资源计算合并表，经 `TrustedJsPluginEntry.strings` 传给 `createHost`。`host.i18n.t(key, params?)` 按宿主 i18next 当前语言做 locale → 基础语言 → default 回退，只替换 `{name}` 占位符（不是 ICU）；未知 key 返回 key 本身。`i18n.locale` 实时读取，`onLocaleChanged` 监听随 host handle dispose 移除。代码内硬编码文案不在覆盖范围内。同源裸 JS 目录条目没有包资源，因此没有字符串表。
+
+### 节拍器出厂插件（2026-10-26）
+
+独立源码位于同级 `amll-ttml-tool-plugin-metronome/`，插件 id 为 `builtin.metronome`，侧栏 id 为 `builtin.metronome.sidebar`。宿主仅消费 factory lock 锁定的 ZIP；原 BPM 面板与两个业务 hook 已删除。BPM 分析与波形共用的 worker、播放时钟/硬件延迟、快捷键配置及频谱绘制保留在宿主。
+
+`host.bpm.connect(sidebarViewId, onTap)` 取得唯一显示/输入连接，返回可释放句柄；host dispose 自动释放。`setTapMode` 切换键盘/频谱输入，`tap` 无参数时按宿主音频时钟、输出延迟及按键判定校准，传值时单位为秒。插件负责最近十拍窗口、BPM/锚点计算，经 `applyCalibration` 提交；`reset` 恢复本次音频的原始分析。`getTapKeyLabel` 显示用户当前快捷键，输入绑定随设置更新。BPM scale 限制为 1/64–64，结果校验拒绝非法数值和超过十万个 tick；所有 tick 与 anchorTick 均为秒。
+
+禁用时隐藏侧栏、音频 BPM 入口、频谱拍线与开关，停止打拍并解除订阅；保留用户跟随倍速/拍线偏好，重新启用恢复。旧 `bpm` 标签记录映射到新 id；校准提示改存插件 KV。手动校准结果与原来一样属于当前音频会话，重新启动后重新分析，不保存为项目内容。

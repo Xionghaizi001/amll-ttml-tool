@@ -1,7 +1,11 @@
 import { useSetAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { AudioRuntimePort } from "$/modules/audio/ports/audio-runtime";
-import { bpmStateAtom, pcmDataReadyAtom } from "$/modules/audio/states";
+import {
+	bpmStateAtom,
+	analyzedBpmStateAtom,
+	pcmDataReadyAtom,
+} from "$/modules/audio/states";
 import { browserAudioRuntime } from "$/platform/audio/BrowserAudioRuntime";
 
 interface UseWaveformAnalyzerProps {
@@ -23,7 +27,15 @@ export const useWaveformAnalyzer = (
 	runtime: AudioRuntimePort = browserAudioRuntime,
 ) => {
 	const setPcmDataReady = useSetAtom(pcmDataReadyAtom);
-	const setBpmState = useSetAtom(bpmStateAtom);
+	const setCurrentBpm = useSetAtom(bpmStateAtom);
+	const setAnalyzedBpm = useSetAtom(analyzedBpmStateAtom);
+	const setBpmState = useCallback(
+		(state: import("../states").BpmState) => {
+			setAnalyzedBpm(state);
+			setCurrentBpm(state);
+		},
+		[setAnalyzedBpm, setCurrentBpm],
+	);
 
 	const analyzerWorkerRef = useRef<Worker | null>(null);
 	const rendererWorkerRef = useRef<Worker | null>(null);

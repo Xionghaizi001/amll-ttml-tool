@@ -2,7 +2,7 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 /**
- * 侧边栏可显示的标签页 ID：宿主面板（"outline"、"bpm"）或插件 sidebar contribution id
+ * 侧边栏可显示的标签页 ID：宿主面板（"outline"）或插件 sidebar contribution id
  */
 export type SidebarTabId = string;
 
@@ -16,11 +16,18 @@ export type SidebarPanelType = "none" | SidebarTabId;
 /**
  * 当前打开的侧边栏标签页列表
  */
-export const openSidebarTabsAtom = atomWithStorage<SidebarTabId[]>(
+const storedOpenSidebarTabsAtom = atomWithStorage<SidebarTabId[]>(
 	"openSidebarTabs",
 	["outline"],
 );
 
+const migrateTab = (id: string) =>
+	id === "bpm" ? "builtin.metronome.sidebar" : id;
+export const openSidebarTabsAtom = atom(
+	(get) => get(storedOpenSidebarTabsAtom).map(migrateTab),
+	(_get, set, tabs: SidebarTabId[]) =>
+		set(storedOpenSidebarTabsAtom, tabs.map(migrateTab)),
+);
 const baseActiveSidebarTabAtom = atomWithStorage<SidebarPanelType>(
 	"activeSidebarTab",
 	"outline",
@@ -33,7 +40,7 @@ const baseActiveSidebarTabAtom = atomWithStorage<SidebarPanelType>(
  */
 export const activeSidebarTabAtom = atom(
 	(get) => {
-		const active = get(baseActiveSidebarTabAtom);
+		const active = migrateTab(get(baseActiveSidebarTabAtom));
 		const openTabs = get(openSidebarTabsAtom);
 		if (active !== "none" && !openTabs.includes(active)) {
 			return openTabs.length > 0 ? openTabs[openTabs.length - 1] : "none";

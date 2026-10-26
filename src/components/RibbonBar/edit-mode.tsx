@@ -736,9 +736,7 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 		const openTabs = useAtomValue(openSidebarTabsAtom);
 		const toggleTab = useSetAtom(toggleTabAtom);
 		const isOutlineOpen = openTabs.includes("outline");
-		const isBpmOpen = openTabs.includes("bpm");
 		const idOutline = useId();
-		const idBpm = useId();
 		const pluginSidebarViews = usePluginSidebarViews();
 
 		const { t, i18n } = useTranslation();
@@ -923,25 +921,7 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 								}}
 							/>
 						</Flex>
-						<Flex gap="3" align="center">
-							<Text size="1" asChild>
-								<label
-									htmlFor={idBpm}
-									style={{
-										userSelect: "none",
-									}}
-								>
-									{t("ribbonBar.editMode.showBpmPanel", "BPM")}
-								</label>
-							</Text>
-							<Checkbox
-								id={idBpm}
-								checked={isBpmOpen}
-								onCheckedChange={(checked) => {
-									toggleTab({ tabId: "bpm", open: Boolean(checked) });
-								}}
-							/>
-						</Flex>
+
 						{pluginSidebarViews.map((view) => (
 							<Text
 								key={view.id}

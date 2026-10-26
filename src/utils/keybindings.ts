@@ -308,6 +308,8 @@ export function registerKeyBindings(
 	set.add(callback);
 	return () => {
 		set?.delete(callback);
+		if (set?.size === 0 && registeredKeyBindings.get(joined) === set)
+			registeredKeyBindings.delete(joined);
 	};
 }
 

@@ -26,7 +26,15 @@ import {
 import { useTranslation } from "react-i18next";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
-import { useBpmTapEngine } from "$/modules/audio/hooks";
+import {
+	bpmTapModeAtom,
+	totalTapCountAtom,
+	bpmSidebarViewAtom,
+} from "$/modules/audio/states";
+import {
+	tapHostBpm,
+	setHostBpmTapMode,
+} from "$/modules/audio/adapters/plugin-audio";
 import {
 	audioEngineStateAtom,
 	currentDurationAtom,
@@ -84,8 +92,11 @@ export const AudioSpectrogram: FC = () => {
 	);
 	const [showBeatLines, setShowBeatLines] = useAtom(showBeatLinesAtom);
 
-	const { setTapMode, isSpectrogramTapMode, totalTapCount, triggerTap } =
-		useBpmTapEngine();
+	const bpmView = useAtomValue(bpmSidebarViewAtom);
+	const isSpectrogramTapMode = useAtomValue(bpmTapModeAtom) === "spectrogram";
+	const totalTapCount = useAtomValue(totalTapCountAtom);
+	const triggerTap = tapHostBpm,
+		setTapMode = setHostBpmTapMode;
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -478,7 +489,7 @@ export const AudioSpectrogram: FC = () => {
 									)}
 									<SpectrogramContext.Provider value={contextValue}>
 										<Theme appearance="dark">
-											{showBeatLines && (
+											{bpmView && showBeatLines && (
 												<BeatLinesOverlay clientWidth={containerWidth} />
 											)}
 											<LyricTimelineOverlay
@@ -508,17 +519,19 @@ export const AudioSpectrogram: FC = () => {
 				</div>
 
 				<div className={`${styles.sidebar} ${styles.rightSidebar}`}>
-					<Tooltip
-						content={t("spectrogram.showBeatLines", "在频谱图上显示拍子")}
-						side="left"
-					>
-						<IconButton
-							variant={showBeatLines ? "solid" : "outline"}
-							onClick={() => setShowBeatLines((prev) => !prev)}
+					{bpmView && (
+						<Tooltip
+							content={t("spectrogram.showBeatLines", "在频谱图上显示拍子")}
+							side="left"
 						>
-							<Timer16Regular />
-						</IconButton>
-					</Tooltip>
+							<IconButton
+								variant={showBeatLines ? "solid" : "outline"}
+								onClick={() => setShowBeatLines((prev) => !prev)}
+							>
+								<Timer16Regular />
+							</IconButton>
+						</Tooltip>
+					)}
 					<Tooltip
 						content={t("spectrogram.showUnselectedLines", "显示未选中行")}
 						side="left"

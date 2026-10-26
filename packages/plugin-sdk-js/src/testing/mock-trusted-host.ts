@@ -231,19 +231,126 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		},
 	};
 
-	readonly audio: TrustedJsHostV0["audio"] = {
-		getState: () => ({ engineState: "idle", loaded: false, durationMs: 0, currentTimeMs: 0, playbackRate: 1 }),
-		onChanged: () => ({ dispose() {} }),
+	private audioState: import("../host").TrustedJsAudioStateV0 = {
+		engineState: "idle",
+		loaded: false,
+		durationMs: 0,
+		currentTimeMs: 0,
+		playbackRate: 1,
 	};
-
+	private bpmState: import("../host").TrustedJsBpmStateV0 = {
+		status: "idle",
+		scale: 1,
+		followPlaybackRate: true,
+		showBeatLines: false,
+		tapMode: "off",
+	};
+	private analysisState = this.bpmState;
+	private audioListeners = new Set<
+		(state: import("../host").TrustedJsAudioStateV0) => void
+	>();
+	private bpmListeners = new Set<
+		(state: import("../host").TrustedJsBpmStateV0) => void
+	>();
+	private tapListener: ((time: number) => void) | undefined;
+	private emitBpm = () => {
+		for (const listener of this.bpmListeners) listener(clone(this.bpmState));
+	};
+	setAudioState(state: import("../host").TrustedJsAudioStateV0) {
+		this.audioState = clone(state);
+		for (const listener of this.audioListeners) listener(clone(state));
+	}
+	setBpmAnalysis(state: import("../host").TrustedJsBpmStateV0) {
+		this.analysisState = clone(state);
+		this.bpmState = clone(state);
+		this.emitBpm();
+	}
+	readonly audio: TrustedJsHostV0["audio"] = {
+		getState: () => clone(this.audioState),
+		onChanged: (listener) => {
+			this.audioListeners.add(listener);
+			return {
+				dispose: () => {
+					this.audioListeners.delete(listener);
+				},
+			};
+		},
+	};
 	readonly bpm: TrustedJsHostV0["bpm"] = {
-		getState: () => ({ status: "idle", scale: 1, followPlaybackRate: true, showBeatLines: false }),
-		onChanged: () => ({ dispose() {} }),
-		setScale: () => {},
-		setFollowPlaybackRate: () => {},
-		setShowBeatLines: () => {},
-		tap: () => {},
-		reset: () => {},
+		getState: () => clone(this.bpmState),
+		onChanged: (listener) => {
+			this.bpmListeners.add(listener);
+			return {
+				dispose: () => {
+					this.bpmListeners.delete(listener);
+				},
+			};
+		},
+		connect: (viewId, listener) => {
+			this.requireOwnNamespace(viewId, "BPM view");
+			if (this.tapListener)
+				throw new Error("A BPM provider is already connected");
+			this.tapListener = listener;
+			return {
+				dispose: () => {
+					if (this.tapListener === listener) {
+						this.tapListener = undefined;
+						this.bpmState = { ...this.bpmState, tapMode: "off" };
+						this.emitBpm();
+					}
+				},
+			};
+		},
+		setTapMode: (mode) => {
+			if (!["off", "key", "spectrogram"].includes(mode))
+				throw new Error("Invalid tap mode");
+			this.bpmState = { ...this.bpmState, tapMode: mode };
+			this.emitBpm();
+		},
+		getTapKeyLabel: () => "Space",
+		applyCalibration: (result) => {
+			if (!Number.isFinite(result.bpm) || result.bpm < 20 || result.bpm > 400)
+				throw new Error("Invalid beat result");
+			this.bpmState = {
+				...this.bpmState,
+				...clone(result),
+				status: "completed",
+				scale: 1,
+				calculationTimeMs: 0,
+			};
+			this.emitBpm();
+		},
+		setScale: (scale) => {
+			if (!Number.isFinite(scale) || scale < 1 / 64 || scale > 64)
+				throw new Error("Invalid BPM scale");
+			this.bpmState = { ...this.bpmState, scale };
+			this.emitBpm();
+		},
+		setFollowPlaybackRate: (value) => {
+			if (typeof value !== "boolean") throw new Error("Expected boolean");
+			this.bpmState = { ...this.bpmState, followPlaybackRate: value };
+			this.emitBpm();
+		},
+		setShowBeatLines: (value) => {
+			if (typeof value !== "boolean") throw new Error("Expected boolean");
+			this.bpmState = { ...this.bpmState, showBeatLines: value };
+			this.emitBpm();
+		},
+		tap: (time = this.audioState.currentTimeMs / 1000) => {
+			if (!Number.isFinite(time) || time < 0)
+				throw new Error("Invalid tap time");
+			this.tapListener?.(time);
+		},
+		reset: () => {
+			this.bpmState = {
+				...this.analysisState,
+				scale: 1,
+				followPlaybackRate: this.bpmState.followPlaybackRate,
+				showBeatLines: this.bpmState.showBeatLines,
+				tapMode: this.bpmState.tapMode,
+			};
+			this.emitBpm();
+		},
 	};
 
 	readonly i18n: TrustedJsHostV0["i18n"] = (() => {
@@ -255,7 +362,10 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 			t: (key, params) => {
 				const strings = host.options.strings ?? {};
 				return Object.hasOwn(strings, key)
-					? formatPluginString(localizeText(strings[key], host.localeState), params)
+					? formatPluginString(
+							localizeText(strings[key], host.localeState),
+							params,
+						)
 					: key;
 			},
 			onLocaleChanged: (listener) => {
@@ -510,6 +620,9 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.changeListeners.clear();
 		this.selectionListeners.clear();
 		this.localeListeners.clear();
+		this.audioListeners.clear();
+		this.bpmListeners.clear();
+		this.tapListener = undefined;
 	}
 
 	// ---- internals ---------------------------------------------------------

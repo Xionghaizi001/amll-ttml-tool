@@ -20,6 +20,7 @@ import {
 	createTrustedJsHost,
 	type TrustedJsHostPorts,
 } from "$/plugins/trusted/trusted-js-host-api";
+import { MockTrustedJsHost } from "@amll-ttml-tool/plugin-sdk-js/testing";
 import type { TTMLLyric } from "$/types/ttml";
 
 /** Two lines; the first carries a word with ruby so projection depth is covered. */
@@ -110,6 +111,7 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const requests: HttpRequestV0[] = [];
 	const views = new PluginViewService(extensions.contributions);
 	let seedSequence = 0;
+	const media = new MockTrustedJsHost({ pluginId: options.pluginId });
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
 		subscribeDocumentChanges: (listener) =>
@@ -129,15 +131,28 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		},
 		getProjectInfo: () =>
 			options.project ?? { projectId: "test-project", fileName: "lyric.ttml" },
-		getAudioState: () => ({ engineState: "idle", loaded: false, durationMs: 0, currentTimeMs: 0, playbackRate: 1 }),
-		subscribeAudioChanges: () => () => {},
-		getBpmState: () => ({ status: "idle", scale: 1, followPlaybackRate: true, showBeatLines: false }),
-		subscribeBpmChanges: () => () => {},
-		setBpmScale: () => {},
-		setBpmFollowPlaybackRate: () => {},
-		setShowBeatLines: () => {},
-		tapBpm: () => {},
-		resetBpm: () => {},
+		getAudioState: media.audio.getState,
+		subscribeAudioChanges: (listener) => {
+			const d = media.audio.onChanged(listener);
+			return () => d.dispose();
+		},
+		getBpmState: media.bpm.getState,
+		subscribeBpmChanges: (listener) => {
+			const d = media.bpm.onChanged(listener);
+			return () => d.dispose();
+		},
+		setBpmScale: media.bpm.setScale,
+		setBpmFollowPlaybackRate: media.bpm.setFollowPlaybackRate,
+		setShowBeatLines: media.bpm.setShowBeatLines,
+		tapBpm: media.bpm.tap,
+		resetBpm: media.bpm.reset,
+		connectBpm: (viewId, listener) => {
+			const d = media.bpm.connect(viewId, listener);
+			return () => d.dispose();
+		},
+		setBpmTapMode: media.bpm.setTapMode,
+		getBpmTapKeyLabel: media.bpm.getTapKeyLabel,
+		applyBpmCalibration: media.bpm.applyCalibration,
 		importDocument: async (lyric, { label }) => {
 			service.replace(lyric, { source: "user", label });
 			return true;
