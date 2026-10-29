@@ -59,3 +59,7 @@ pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
 ## 大纲插件自动回归
 
 启动独立 Vite 端口，运行 `node tests/plugins/browser/outline.browser-check.mjs http://127.0.0.1:5187/`。需要同级 toolkit 已安装依赖和本机 Chrome。脚本创建全新无头上下文，操作测试文档与该上下文的偏好，不接管个人浏览器；覆盖选择/跳转/右键编辑、排序复制及撤销、拖拽中卸载、禁用刷新/启用和旧侧栏 id 迁移。
+
+### 元数据编辑器（2026-10-29）
+
+启动独立 Vite 端口，运行 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。覆盖编辑、拖放去重与一次撤销、自定义键、卸载关闭及重新启用、禁用跨刷新；使用全新 Chrome 上下文，不读写个人浏览器数据或源文件。

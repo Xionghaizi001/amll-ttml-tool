@@ -12,3 +12,8 @@
 自动回归覆盖 factory ZIP 摘要/渲染/贡献卸载与恢复，编号规则，以及真实页面的默认展开、多选、跳转、共享右键动作、排序/复制/撤销、拖拽中卸载清理、禁用跨刷新和旧侧栏配置迁移。
 复现：启动独立 Vite 端口后执行 `node tests/plugins/browser/outline.browser-check.mjs http://127.0.0.1:5187/`；依赖同级 toolkit 的 playwright-core 和本机 Chrome，使用全新浏览器上下文。
 待实机：Windows 原生 WebView、macOS/Linux 与正式安装包；重点复核触屏/触控板、长列表自动滚动及编辑模式切换。
+
+### 元数据编辑器迁移（2026-10-29）
+
+已通过：插件元数据增删/拖放去重/空槽填充/单事务撤销/失败提示单元测试，真实宿主锁定 ZIP 摘要、渲染、贡献及对话框清理；Chromium 编辑、自定义键、拖放、撤销、卸载恢复、禁用跨刷新及重新启用，无 pageerror。
+复现：`node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`，依赖同级 toolkit 的 playwright-core 与本机 Chrome，使用独立浏览器上下文。布局断言覆盖 920×680、零外层内边距及无障碍标题；截图写入 `release/metadata-editor.png` 与 `release/metadata-editor-original-layout.png`（不入库）。原生 WebView、生产包及 macOS/Linux 留待统一平台验收。

@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Odwróć zaznaczenie linii",
 			"selectWordsOfMatchedSelection": "Zaznacz pasujące słowa",
 			"timeShift": "Przesunięcie czasowe...",
-			"editMetadata": "Edytuj metadane tekstu…",
 			"tool": "Narzędzia",
 			"segmentationTools": "Narzędzia segmentacji",
 			"autoSegment": "Automatyczna segmentacja",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Metadane"
-	},
-	"metadataDialog": {
-		"openLink": "Otwórz link",
-		"duplicateMsg": "Znaleziono zduplikowane wartości metadanych",
-		"addValue": "Dodaj",
-		"builtinOptions": {
-			"musicName": "Nazwa utworu",
-			"artists": "Artyści",
-			"artistsInvalidMsg": "Jeśli jest wielu artystów, dodaj ten klucz wielokrotnie zamiast używać separatorów; jeśli nazwa artysty zawiera separatory, zignoruj tę wiadomość",
-			"songwriter": "Autor tekstu",
-			"songwriterInvalidMsg": "Jeśli jest wielu autorów, dodaj ten klucz wielokrotnie zamiast używać separatorów",
-			"album": "Nazwa albumu",
-			"ncmMusicId": "ID NetEase Music",
-			"ncmMusicIdInvalidMsg": "ID NetEase Music powinno być liczbowe",
-			"qqMusicId": "ID QQ Music",
-			"qqMusicIdInvalidMsg": "ID QQ Music powinno być alfanumeryczne",
-			"spotifyId": "ID utworu Spotify",
-			"spotifyIdInvalidMsg": "ID utworu Spotify powinno być alfanumeryczne",
-			"appleMusicId": "ID utworu Apple Music",
-			"appleMusicIdInvalidMsg": "ID utworu Apple Music powinno być liczbowe",
-			"isrc": "Kod ISRC utworu",
-			"isrcInvalidMsg": "Format kodu ISRC powinien być CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "ID GitHub autora tekstów",
-			"ttmlAuthorGithubInvalidMsg": "ID GitHub powinno być liczbowe",
-			"ttmlAuthorGithubLogin": "Nazwa użytkownika GitHub autora tekstów",
-			"ttmlAuthorGithubLoginInvalidMsg": "Nazwa użytkownika GitHub powinna być alfanumeryczna lub zawierać myślniki, do 39 znaków"
-		},
-		"title": "Edytor metadanych",
-		"key": "Klucz",
-		"value": "Wartość",
-		"empty": "Brak metadanych",
-		"addKeyValue": "Dodaj nową parę klucz-wartość",
-		"customKey": "Klucz niestandardowy",
-		"addPresets": "Dodaj wszystkie predefiniowane klucze",
-		"clear": "Wyczyść",
-		"info": "Dowiedz się więcej"
 	},
 	"submitToAMLLDB": {
 		"validation": {

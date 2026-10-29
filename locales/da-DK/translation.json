@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Inverter linjevalg",
 			"selectWordsOfMatchedSelection": "Vælg matchende ord",
 			"timeShift": "Tidsforskydning...",
-			"editMetadata": "Rediger sangtekstmetadata…",
 			"tool": "Værktøjer",
 			"segmentationTools": "Segmenteringsværktøjer",
 			"autoSegment": "Auto-segmentering",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"metadataDialog": {
-		"openLink": "Åbn link",
-		"duplicateMsg": "Fandt duplikerede metadataværdier",
-		"addValue": "Tilføj",
-		"builtinOptions": {
-			"musicName": "Sangnavn",
-			"artists": "Sangkunstnere",
-			"artistsInvalidMsg": "Hvis der er flere kunstnere, tilføj venligst denne nøgle flere gange i stedet for at bruge afgrænsere; hvis et kunstnernavn indeholder afgrænsere, ignorer venligst denne besked",
-			"songwriter": "Sangskriver",
-			"songwriterInvalidMsg": "Hvis der er flere sangskrivere, tilføj venligst denne nøgle flere gange i stedet for at bruge afgrænsere",
-			"album": "Albumnavn",
-			"ncmMusicId": "NetEase Music ID",
-			"ncmMusicIdInvalidMsg": "NetEase Music ID skal være numerisk",
-			"qqMusicId": "QQ Music ID",
-			"qqMusicIdInvalidMsg": "QQ Music ID skal være alfanumerisk",
-			"spotifyId": "Spotify Sang-ID",
-			"spotifyIdInvalidMsg": "Spotify Sang-ID skal være alfanumerisk",
-			"appleMusicId": "Apple Music Sang-ID",
-			"appleMusicIdInvalidMsg": "Apple Music Sang-ID skal være numerisk",
-			"isrc": "Sang ISRC-kode",
-			"isrcInvalidMsg": "ISRC-kodeformat skal være CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "Sangtekstforfatter GitHub ID",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID skal være numerisk",
-			"ttmlAuthorGithubLogin": "Sangtekstforfatter GitHub-brugernavn",
-			"ttmlAuthorGithubLoginInvalidMsg": "GitHub-brugernavn skal være alfanumerisk eller bindestreger, op til 39 tegn"
-		},
-		"title": "Metadataeditor",
-		"key": "Nøgle",
-		"value": "Værdi",
-		"empty": "Ingen metadata",
-		"addKeyValue": "Tilføj nyt nøgle-værdi-par",
-		"customKey": "Brugerdefineret nøgle",
-		"addPresets": "Tilføj alle forudindstillede nøgler",
-		"clear": "Ryd",
-		"info": "Lær mere"
 	},
 	"submitToAMLLDB": {
 		"validation": {

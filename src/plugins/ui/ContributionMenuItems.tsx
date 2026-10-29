@@ -15,10 +15,13 @@ import { localizeText } from "./localize";
  * shortcut: fixed host list; replace with user-configurable menu placement when that is scheduled.
  */
 export const PINNED_FACTORY_COMMANDS = {
+	metadata: "builtin.metadata.run",
 	plainTextImport: "builtin.plain-text-import.run",
 	syncLineTimestamps: "builtin.sync-line-timestamps.run",
 } as const;
-const pinnedCommandIds = new Set<string>(Object.values(PINNED_FACTORY_COMMANDS));
+const pinnedCommandIds = new Set<string>(
+	Object.values(PINNED_FACTORY_COMMANDS),
+);
 
 /** A pinned factory command at its host slot; absent while the plugin is disabled or uninstalled. */
 export const PinnedCommandMenuItem = ({ commandId }: { commandId: string }) => {

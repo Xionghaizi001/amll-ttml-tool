@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Inverter seleção de linhas",
 			"selectWordsOfMatchedSelection": "Selecionar palavras correspondentes",
 			"timeShift": "Deslocamento de tempo...",
-			"editMetadata": "Editar metadados das letras…",
 			"tool": "Ferramentas",
 			"segmentationTools": "Ferramentas de segmentação",
 			"autoSegment": "Segmentação automática",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Metadados"
-	},
-	"metadataDialog": {
-		"openLink": "Abrir link",
-		"duplicateMsg": "Encontrados valores de metadados duplicados",
-		"addValue": "Adicionar",
-		"builtinOptions": {
-			"musicName": "Nome da faixa",
-			"artists": "Artistas da faixa",
-			"artistsInvalidMsg": "Se houver múltiplos artistas, adicione esta chave várias vezes em vez de usar delimitadores; se um nome de artista contiver delimitadores, ignore esta mensagem",
-			"songwriter": "Compositor",
-			"songwriterInvalidMsg": "Se houver múltiplos compositores, adicione esta chave várias vezes em vez de usar delimitadores",
-			"album": "Nome do álbum",
-			"ncmMusicId": "ID do NetEase Music",
-			"ncmMusicIdInvalidMsg": "O ID do NetEase Music deve ser numérico",
-			"qqMusicId": "ID do QQ Music",
-			"qqMusicIdInvalidMsg": "O ID do QQ Music deve ser alfanumérico",
-			"spotifyId": "ID da faixa do Spotify",
-			"spotifyIdInvalidMsg": "O ID da faixa do Spotify deve ser alfanumérico",
-			"appleMusicId": "ID da faixa do Apple Music",
-			"appleMusicIdInvalidMsg": "O ID da faixa do Apple Music deve ser numérico",
-			"isrc": "Código ISRC da faixa",
-			"isrcInvalidMsg": "O formato do código ISRC deve ser CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "ID do GitHub do autor das letras",
-			"ttmlAuthorGithubInvalidMsg": "O ID do GitHub deve ser numérico",
-			"ttmlAuthorGithubLogin": "Nome de usuário do GitHub do autor das letras",
-			"ttmlAuthorGithubLoginInvalidMsg": "O nome de usuário do GitHub deve ser alfanumérico ou hífens, até 39 caracteres"
-		},
-		"title": "Editor de metadados",
-		"key": "Chave",
-		"value": "Valor",
-		"empty": "Sem metadados",
-		"addKeyValue": "Adicionar novo par chave-valor",
-		"customKey": "Chave personalizada",
-		"addPresets": "Adicionar todas as chaves predefinidas",
-		"clear": "Limpar",
-		"info": "Saiba mais"
 	},
 	"submitToAMLLDB": {
 		"validation": {

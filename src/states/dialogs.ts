@@ -7,7 +7,6 @@ export const hasDismissedSyllableSmoothingTipAtom = atomWithStorage(
 	false,
 );
 
-export const metadataEditorDialogAtom = atom(false);
 export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
 export const latencyTestDialogAtom = atom(false);

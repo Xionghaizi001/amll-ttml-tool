@@ -4,7 +4,6 @@ import type { CSSProperties } from "react";
 import { Trans } from "react-i18next";
 import {
 	cmdDeleteSelection,
-	cmdOpenMetadataEditor,
 	cmdOpenSettings,
 	cmdRedo,
 	cmdSelectAll,
@@ -13,7 +12,11 @@ import {
 	cmdUndo,
 	cmdUnselectAll,
 } from "$/modules/keyboard/commands";
-import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
+import {
+	ContributionMenuItems,
+	PinnedCommandMenuItem,
+	PINNED_FACTORY_COMMANDS,
+} from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
 type EditMenuProps = {
@@ -52,9 +55,7 @@ const EditMenuItems = () => {
 			</CommandMenuItem>
 			<ContributionMenuItems location="menu.edit" withLeadingSeparator />
 			<DropdownMenu.Separator />
-			<CommandMenuItem commandId={cmdOpenMetadataEditor.id}>
-				<Trans i18nKey="topBar.menu.editMetadata">编辑歌词元数据</Trans>
-			</CommandMenuItem>
+			<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.metadata} />
 			<DropdownMenu.Separator />
 			<CommandMenuItem commandId={cmdOpenSettings.id}>
 				<Trans i18nKey="settingsDialog.title">首选项</Trans>

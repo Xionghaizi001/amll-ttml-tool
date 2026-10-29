@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Inverser la sélection des lignes",
 			"selectWordsOfMatchedSelection": "Sélectionner les mots correspondants",
 			"timeShift": "Décalage temporel...",
-			"editMetadata": "Modifier les métadonnées des paroles…",
 			"tool": "Outils",
 			"segmentationTools": "Outils de segmentation",
 			"autoSegment": "Segmentation automatique",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Métadonnées"
-	},
-	"metadataDialog": {
-		"openLink": "Ouvrir le lien",
-		"duplicateMsg": "Valeurs de métadonnées en double trouvées",
-		"addValue": "Ajouter",
-		"builtinOptions": {
-			"musicName": "Nom de la piste",
-			"artists": "Artistes de la piste",
-			"artistsInvalidMsg": "S'il y a plusieurs artistes, ajoutez cette clé plusieurs fois au lieu d'utiliser des délimiteurs ; si un nom d'artiste contient des délimiteurs, ignorez ce message",
-			"songwriter": "Auteur-compositeur",
-			"songwriterInvalidMsg": "S'il y a plusieurs auteurs-compositeurs, ajoutez cette clé plusieurs fois au lieu d'utiliser des délimiteurs",
-			"album": "Nom de l'album",
-			"ncmMusicId": "ID NetEase Music",
-			"ncmMusicIdInvalidMsg": "L'ID NetEase Music doit être numérique",
-			"qqMusicId": "ID QQ Music",
-			"qqMusicIdInvalidMsg": "L'ID QQ Music doit être alphanumérique",
-			"spotifyId": "ID de piste Spotify",
-			"spotifyIdInvalidMsg": "L'ID de piste Spotify doit être alphanumérique",
-			"appleMusicId": "ID de piste Apple Music",
-			"appleMusicIdInvalidMsg": "L'ID de piste Apple Music doit être numérique",
-			"isrc": "Code ISRC de la piste",
-			"isrcInvalidMsg": "Le format du code ISRC doit être CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "ID GitHub de l'auteur des paroles",
-			"ttmlAuthorGithubInvalidMsg": "L'ID GitHub doit être numérique",
-			"ttmlAuthorGithubLogin": "Nom d'utilisateur GitHub de l'auteur des paroles",
-			"ttmlAuthorGithubLoginInvalidMsg": "Le nom d'utilisateur GitHub doit être alphanumérique ou contenir des tirets, jusqu'à 39 caractères"
-		},
-		"title": "Éditeur de métadonnées",
-		"key": "Clé",
-		"value": "Valeur",
-		"empty": "Aucune métadonnée",
-		"addKeyValue": "Ajouter une nouvelle paire clé-valeur",
-		"customKey": "Clé personnalisée",
-		"addPresets": "Ajouter toutes les clés prédéfinies",
-		"clear": "Effacer",
-		"info": "En savoir plus"
 	},
 	"submitToAMLLDB": {
 		"validation": {

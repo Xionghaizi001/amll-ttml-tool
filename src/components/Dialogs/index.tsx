@@ -4,7 +4,6 @@ import { ReplaceWordDialog } from "$/modules/lyric-editor/tools/ReplaceWordDialo
 import { SyllableSmoothingDialog } from "$/modules/lyric-editor/tools/SyllableSmoothingDialog.tsx";
 import { DistributeRomanizationDialog } from "$/modules/project/modals/DistributeRomanization.tsx";
 import { HistoryRestoreDialog } from "$/modules/project/modals/HistoryRestore.tsx";
-import { MetadataEditor } from "$/modules/project/modals/MetadataEditor.tsx";
 import { SubmitToAMLLDBDialog } from "$/modules/project/modals/SubmitToAmll.tsx";
 import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
@@ -18,7 +17,6 @@ export const Dialogs = () => {
 	return (
 		<>
 			<ImportFromLRCLIB />
-			<MetadataEditor />
 			<SettingsDialog />
 			<SplitWordDialog />
 			<ReplaceWordDialog />

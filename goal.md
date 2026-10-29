@@ -1,13 +1,13 @@
 # AMLL TTML Tool 插件化路线图
 
-本文记录剩余工作、仍约束后续工作的决策与已知取舍；仅保留必要的进度基线，不维护已完成任务清单。完成情况以源码、git 历史与各独立仓库 README 为准；架构与协议现状见 `PLUGIN.md`。2026-10-21 核对后，当前执行入口为“后续实现顺序”；阶段编号保留历史含义，不代表执行先后。
+本文记录剩余工作、仍约束后续工作的决策与已知取舍；仅保留必要的进度基线，不维护已完成任务清单。完成情况以源码、git 历史与各独立仓库 README 为准；架构与协议现状见 `PLUGIN.md`。2026-10-29 核对后，当前执行入口为“后续实现顺序”；阶段编号保留历史含义，不代表执行先后。
 
 ## 进度总览
 
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已有独立技术原型（`../amll-ttml-tool-plugin-store/`）：Fastify/SQLite、本地管理员、ZIP 校验上传、不可变版本、待验收/上架/下架、公开清单与下载、运营记录。尚不具备正式 GitHub 身份、组织资格、受限下载、kill switch 与可信 CI 发布链路，不能视为阶段 10 完成。
-- 阶段 8 已开始：外围辅助工具（同步行时间戳、纯文本导入、LRC/ESLRC/QRC/YRC/LYS 导入导出）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
+- 阶段 8 已开始：节拍器、大纲与元数据编辑器已外置，见执行清单；外围辅助工具（同步行时间戳、纯文本导入、LRC/ESLRC/QRC/YRC/LYS 导入导出）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
 - 尚未落地：阶段 8/9 其余业务迁移、商店生产能力与宿主控制状态联调、工具链/插件远端发布；平台实测与文档补齐贯穿实施。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -48,8 +48,8 @@
 执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
 
 - [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。纯文本导入已改用共享 Radix 的 `dialog-view`（`size: "full"`）还原原版布局；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
-- [ ] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器已落地（2026-10-22）：`sidebar` trusted view 以 contribution id 为标签页 id，编辑模式 ribbon“视图”区按 title 生成开关，贡献消失时隐藏、重新注册后恢复；节拍器已迁至独立 `amll-ttml-tool-plugin-metronome` 并接入锁定出厂 ZIP（2026-10-26），旧面板/业务 hook 已删除，音频分析与输入/绘制适配留在宿主；大纲也已迁至独立 `amll-ttml-tool-plugin-outline` 并接入锁定出厂 ZIP（2026-10-27），多选/拖拽/菜单经公开 `host.editor` 复用宿主，浏览器交互已验证；余下为平台实机验收，图标、顺序、默认展开等字段由这两个消费者的实际需要决定，不预先扩协议。
-- [ ] 元数据、Ruby、分词。
+- [x] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器、两个独立仓库与锁定出厂 ZIP 已交付，宿主旧面板和业务入口已删除；浏览器启停/恢复、交互与生命周期验收已完成（节拍器 2026-10-26、大纲 2026-10-27）。原生 WebView、生产包与真实硬件校准统一归平台验收，不阻塞第三项。
+- [ ] 元数据、Ruby、分词：元数据编辑器已迁至独立 `amll-ttml-tool-plugin-metadata`（`builtin.metadata`，2026-10-29），通过 SDK 文档投影/事务、dialog-view 与原位菜单交付锁定 ZIP；宿主旧编辑器、业务服务、命令、状态和翻译已删除。单元、真实宿主 artifact 合同及 Chromium 编辑/拖放/撤销/卸载恢复/禁用跨刷新验收通过。Ruby、分词尚待迁移。文件保存/导入的文件名推导和默认作者元数据继续属于宿主项目流程。
 - [ ] 帮助、设置和更新。
 - [ ] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
@@ -68,7 +68,7 @@
 | 功能组 | 当前代码线索 | 目标插件边界 |
 | --- | --- | --- |
 | 时间平移 | `amll-ttml-tool-plugin-time-shift/`（已外置，作为模板） | command、表单和单事务文档编辑已走 SDK；宿主消费锁定 artifact |
-| 元数据编辑 | `src/modules/project/modals/MetadataEditor.tsx`、`src/modules/project/logic` | 元数据读取/编辑、文件名推导；通过 document/project API，不持有宿主 atom |
+| 元数据编辑 | `amll-ttml-tool-plugin-metadata/`（已外置） | 元数据读取/编辑通过 document API；保存/导入文件名推导及默认作者留宿主项目流程 |
 | Ruby/罗马音 | `src/modules/lyric-editor/tools/RubyEditor.tsx`、`src/modules/segmentation/utils/Transliteration` | Ruby 生成、分配与批量应用；与分词的共享通过插件依赖声明表达 |
 | 分词与词级编辑辅助 | `src/modules/segmentation`、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法与交互编辑器均走 trusted-js；统一使用 document-ops |
 | 外围辅助工具 | 同步行时间戳、纯文本导入、非 TTML 格式 provider（已外置）；`src/modules/lyric-drag` 保留 | 仅迁出可由 contribution、command、声明式表单表达的功能；拖拽宿主手势保留，业务变更通过插件命令提交 |
@@ -104,13 +104,13 @@
 | 功能 | 当前可用的框架接口 | 业务迁移状态 |
 | --- | --- | --- |
 | 时间平移 | 既有 SDK commands/menus/form/document-ops | 已 SDK-only 并外置，宿主消费锁定 artifact |
-| 元数据编辑 | document 投影/metadata ops + 新增只读 `project.getInfo()` | 接口就绪，现有 MetadataEditor 业务实现尚未改写为独立插件 |
+| 元数据编辑 | document 投影/metadata ops + 新增只读 `project.getInfo()` | 已 SDK-only 外置为 `builtin.metadata`；宿主仅消费锁定 artifact |
 | Ruby、罗马音、分词与词级工具 | 既有 ruby/document-ops + 新增 `selection.onChanged`、dialog view 宿主 | 接口就绪，算法与旧工具入口仍在宿主；依赖声明与完整业务迁移另行验收 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
 | 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | 纯文本导入已使用；LRCLIB 迁移复用同一端口 |
 | 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
 | 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | LRC/ESLRC/QRC/YRC/LYS 已由 `builtin.formats` 提供；TTML 与 ASS 导出、core.modes、内置主题仍在宿主 |
-| 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 渲染器已就绪（侧边栏标签页 + ribbon 视图开关）；节拍器已外置为 `builtin.metronome`；大纲已外置为 `builtin.outline`；原生平台验收待完成 |
+| 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 渲染器已就绪（侧边栏标签页 + ribbon 视图开关）；节拍器已外置为 `builtin.metronome`；大纲已外置为 `builtin.outline`；原生平台验收统一后置 |
 | 交付 i18n、审阅工具条（toolbar） | `registerToolbar` | 只有注册接口，宿主无渲染位；渲染器随首个消费者落地 |
 
 实现约束：新增接口不暴露 Jotai、内部 TTMLLyric 或凭据；选择订阅在 host handle dispose 时清理；dialog 按实际 owner 检查，注册消失后自动关闭。网络请求禁携带宿主授权头/cookie，仅允许 HTTPS 和本机 HTTP 开发地址；请求体上限按 UTF-8 字节计算，响应流限制 8 MiB，超时与卸载中断请求，拒绝重定向。离线开关仅拦截经插件端口发起的新请求，不宣称覆盖尚未迁移的宿主网络调用或 trusted-js 自行调用 fetch。
@@ -305,7 +305,7 @@ src/kernel/
   platform/                   # 文件、剪贴板、存储、URL 等能力
   theme/                      # 主题解析、校验、应用
 src/plugins/
-  builtin/                    # 官方 TypeScript/React 插件
+  builtin/                    # 尚未外置的宿主内置插件
   adapters/                   # 宿主适配
   trusted/                    # trusted-js 加载闸门、工厂注册表、shadow 决策
   store/                      # 容器格式、安装管线、catalog 客户端

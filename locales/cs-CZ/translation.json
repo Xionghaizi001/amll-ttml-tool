@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Invertovat výběr řádků",
 			"selectWordsOfMatchedSelection": "Vybrat odpovídající slova",
 			"timeShift": "Časový posun...",
-			"editMetadata": "Upravit metadata titulek…",
 			"tool": "Nástroje",
 			"segmentationTools": "Nástroje segmentace",
 			"autoSegment": "Automatická segmentace",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"metadataDialog": {
-		"openLink": "Otevřít odkaz",
-		"duplicateMsg": "Nalezeny duplicitní hodnoty metadat",
-		"addValue": "Přidat",
-		"builtinOptions": {
-			"musicName": "Název skladby",
-			"artists": "Umělci skladby",
-			"artistsInvalidMsg": "Pokud je více umělců, přidejte tento klíč vícekrát místo použití oddělovačů; pokud jméno umělce obsahuje oddělovače, ignorujte tuto zprávu",
-			"songwriter": "Skladatel",
-			"songwriterInvalidMsg": "Pokud je více skladatelů, přidejte tento klíč vícekrát místo použití oddělovačů",
-			"album": "Název alba",
-			"ncmMusicId": "ID NetEase Music",
-			"ncmMusicIdInvalidMsg": "ID NetEase Music musí být číselné",
-			"qqMusicId": "ID QQ Music",
-			"qqMusicIdInvalidMsg": "ID QQ Music musí být alfanumerické",
-			"spotifyId": "ID skladby Spotify",
-			"spotifyIdInvalidMsg": "ID skladby Spotify musí být alfanumerické",
-			"appleMusicId": "ID skladby Apple Music",
-			"appleMusicIdInvalidMsg": "ID skladby Apple Music musí být číselné",
-			"isrc": "ISRC kód skladby",
-			"isrcInvalidMsg": "Formát ISRC kódu musí být CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "GitHub ID autora titulek",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID musí být číselné",
-			"ttmlAuthorGithubLogin": "GitHub uživatelské jméno autora titulek",
-			"ttmlAuthorGithubLoginInvalidMsg": "GitHub uživatelské jméno musí být alfanumerické nebo obsahovat pomlčky, max. 39 znaků"
-		},
-		"title": "Editor metadat",
-		"key": "Klíč",
-		"value": "Hodnota",
-		"empty": "Žádná metadata",
-		"addKeyValue": "Přidat nový pár klíč-hodnota",
-		"customKey": "Vlastní klíč",
-		"addPresets": "Přidat všechny předdefinované klíče",
-		"clear": "Vymazat",
-		"info": "Více informací"
 	},
 	"submitToAMLLDB": {
 		"validation": {

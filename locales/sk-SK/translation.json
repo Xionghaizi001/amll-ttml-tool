@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Invertovať výber riadkov",
 			"selectWordsOfMatchedSelection": "Vybrať zodpovedajúce slová",
 			"timeShift": "Časový posun...",
-			"editMetadata": "Upraviť metadáta textov…",
 			"tool": "Nástroje",
 			"segmentationTools": "Nástroje segmentácie",
 			"autoSegment": "Automatická segmentácia",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Metadáta"
-	},
-	"metadataDialog": {
-		"openLink": "Otvoriť odkaz",
-		"duplicateMsg": "Nájdené duplicitné hodnoty metadát",
-		"addValue": "Pridať",
-		"builtinOptions": {
-			"musicName": "Názov skladby",
-			"artists": "Umelci skladby",
-			"artistsInvalidMsg": "Ak je viac umelcov, pridajte tento kľúč viackrát namiesto použitia oddeľovačov; ak meno umelca obsahuje oddeľovače, ignorujte túto správu",
-			"songwriter": "Skladateľ",
-			"songwriterInvalidMsg": "Ak je viac skladateľov, pridajte tento kľúč viackrát namiesto použitia oddeľovačov",
-			"album": "Názov albumu",
-			"ncmMusicId": "ID NetEase Music",
-			"ncmMusicIdInvalidMsg": "ID NetEase Music musí byť číselné",
-			"qqMusicId": "ID QQ Music",
-			"qqMusicIdInvalidMsg": "ID QQ Music musí byť alfanumerické",
-			"spotifyId": "ID skladby Spotify",
-			"spotifyIdInvalidMsg": "ID skladby Spotify musí byť alfanumerické",
-			"appleMusicId": "ID skladby Apple Music",
-			"appleMusicIdInvalidMsg": "ID skladby Apple Music musí byť číselné",
-			"isrc": "ISRC kód skladby",
-			"isrcInvalidMsg": "Formát ISRC kódu musí byť CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "GitHub ID autora textov",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID musí byť číselné",
-			"ttmlAuthorGithubLogin": "GitHub používateľské meno autora textov",
-			"ttmlAuthorGithubLoginInvalidMsg": "GitHub používateľské meno musí byť alfanumerické alebo obsahovať pomlčky, max. 39 znakov"
-		},
-		"title": "Editor metadát",
-		"key": "Kľúč",
-		"value": "Hodnota",
-		"empty": "Žiadne metadáta",
-		"addKeyValue": "Pridať nový pár kľúč-hodnota",
-		"customKey": "Vlastný kľúč",
-		"addPresets": "Pridať všetky preddefinované kľúče",
-		"clear": "Vymazať",
-		"info": "Viac informácií"
 	},
 	"submitToAMLLDB": {
 		"validation": {

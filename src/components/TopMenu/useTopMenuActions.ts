@@ -23,7 +23,6 @@ import {
 	cmdOpenHistoryRestore,
 	cmdOpenLatencyTest,
 	cmdOpenPluginStore,
-	cmdOpenMetadataEditor,
 	cmdOpenSettings,
 	cmdOpenSyllableSmoothing,
 	cmdOpenWiki,
@@ -56,7 +55,6 @@ import {
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	pluginStoreDialogAtom,
-	metadataEditorDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
 	syllableSmoothingDialogAtom,
@@ -73,7 +71,6 @@ const topMenuLogger = createLogger("TopMenu");
 
 export const useTopMenuActions = () => {
 	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
-	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
 	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
@@ -158,9 +155,6 @@ export const useTopMenuActions = () => {
 		store.set(submitToAMLLDBDialogAtom, true);
 	}, [store]);
 
-	const onOpenMetadataEditor = useCallback(() => {
-		setMetadataEditorOpened(true);
-	}, [setMetadataEditorOpened]);
 
 	const onOpenSettings = useCallback(() => {
 		setSettingsDialogOpened(true);
@@ -362,7 +356,6 @@ export const useTopMenuActions = () => {
 		onSelectWordsOfMatchedSelection,
 	);
 	useCommandHandler(cmdDeleteSelection, onDeleteSelection);
-	useCommandHandler(cmdOpenMetadataEditor, onOpenMetadataEditor);
 	useCommandHandler(cmdOpenSettings, onOpenSettings);
 	useCommandHandler(cmdAutoSegment, onAutoSegment);
 	useCommandHandler(cmdRubySegment, onRubySegment);
@@ -392,7 +385,6 @@ export const useTopMenuActions = () => {
 		onSelectWordsOfMatchedSelection,
 		onDeleteSelection,
 		onOpenSyllableSmoothing,
-		onOpenMetadataEditor,
 		onOpenSettings,
 		onAutoSegment,
 		onRubySegment,

@@ -215,7 +215,6 @@
 			"invertSelectAllLines": "Invert line selections",
 			"selectWordsOfMatchedSelection": "Select words matching selection",
 			"timeShift": "Time Shift...",
-			"editMetadata": "Edit lyrics metadata…",
 			"edit": "Edit",
 			"newLyric": "New lyrics",
 			"openLyric": "Open lyrics",
@@ -518,38 +517,6 @@
 	},
 	"metadata": {
 		"title": "Metadata"
-	},
-	"metadataDialog": {
-		"emptyItem": "No entries have been added to this section yet.",
-		"openLink": "Open link",
-		"duplicateMsg": "Found duplicate metadata values",
-		"addValue": "Add",
-		"builtinOptions": {
-			"musicName": "Track Name",
-			"artists": "Track Artists",
-			"artistsInvalidMsg": "If there are multiple artists, please add this key multiple times instead of using delimiters; if an artist name contains delimiters, please ignore this message",
-			"songwriter": "Songwriter",
-			"songwriterInvalidMsg": "If there are multiple songwriters, please add this key multiple times instead of using delimiters",
-			"album": "Album Name",
-			"ncmMusicId": "NetEase Music ID",
-			"ncmMusicIdInvalidMsg": "NetEase Music ID should be numeric",
-			"qqMusicId": "QQ Music ID",
-			"qqMusicIdInvalidMsg": "QQ Music ID should be alphanumeric",
-			"spotifyId": "Spotify Track ID",
-			"spotifyIdInvalidMsg": "Spotify Track ID should be alphanumeric",
-			"appleMusicId": "Apple Music Track ID",
-			"appleMusicIdInvalidMsg": "Apple Music Track ID should be numeric",
-			"isrc": "Track ISRC Code",
-			"isrcInvalidMsg": "ISRC code format should be CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "Lyrics Author GitHub ID",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID should be numeric",
-			"ttmlAuthorGithubLogin": "Lyrics Author GitHub Username",
-			"ttmlAuthorGithubLoginInvalidMsg": "GitHub username should be alphanumeric or hyphens, up to 39 characters"
-		},
-		"title": "Metadata Editor",
-		"customKey": "Custom Key",
-		"clear": "Clear",
-		"info": "Learn more"
 	},
 	"submitToAMLLDB": {
 		"validation": {

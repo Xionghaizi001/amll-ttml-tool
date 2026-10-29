@@ -194,3 +194,41 @@ describe("outline factory artifact", () => {
 		expect(() => fixture.host.editor.revealLine("line-1")).toThrow("disposed");
 	});
 });
+
+describe("metadata factory artifact", () => {
+	it("opens the SDK dialog, preserves metadata and removes entries on disposal", async () => {
+		const id = "builtin.metadata";
+		const { activate, strings } = await loadLockedArtifact(id);
+		const document = realHostFixture();
+		const fixture = createRealTrustedHost({
+			pluginId: id,
+			document,
+			strings,
+			locale: "zh-CN",
+		});
+		await activate({
+			pluginId: id,
+			host: fixture.host,
+			signal: new AbortController().signal,
+		});
+		await fixture.commands.execute(`${id}.run`);
+		const [open] = fixture.views.getSnapshot();
+		expect(open.record.kind).toBe("dialog-view");
+		const html = renderToString(
+			createElement(
+				Theme,
+				null,
+				createElement(open.record.view as ComponentType),
+			),
+		);
+		expect(html).toContain("歌曲名称");
+		expect(html).toContain("自定义键名");
+		expect(fixture.service.readSnapshot()).toEqual(document);
+		fixture.scope.dispose();
+		expect(fixture.commands.get(`${id}.run`)).toBeUndefined();
+		expect(fixture.views.getSnapshot()).toHaveLength(0);
+		expect(fixture.extensions.contributions.getMenus("menu.edit")).toHaveLength(
+			0,
+		);
+	});
+});

@@ -36,6 +36,12 @@
       "version": "1.0.0",
       "sha256": "26ee2bc9e9f950c7d1331daba027d98c28ba7a702b85c7291c53c0fcbb5fa4d0",
       "source": "vendor/plugin-store/26ee2bc9e9f950c7d1331daba027d98c28ba7a702b85c7291c53c0fcbb5fa4d0.zip"
+    },
+    {
+      "id": "builtin.metadata",
+      "version": "1.0.0",
+      "sha256": "3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10",
+      "source": "vendor/plugin-store/3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10.zip"
     }
   ]
 }

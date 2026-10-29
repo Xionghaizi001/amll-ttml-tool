@@ -173,3 +173,9 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 独立项目为同级 `amll-ttml-tool-plugin-outline/`，插件 id 为 `builtin.outline`，侧栏 id 为 `builtin.outline.sidebar`。宿主仅按 `factory-plugins.lock.json` 消费已打包 ZIP，不编译插件源项目。列表、背景行编号、对唱样式及原有语言文案归插件；旧 OutlinePanel 和 ribbon 固定入口已删除。旧 `outline` 标签页配置自动映射到插件 id，默认展开行为保留。
 
 新增公开 `host.editor`：`revealLine(id)` 验证行存在、选中该行并滚动编辑器；React hook `useLineList(containerRef)` 复用宿主多选、拖拽复制/排序和撤销事务；`LineContextMenu` 包装一行并复用完整右键菜单（含插件贡献）。行容器必须提供 `data-line-id` / `data-absolute-index`，插入指示器读取 `--drop-indicator-display` / `--drop-indicator-y`。编辑模式外只保留选择，禁止拖拽修改和右键编辑；卸载或组件卸载取消手势。SDK Mock 支持 reveal/选区断言，DOM 手势需在浏览器验证。SDK 仍是 v0 开发快照，此插件要求包含这些端口的新宿主，旧宿主不兼容。
+
+### 元数据编辑器迁移（2026-10-29）
+
+独立源码位于同级 `amll-ttml-tool-plugin-metadata/`，插件 id 为 `builtin.metadata`。通过 `document.readSnapshot/onChanged/applyEdit` 和 `setMetadata` 更新元数据，每次操作校验 revision 并保留一次撤销；失败通过 `ui.notify` 告知。字段、校验、拖放去重、自定义键、平台图标和语言文案归插件，UI 使用共享 React/Radix 的 `dialog-view`（`size: "full"`），插件样式限定于自己的 scope 所在对话框，保留 920×680 的无外边距双栏布局；宿主标题仅视觉隐藏，继续提供无障碍名称。编辑菜单原槽位仅在 `builtin.metadata.run` 注册时显示；卸载关闭对话框并清理订阅，重新打开从当前文档读取数据。无新增 SDK 端口或插件存储；文件名推导、默认作者及文件保存流程留在宿主。
+
+宿主只消费 `factory-plugins.lock.json` 锁定 ZIP。插件侧运行 `pnpm test`、`pnpm run pack`；宿主运行 `tests/plugins/trusted/migrated-artifacts.test.ts` 与 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。出厂副本与插件 `dist/plugins/store` 使用同一摘要；远端发布和 Tauri 平台验收仍待完成。

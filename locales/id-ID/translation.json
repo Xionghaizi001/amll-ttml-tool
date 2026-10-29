@@ -186,7 +186,6 @@
 			"invertSelectAllLines": "Balikkan Pilihan Baris",
 			"selectWordsOfMatchedSelection": "Pilih Kata yang Sesuai",
 			"timeShift": "Geser Waktu...",
-			"editMetadata": "Edit Metadata Lirik",
 			"tool": "Alat",
 			"segmentationTools": "Segmentasi",
 			"autoSegment": "Segmentasi Otomatis",
@@ -440,42 +439,6 @@
 	},
 	"metadata": {
 		"title": "Informasi Metadata"
-	},
-	"metadataDialog": {
-		"openLink": "Buka Tautan",
-		"duplicateMsg": "Ada nilai metadata yang duplikat",
-		"addValue": "Tambah",
-		"builtinOptions": {
-			"musicName": "Judul Lagu",
-			"artists": "Artis Lagu",
-			"artistsInvalidMsg": "Jika ada lebih dari satu artis, silakan tambahkan kunci ini beberapa kali tanpa tanda pemisah; abaikan jika nama artis itu sendiri mengandung tanda pemisah",
-			"songwriter": "Penulis Lagu",
-			"songwriterInvalidMsg": "Jika ada lebih dari satu penulis lagu, silakan tambahkan kunci ini beberapa kali tanpa tanda pemisah",
-			"album": "Nama Album Lagu",
-			"ncmMusicId": "ID Musik NetEase",
-			"ncmMusicIdInvalidMsg": "ID Musik NetEase harus berupa angka",
-			"qqMusicId": "ID Musik QQ",
-			"qqMusicIdInvalidMsg": "ID Musik QQ harus berupa huruf atau angka",
-			"spotifyId": "ID Musik Spotify",
-			"spotifyIdInvalidMsg": "ID Musik Spotify harus berupa huruf atau angka",
-			"appleMusicId": "ID Musik Apple Music",
-			"appleMusicIdInvalidMsg": "ID Musik Apple Music harus berupa angka",
-			"isrc": "Nomor ISRC Lagu",
-			"isrcInvalidMsg": "Format nomor ISRC harus CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "GitHub ID Penulis Lirik",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID harus berupa angka",
-			"ttmlAuthorGithubLogin": "Username GitHub Penulis Lirik",
-			"ttmlAuthorGithubLoginInvalidMsg": "Username GitHub tidak boleh lebih dari 39 karakter yang terdiri dari huruf, angka, atau tanda minus"
-		},
-		"title": "Editor Metadata",
-		"key": "Tipe Metadata",
-		"value": "Nilai",
-		"empty": "Tidak ada metadata",
-		"addKeyValue": "Tambah Key-Value Baru",
-		"customKey": "Nama Kunci Kustom",
-		"addPresets": "Tambah Semua Kunci Standar",
-		"clear": "Kosongkan",
-		"info": "Pelajari Lebih Lanjut"
 	},
 	"submitToAMLLDB": {
 		"validation": {

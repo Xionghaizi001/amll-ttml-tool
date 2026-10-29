@@ -304,10 +304,6 @@ export const cmdSubmitToAMLLDB = registerMenuCommand(
 	"file.submitToAMLLDB",
 	t("topBar.menu.uploadToAMLLDB"),
 );
-export const cmdOpenMetadataEditor = registerMenuCommand(
-	"edit.openMetadataEditor",
-	t("topBar.menu.editMetadata"),
-);
 export const cmdOpenSettings = registerMenuCommand(
 	"edit.openSettings",
 	t("settingsDialog.title"),

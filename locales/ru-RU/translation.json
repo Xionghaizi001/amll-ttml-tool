@@ -171,7 +171,6 @@
 			"invertSelectAllLines": "Инвертировать выделение строк",
 			"selectWordsOfMatchedSelection": "Выделить совпадающие слова",
 			"timeShift": "Сдвиг времени...",
-			"editMetadata": "Редактировать метаданные текста…",
 			"tool": "Инструменты",
 			"segmentationTools": "Инструменты сегментации",
 			"autoSegment": "Автосегментация",
@@ -418,42 +417,6 @@
 	},
 	"metadata": {
 		"title": "Метаданные"
-	},
-	"metadataDialog": {
-		"openLink": "Открыть ссылку",
-		"duplicateMsg": "Найдены дублирующиеся значения метаданных",
-		"addValue": "Добавить",
-		"builtinOptions": {
-			"musicName": "Название трека",
-			"artists": "Исполнители трека",
-			"artistsInvalidMsg": "Если несколько исполнителей, добавьте этот ключ несколько раз вместо использования разделителей; если имя исполнителя содержит разделители, проигнорируйте это сообщение",
-			"songwriter": "Автор песни",
-			"songwriterInvalidMsg": "Если несколько авторов, добавьте этот ключ несколько раз вместо использования разделителей",
-			"album": "Название альбома",
-			"ncmMusicId": "ID NetEase Music",
-			"ncmMusicIdInvalidMsg": "ID NetEase Music должен быть числовым",
-			"qqMusicId": "ID QQ Music",
-			"qqMusicIdInvalidMsg": "ID QQ Music должен быть буквенно-цифровым",
-			"spotifyId": "ID трека Spotify",
-			"spotifyIdInvalidMsg": "ID трека Spotify должен быть буквенно-цифровым",
-			"appleMusicId": "ID трека Apple Music",
-			"appleMusicIdInvalidMsg": "ID трека Apple Music должен быть числовым",
-			"isrc": "Код ISRC трека",
-			"isrcInvalidMsg": "Формат кода ISRC должен быть CC-XXX-YY-NNNNN",
-			"ttmlAuthorGithub": "GitHub ID автора текста",
-			"ttmlAuthorGithubInvalidMsg": "GitHub ID должен быть числовым",
-			"ttmlAuthorGithubLogin": "GitHub имя пользователя автора текста",
-			"ttmlAuthorGithubLoginInvalidMsg": "GitHub имя пользователя должно быть буквенно-цифровым или содержать дефисы, до 39 символов"
-		},
-		"title": "Редактор метаданных",
-		"key": "Ключ",
-		"value": "Значение",
-		"empty": "Нет метаданных",
-		"addKeyValue": "Добавить новую пару ключ-значение",
-		"customKey": "Пользовательский ключ",
-		"addPresets": "Добавить все предустановленные ключи",
-		"clear": "Очистить",
-		"info": "Подробнее"
 	},
 	"submitToAMLLDB": {
 		"validation": {
