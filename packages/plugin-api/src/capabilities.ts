@@ -12,7 +12,7 @@ export const ALL_CAPABILITIES = [
 
 const capabilitySet = new Set<string>(ALL_CAPABILITIES);
 const extensionCapabilityPattern =
-	/^extensions\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.[a-z][a-z0-9-]*$/;
+	/^extensions\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\.[a-z][a-z0-9-]*$/;
 
 export const isCapability = (value: string): value is Capability =>
 	capabilitySet.has(value) || extensionCapabilityPattern.test(value);

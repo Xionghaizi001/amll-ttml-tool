@@ -265,7 +265,7 @@ const formatContribution = {
 };
 const pluginId = {
 	type: "string",
-	pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
+	pattern: "^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
 };
 
 export const OVERRIDE_ENTRY_PATTERN_V0 = "^(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\.json$";
@@ -357,7 +357,7 @@ export const PLUGIN_MANIFEST_SCHEMA = {
 							{
 								type: "string",
 								pattern:
-									"^extensions\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\\.[a-z][a-z0-9-]*$",
+									"^extensions\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\\.[a-z][a-z0-9-]*$",
 							},
 						],
 					},

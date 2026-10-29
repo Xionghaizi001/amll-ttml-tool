@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { negotiateCapabilities } from "@amll-ttml-tool/plugin-api/capabilities";
-import { parseManifest, type FunctionPluginManifest } from "@amll-ttml-tool/plugin-api/manifest";
+import {
+	parseManifest,
+	type FunctionPluginManifest,
+} from "@amll-ttml-tool/plugin-api/manifest";
 
 describe("negotiateCapabilities", () => {
 	it("grants known capabilities and rejects unknown ones", () => {
@@ -48,6 +51,43 @@ const validFunctionManifest: FunctionPluginManifest = {
 };
 
 describe("parseManifest", () => {
+	it("preserves mixed-case plugin ids and exact contribution namespaces", () => {
+		const manifest = {
+			...validFunctionManifest,
+			id: "FMPeach.krl",
+			capabilities: ["extensions.FMPeach.krl.annotations"],
+			dependencies: [{ id: "Other.Library", version: "^1.0.0" }],
+			contributes: {
+				commands: [{ id: "FMPeach.krl.import", title: "Import" }],
+			},
+		};
+		expect(parseManifest(manifest).ok).toBe(true);
+		expect(
+			parseManifest({
+				...manifest,
+				contributes: {
+					commands: [{ id: "fmpeach.krl.import", title: "Import" }],
+				},
+			}).ok,
+		).toBe(false);
+		expect(
+			negotiateCapabilities(
+				["extensions.FMPeach.krl.annotations"],
+				["extensions.FMPeach.krl.annotations"],
+			).granted,
+		).toEqual(["extensions.FMPeach.krl.annotations"]);
+	});
+
+	it.each([
+		"FMPeach..krl",
+		"FMPeach/krl",
+		"FMPeach.-krl",
+		"FMPeach.krl-",
+		"FMPeach",
+	])("rejects malformed plugin id %s", (id) => {
+		expect(parseManifest({ ...validFunctionManifest, id }).ok).toBe(false);
+	});
+
 	it("accepts a valid function manifest", () => {
 		const result = parseManifest(validFunctionManifest);
 		expect(result.ok).toBe(true);
