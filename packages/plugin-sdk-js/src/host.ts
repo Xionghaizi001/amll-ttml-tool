@@ -423,6 +423,8 @@ export interface TrustedJsPluginDefinitionV0 extends TrustedJsPluginModuleV0 {
 	version: string;
 	apiVersion?: number;
 	description?: string;
+	author?: string;
+	homepage?: string;
 	capabilities?: readonly string[];
 	contributes?: Record<string, unknown>;
 	/** Optional output entry name; defaults to index.js. */

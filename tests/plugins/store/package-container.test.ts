@@ -162,6 +162,47 @@ const installationFixture = () => {
 };
 
 describe("PluginInstallationService", () => {
+	it.each(["author", "homepage"] as const)(
+		"projects optional %s metadata from each installation source",
+		(field) => {
+			const { ports, service } = installationFixture();
+			ports.installed()[0].manifest[field] = "https://installed.example";
+			const factory = {
+				...ports.factory()[0],
+				[field]: "https://factory.example",
+			};
+			ports.factory = () => [factory];
+			const theme = { ...ports.themes()[0], [field]: "https://theme.example" };
+			ports.themes = () => [theme];
+			expect(service.list().map((item) => item[field])).toEqual([
+				"https://installed.example",
+				"https://theme.example",
+			]);
+			ports.pinned = () => true;
+			expect(service.list()[0][field]).toBe("https://factory.example");
+			ports.entry = () => ({ ...factory, [field]: "https://live.example" });
+			expect(service.list()[0][field]).toBe("https://live.example");
+			ports.entry = () => undefined;
+			ports.factory = () => [];
+			ports.installed = () => [];
+			ports.catalog = () => [
+				{
+					id: "example.plugin",
+					name: "Remote",
+					version: "1.0.0",
+					apiVersion: 0,
+					channel: "trusted-js",
+					entry: "index.js",
+					[field]: "https://catalog.example",
+				},
+			];
+			expect(service.list()[0][field]).toBe("https://catalog.example");
+			ports.catalog = () => [];
+			ports.factory = () => [{ ...factory, [field]: undefined }];
+			expect(service.list()[0][field]).toBeUndefined();
+		},
+	);
+
 	it("keeps disabled installed packages and separates theme/function identities without exposing payloads", () => {
 		const { service } = installationFixture();
 		const list = service.list();

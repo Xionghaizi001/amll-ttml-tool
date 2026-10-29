@@ -308,6 +308,8 @@ export class ThemeService {
 				name: pkg.manifest.name,
 				version: pkg.manifest.version,
 				description: pkg.manifest.description,
+				author: pkg.manifest.author,
+				homepage: pkg.manifest.homepage,
 				appearance: pkg.manifest.appearance,
 				scope: this.scopeOf(pkg.manifest.id),
 				disabledByDependency:

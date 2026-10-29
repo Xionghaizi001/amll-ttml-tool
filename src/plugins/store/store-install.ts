@@ -158,6 +158,8 @@ export interface PluginInstallation {
 	runtime: "builtin" | "trusted-js" | "none";
 	name: string;
 	description?: string;
+	author?: string;
+	homepage?: string;
 	version: string;
 	source: PluginSource;
 	artifact?: ArtifactIdentity;
@@ -286,6 +288,18 @@ export class PluginInstallationService {
 						? bundledEntry?.description
 						: selectedRecord?.manifest.description) ??
 					remote.get(id)?.description,
+				author:
+					liveEntry?.author ??
+					(bundled
+						? bundledEntry?.author
+						: selectedRecord?.manifest.author) ??
+					remote.get(id)?.author,
+				homepage:
+					liveEntry?.homepage ??
+					(bundled
+						? bundledEntry?.homepage
+						: selectedRecord?.manifest.homepage) ??
+					remote.get(id)?.homepage,
 				version: entry.version,
 				source: bundled ? "builtin" : (selectedRecord?.source ?? "store"),
 				store: selectedRecord?.store,
@@ -340,6 +354,8 @@ export class PluginInstallationService {
 					runtime: "none",
 					name: theme.name,
 					description: theme.description,
+					author: theme.author,
+					homepage: theme.homepage,
 					version: theme.version,
 					source:
 						theme.source === "builtin"

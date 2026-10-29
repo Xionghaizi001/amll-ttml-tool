@@ -61,6 +61,8 @@ import {
   "kind": "function",
   "id": "dev.example.word-tools",
   "name": "Word Tools",
+  "author": "Example Author",
+  "homepage": "https://github.com/example/word-tools",
   "version": "0.1.0",
   "apiVersion": 0,
   "runtime": "trusted-js",
@@ -87,8 +89,9 @@ import {
 Manifest 规则包括：
 
 - `id` 使用反向域名形式，`version` 使用 semver。
+- `author` 是可选的作者名称字符串，最多 256 个字符；功能插件和主题均支持，并在插件管理面板展示。单文件插件可在 SDK 的 `definePlugin({ id, name, version, author, activate })` 中声明，工具链会写入 manifest。
 - command、settings、title bar action、format、view 和 mode 等 ID 必须位于插件命名空间。
-- `homepage` 只能使用 HTTPS。
+- `homepage` 是可选的作者主页或仓库地址，只能使用 HTTPS；也可在 SDK 的 `definePlugin()` 中声明，并在插件管理面板显示为链接。
 - `entry` 是包内相对路径；trusted-js 必须是 `.js` 或 `.mjs`。
 - `contributes` 可声明 commands、menus、settings、titleBarActions 和 formats。
 - `activationEvents` 支持 `onStartup`、`onCommand:<id>` 和 `onDocumentChanged`。

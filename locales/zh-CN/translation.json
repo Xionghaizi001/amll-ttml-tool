@@ -680,6 +680,7 @@
 		"description": "对 CJK 音节的时间轴进行平滑处理\n不会平滑其他语言的音节"
 	},
 	"pluginStore": {
+		"author": "作者",
 		"factoryDisableReloadHint": "部分内置插件禁用后需刷新页面才能完全生效",
 		"overriddenBy": "已被 {name} 覆盖",
 		"overrideSource": "覆盖：{name}（{id}，{kinds}）",

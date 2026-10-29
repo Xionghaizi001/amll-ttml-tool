@@ -12,6 +12,7 @@ import {
 	Badge,
 	Button,
 	Flex,
+	Link,
 	SegmentedControl,
 	Switch,
 	Text,
@@ -391,6 +392,26 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 							<span style={{ overflowWrap: "anywhere" }}>
 								{item.description ?? item.id}
 							</span>
+							{item.author !== undefined && (
+								<Text
+									size="1"
+									color="gray"
+									style={{ overflowWrap: "anywhere" }}
+								>
+									{t("pluginStore.author", "作者")}: {item.author}
+								</Text>
+							)}
+							{item.homepage && (
+								<Link
+									size="1"
+									href={item.homepage}
+									target="_blank"
+									rel="noopener noreferrer"
+									style={{ overflowWrap: "anywhere" }}
+								>
+									{item.homepage}
+								</Link>
+							)}
 							<span style={{ overflowWrap: "anywhere" }}>
 								{t(`pluginStore.source.${item.source}`, item.source)}
 								{item.artifact ? ` · SHA-256: ${item.artifact.sha256}` : ""}

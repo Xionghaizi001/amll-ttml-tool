@@ -98,6 +98,8 @@ export interface ThemeSummary extends ThemeInstallationMetadata {
 	name: string;
 	version: string;
 	description?: string;
+	author?: string;
+	homepage?: string;
 	appearance: "light" | "dark" | "both";
 	source: ThemeSource;
 }
