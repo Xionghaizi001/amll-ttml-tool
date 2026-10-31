@@ -312,10 +312,6 @@ export const cmdAutoSegment = registerMenuCommand(
 	"tool.autoSegment",
 	t("topBar.menu.autoSegment"),
 );
-export const cmdRubySegment = registerMenuCommand(
-	"tool.rubySegment",
-	t("topBar.menu.rubySegment"),
-);
 export const cmdOpenAdvancedSegmentation = registerMenuCommand(
 	"tool.openAdvancedSegmentation",
 	t("topBar.menu.advancedSegment"),
@@ -331,10 +327,6 @@ export const cmdDistributeRomanization = registerMenuCommand(
 export const cmdCheckRomanizationWarnings = registerMenuCommand(
 	"tool.checkRomanizationWarnings",
 	t("topBar.menu.perWordRomanization.check"),
-);
-export const cmdAutoRuby = registerMenuCommand(
-	"tool.autoRuby",
-	t("topBar.menu.perWordRomanization.autoRuby"),
 );
 export const cmdOpenLatencyTest = registerMenuCommand(
 	"tool.openLatencyTest",

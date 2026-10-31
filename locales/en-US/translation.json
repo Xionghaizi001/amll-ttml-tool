@@ -228,13 +228,11 @@
 			"help": "Help",
 			"segmentationTools": "Segmentation Tools",
 			"autoSegment": "Auto Segment",
-			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
 			"perWordRomanization": {
 				"index": "Per-Word Romanization",
 				"distribute": "Distribute Romanization...",
-				"check": "Check Per-Word Romanization",
-				"autoRuby": "Auto Ruby"
+				"check": "Check Per-Word Romanization"
 			},
 			"tool": "Tools",
 			"importLyric": {

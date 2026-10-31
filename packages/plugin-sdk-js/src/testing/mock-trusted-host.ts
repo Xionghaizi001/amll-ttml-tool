@@ -35,6 +35,7 @@ import type {
 import { TRUSTED_JS_SDK_VERSION } from "../host";
 
 export interface MockTrustedJsHostOptions {
+	segmentation?: TrustedJsHostV0["segmentation"];
 	pluginId: string;
 	document?: PluginDocumentV0;
 	selection?: PluginSelectionV0;
@@ -125,6 +126,25 @@ const diffIds = <T extends { id: string }>(
  * that the same plugin source and the same contract suite run against both.
  */
 export class MockTrustedJsHost implements TrustedJsHostV0 {
+	readonly segmentation: TrustedJsHostV0["segmentation"] = {
+		isKanaOnly: (text) => {
+			if (this.disposed) throw new Error("Plugin host is disposed");
+			if (!this.options.segmentation)
+				throw new Error("Segmentation port not configured");
+			return this.options.segmentation.isKanaOnly(text);
+		},
+		segmentText: async (input, segments) => {
+			if (this.disposed) throw new Error("Plugin host is disposed");
+			if (!this.options.segmentation)
+				throw new Error("Segmentation port not configured");
+			const result = await this.options.segmentation.segmentText(
+				input,
+				segments,
+			);
+			if (this.disposed) throw new Error("Plugin host is disposed");
+			return result;
+		},
+	};
 	readonly sdkVersion = TRUSTED_JS_SDK_VERSION;
 	readonly pluginId: string;
 	readonly notifications: NotifyParams[] = [];

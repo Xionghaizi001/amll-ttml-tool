@@ -189,13 +189,11 @@
 			"tool": "Alat",
 			"segmentationTools": "Segmentasi",
 			"autoSegment": "Segmentasi Otomatis",
-			"rubySegment": "Segmentasi Furigana/Ruby",
 			"advancedSegment": "Segmentasi Lanjutan...",
 			"perWordRomanization": {
 				"index": "Romanisasi Per Kata",
 				"check": "Periksa Konsistensi Romanisasi Per Kata",
-				"distribute": "Distribusikan Romanisasi Otomatis...",
-				"autoRuby": "Anotasi Ruby Otomatis"
+				"distribute": "Distribusikan Romanisasi Otomatis..."
 			},
 			"help": "Bantuan",
 			"helpDoc": "Panduan Pengguna",

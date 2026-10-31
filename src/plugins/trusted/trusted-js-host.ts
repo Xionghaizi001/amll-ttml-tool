@@ -1,3 +1,4 @@
+import { pluginSegmentation } from "$/plugins/adapters/segmentation";
 import { createPluginEditor } from "$/plugins/ui/plugin-editor";
 import { TrustedJsStateStorage } from "./trusted-js-state-storage";
 import type { TrustedJsHostV0 } from "@amll-ttml-tool/plugin-sdk-js";
@@ -62,6 +63,7 @@ import { checkDependencyActivation, checkDependencyGraph, registerDependencySour
  */
 const trustedJsHostPorts: TrustedJsHostPorts = {
 	documents: pluginDocumentGateway,
+ segmentation: pluginSegmentation,
  createEditor: createPluginEditor,
 	subscribeDocumentChanges: subscribeHostDocumentChanges,
 	getSelection: getHostSelection,

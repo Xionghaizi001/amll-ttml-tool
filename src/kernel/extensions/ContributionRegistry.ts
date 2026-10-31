@@ -1,5 +1,7 @@
 import type {
 	ActionIconV0,
+	PluginWordV0,
+	PluginWordPatchV0,
 	FormSchemaV0,
 	LocalizedText,
 	MenuItemContribution,
@@ -75,9 +77,19 @@ export interface DeclarativeFormContributionRecord extends OwnedContribution {
 
 export interface TrustedViewContributionRecord<TView = unknown>
 	extends OwnedContribution {
-	kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
+	kind:
+		| "sidebar"
+		| "settings-view"
+		| "dialog-view"
+		| "titlebar-group"
+		| "word-editor";
 	title: LocalizedText;
 	view: TView;
+	transformTextInput?(
+		text: string,
+		word: PluginWordV0,
+		context: "insert" | "edit",
+	): PluginWordPatchV0 | undefined;
 	size?: "small" | "medium" | "large" | "full";
 }
 
@@ -154,6 +166,7 @@ const TRUSTED_VIEW_KINDS = new Set([
 	"settings-view",
 	"dialog-view",
 	"titlebar-group",
+	"word-editor",
 ]);
 
 class DisposableStore implements Disposable {
@@ -413,9 +426,19 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 	}): Disposable;
 	registerTrustedView(input: {
 		id: string;
-		kind: "sidebar" | "settings-view" | "dialog-view" | "titlebar-group";
+		kind:
+			| "sidebar"
+			| "settings-view"
+			| "dialog-view"
+			| "titlebar-group"
+			| "word-editor";
 		title: LocalizedText;
 		view: TView;
+		transformTextInput?(
+			text: string,
+			word: PluginWordV0,
+			context: "insert" | "edit",
+		): PluginWordPatchV0 | undefined;
 		size?: "small" | "medium" | "large" | "full";
 	}): Disposable;
 	registerMode(input: {
@@ -653,7 +676,9 @@ export class ExtensionRegistry<TView = unknown> {
 			},
 			registerOverride: (input) => {
 				if (owner.kind !== "plugin")
-					throw new Error(`Builtin scope ${owner.id} cannot register overrides`);
+					throw new Error(
+						`Builtin scope ${owner.id} cannot register overrides`,
+					);
 				if (input.targetPluginId === owner.pluginId)
 					throw new Error(`Plugin ${owner.pluginId} cannot override itself`);
 				return disposables.add(
@@ -667,7 +692,8 @@ export class ExtensionRegistry<TView = unknown> {
 			onOwnOverridesChanged: (listener) =>
 				disposables.add(
 					overrides.subscribe((target) => {
-						if (owner.kind === "plugin" && target === owner.pluginId) listener();
+						if (owner.kind === "plugin" && target === owner.pluginId)
+							listener();
 					}),
 				),
 			dispose: () => disposables.dispose(),

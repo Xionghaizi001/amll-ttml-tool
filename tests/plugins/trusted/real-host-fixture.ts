@@ -114,6 +114,7 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const media = new MockTrustedJsHost({ pluginId: options.pluginId });
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
+		segmentation: media.segmentation,
 		createEditor: () => ({
 			...media.editor,
 			revealLine: (id) => {

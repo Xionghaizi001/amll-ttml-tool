@@ -58,14 +58,11 @@ import {
 import type { LyricLine, LyricWord } from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
-import { RubyEditor } from "../tools/RubyEditor.tsx";
+import { WordEditorContributions } from "$/plugins/ui/WordEditorContributions";
+import { applyWordTextInput } from "$/plugins/adapters/word-text-input";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
 import styles from "./index.module.css";
-import {
-	getDisplayWordText,
-	parseRubyShortcut,
-	useWordBlank,
-} from "./lyric-view-model";
+import { getDisplayWordText, useWordBlank } from "./lyric-view-model";
 import {
 	type LyricWordViewEditProps,
 	LyricWordViewEditSpan,
@@ -109,22 +106,13 @@ function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 		(rawValue: string) => {
 			try {
 				const thisWord = store.get(wordAtom);
-				const { word: inputWord, enableRuby } =
-					fieldName === "word"
-						? parseRubyShortcut(rawValue)
-						: { word: rawValue, enableRuby: false };
-				const value =
-					fieldName === "word"
-						? (inputWord as unknown as V)
-						: parser(inputWord as string);
+				const value = fieldName === "word" ? (rawValue as V) : parser(rawValue);
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
 						for (const word of line.words) {
 							if (thisWord.id === word.id) {
-								word[fieldName] = value;
-								if (fieldName === "word" && enableRuby && !word.ruby) {
-									word.ruby = [];
-								}
+								if (fieldName === "word") applyWordTextInput(word, rawValue);
+								else word[fieldName] = value;
 								break;
 							}
 						}
@@ -184,10 +172,6 @@ const LyricWordViewEditAdvance = ({
 	const isWordSelected = useAtomValue(isWordSelectedAtom);
 
 	const isWordBlank = useWordBlank(currentWord.word);
-	const showRubyEditor = useMemo(
-		() => currentWord.ruby !== undefined,
-		[currentWord.ruby],
-	);
 
 	const hasError = useMemo(
 		() => currentWord.startTime > currentWord.endTime,
@@ -207,18 +191,10 @@ const LyricWordViewEditAdvance = ({
 				styles.advance,
 				isWordSelected && styles.selected,
 				isWordBlank && styles.blank,
-				showRubyEditor && styles.rubyEnabled,
 				hasError && toolMode === ToolMode.Edit && styles.error,
 				hasRadical && styles.radical,
 			),
-		[
-			isWordBlank,
-			isWordSelected,
-			showRubyEditor,
-			hasError,
-			toolMode,
-			hasRadical,
-		],
+		[isWordBlank, isWordSelected, hasError, toolMode, hasRadical],
 	);
 
 	return (
@@ -288,14 +264,7 @@ const LyricWordViewEditAdvance = ({
 							<DeleteRegular />
 						</IconButton>
 					</div>
-					<div className={styles.rubyAdvanceRow}>
-						<RubyEditor
-							wordAtom={wordAtom}
-							forceShow
-							showIcon
-							className={styles.rubyEditorCompact}
-						/>
-					</div>
+					<WordEditorContributions word={currentWord} layout="advanced" />
 					<WordEditField
 						size="1"
 						color="red"
@@ -377,7 +346,6 @@ const LyricWorldViewEdit = ({
 	const toolMode = useAtomValue(toolModeAtom);
 	const isWordBlank = useWordBlank(word.word);
 	const displayWord = getDisplayWordText(t, word.word, isWordBlank);
-	const showRubyEditor = useMemo(() => word.ruby !== undefined, [word.ruby]);
 
 	const hasError = useMemo(
 		() => word.startTime > word.endTime,
@@ -393,36 +361,21 @@ const LyricWorldViewEdit = ({
 				styles.edit,
 				isWordSelected && styles.selected,
 				isWordBlank && styles.blank,
-				showRubyEditor && styles.rubyEnabled,
 				hasError && toolMode === ToolMode.Edit && styles.error,
 				hasRadical && styles.radical,
 			),
-		[
-			isWordBlank,
-			isWordSelected,
-			showRubyEditor,
-			hasError,
-			toolMode,
-			hasRadical,
-		],
+		[isWordBlank, isWordSelected, hasError, toolMode, hasRadical],
 	);
 
 	const onEnter = useCallback(
 		(evt: SyntheticEvent<HTMLInputElement>) => {
 			setEditing(false);
-			const { word: parsedWord, enableRuby } = parseRubyShortcut(
-				evt.currentTarget.value,
-			);
-			if (parsedWord !== word.word || enableRuby) {
-				editLyricLines((state) => {
-					const targetWord = state.lyricLines[lineIndex]?.words[wordIndex];
-					if (!targetWord) return;
-					targetWord.word = parsedWord;
-					if (enableRuby && !targetWord.ruby) {
-						targetWord.ruby = [];
-					}
-				});
-			}
+			if (evt.currentTarget.value === word.word) return;
+			const value = evt.currentTarget.value;
+			editLyricLines((state) => {
+				const targetWord = state.lyricLines[lineIndex]?.words[wordIndex];
+				if (targetWord) applyWordTextInput(targetWord, value);
+			});
 		},
 		[editLyricLines, lineIndex, word.word, wordIndex],
 	);
@@ -438,7 +391,7 @@ const LyricWorldViewEdit = ({
 						if (evt.key === "Enter") onEnter(evt);
 					}}
 				/>
-				{showRubyEditor && <RubyEditor wordAtom={wordAtom} />}
+				<WordEditorContributions word={word} layout="simple" />
 			</span>
 		</div>
 	) : (
@@ -469,7 +422,7 @@ const LyricWorldViewEdit = ({
 				>
 					<span className={styles.wordEditRow}>
 						{displayWord}
-						{showRubyEditor && <RubyEditor wordAtom={wordAtom} />}
+						<WordEditorContributions word={word} layout="simple" />
 					</span>
 				</LyricWordViewEditSpan>
 			</ContextMenu.Trigger>

@@ -1,5 +1,9 @@
 import * as wanakana from "wanakana";
-import { ALL_PUNCTUATION } from "../charUtils";
+import { isPunctuationChar } from "$/application/lyrics/punctuation";
+export {
+	isPunctuationChar,
+	isPunctuationOnly,
+} from "$/application/lyrics/punctuation";
 
 /**
  * 罗马音元音
@@ -10,26 +14,6 @@ export const ROMAJI_VOWELS = new Set(["a", "e", "i", "o", "u"]);
  * 促音字符
  */
 export const SOKUON_CHARS = new Set(["っ", "ッ"]);
-
-/**
- * 一个字符是否是标点符号
- */
-export function isPunctuationChar(char: string): boolean {
-	return ALL_PUNCTUATION.has(char);
-}
-
-/**
- * 一个字符串是否完全由标点符号组成
- */
-export function isPunctuationOnly(text: string): boolean {
-	if (!text) return false;
-	for (const char of text) {
-		if (!isPunctuationChar(char)) {
-			return false;
-		}
-	}
-	return true;
-}
 
 /**
  * 判断字符是否是促音
@@ -72,6 +56,14 @@ export function isChoonpu(char: string): boolean {
  */
 export function isKanaOnly(text: string): boolean {
 	if (!text) return false;
-	const cleanText = text.replace(/[、，。！？\s]/g, "");
+	const cleanText = Array.from(text)
+		.filter(
+			(char) =>
+				char.trim() !== "" &&
+				!isPunctuationChar(char) &&
+				!/^\p{P}$/u.test(char),
+		)
+		.join("");
+	if (!cleanText) return false;
 	return wanakana.isKana(cleanText);
 }

@@ -735,3 +735,15 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 独立源码位于同级 `amll-ttml-tool-plugin-metadata/`，插件 id 为 `builtin.metadata`。通过 `document.readSnapshot/onChanged/applyEdit` 和 `setMetadata` 更新元数据，每次操作校验 revision 并保留一次撤销；失败通过 `ui.notify` 告知。字段、校验、拖放去重、自定义键、平台图标和语言文案归插件，UI 使用共享 React/Radix 的 `dialog-view`（`size: "full"`），插件样式限定于自己的 scope 所在对话框，保留 920×680 的无外边距双栏布局；宿主标题仅视觉隐藏，继续提供无障碍名称。编辑菜单原槽位仅在 `builtin.metadata.run` 注册时显示；卸载关闭对话框并清理订阅，重新打开从当前文档读取数据。无新增 SDK 端口或插件存储；文件名推导、默认作者及文件保存流程留在宿主。
 
 宿主只消费 `factory-plugins.lock.json` 锁定 ZIP。插件侧运行 `pnpm test`、`pnpm run pack`；宿主运行 `tests/plugins/trusted/migrated-artifacts.test.ts` 与 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。出厂副本与插件 `dist/plugins/store` 使用同一摘要；远端发布和 Tauri 平台验收仍待完成。
+
+### Ruby 编辑器迁移（2026-10-29）
+
+独立项目为同级 `amll-ttml-tool-plugin-ruby/`（`builtin.ruby`），宿主仅消费锁定 factory ZIP。先适配主分支 `45494a142508c2a6876868213e87d3b0d423177e`：Latin 歌词不生成注音，假名判断忽略标点，最后一个注音删除后清除结构，原生 TTML 导出过滤空白/纯标点注音。导出修复留在 `TtmlFormatService`，纯标点定义由 application 层共用，避免导出反向依赖分词 UI。
+
+公开 `views.registerView({ kind: "word-editor", ... })` 在简洁/高级词块中渲染，props 仅含 `PluginWordV0` 和 `layout`，不暴露 atom。可选同步 `transformTextInput(text, word, context)` 在宿主输入事务内返回词 patch，首个匹配生效；patch 经协议 schema 校验，卸载后不再解释插件快捷输入。Ruby 插件保留内联输入、自适应宽度、退格合并、批量应用、首次使用警告及 `|` 输入行为。词级视图使用稳定 registry 快照订阅，禁用立即卸载。
+
+`updateWord.patch.ruby: null` 表示删除结构，`[]` 仍表示保留空结构，省略字段则不修改；文档投影及新建词不接受 null。mock 与真实宿主共享该语义。异步批量操作读取 revision 后计算，提交前冲突检查，失败提示且不覆盖并发编辑；一次操作对应一次撤销。
+
+`host.segmentation.isKanaOnly` 与异步 `segmentText(input, segments?)` 暂由宿主现有分词算法及偏好提供：不传 segments 自动分词，传入 tokens 则分配时间，不修改文档。Ruby 生成、选区筛选和批量业务归插件。分词/罗马音模块本轮未迁出，尚无外置分词插件可声明依赖；其迁出时复用端口并接 provider/dependencies。原生注音显示、同步打轴、导入导出不随编辑插件停用而消失。
+
+API/SDK tarball 已同步至 Ruby 与 toolkit vendor；旧插件仍使用各自锁定 SDK，需新接口的插件升级时同步。验证入口为插件 `pnpm test`、宿主 `tests/plugins/trusted/{ruby-ports,migrated-artifacts}.test.ts`、`tests/modules/lyric-editor/ruby-patch.test.ts` 和 `tests/plugins/browser/ruby.browser-check.mjs`。远端发布及原生平台验收仍后置。

@@ -4,13 +4,10 @@ import { withImmer } from "jotai-immer";
 import { useCallback } from "react";
 import {
 	distributeDocumentRomanization,
-	generateDocumentRuby,
-	previewSegmentWord,
 	refreshRomanizationWarnings,
 	segmentEntireDocument,
 } from "$/application/lyrics";
 import {
-	cmdAutoRuby,
 	cmdAutoSegment,
 	cmdCheckRomanizationWarnings,
 	cmdDeleteSelection,
@@ -27,7 +24,6 @@ import {
 	cmdOpenSyllableSmoothing,
 	cmdOpenWiki,
 	cmdRedo,
-	cmdRubySegment,
 	cmdSaveFile,
 	cmdSaveFileToClipboard,
 	cmdSelectAll,
@@ -38,7 +34,6 @@ import {
 	cmdUnselectAll,
 } from "$/modules/keyboard/commands";
 import { useCommandHandler } from "$/modules/keyboard/hooks";
-import { rubyGenerationEngine } from "$/modules/lyric-editor/adapters/ruby-generation-engine";
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
@@ -64,7 +59,6 @@ import {
 	selectedLinesAtom,
 	selectedWordsAtom,
 } from "$/states/main.ts";
-import { type LyricWord, type LyricWordBase, newLyricWord } from "$/types/ttml";
 import { createLogger } from "$/utils/logger";
 
 const topMenuLogger = createLogger("TopMenu");
@@ -80,38 +74,6 @@ export const useTopMenuActions = () => {
 	);
 	const setSyllableSmoothingDialog = useSetAtom(syllableSmoothingDialogAtom);
 	const { config: segmentationConfig } = useSegmentationConfig();
-
-	const buildRubySegments = useCallback(
-		(text: string, baseWord: LyricWordBase) => {
-			const sourceWord: LyricWord = {
-				...newLyricWord(),
-				word: text,
-				startTime: baseWord.startTime,
-				endTime: baseWord.endTime,
-				emptyBeat: 0,
-			};
-			const segments = previewSegmentWord(
-				sourceWord,
-				segmentationConfig,
-				segmentationEngine,
-			);
-			if (segments.length === 0) {
-				return [
-					{
-						word: text,
-						startTime: baseWord.startTime,
-						endTime: baseWord.endTime,
-					},
-				];
-			}
-			return segments.map((segment) => ({
-				word: segment.word,
-				startTime: segment.startTime,
-				endTime: segment.endTime,
-			}));
-		},
-		[segmentationConfig],
-	);
 
 	const onNewFile = useCallback(() => {
 		lyricFileFlow.newDocument();
@@ -154,7 +116,6 @@ export const useTopMenuActions = () => {
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);
 	}, [store]);
-
 
 	const onOpenSettings = useCallback(() => {
 		setSettingsDialogOpened(true);
@@ -274,34 +235,6 @@ export const useTopMenuActions = () => {
 		);
 	}, [segmentationConfig]);
 
-	const onRubySegment = useCallback(() => {
-		const selectedWordIds = store.get(selectedWordsAtom);
-		const hasSelection = selectedWordIds.size > 0;
-		editLyricLines((state) => {
-			for (const line of state.lyricLines) {
-				for (const word of line.words) {
-					if (hasSelection && !selectedWordIds.has(word.id)) continue;
-					if (!word.ruby || word.ruby.length === 0) continue;
-					const nextRuby: LyricWordBase[] = [];
-					for (const rubyWord of word.ruby) {
-						const parts = rubyWord.word.split("|");
-						const nextSegments = buildRubySegments(parts[0] ?? "", rubyWord);
-						const fallbackBase = {
-							word: "",
-							startTime: word.startTime,
-							endTime: word.endTime,
-						};
-						const extraSegments = parts
-							.slice(1)
-							.flatMap((part) => buildRubySegments(part, fallbackBase));
-						nextRuby.push(...nextSegments, ...extraSegments);
-					}
-					word.ruby = nextRuby;
-				}
-			}
-		});
-	}, [buildRubySegments, editLyricLines, store]);
-
 	const onOpenDistributeRomanization = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
 		const { failures } = distributeDocumentRomanization(
@@ -314,15 +247,6 @@ export const useTopMenuActions = () => {
 				`Failed to distribute romanization for line ${failure.lineIndex + 1}`,
 				failure.error,
 			);
-	}, [store]);
-
-	const onAutoRuby = useCallback(() => {
-		const selectedLines = store.get(selectedLinesAtom);
-		generateDocumentRuby(
-			editorDocumentAdapter,
-			rubyGenerationEngine,
-			selectedLines.size ? selectedLines : undefined,
-		);
 	}, [store]);
 
 	const onCheckRomanizationWarnings = useCallback(() => {
@@ -358,12 +282,10 @@ export const useTopMenuActions = () => {
 	useCommandHandler(cmdDeleteSelection, onDeleteSelection);
 	useCommandHandler(cmdOpenSettings, onOpenSettings);
 	useCommandHandler(cmdAutoSegment, onAutoSegment);
-	useCommandHandler(cmdRubySegment, onRubySegment);
 	useCommandHandler(cmdOpenAdvancedSegmentation, onOpenAdvancedSegmentation);
 	useCommandHandler(cmdOpenSyllableSmoothing, onOpenSyllableSmoothing);
 	useCommandHandler(cmdDistributeRomanization, onOpenDistributeRomanization);
 	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
-	useCommandHandler(cmdAutoRuby, onAutoRuby);
 	useCommandHandler(cmdOpenLatencyTest, onOpenLatencyTest);
 	useCommandHandler(cmdOpenPluginStore, onOpenPluginStore);
 	useCommandHandler(cmdOpenGitHub, onOpenGitHub);
@@ -387,10 +309,8 @@ export const useTopMenuActions = () => {
 		onOpenSyllableSmoothing,
 		onOpenSettings,
 		onAutoSegment,
-		onRubySegment,
 		onOpenAdvancedSegmentation,
 		onOpenDistributeRomanization,
-		onAutoRuby,
 		onCheckRomanizationWarnings,
 		onOpenLatencyTest,
 		onOpenGitHub,

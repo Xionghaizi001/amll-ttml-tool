@@ -239,8 +239,9 @@ export type NewWordV0 = Omit<PluginWordV0, "id">;
 export type NewLineV0 = Omit<PluginLineV0, "id" | "words"> & {
 	words: NewWordV0[];
 };
-export type PluginRubyPatchV0 = { ruby?: PluginRubySegmentV0[] };
-export type PluginWordPatchV0 = Partial<Omit<PluginWordV0, "id">>;
+/** null removes Ruby; [] preserves an enabled, empty Ruby structure. */
+export type PluginRubyPatchV0 = { ruby?: PluginRubySegmentV0[] | null };
+export type PluginWordPatchV0 = Partial<Omit<PluginWordV0, "id" | "ruby">> & PluginRubyPatchV0;
 export type PluginLinePatchV0 = Partial<Omit<PluginLineV0, "id" | "words">>;
 
 export type DocumentOpV0 =

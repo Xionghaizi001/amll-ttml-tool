@@ -17,6 +17,9 @@ import type {
 	PluginLineV0,
 	PluginMetadataEntryV0,
 	PluginSelectionV0,
+	PluginWordV0,
+	PluginWordPatchV0,
+	PluginRubySegmentV0,
 	TitleBarActionContribution,
 } from "@amll-ttml-tool/plugin-api";
 import type {
@@ -337,13 +340,44 @@ export type TrustedJsTrustedViewKindV0 =
 	| "dialog-view"
 	| "titlebar-group";
 
-export interface TrustedJsTrustedViewV0 {
+export interface TrustedJsPanelViewV0 {
 	id: string;
 	kind: TrustedJsTrustedViewKindV0;
 	title: LocalizedText;
 	view: TrustedJsViewV0;
 	/** `dialog-view` width: the form sizes plus `full` (viewport width). Defaults to the host dialog width. */
 	size?: "small" | "medium" | "large" | "full";
+}
+
+export interface TrustedJsWordEditorPropsV0 {
+	word: PluginWordV0;
+	layout: "simple" | "advanced";
+}
+export interface TrustedJsWordEditorV0 {
+	id: string;
+	kind: "word-editor";
+	title: LocalizedText;
+	view: ComponentType<TrustedJsWordEditorPropsV0>;
+	/** Optional synchronous text-input shortcut. First matching contribution wins.
+	 * Return undefined to pass through. Runs inside the host's insertion/edit transaction. */
+	transformTextInput?(
+		text: string,
+		word: PluginWordV0,
+		context: "insert" | "edit",
+	): PluginWordPatchV0 | undefined;
+}
+export type TrustedJsTrustedViewV0 =
+	| TrustedJsPanelViewV0
+	| TrustedJsWordEditorV0;
+
+/** Shared segmentation consumer port. Uses the current host segmentation preferences; never edits the document. */
+export interface TrustedJsSegmentationV0 {
+	isKanaOnly(text: string): boolean;
+	/** Omit segments for automatic segmentation; supply them to distribute time over explicit tokens. */
+	segmentText(
+		input: PluginRubySegmentV0,
+		segments?: string[],
+	): Promise<PluginRubySegmentV0[]>;
 }
 
 /** Trusted-tier only: first-class pages and host view slots. */
@@ -374,6 +408,7 @@ export interface TrustedJsEditorV0 {
  * suite, which is the freeze gate for this tier.
  */
 export interface TrustedJsHostV0 {
+	segmentation: TrustedJsSegmentationV0;
 	editor: TrustedJsEditorV0;
 	readonly sdkVersion: typeof TRUSTED_JS_SDK_VERSION;
 	document: TrustedJsDocumentV0;

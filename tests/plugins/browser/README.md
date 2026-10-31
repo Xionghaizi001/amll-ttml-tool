@@ -63,3 +63,7 @@ pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
 ### 元数据编辑器（2026-10-29）
 
 启动独立 Vite 端口，运行 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。覆盖编辑、拖放去重与一次撤销、自定义键、卸载关闭及重新启用、禁用跨刷新；使用全新 Chrome 上下文，不读写个人浏览器数据或源文件。
+
+### Ruby 编辑器（2026-10-29）
+
+启动独立 Vite 端口，执行 `node tests/plugins/browser/ruby.browser-check.mjs http://127.0.0.1:5189/`。覆盖原位两种布局、首次提示、编辑/合并/最后项删除、相同词批量应用、自动注音过滤、分词/撤销、卸载恢复、禁用跨刷新及真实输入框 `|` 快捷输入随插件启停。截图输出至 release，不入库；使用独立 Chrome 上下文。

@@ -232,3 +232,23 @@ describe("metadata factory artifact", () => {
 		);
 	});
 });
+
+
+describe("ruby factory artifact", () => {
+ it("owns inline views and commands, preserves internal fields, and supports one-step undo", async () => {
+  const id="builtin.ruby";const {activate,strings}=await loadLockedArtifact(id);
+  const {pluginSegmentation}=await import("$/plugins/adapters/segmentation");
+  const doc=realHostFixture();doc.lyricLines[0].words[0].word="漢字";doc.lyricLines[0].words[0].romanWord="kanji";delete doc.lyricLines[0].words[0].ruby;
+  const fixture=createRealTrustedHost({pluginId:id,document:doc,strings,locale:"zh-CN",ports:{segmentation:pluginSegmentation}});
+  await activate({pluginId:id,host:fixture.host,signal:new AbortController().signal});
+  const [view]=fixture.extensions.contributions.getTrustedViews("word-editor");
+  const word=fixture.host.document.readSnapshot().lines[0].words[0];
+  expect(view.transformTextInput?.("字|",word,"insert")).toMatchObject({text:"字",ruby:[{text:""}]});
+  const html=renderToString(createElement(Theme,null,createElement(view.view as ComponentType<{word:typeof word;layout:"advanced"}>,{word,layout:"advanced"})));
+  expect(html).toContain("添加注音");expect(html).toContain("应用到所有相同单词");
+  await fixture.commands.execute(`${id}.generate`);expect(fixture.service.readSnapshot().lyricLines[0].words[0].ruby?.map(r=>r.word)).toEqual(["か","ん","じ"]);
+  expect(fixture.service.readSnapshot().lyricLines[0].words[0].obscene).toBe(doc.lyricLines[0].words[0].obscene);
+  fixture.service.undo();expect(fixture.service.readSnapshot()).toEqual(doc);
+  fixture.handle.dispose();fixture.scope.dispose();expect(fixture.commands.get(`${id}.generate`)).toBeUndefined();expect(fixture.commands.get(`${id}.segment`)).toBeUndefined();expect(fixture.extensions.contributions.getTrustedViews("word-editor")).toHaveLength(0);
+ });
+});

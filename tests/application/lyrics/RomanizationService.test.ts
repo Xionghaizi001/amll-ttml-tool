@@ -4,9 +4,7 @@ import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
 import {
 	createRomanizationDebugReport,
 	distributeDocumentRomanization,
-	generateDocumentRuby,
 	type RomanizationEnginePort,
-	type RubyGenerationEnginePort,
 } from "$/application/lyrics/RomanizationService";
 
 const createWord = (id: string, word: string): LyricWord => ({
@@ -43,16 +41,6 @@ const engine: RomanizationEnginePort = {
 	},
 };
 
-const rubyEngine: RubyGenerationEnginePort = {
-	generate: (word) => [
-		{
-			word: word.romanWord ?? "",
-			startTime: word.startTime,
-			endTime: word.endTime,
-		},
-	],
-};
-
 describe("RomanizationService", () => {
 	it("applies selected lines in one document transaction and can undo", () => {
 		const document = new EditorDocumentService(createDocument());
@@ -87,22 +75,5 @@ describe("RomanizationService", () => {
 				syllables: [{ word: "b", emptyBeat: 0, predicted: "B-ROMAN" }],
 			},
 		]);
-	});
-
-	it("generates ruby for selected lines in one undoable transaction", () => {
-		const initial = createDocument();
-		initial.lyricLines[1].words[0].romanWord = "bi";
-		const document = new EditorDocumentService(initial);
-		const event = generateDocumentRuby(
-			document,
-			rubyEngine,
-			new Set(["line-2"]),
-		);
-		expect(event?.revision).toBe(1);
-		expect(document.readSnapshot().lyricLines[1].words[0].ruby?.[0].word).toBe(
-			"bi",
-		);
-		document.undo();
-		expect(document.readSnapshot().lyricLines[1].words[0].ruby).toBeUndefined();
 	});
 });

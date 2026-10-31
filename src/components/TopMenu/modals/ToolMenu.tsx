@@ -3,14 +3,12 @@ import { Toolbar } from "radix-ui";
 import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
-	cmdAutoRuby,
 	cmdAutoSegment,
 	cmdCheckRomanizationWarnings,
 	cmdDistributeRomanization,
 	cmdOpenAdvancedSegmentation,
 	cmdOpenLatencyTest,
 	cmdOpenSyllableSmoothing,
-	cmdRubySegment,
 } from "$/modules/keyboard/commands";
 import {
 	ContributionMenuItems,
@@ -38,9 +36,9 @@ const ToolMenuItems = () => {
 					<CommandMenuItem commandId={cmdAutoSegment.id}>
 						{t("topBar.menu.autoSegment", "自动分词")}
 					</CommandMenuItem>
-					<CommandMenuItem commandId={cmdRubySegment.id}>
-						{t("topBar.menu.rubySegment", "注音分词")}
-					</CommandMenuItem>
+					<PinnedCommandMenuItem
+						commandId={PINNED_FACTORY_COMMANDS.rubySegment}
+					/>
 					<CommandMenuItem commandId={cmdOpenAdvancedSegmentation.id}>
 						{t("topBar.menu.advancedSegment", "高级分词...")}
 					</CommandMenuItem>
@@ -68,9 +66,7 @@ const ToolMenuItems = () => {
 					</CommandMenuItem>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
-			<CommandMenuItem commandId={cmdAutoRuby.id}>
-				{t("topBar.menu.perWordRomanization.autoRuby", "自动注音")}
-			</CommandMenuItem>
+			<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.rubyGenerate} />
 			<CommandMenuItem commandId={cmdOpenLatencyTest.id}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
 			</CommandMenuItem>

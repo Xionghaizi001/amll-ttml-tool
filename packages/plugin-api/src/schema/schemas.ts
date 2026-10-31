@@ -601,7 +601,10 @@ export const LYRICS_APPLY_EDIT_SCHEMA = {
 						wordId: id,
 						patch: {
 							type: "object",
-							properties: wordPatchProperties,
+							properties: {
+								...wordPatchProperties,
+								ruby: { ...wordPatchProperties.ruby, nullable: true },
+							},
 							additionalProperties: false,
 						},
 					}),

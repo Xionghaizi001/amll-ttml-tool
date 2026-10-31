@@ -174,7 +174,6 @@
 			"tool": "Инструменты",
 			"segmentationTools": "Инструменты сегментации",
 			"autoSegment": "Автосегментация",
-			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Расширенная сегментация...",
 			"distributeRomanization": "Распределить романизацию...",
 			"help": "Справка",

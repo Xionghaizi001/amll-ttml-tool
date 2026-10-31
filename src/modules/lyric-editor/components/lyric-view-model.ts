@@ -6,13 +6,6 @@ export const useWordBlank = (word: string) =>
 		[word],
 	);
 
-export const parseRubyShortcut = (value: string) => {
-	if (value.endsWith("|")) {
-		return { word: value.slice(0, -1), enableRuby: true };
-	}
-	return { word: value, enableRuby: false };
-};
-
 export const getDisplayWordText = (
 	t: (
 		key: string,

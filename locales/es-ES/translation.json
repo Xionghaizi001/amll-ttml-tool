@@ -174,7 +174,6 @@
 			"tool": "Herramientas",
 			"segmentationTools": "Herramientas de segmentación",
 			"autoSegment": "Segmentación automática",
-			"rubySegment": "Segmentación Ruby",
 			"advancedSegment": "Segmentación avanzada...",
 			"distributeRomanization": "Distribuir romanización...",
 			"help": "Ayuda",

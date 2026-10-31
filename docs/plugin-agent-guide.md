@@ -179,3 +179,11 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 独立源码位于同级 `amll-ttml-tool-plugin-metadata/`，插件 id 为 `builtin.metadata`。通过 `document.readSnapshot/onChanged/applyEdit` 和 `setMetadata` 更新元数据，每次操作校验 revision 并保留一次撤销；失败通过 `ui.notify` 告知。字段、校验、拖放去重、自定义键、平台图标和语言文案归插件，UI 使用共享 React/Radix 的 `dialog-view`（`size: "full"`），插件样式限定于自己的 scope 所在对话框，保留 920×680 的无外边距双栏布局；宿主标题仅视觉隐藏，继续提供无障碍名称。编辑菜单原槽位仅在 `builtin.metadata.run` 注册时显示；卸载关闭对话框并清理订阅，重新打开从当前文档读取数据。无新增 SDK 端口或插件存储；文件名推导、默认作者及文件保存流程留在宿主。
 
 宿主只消费 `factory-plugins.lock.json` 锁定 ZIP。插件侧运行 `pnpm test`、`pnpm run pack`；宿主运行 `tests/plugins/trusted/migrated-artifacts.test.ts` 与 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。出厂副本与插件 `dist/plugins/store` 使用同一摘要；远端发布和 Tauri 平台验收仍待完成。
+
+### Ruby 维护边界（2026-10-29）
+
+`builtin.ruby` 源码在同级 `amll-ttml-tool-plugin-ruby/`。已适配补丁 `45494a142508c2a6876868213e87d3b0d423177e`，生成排除/最后项删除逻辑归插件，标点识别与原生导出清洗归共享宿主服务。不要恢复旧 RubyEditor、生成器或 TopMenu handler。
+
+词级视图仅拿公开投影；宿主 `WordEditorContributions` 用稳定快照订阅（不可只调用后忽略 revision，React 编译优化可能缓存已卸载视图）。`applyWordTextInput` 在现有事务中执行并校验插件 patch，禁用后 `|` 应保留为普通文本。`ruby: null` 与 [] 的语义不可混淆。批量分词/应用须在异步等待后校验原 revision。
+
+共享 `host.segmentation` 暂复用宿主算法/设置，不是分词迁移完成；外置分词 provider 后再接依赖声明。API/SDK 新接口的 tarball 已更新 Ruby/toolkit vendor，宿主 lock 必须与 Ruby dist ZIP 字节一致。回归入口见架构文档“Ruby 编辑器迁移”和验收清单。

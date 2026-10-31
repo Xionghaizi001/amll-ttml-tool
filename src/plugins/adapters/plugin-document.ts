@@ -8,6 +8,7 @@ import type {
 	PluginLinePatchV0,
 	PluginRubySegmentV0,
 	PluginWordPatchV0,
+	PluginWordV0,
 } from "@amll-ttml-tool/plugin-api";
 import type {
 	DocumentChangeEvent,
@@ -34,23 +35,7 @@ export const toPluginDocument = (
 	revision,
 	lines: document.lyricLines.map((line) => ({
 		id: line.id,
-		words: line.words.map((word) => ({
-			id: word.id,
-			text: word.word,
-			startTime: word.startTime,
-			endTime: word.endTime,
-			emptyBeat: word.emptyBeat ?? 0,
-			romanText: word.romanWord ?? "",
-			...(options.includeRuby && word.ruby !== undefined
-				? {
-						ruby: word.ruby.map((segment) => ({
-							text: segment.word,
-							startTime: segment.startTime,
-							endTime: segment.endTime,
-						})),
-					}
-				: {}),
-		})),
+		words: line.words.map((word) => toPluginWord(word, options.includeRuby)),
 		translation: line.translatedLyric,
 		romanization: line.romanLyric,
 		isBackground: line.isBG,
@@ -65,6 +50,27 @@ export const toPluginDocument = (
 	})),
 });
 
+export const toPluginWord = (
+	word: LyricWord,
+	includeRuby = true,
+): PluginWordV0 => ({
+	id: word.id,
+	text: word.word,
+	startTime: word.startTime,
+	endTime: word.endTime,
+	emptyBeat: word.emptyBeat ?? 0,
+	romanText: word.romanWord ?? "",
+	...(includeRuby && word.ruby !== undefined
+		? {
+				ruby: word.ruby.map((segment) => ({
+					text: segment.word,
+					startTime: segment.startTime,
+					endTime: segment.endTime,
+				})),
+			}
+		: {}),
+});
+
 class PluginOpError extends Error {}
 
 const toRuby = (segments: PluginRubySegmentV0[]): LyricWordBase[] =>
@@ -74,13 +80,14 @@ const toRuby = (segments: PluginRubySegmentV0[]): LyricWordBase[] =>
 		endTime: segment.endTime,
 	}));
 
-const patchWord = (word: LyricWord, patch: PluginWordPatchV0): void => {
+export const patchWord = (word: LyricWord, patch: PluginWordPatchV0): void => {
 	if (patch.text !== undefined) word.word = patch.text;
 	if (patch.startTime !== undefined) word.startTime = patch.startTime;
 	if (patch.endTime !== undefined) word.endTime = patch.endTime;
 	if (patch.emptyBeat !== undefined) word.emptyBeat = patch.emptyBeat;
 	if (patch.romanText !== undefined) word.romanWord = patch.romanText;
-	if (patch.ruby !== undefined) word.ruby = toRuby(patch.ruby);
+	if (patch.ruby !== undefined)
+		word.ruby = patch.ruby === null ? undefined : toRuby(patch.ruby);
 };
 
 const patchLine = (line: LyricLine, patch: PluginLinePatchV0): void => {

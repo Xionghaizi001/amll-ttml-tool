@@ -65,6 +65,7 @@ export interface TrustedJsViewPort {
  * runs under the protocol contract suite in Node exactly like the mock.
  */
 export interface TrustedJsHostPorts {
+	segmentation: TrustedJsHostV0["segmentation"];
 	/** One transaction path and revision conflict rule for plugin edits. */
 	documents: PluginDocumentGateway;
 	createEditor(
@@ -183,6 +184,18 @@ export const createTrustedJsHost = (
 	const editor = ports.createEditor(pluginId, lifecycle.signal);
 	const host: TrustedJsHostV0 = {
 		sdkVersion: TRUSTED_JS_SDK_VERSION,
+		segmentation: {
+			isKanaOnly: (text) => {
+				assertActive();
+				return ports.segmentation.isKanaOnly(text);
+			},
+			segmentText: async (input, segments) => {
+				assertActive();
+				const result = await ports.segmentation.segmentText(input, segments);
+				assertActive();
+				return result;
+			},
+		},
 		editor: {
 			...editor,
 			revealLine: (id) => {

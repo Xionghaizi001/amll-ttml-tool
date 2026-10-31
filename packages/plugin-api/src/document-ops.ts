@@ -74,6 +74,7 @@ export const applyDocumentOpV0 = (
 			const word = findWord(document, op.wordId);
 			if (!word) return `word ${op.wordId} was not found`;
 			Object.assign(word, clone(op.patch));
+			if (op.patch.ruby === null) delete word.ruby;
 			return;
 		}
 		case "insertLine":

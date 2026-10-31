@@ -62,7 +62,7 @@ import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
 import { LyricLineScroller, SubLineEdit } from "./lyric-line-interactions";
-import { parseRubyShortcut } from "./lyric-view-model";
+import { applyWordTextInput } from "$/plugins/adapters/word-text-input";
 import LyricWordView from "./lyric-word-view.tsx";
 import { RomanWordView } from "./roman-word-view.tsx";
 
@@ -470,24 +470,11 @@ export const LyricLineView: FC<{
 												if (evt.key === "Enter") {
 													evt.preventDefault();
 													evt.stopPropagation();
-													const { word, enableRuby } = parseRubyShortcut(
-														evt.currentTarget.value,
-													);
+													const text = evt.currentTarget.value;
 													editLyricLines((state) => {
 														const newWord = newLyricWord();
-														state.lyricLines[lineIndex].words.push({
-															...newWord,
-															word,
-															ruby: enableRuby
-																? [
-																		{
-																			word: "",
-																			startTime: newWord.startTime,
-																			endTime: newWord.endTime,
-																		},
-																	]
-																: undefined,
-														});
+														applyWordTextInput(newWord, text, "insert");
+														state.lyricLines[lineIndex].words.push(newWord);
 													});
 													evt.currentTarget.value = "";
 												}

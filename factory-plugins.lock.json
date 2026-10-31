@@ -42,6 +42,12 @@
       "version": "1.0.0",
       "sha256": "3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10",
       "source": "vendor/plugin-store/3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10.zip"
+    },
+    {
+      "id": "builtin.ruby",
+      "version": "1.0.0",
+      "sha256": "0477d926eabbcfe98b9e53328a49c6f709fa68cca931ab4f77925457641b9784",
+      "source": "vendor/plugin-store/0477d926eabbcfe98b9e53328a49c6f709fa68cca931ab4f77925457641b9784.zip"
     }
   ]
 }

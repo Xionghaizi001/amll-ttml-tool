@@ -1,3 +1,4 @@
+import { isPunctuationOnly } from "./punctuation";
 import type {
 	LyricLine as AppLyricLine,
 	LyricWord as AppLyricWord,
@@ -93,15 +94,21 @@ const EXPORT_RENAMED_METADATA_KEYS: Record<string, string> = {
 	songwriter: "songwriters",
 };
 
-const normalizeExportWord = (word: AppLyricWord): AmllLyricWord => ({
-	startTime: word.startTime,
-	endTime: word.endTime,
-	word: word.word,
-	romanWord: word.romanWord,
-	obscene: word.obscene,
-	emptyBeat: word.emptyBeat,
-	ruby: word.ruby,
-});
+const normalizeExportWord = (word: AppLyricWord): AmllLyricWord => {
+	const validRuby = word.ruby?.filter((rubyWord) => {
+		const text = rubyWord.word.trim();
+		return text.length > 0 && !isPunctuationOnly(text);
+	});
+	return {
+		startTime: word.startTime,
+		endTime: word.endTime,
+		word: word.word,
+		romanWord: word.romanWord,
+		obscene: word.obscene,
+		emptyBeat: word.emptyBeat,
+		ruby: validRuby?.length ? validRuby : undefined,
+	};
+};
 
 const normalizeExportLine = (line: AppLyricLine): AmllLyricLine => ({
 	words: line.words.map(normalizeExportWord),

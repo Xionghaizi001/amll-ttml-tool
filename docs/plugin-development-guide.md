@@ -336,3 +336,11 @@ JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆�
 独立源码位于同级 `amll-ttml-tool-plugin-metadata/`，插件 id 为 `builtin.metadata`。通过 `document.readSnapshot/onChanged/applyEdit` 和 `setMetadata` 更新元数据，每次操作校验 revision 并保留一次撤销；失败通过 `ui.notify` 告知。字段、校验、拖放去重、自定义键、平台图标和语言文案归插件，UI 使用共享 React/Radix 的 `dialog-view`（`size: "full"`），插件样式限定于自己的 scope 所在对话框，保留 920×680 的无外边距双栏布局；宿主标题仅视觉隐藏，继续提供无障碍名称。编辑菜单原槽位仅在 `builtin.metadata.run` 注册时显示；卸载关闭对话框并清理订阅，重新打开从当前文档读取数据。无新增 SDK 端口或插件存储；文件名推导、默认作者及文件保存流程留在宿主。
 
 宿主只消费 `factory-plugins.lock.json` 锁定 ZIP。插件侧运行 `pnpm test`、`pnpm run pack`；宿主运行 `tests/plugins/trusted/migrated-artifacts.test.ts` 与 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。出厂副本与插件 `dist/plugins/store` 使用同一摘要；远端发布和 Tauri 平台验收仍待完成。
+
+### 词级视图与共享分词（Ruby 首个消费者）
+
+`views.registerView` 支持 `kind: "word-editor"`，视图接收 `{ word: PluginWordV0, layout: "simple" | "advanced" }`，在词块原位渲染并随 scope 卸载。可选 `transformTextInput(text, word, context)`（context 为 `insert`/`edit`）同步返回 `PluginWordPatchV0` 或 undefined；按注册顺序取首个匹配，在同一宿主输入事务中校验并应用。不要在此回调另开事务。插件样式需限定自己的作用域。
+
+`updateWord.patch.ruby`：null 删除结构、[] 保留空结构、省略不修改。`host.segmentation.isKanaOnly(text)` 共享假名识别；`await host.segmentation.segmentText({text,startTime,endTime}, segments?)` 读取当前分词设置，省略 segments 自动分词，传入 segments 为明确分段重算时间；该端口不写文档。异步操作须保存 snapshot.revision 并用 expectedRevision 提交，宿主卸载后端口拒绝结果。
+
+完整示例位于 `../amll-ttml-tool-plugin-ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件；分词消费者未来迁出时再增加 manifest dependencies 与 provider 接线。
