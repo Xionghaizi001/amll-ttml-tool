@@ -371,8 +371,20 @@ export type TrustedJsTrustedViewV0 =
 	| TrustedJsWordEditorV0;
 
 /** Shared segmentation consumer port. Uses the current host segmentation preferences; never edits the document. */
+export interface TrustedJsSegmentationConfigV0 {
+	splitCJK: boolean;
+	splitEnglish: boolean;
+	punctuationMode: "merge" | "standalone";
+	punctuationWeight: number;
+	removeEmptySegments: boolean;
+	ignoreListText: string;
+	customRules: Record<string, string[]>;
+	lang: string;
+}
 export interface TrustedJsSegmentationV0 {
 	isKanaOnly(text: string): boolean;
+	getConfig?(): TrustedJsSegmentationConfigV0;
+	setConfig?(config: TrustedJsSegmentationConfigV0): void;
 	/** Omit segments for automatic segmentation; supply them to distribute time over explicit tokens. */
 	segmentText(
 		input: PluginRubySegmentV0,

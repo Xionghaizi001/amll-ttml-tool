@@ -49,9 +49,9 @@
 
 - [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。纯文本导入已改用共享 Radix 的 `dialog-view`（`size: "full"`）还原原版布局；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
 - [x] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器、两个独立仓库与锁定出厂 ZIP 已交付，宿主旧面板和业务入口已删除；浏览器启停/恢复、交互与生命周期验收已完成（节拍器 2026-10-26、大纲 2026-10-27）。原生 WebView、生产包与真实硬件校准统一归平台验收，不阻塞第三项。
-- [ ] 元数据、Ruby、分词：元数据编辑器已迁至独立 `amll-ttml-tool-plugin-metadata`（`builtin.metadata`，2026-10-29），通过 SDK 文档投影/事务、dialog-view 与原位菜单交付锁定 ZIP；宿主旧编辑器、业务服务、命令、状态和翻译已删除。单元、真实宿主 artifact 合同及 Chromium 编辑/拖放/撤销/卸载恢复/禁用跨刷新验收通过。Ruby 编辑器、自动注音、注音分词及 `|` 快捷输入也已外置至 `amll-ttml-tool-plugin-ruby`（`builtin.ruby`，2026-10-29）；先适配主分支补丁 `45494a142508c2a6876868213e87d3b0d423177e`，再迁出。词级 contribution 与共享分词端口已接入，单元、真实 artifact 及浏览器编辑/撤销/禁用恢复通过。余下为分词与罗马音业务迁移。文件保存/导入的文件名推导和默认作者元数据继续属于宿主项目流程。
+- [x] 元数据、Ruby、分词：元数据编辑器已迁至独立 `amll-ttml-tool-plugin-metadata`（`builtin.metadata`，2026-10-29），通过 SDK 文档投影/事务、dialog-view 与原位菜单交付锁定 ZIP；宿主旧编辑器、业务服务、命令、状态和翻译已删除。单元、真实宿主 artifact 合同及 Chromium 编辑/拖放/撤销/卸载恢复/禁用跨刷新验收通过。Ruby 编辑器、自动注音、注音分词及 `|` 快捷输入已外置至 `amll-ttml-tool-plugin-ruby`（`builtin.ruby`，2026-10-29）；已适配主分支补丁 `45494a142508c2a6876868213e87d3b0d423177e` 后迁出。词级 contribution 与共享分词端口已接入，单元、真实 artifact 及浏览器编辑/撤销/禁用恢复通过。余下为独立的分词与罗马音业务迁移。文件保存/导入的文件名推导和默认作者元数据继续属于宿主项目流程。
 - [ ] 帮助、设置和更新。
-- [ ] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
+- [x] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
 - [ ] 网络服务（先迁移 LRCLIB 等业务消费者，并接入网络端口与离线总开关）；GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
 

@@ -308,14 +308,6 @@ export const cmdOpenSettings = registerMenuCommand(
 	"edit.openSettings",
 	t("settingsDialog.title"),
 );
-export const cmdAutoSegment = registerMenuCommand(
-	"tool.autoSegment",
-	t("topBar.menu.autoSegment"),
-);
-export const cmdOpenAdvancedSegmentation = registerMenuCommand(
-	"tool.openAdvancedSegmentation",
-	t("topBar.menu.advancedSegment"),
-);
 export const cmdOpenSyllableSmoothing = registerMenuCommand(
 	"tool.openSyllableSmoothing",
 	t("topBar.menu.syllableSmoothing"),

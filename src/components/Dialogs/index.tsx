@@ -5,7 +5,6 @@ import { SyllableSmoothingDialog } from "$/modules/lyric-editor/tools/SyllableSm
 import { DistributeRomanizationDialog } from "$/modules/project/modals/DistributeRomanization.tsx";
 import { HistoryRestoreDialog } from "$/modules/project/modals/HistoryRestore.tsx";
 import { SubmitToAMLLDBDialog } from "$/modules/project/modals/SubmitToAmll.tsx";
-import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/AdvancedSegmentation.tsx";
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
 import { SettingsDialog } from "$/modules/settings/modals/index.tsx";
 import { DeclarativeFormHost } from "$/plugins/ui/DeclarativeFormHost";
@@ -24,7 +23,6 @@ export const Dialogs = () => {
 			<LatencyTestDialog />
 			<ConfirmationDialog />
 			<HistoryRestoreDialog />
-			<AdvancedSegmentationDialog />
 			<DeclarativeFormHost />
 			<PluginDialogViewHost />
 			<SyllableSmoothingDialog />

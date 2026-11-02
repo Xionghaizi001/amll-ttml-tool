@@ -5,15 +5,12 @@ import { useCallback } from "react";
 import {
 	distributeDocumentRomanization,
 	refreshRomanizationWarnings,
-	segmentEntireDocument,
 } from "$/application/lyrics";
 import {
-	cmdAutoSegment,
 	cmdCheckRomanizationWarnings,
 	cmdDeleteSelection,
 	cmdDistributeRomanization,
 	cmdNewFile,
-	cmdOpenAdvancedSegmentation,
 	cmdOpenFile,
 	cmdOpenFileFromClipboard,
 	cmdOpenGitHub,
@@ -35,8 +32,6 @@ import {
 } from "$/modules/keyboard/commands";
 import { useCommandHandler } from "$/modules/keyboard/hooks";
 import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
-import { segmentationEngine } from "$/modules/segmentation/adapters/segmentation-engine";
-import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import {
 	editorDocumentAdapter,
 	editorDocumentHistoryAtom,
@@ -46,7 +41,6 @@ import {
 } from "$/plugins/adapters/editor-document";
 import { lyricFileFlow } from "$/plugins/adapters/lyric-file-flow-host";
 import {
-	advancedSegmentationDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	pluginStoreDialogAtom,
@@ -69,11 +63,7 @@ export const useTopMenuActions = () => {
 	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
 	const setHistoryRestoreDialog = useSetAtom(historyRestoreDialogAtom);
-	const setAdvancedSegmentationDialog = useSetAtom(
-		advancedSegmentationDialogAtom,
-	);
 	const setSyllableSmoothingDialog = useSetAtom(syllableSmoothingDialogAtom);
-	const { config: segmentationConfig } = useSegmentationConfig();
 
 	const onNewFile = useCallback(() => {
 		lyricFileFlow.newDocument();
@@ -227,13 +217,6 @@ export const useTopMenuActions = () => {
 		store.set(selectedLinesAtom, new Set());
 	}, [store, editLyricLines]);
 
-	const onAutoSegment = useCallback(() => {
-		segmentEntireDocument(
-			editorDocumentAdapter,
-			segmentationConfig,
-			segmentationEngine,
-		);
-	}, [segmentationConfig]);
 
 	const onOpenDistributeRomanization = useCallback(() => {
 		const selectedLines = store.get(selectedLinesAtom);
@@ -253,9 +236,6 @@ export const useTopMenuActions = () => {
 		refreshRomanizationWarnings(editorDocumentAdapter, romanizationEngine);
 	}, []);
 
-	const onOpenAdvancedSegmentation = useCallback(() => {
-		setAdvancedSegmentationDialog(true);
-	}, [setAdvancedSegmentationDialog]);
 
 	const onOpenSyllableSmoothing = useCallback(() => {
 		setSyllableSmoothingDialog(true);
@@ -281,8 +261,6 @@ export const useTopMenuActions = () => {
 	);
 	useCommandHandler(cmdDeleteSelection, onDeleteSelection);
 	useCommandHandler(cmdOpenSettings, onOpenSettings);
-	useCommandHandler(cmdAutoSegment, onAutoSegment);
-	useCommandHandler(cmdOpenAdvancedSegmentation, onOpenAdvancedSegmentation);
 	useCommandHandler(cmdOpenSyllableSmoothing, onOpenSyllableSmoothing);
 	useCommandHandler(cmdDistributeRomanization, onOpenDistributeRomanization);
 	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
@@ -308,8 +286,6 @@ export const useTopMenuActions = () => {
 		onDeleteSelection,
 		onOpenSyllableSmoothing,
 		onOpenSettings,
-		onAutoSegment,
-		onOpenAdvancedSegmentation,
 		onOpenDistributeRomanization,
 		onCheckRomanizationWarnings,
 		onOpenLatencyTest,

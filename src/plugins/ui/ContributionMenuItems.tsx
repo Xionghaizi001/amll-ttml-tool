@@ -17,6 +17,8 @@ import { localizeText } from "./localize";
 export const PINNED_FACTORY_COMMANDS = {
 	rubyGenerate: "builtin.ruby.generate",
 	rubySegment: "builtin.ruby.segment",
+	segmentationAuto: "builtin.segmentation.auto",
+	segmentationAdvanced: "builtin.segmentation.advanced",
 	metadata: "builtin.metadata.run",
 	plainTextImport: "builtin.plain-text-import.run",
 	syncLineTimestamps: "builtin.sync-line-timestamps.run",

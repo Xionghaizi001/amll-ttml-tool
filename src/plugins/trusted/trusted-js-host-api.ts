@@ -189,6 +189,11 @@ export const createTrustedJsHost = (
 				assertActive();
 				return ports.segmentation.isKanaOnly(text);
 			},
+			getConfig: () => ports.segmentation.getConfig?.() ?? {
+				splitCJK: true, splitEnglish: false, punctuationMode: "merge", punctuationWeight: 0.2,
+				removeEmptySegments: true, ignoreListText: "", customRules: {}, lang: "en-us",
+			},
+			setConfig: (config) => ports.segmentation.setConfig?.(config),
 			segmentText: async (input, segments) => {
 				assertActive();
 				const result = await ports.segmentation.segmentText(input, segments);

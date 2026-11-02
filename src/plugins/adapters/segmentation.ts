@@ -12,6 +12,22 @@ import { newLyricWord } from "$/types/ttml";
 
 export const pluginSegmentation: TrustedJsSegmentationV0 = {
 	isKanaOnly,
+	getConfig() {
+		const get = globalStore.get;
+		return {
+			splitCJK: get(settings.segmentationSplitCJKAtom), splitEnglish: get(settings.segmentationSplitEnglishAtom),
+			punctuationMode: get(settings.segmentationPunctuationModeAtom), punctuationWeight: Number(get(settings.segmentationPunctuationWeightAtom)),
+			removeEmptySegments: get(settings.segmentationRemoveEmptySegmentsAtom), ignoreListText: get(settings.segmentationIgnoreListTextAtom),
+			customRules: Object.fromEntries(get(settings.segmentationCustomRulesAtom)), lang: get(settings.segmentationLangAtom),
+		};
+	},
+	setConfig(config) {
+		const set = globalStore.set;
+		set(settings.segmentationSplitCJKAtom, config.splitCJK); set(settings.segmentationSplitEnglishAtom, config.splitEnglish);
+		set(settings.segmentationPunctuationModeAtom, config.punctuationMode); set(settings.segmentationPunctuationWeightAtom, String(config.punctuationWeight));
+		set(settings.segmentationRemoveEmptySegmentsAtom, config.removeEmptySegments); set(settings.segmentationIgnoreListTextAtom, config.ignoreListText);
+		set(settings.segmentationCustomRulesAtom, new Map(Object.entries(config.customRules))); set(settings.segmentationLangAtom, config.lang);
+	},
 	async segmentText(input, segments) {
 		if (
 			!input ||

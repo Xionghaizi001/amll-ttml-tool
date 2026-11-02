@@ -3,10 +3,8 @@ import { Toolbar } from "radix-ui";
 import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
-	cmdAutoSegment,
 	cmdCheckRomanizationWarnings,
 	cmdDistributeRomanization,
-	cmdOpenAdvancedSegmentation,
 	cmdOpenLatencyTest,
 	cmdOpenSyllableSmoothing,
 } from "$/modules/keyboard/commands";
@@ -33,15 +31,11 @@ const ToolMenuItems = () => {
 					{t("topBar.menu.segmentationTools", "分词")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
-					<CommandMenuItem commandId={cmdAutoSegment.id}>
-						{t("topBar.menu.autoSegment", "自动分词")}
-					</CommandMenuItem>
+					<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.segmentationAuto} />
 					<PinnedCommandMenuItem
 						commandId={PINNED_FACTORY_COMMANDS.rubySegment}
 					/>
-					<CommandMenuItem commandId={cmdOpenAdvancedSegmentation.id}>
-						{t("topBar.menu.advancedSegment", "高级分词...")}
-					</CommandMenuItem>
+					<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.segmentationAdvanced} />
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<CommandMenuItem commandId={cmdOpenSyllableSmoothing.id}>
