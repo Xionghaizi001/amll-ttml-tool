@@ -322,6 +322,7 @@ const ManualReportBlockView = ({
 	canMoveManual,
 }: ManualReportBlockViewProps) => {
 	const [focused, setFocused] = useState(false);
+	const [editorHeight, setEditorHeight] = useState(0);
 	const textAreaRef = useRef<HTMLTextAreaElement>(null);
 	return (
 		<Box
@@ -395,6 +396,8 @@ const ManualReportBlockView = ({
 			{focused ? (
 				<TextArea
 					ref={textAreaRef}
+					rows={1}
+					mt="2"
 					value={block.content}
 					onChange={(event) =>
 						onManualChange(block.id, event.currentTarget.value)
@@ -402,13 +405,14 @@ const ManualReportBlockView = ({
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					placeholder="手写报告内容"
-					style={{ minHeight: "96px" }}
+					style={{ height: editorHeight, minHeight: 0 }}
 				/>
 			) : (
 				<button
 					type="button"
 					className={styles.reportManualSummary}
-					onClick={() => {
+					onClick={(event) => {
+						setEditorHeight(event.currentTarget.getBoundingClientRect().height);
 						setFocused(true);
 						window.requestAnimationFrame(() => textAreaRef.current?.focus());
 					}}
