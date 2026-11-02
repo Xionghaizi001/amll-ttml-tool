@@ -75,6 +75,7 @@ const ReviewPage = () => {
 		overlayBottomInset: number;
 	} | null>(null);
 	const {
+		updatePullRequestLabels,
 		approvalCountMap,
 		audioLoadPendingId,
 		error,
@@ -973,6 +974,16 @@ const ReviewPage = () => {
 							onClick={(event) => event.stopPropagation()}
 						>
 							<ReviewExpandedContent
+								onLabelsUpdated={(prNumber, labels) => {
+									updatePullRequestLabels(prNumber, labels);
+									setExpandedCard((prev) =>
+										prev &&
+										isGitHubPullRequest(prev.item) &&
+										prev.item.number === prNumber
+											? { ...prev, item: { ...prev.item, labels } }
+											: prev,
+									);
+								}}
 								item={expandedCard.item}
 								hiddenLabelSet={hiddenLabelSet}
 								audioLoadPendingId={audioLoadPendingId}

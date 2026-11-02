@@ -29,9 +29,11 @@ import {
 	parseReviewMetadata,
 	REVIEW_APPROVAL_TARGET,
 	type ReviewItem,
+	type ReviewLabel,
 	type ReviewPullRequest,
 	renderMetaValues,
 } from "$/modules/review/services/card-service";
+import { ReviewLabelPicker } from "./ReviewLabelPicker";
 
 type PlatformItem = {
 	ids: string[];
@@ -94,6 +96,7 @@ const buildPlatformItems = (ids: {
 
 type GitHubExpandedContentProps = {
 	item: ReviewPullRequest;
+	onLabelsUpdated: (prNumber: number, labels: ReviewLabel[]) => void;
 	hiddenLabelSet: Set<string>;
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
@@ -190,7 +193,7 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 							未提到用户
 						</Text>
 					)}
-					<Flex wrap="wrap" gap="2">
+					<Flex wrap="wrap" gap="2" align="center">
 						{visibleLabels.length > 0 ? (
 							visibleLabels.map((label) => (
 								<Box
@@ -209,6 +212,12 @@ const GitHubExpandedContent = (options: GitHubExpandedContentProps) => {
 								无标签
 							</Text>
 						)}
+						<ReviewLabelPicker
+							item={options.item}
+							repoOwner={options.repoOwner}
+							repoName={options.repoName}
+							onLabelsUpdated={options.onLabelsUpdated}
+						/>
 					</Flex>
 				</Flex>
 				<Flex align="center" gap="1" className={options.styles.meta}>
@@ -767,6 +776,7 @@ const LyricsSiteExpandedContent = (options: LyricsSiteExpandedContentProps) => {
 
 export const ReviewExpandedContent = memo(
 	(options: {
+		onLabelsUpdated: (prNumber: number, labels: ReviewLabel[]) => void;
 		item: ReviewItem;
 		hiddenLabelSet: Set<string>;
 		audioLoadPendingId: string | null;
@@ -791,6 +801,7 @@ export const ReviewExpandedContent = memo(
 		if (isGitHubPullRequest(options.item)) {
 			return (
 				<GitHubExpandedContent
+					onLabelsUpdated={options.onLabelsUpdated}
 					item={options.item}
 					hiddenLabelSet={options.hiddenLabelSet}
 					audioLoadPendingId={options.audioLoadPendingId}

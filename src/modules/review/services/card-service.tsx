@@ -9,6 +9,7 @@ import type { LyricsSiteSubmission } from "$/modules/lyrics-site";
 import styles from "../index.module.css";
 
 export type ReviewLabel = {
+	description?: string | null;
 	name: string;
 	color: string;
 };

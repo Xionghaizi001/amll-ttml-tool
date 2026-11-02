@@ -11,6 +11,56 @@ const PENDING_LABEL_NAME = "待更新";
 
 type SetAtom<T> = (value: T | ((prev: T) => T)) => void;
 
+export const savePullRequestLabels = async (options: {
+	token: string;
+	repoOwner: string;
+	repoName: string;
+	prNumber: number;
+	original: string[];
+	selected: string[];
+}): Promise<ReviewLabel[]> => {
+	if (!options.token.trim()) throw new Error("请先登录 GitHub");
+	const path = `/repos/${options.repoOwner}/${options.repoName}/issues/${options.prNumber}/labels`;
+	const headers = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token.trim()}`,
+		"Content-Type": "application/json",
+	};
+	const latest = await githubFetch(path, {
+		params: { per_page: 100 },
+		init: { headers },
+	});
+	if (!latest.ok) throw new Error(`读取标签失败（HTTP ${latest.status}）`);
+	const current = (await latest.json()) as ReviewLabel[];
+	const original = new Set(options.original.map((name) => name.toLowerCase()));
+	const selected = new Set(options.selected.map((name) => name.toLowerCase()));
+	// 只合并本次编辑的差异，保留面板打开期间他人添加的标签。
+	const names = new Map(
+		current
+			.filter(
+				(label) =>
+					!original.has(label.name.toLowerCase()) ||
+					selected.has(label.name.toLowerCase()),
+			)
+			.map((label) => [label.name.toLowerCase(), label.name]),
+	);
+	for (const name of options.selected) {
+		if (!original.has(name.toLowerCase())) names.set(name.toLowerCase(), name);
+	}
+	const response = await githubFetch(path, {
+		init: {
+			method: "PUT",
+			headers,
+			body: JSON.stringify({ labels: [...names.values()] }),
+		},
+	});
+	if (!response.ok)
+		throw new Error(
+			`保存标签失败（HTTP ${response.status}），请检查仓库标签写入权限后重试`,
+		);
+	return (await response.json()) as ReviewLabel[];
+};
+
 export const fetchPendingLabelTime = async (
 	token: string,
 	prNumber: number,

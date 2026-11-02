@@ -483,6 +483,26 @@ export const useReviewPageLogic = () => {
 		},
 		[hasAccess, login, pat, setReviewReviewedPrs],
 	);
+	const updatePullRequestLabels = useCallback(
+		(prNumber: number, labels: ReviewLabel[]) => {
+			setGithubItems((prev) =>
+				prev.map((item) =>
+					item.number === prNumber ? { ...item, labels } : item,
+				),
+			);
+			void (async () => {
+				const cached = await readCache();
+				if (!cached) return;
+				await writeCache(
+					cached.items.map((item) =>
+						item.number === prNumber ? { ...item, labels } : item,
+					),
+					cached.etag,
+				);
+			})();
+		},
+		[],
+	);
 	const refreshSinglePullRequest = useCallback(
 		async (prNumber: number) => {
 			const token = pat.trim();
@@ -1110,6 +1130,7 @@ export const useReviewPageLogic = () => {
 	);
 
 	return {
+		updatePullRequestLabels,
 		approvalCountMap,
 		audioLoadPendingId,
 		error,

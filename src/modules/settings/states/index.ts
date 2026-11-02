@@ -148,6 +148,7 @@ export const reviewUpdatedFilterAtom = atomWithStorage(
 );
 export const reviewRefreshTokenAtom = atom(0);
 export type ReviewLabel = {
+	description?: string | null;
 	name: string;
 	color: string;
 };
