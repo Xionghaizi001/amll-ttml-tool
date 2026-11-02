@@ -5,10 +5,7 @@ import {
 	removeAudioDownloadProgressNotification,
 	upsertAudioDownloadProgressNotification,
 } from "$/modules/audio/services/download-notification";
-import {
-	audioProxyUrlAtom,
-	neteaseCookieAtom,
-} from "$/modules/settings/states";
+import { neteaseCookieAtom } from "$/modules/settings/states";
 import type { AppNotification } from "$/states/notifications";
 import { globalStore } from "$/states/store";
 import { requestNetease } from "./index";
@@ -165,13 +162,7 @@ export const getNeteaseAudioUrl = async (
 	id: string,
 	cookie?: string,
 ): Promise<string | null> => {
-	const audioUrl = await fetchNeteaseAudioUrl(id, cookie);
-	if (!audioUrl) return null;
-
-	const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
-	return proxyBase
-		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
-		: audioUrl;
+	return fetchNeteaseAudioUrl(id, cookie);
 };
 
 export const cacheNeteaseAudioToIndexedDb = async (
@@ -187,14 +178,9 @@ export const cacheNeteaseAudioToIndexedDb = async (
 	if (!audioUrl) {
 		throw new Error("找不到音频 URL，可能需要 VIP？");
 	}
-	const proxyBase = globalStore.get(audioProxyUrlAtom)?.trim();
-	const fetchUrl = proxyBase
-		? `${proxyBase}/?url=${encodeURIComponent(audioUrl)}`
-		: audioUrl;
-
 	let response: Response;
 	try {
-		response = await fetch(fetchUrl, {
+		response = await fetch(audioUrl, {
 			mode: "cors",
 			cache: "no-cache",
 		});
