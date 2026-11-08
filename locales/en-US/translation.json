@@ -557,53 +557,6 @@
 		"ignoreCase": "Ignore case",
 		"actionButton": "Confirm"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Splitting preview error",
-			"title": "Splitting Test",
-			"input": "Enter a lyric line or word to test...",
-			"output": "Preview result:"
-		},
-		"title": "Advanced Segmentation",
-		"scope": {
-			"title": "Application Scope",
-			"all": "All lyric lines",
-			"range": {
-				"from": "From line",
-				"to": "to line",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Auto Segmentation Rules",
-			"cjk": "Split CJK characters",
-			"syllable": "Split Western words by syllables"
-		},
-		"language": {
-			"select": "Select a hyphenation language model:"
-		},
-		"tip": "After splitting, the original word's total duration will be redistributed based on the number of characters and their weights.",
-		"postProcess": {
-			"title": "Post-processing",
-			"punct": {
-				"caption": "Punctuation handling:",
-				"merge": "Merge to adjacent syllable",
-				"standalone": "Set as standalone segment",
-				"weight": "Punctuation time weight:"
-			},
-			"empty": "Remove empty segments"
-		},
-		"custom": {
-			"title": "Custom Segmentation Rules",
-			"input": "Enter word for manual splitting...",
-			"add": "Add to custom rules",
-			"list": "Custom rules list:"
-		},
-		"ignore": {
-			"title": "Ignore List",
-			"placeholder": "One word per line, words in this list will not be auto-segmented"
-		}
-	},
 	"aboutModal": {
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"description": "A Word-by-Word TTML Editing and Timeline Tool for Apple Music-like Lyrics",

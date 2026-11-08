@@ -458,53 +458,6 @@
 		"ignoreCase": "Ignoruj wielkość liter",
 		"actionButton": "Potwierdź"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Błąd podglądu podziału",
-			"title": "Test podziału",
-			"input": "Wprowadź linię tekstu lub słowo do przetestowania...",
-			"output": "Podgląd wyniku:"
-		},
-		"title": "Zaawansowana segmentacja",
-		"scope": {
-			"title": "Zakres zastosowania",
-			"all": "Wszystkie wiersze tekstów",
-			"range": {
-				"from": "Od linii",
-				"to": "do linii",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Reguły automatycznej segmentacji",
-			"cjk": "Podziel znaki CJK",
-			"syllable": "Podziel słowa zachodnie według sylab"
-		},
-		"language": {
-			"select": "Wybierz model języka dzielenia wyrazów:"
-		},
-		"tip": "Po podzieleniu całkowity czas trwania oryginalnego słowa zostanie przeredystrybuowany na podstawie liczby znaków i ich wag.",
-		"postProcess": {
-			"title": "Przetwarzanie końcowe",
-			"punct": {
-				"caption": "Obsługa interpunkcji:",
-				"merge": "Połącz z sąsiednią sylabą",
-				"standalone": "Ustaw jako samodzielny segment",
-				"weight": "Waga czasowa interpunkcji:"
-			},
-			"empty": "Usuń puste segmenty"
-		},
-		"custom": {
-			"title": "Niestandardowe reguły segmentacji",
-			"input": "Wprowadź słowo do ręcznego podziału...",
-			"add": "Dodaj do niestandardowych reguł",
-			"list": "Lista niestandardowych reguł:"
-		},
-		"ignore": {
-			"title": "Lista ignorowanych",
-			"placeholder": "Jedno słowo na wiersz, słowa na tej liście nie będą automatycznie segmentowane"
-		}
-	},
 	"aboutModal": {
 		"appName": "Narzędzie TTML dla tekstów w stylu Apple Music",
 		"description": "Narzędzie do edycji i tworzenia osi czasu TTML słowo po słowie dla tekstów w stylu Apple Music",

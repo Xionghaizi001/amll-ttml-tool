@@ -496,53 +496,6 @@
 		"ignoreCase": "Abaikan huruf besar/kecil",
 		"actionButton": "Konfirmasi"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Terjadi kesalahan pada pratinjau segmentasi",
-			"title": "Tes Segmentasi",
-			"input": "Masukkan baris lirik atau kata untuk mengetes...",
-			"output": "Hasil pratinjau:"
-		},
-		"title": "Segmentasi Lanjutan",
-		"scope": {
-			"title": "Rentang Terapan",
-			"all": "Semua Baris Lirik",
-			"range": {
-				"from": "Dari baris ke-",
-				"to": "Sampai baris ke-",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Aturan Segmentasi Otomatis",
-			"cjk": "Segmentasi CJK berdasarkan karakter",
-			"syllable": "Segmentasi kata Barat berdasarkan suku kata"
-		},
-		"language": {
-			"select": "Pilih model bahasa segmentasi:"
-		},
-		"tip": "Setelah segmentasi, durasi suku kata asli akan dialokasikan ulang ke suku kata baru berdasarkan jumlah karakter dan bobotnya.",
-		"postProcess": {
-			"title": "Pasca Pemrosesan",
-			"punct": {
-				"caption": "Penanganan tanda baca:",
-				"merge": "Gabungkan ke suku kata terdekat",
-				"standalone": "Jadikan suku kata sendiri",
-				"weight": "Bobot durasi tanda baca:"
-			},
-			"empty": "Hapus suku kata kosong"
-		},
-		"custom": {
-			"title": "Aturan Segmentasi Kustom",
-			"input": "Masukkan kata untuk segmentasi manual...",
-			"add": "Tambahkan ke aturan kustom",
-			"list": "Daftar aturan kustom:"
-		},
-		"ignore": {
-			"title": "Daftar Abaikan",
-			"placeholder": "Satu kata per baris. Kata dalam daftar ini tidak akan disegmentasi otomatis."
-		}
-	},
 	"aboutModal": {
 		"appName": "Apple Music-like lyrics TTML Tools",
 		"description": "Alat pengeditan dan penyelarasan waktu lirik TTML untuk ekosistem lirik bergaya Apple Music",

@@ -458,53 +458,6 @@
 		"ignoreCase": "Ignorer store/små bogstaver",
 		"actionButton": "Bekræft"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Opdelingsforhåndsvisningsfejl",
-			"title": "Opdelingstest",
-			"input": "Indtast en sangtekstlinje eller ord for at teste...",
-			"output": "Forhåndsvisningsresultat:"
-		},
-		"title": "Avanceret segmentering",
-		"scope": {
-			"title": "Anvendelsesomfang",
-			"all": "Alle sangtekstlinjer",
-			"range": {
-				"from": "Fra linje",
-				"to": "til linje",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Auto-segmenteringsregler",
-			"cjk": "Opdel CJK-tegn",
-			"syllable": "Opdel vestlige ord efter stavelser"
-		},
-		"language": {
-			"select": "Vælg en orddeling-sprogmodel:"
-		},
-		"tip": "Efter opdeling vil det originale ords samlede varighed blive omfordelt baseret på antallet af tegn og deres vægte.",
-		"postProcess": {
-			"title": "Efterbehandling",
-			"punct": {
-				"caption": "Tegnsætningshåndtering:",
-				"merge": "Flet med tilstødende stavelse",
-				"standalone": "Indstil som selvstændigt segment",
-				"weight": "Tegnsætningstidsvægt:"
-			},
-			"empty": "Fjern tomme segmenter"
-		},
-		"custom": {
-			"title": "Brugerdefinerede segmenteringsregler",
-			"input": "Indtast ord for manuel opdeling...",
-			"add": "Tilføj til brugerdefinerede regler",
-			"list": "Liste over brugerdefinerede regler:"
-		},
-		"ignore": {
-			"title": "Ignoreringsliste",
-			"placeholder": "Ét ord per linje, ord i denne liste vil ikke blive auto-segmenteret"
-		}
-	},
 	"aboutModal": {
 		"appName": "Apple Music-lignende Sangtekst TTML Værktøj",
 		"description": "Et ord-for-ord TTML redigerings- og tidslinjeværktøj til Apple Music-lignende sangtekster",

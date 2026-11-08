@@ -557,53 +557,6 @@
 		"ignoreCase": "忽略大小写",
 		"actionButton": "确认"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "分词预览出错",
-			"title": "分词测试",
-			"input": "输入一行歌词或单词进行测试...",
-			"output": "预览结果:"
-		},
-		"title": "高级分词",
-		"scope": {
-			"title": "应用范围",
-			"all": "所有歌词行",
-			"range": {
-				"from": "从第",
-				"to": "行到第",
-				"end": "行"
-			}
-		},
-		"rules": {
-			"title": "自动分词规则",
-			"cjk": "CJK 按字符分词",
-			"syllable": "西文单词按音节分词"
-		},
-		"language": {
-			"select": "选择一个分词语言模型："
-		},
-		"tip": "分词后，原音节的时长会按照字符数和权重重新分配给新的音节",
-		"postProcess": {
-			"title": "后处理",
-			"punct": {
-				"caption": "标点符号处理:",
-				"merge": "合并到相邻音节",
-				"standalone": "设为新音节",
-				"weight": "标点时长权重:"
-			},
-			"empty": "移除空白音节"
-		},
-		"custom": {
-			"title": "自定义分词规则",
-			"input": "输入单词进行手动分割...",
-			"add": "添加到自定义规则",
-			"list": "自定义规则列表:"
-		},
-		"ignore": {
-			"title": "忽略列表",
-			"placeholder": "每行一个单词，在此列表中的单词将不会被自动分词"
-		}
-	},
 	"aboutModal": {
 		"appName": "Apple Music-like lyrics TTML Tools",
 		"description": "一个用于 Apple Music-like lyrics 生态的逐词歌词 TTML 编辑和时间轴工具",

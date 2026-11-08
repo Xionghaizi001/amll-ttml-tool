@@ -1,13 +1,13 @@
 # AMLL TTML Tool 插件化路线图
 
-本文记录剩余工作、仍约束后续工作的决策与已知取舍；仅保留必要的进度基线，不维护已完成任务清单。完成情况以源码、git 历史与各独立仓库 README 为准；架构与协议现状见 `PLUGIN.md`。2026-10-29 核对后，当前执行入口为“后续实现顺序”；阶段编号保留历史含义，不代表执行先后。
+本文记录剩余工作、仍约束后续工作的决策与已知取舍；仅保留必要的进度基线，不维护已完成任务清单。完成情况以源码、git 历史与各独立仓库 README 为准；架构与协议现状见 `PLUGIN.md`。2026-11-08 核对后，当前执行入口为“后续实现顺序”；阶段编号保留历史含义，不代表执行先后。
 
 ## 进度总览
 
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已有独立技术原型（`../amll-ttml-tool-plugin-store/`）：Fastify/SQLite、本地管理员、ZIP 校验上传、不可变版本、待验收/上架/下架、公开清单与下载、运营记录。尚不具备正式 GitHub 身份、组织资格、受限下载、kill switch 与可信 CI 发布链路，不能视为阶段 10 完成。
-- 阶段 8 已开始：节拍器、大纲、元数据与 Ruby 编辑器已外置，见执行清单；外围辅助工具（同步行时间戳、纯文本导入、LRC/ESLRC/QRC/YRC/LYS 导入导出）已外置为独立仓库并以 factory artifact 交付，宿主旧入口已删除，2026-10-22 实机禁用/恢复验收通过。
+- 阶段 8 已迁出并以锁定 factory artifact 交付（见 `factory-plugins.lock.json`）：time-shift、同步行时间戳、纯文本导入、formats（LRC/ESLRC/QRC/YRC/LYS）、节拍器、大纲、元数据、Ruby、分词（自动/高级分词）。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新；`lyric-drag`、TTML/ASS 导出、剪贴板、保存/导入的文件名推导与默认作者元数据保留在宿主。
 - 尚未落地：阶段 8/9 其余业务迁移、商店生产能力与宿主控制状态联调、工具链/插件远端发布；平台实测与文档补齐贯穿实施。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | 1 | 开发与安装链路补验收 | 三平台 ZIP CI、macOS/Linux WebView 与桌面生产包实测（Windows 开发模式 Blob/共享 React 已验证）；正式发布前的远程完整性缺口见“稳定性收口” |
 | 2 | 作用域内局部覆盖 | 当前交付范围已验收；主题包 overrides 与 settings 表单渲染随消费者落地，见该节边界 |
-| 3 | 阶段 8：逐个外置业务消费者 | 辅助工具 → 元数据/Ruby/分词 → 帮助/设置/更新 → 可选格式 → 网络服务；sidebar 随节拍器/大纲、toolbar 随交付 i18n 落地；每项删除旧入口并通过禁用/恢复验收 |
+| 3 | 阶段 8：逐个外置业务消费者 | 罗马音与词级工具 → 帮助/设置/更新 → 第三方格式 → 网络服务；toolbar 随交付 i18n 落地；每项删除旧入口并通过禁用/恢复验收 |
 | 4（可与 2/3 并行） | 阶段 10：生产合同与后端补齐 | 先确定认证/受限下载/客户端控制合同，再接 GitHub 身份与资格、kill switch、CI 溯源、同源部署和兼容策略；复用公开分发原型与多提供者 |
 | 5 | 阶段 9：定制功能外置 | 依赖主题/覆盖与相应公开业务端口；复用阶段 8 渲染器，审阅开发可与后端并行，正式上架须等待资格、控制状态和运营记录验收 |
 | 5a（阶段 8 端口就绪后） | MCP：对外自动化接口 | 先验收桌面本机只读薄片，再开放事务编辑和插件工具；不阻塞业务迁移或商店上线，若纳入 API v1 则在冻结前完成合同验收 |
@@ -45,13 +45,12 @@
 
 ## 阶段 8：批量迁移外围功能
 
-执行清单（time-shift 外置模板已就绪，按以下顺序逐项验收）：
+执行清单（已迁出项见“进度总览”，按以下顺序逐项验收）：
 
-- [x] 外围辅助工具：`amll-ttml-tool-plugin-sync-line-timestamps`、`amll-ttml-tool-plugin-plain-text-import`、`amll-ttml-tool-plugin-formats`（2026-10-22，格式 provider，formatId 带插件命名空间）已交付锁定 artifact，宿主命令/对话框/解析器/文案已删除，新增 `project.importDocument` 端口；mock 与真实宿主合同测试及 2026-10-22 实机禁用/恢复验收通过。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新。纯文本导入已改用共享 Radix 的 `dialog-view`（`size: "full"`）还原原版布局；TTML、ASS 导出与剪贴板仍在宿主，LRCLIB 归网络服务项。`lyric-drag` 为宿主手势与行重排核心，保留在宿主。
-- [x] sidebar contribution 渲染器与首批消费者：节拍器、大纲。渲染器、两个独立仓库与锁定出厂 ZIP 已交付，宿主旧面板和业务入口已删除；浏览器启停/恢复、交互与生命周期验收已完成（节拍器 2026-10-26、大纲 2026-10-27）。原生 WebView、生产包与真实硬件校准统一归平台验收，不阻塞第三项。
-- [x] 元数据、Ruby、分词：元数据编辑器已迁至独立 `amll-ttml-tool-plugin-metadata`（`builtin.metadata`，2026-10-29），通过 SDK 文档投影/事务、dialog-view 与原位菜单交付锁定 ZIP；宿主旧编辑器、业务服务、命令、状态和翻译已删除。单元、真实宿主 artifact 合同及 Chromium 编辑/拖放/撤销/卸载恢复/禁用跨刷新验收通过。Ruby 编辑器、自动注音、注音分词及 `|` 快捷输入已外置至 `amll-ttml-tool-plugin-ruby`（`builtin.ruby`，2026-10-29）；已适配主分支补丁 `45494a142508c2a6876868213e87d3b0d423177e` 后迁出。词级 contribution 与共享分词端口已接入，单元、真实 artifact 及浏览器编辑/撤销/禁用恢复通过。余下为独立的分词与罗马音业务迁移。文件保存/导入的文件名推导和默认作者元数据继续属于宿主项目流程。
+- [x] 分词收尾：已删除宿主遗留的 `AdvancedSegmentation` 组件、对话框 atom 与 `advancedSegmentDialog` 文案；分词算法与配置目前仍经 `host.segmentation` 由宿主提供，算法外置时再接 provider/dependencies。
+- [ ] 罗马音与词级工具：`src/modules/segmentation/utils/Transliteration`、`split-word`（手动拆词，迁出时一并删除其使用的 `ManualWordSplitter`）、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx`，统一使用 document-ops。
 - [ ] 帮助、设置和更新。
-- [x] 文件与格式支持：现有非 TTML 格式已随外围辅助工具迁入 `builtin.formats`；本项余下为第三方格式接入与相应验收。
+- [ ] 第三方格式接入与相应验收（复用 `core.formats` registry）。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
 - [ ] 网络服务（先迁移 LRCLIB 等业务消费者，并接入网络端口与离线总开关）；GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
 
@@ -59,7 +58,7 @@
 
 ### 迁移范围
 
-本节是阶段 8 的范围基线，不代表业务已经迁出。SDK/安装/工具链基础已就绪；后续按消费者补端口、迁移到独立仓库并完成对应验收。
+本节只列尚未迁出的范围；已迁出项见“进度总览”。后续按消费者补端口、迁移到独立仓库并完成对应验收。
 
 #### 纳入迁移的功能
 
@@ -67,16 +66,11 @@
 
 | 功能组 | 当前代码线索 | 目标插件边界 |
 | --- | --- | --- |
-| 时间平移 | `amll-ttml-tool-plugin-time-shift/`（已外置，作为模板） | command、表单和单事务文档编辑已走 SDK；宿主消费锁定 artifact |
-| 元数据编辑 | `amll-ttml-tool-plugin-metadata/`（已外置） | 元数据读取/编辑通过 document API；保存/导入文件名推导及默认作者留宿主项目流程 |
-| Ruby/罗马音 | `amll-ttml-tool-plugin-ruby/` 已外置；罗马音仍在 `src/modules/segmentation/utils/Transliteration` | Ruby 编辑/生成/批量应用/注音分词归插件；暂由公开 `host.segmentation` 复用宿主分词偏好与算法，分词外置时再接 provider/dependencies |
-| 分词与词级编辑辅助 | `src/modules/segmentation`、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法与交互编辑器均走 trusted-js；统一使用 document-ops |
-| 外围辅助工具 | 同步行时间戳、纯文本导入、非 TTML 格式 provider（已外置）；`src/modules/lyric-drag` 保留 | 仅迁出可由 contribution、command、声明式表单表达的功能；拖拽宿主手势保留，业务变更通过插件命令提交 |
-| 节拍器、大纲 | 定制版 sidebar 面板 | sidebar contribution 的首批消费者；渲染器随之落地，见阶段 8 执行清单 |
+| 罗马音、分词算法与词级编辑辅助 | `src/modules/segmentation`（含 `utils/Transliteration`、`split-word`）、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法与交互编辑器均走 trusted-js；统一使用 document-ops；`builtin.ruby`/`builtin.segmentation` 共享经 provider/dependencies 表达 |
 | 交付文件 i18n 支持 | 定制版 toolbar 模块 | toolbar contribution 的首批消费者；渲染器随之落地，审阅 toolbar items 在阶段 9 复用 |
 | 帮助、设置和更新扩展 | `src/modules/settings` 中可独立关闭的业务页/工具 | 设置壳、插件管理、权限与恢复入口留在宿主；可替换的业务设置页/更新检查器再插件化 |
 | 网络服务与定制功能 | `src/modules/lrclib`、GitHub/歌词站/NCM 等阶段 9 功能 | 通过明确的网络 capability 与离线总开关接入；凭据由宿主持有，插件只经宿主端口操作 |
-| 可选格式 provider | LRC/ESLRC/QRC/YRC/LYS 已迁入 `builtin.formats`；未来第三方格式 | 复用 `core.formats` registry；TTML 与 ASS 导出不在此项迁出 |
+| 第三方格式 provider | 未来第三方格式 | 复用 `core.formats` registry；TTML 与 ASS 导出不在此项迁出 |
 
 #### 明确保留在宿主的功能
 
@@ -103,14 +97,11 @@
 
 | 功能 | 当前可用的框架接口 | 业务迁移状态 |
 | --- | --- | --- |
-| 时间平移 | 既有 SDK commands/menus/form/document-ops | 已 SDK-only 并外置，宿主消费锁定 artifact |
-| 元数据编辑 | document 投影/metadata ops + 新增只读 `project.getInfo()` | 已 SDK-only 外置为 `builtin.metadata`；宿主仅消费锁定 artifact |
-| Ruby、罗马音、分词与词级工具 | `word-editor` contribution、`ruby: null` 删除操作、`host.segmentation`，既有选区与文档事务 | Ruby 已 SDK-only 外置，宿主旧编辑器/命令/生成逻辑删除；分词、罗马音及词级辅助工具后续迁移 |
+| 罗马音、分词算法与词级工具 | `word-editor` contribution、`host.segmentation`，既有选区与文档事务 | 待迁移 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
-| 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | 纯文本导入已使用；LRCLIB 迁移复用同一端口 |
+| 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | LRCLIB 迁移复用同一端口 |
 | 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
-| 格式 provider、宿主模式 | 既有 `formats.register` / `views.registerMode` 共用 registry | LRC/ESLRC/QRC/YRC/LYS 已由 `builtin.formats` 提供；TTML 与 ASS 导出、core.modes、内置主题仍在宿主 |
-| 节拍器、大纲（sidebar） | `ContributionRegistry` 的 `sidebar` view kind | 渲染器已就绪（侧边栏标签页 + ribbon 视图开关）；节拍器已外置为 `builtin.metronome`；大纲已外置为 `builtin.outline`；原生平台验收统一后置 |
+| 第三方格式 provider | 既有 `formats.register` 共用 registry | 待第三方接入；TTML 与 ASS 导出、core.modes、内置主题仍在宿主 |
 | 交付 i18n、审阅工具条（toolbar） | `registerToolbar` | 只有注册接口，宿主无渲染位；渲染器随首个消费者落地 |
 
 实现约束：新增接口不暴露 Jotai、内部 TTMLLyric 或凭据；选择订阅在 host handle dispose 时清理；dialog 按实际 owner 检查，注册消失后自动关闭。网络请求禁携带宿主授权头/cookie，仅允许 HTTPS 和本机 HTTP 开发地址；请求体上限按 UTF-8 字节计算，响应流限制 8 MiB，超时与卸载中断请求，拒绝重定向。离线开关仅拦截经插件端口发起的新请求，不宣称覆盖尚未迁移的宿主网络调用或 trusted-js 自行调用 fetch。
@@ -207,7 +198,7 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 
 ## 插件工具链与 time-shift 外置
 
-本地独立仓库位于同级 `amll-ttml-tool-plugin-toolkit/`、`amll-ttml-tool-plugin-time-shift/`、`amll-ttml-tool-plugin-sync-line-timestamps/`、`amll-ttml-tool-plugin-plain-text-import/`、`amll-ttml-tool-plugin-formats/`，均未配置 remote。toolkit `vendor/` 的 API/SDK tarball 已于 2026-10-21 与宿主同步；宿主 SDK 变更后须重新同步并更新各插件仓库的 vendor 副本（time-shift 仍为旧副本，下次升版时同步）。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。toolkit 的 create/build/test/pack/serve、SDK tarball 与 Release workflow、`factory-plugins.lock.json` 收集器、本地静态源与 Chrome 夹具均已落地，操作见 `docs/plugin-development-guide.md`。
+本地独立仓库位于同级 `amll-ttml-tool-plugin-toolkit/` 与各 `amll-ttml-tool-plugin-<name>/`（出厂插件见 `factory-plugins.lock.json`），均未配置 remote。toolkit `vendor/` 的 API/SDK tarball 已于 2026-10-21 与宿主同步；宿主 SDK 变更后须重新同步并更新各插件仓库的 vendor 副本（time-shift 仍为旧副本，下次升版时同步）。源码真相源：API/SDK 留宿主；插件实现与插件单元测试归独立插件仓库；宿主保留消费锁定 artifact 的真实宿主合同测试。toolkit 的 create/build/test/pack/serve、SDK tarball 与 Release workflow、`factory-plugins.lock.json` 收集器、本地静态源与 Chrome 夹具均已落地，操作见 `docs/plugin-development-guide.md`。
 
 - [ ] 远端交付（后置）：创建/绑定各插件与工具链的远端仓库，发布 SDK/工具链 Release 附件与 time-shift 静态商店，随后把 lock source 指向正式 HTTPS 地址；等待商店后端完成后再推进。当前本地镜像不等于远端已发布；发布后宿主升版才可做到仅改 lock。
 - [ ] ZIP 跨平台验收：绑定远端仓库后执行已配置的 Windows/Linux/macOS CI，确认三个 job 均通过同一固定摘要基线，记录 run URL；尚无远端执行结果。

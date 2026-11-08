@@ -458,53 +458,6 @@
 		"ignoreCase": "Ignorovať veľkosť písmen",
 		"actionButton": "Potvrdiť"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Chyba náhľadu rozdelenia",
-			"title": "Test rozdelenia",
-			"input": "Zadajte riadok textu alebo slovo na otestovanie...",
-			"output": "Náhľad výsledku:"
-		},
-		"title": "Pokročilá segmentácia",
-		"scope": {
-			"title": "Rozsah použitia",
-			"all": "Všetky riadky textov",
-			"range": {
-				"from": "Od riadku",
-				"to": "do riadku",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Pravidlá automatickej segmentácie",
-			"cjk": "Rozdeliť CJK znaky",
-			"syllable": "Rozdeliť západné slová po slabikách"
-		},
-		"language": {
-			"select": "Vyberte jazykový model pre delenie slov:"
-		},
-		"tip": "Po rozdelení bude celková dĺžka pôvodného slova prerozdelená na základe počtu znakov a ich váh.",
-		"postProcess": {
-			"title": "Následné spracovanie",
-			"punct": {
-				"caption": "Spracovanie interpunkcie:",
-				"merge": "Zlúčiť so susednou slabikou",
-				"standalone": "Nastaviť ako samostatný segment",
-				"weight": "Váha času interpunkcie:"
-			},
-			"empty": "Odstrániť prázdne segmenty"
-		},
-		"custom": {
-			"title": "Vlastné pravidlá segmentácie",
-			"input": "Zadajte slovo pre manuálne rozdelenie...",
-			"add": "Pridať do vlastných pravidiel",
-			"list": "Zoznam vlastných pravidiel:"
-		},
-		"ignore": {
-			"title": "Zoznam ignorovaných",
-			"placeholder": "Jedno slovo na riadok, slová v tomto zozname nebudú automaticky segmentované"
-		}
-	},
 	"aboutModal": {
 		"appName": "Nástroj TTML pre texty v štýle Apple Music",
 		"description": "Nástroj pre úpravu a časovanie TTML po slovách pre texty v štýle Apple Music",

@@ -458,53 +458,6 @@
 		"ignoreCase": "Ignorar mayúsculas/minúsculas",
 		"actionButton": "Confirmar"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Error en la vista previa de división",
-			"title": "Prueba de división",
-			"input": "Ingresa una línea de letra o palabra para probar...",
-			"output": "Vista previa del resultado:"
-		},
-		"title": "Segmentación avanzada",
-		"scope": {
-			"title": "Ámbito de aplicación",
-			"all": "Todas las líneas de letras",
-			"range": {
-				"from": "Desde línea",
-				"to": "hasta línea",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Reglas de segmentación automática",
-			"cjk": "Dividir caracteres CJK",
-			"syllable": "Dividir palabras occidentales por sílabas"
-		},
-		"language": {
-			"select": "Selecciona un modelo de idioma de separación silábica:"
-		},
-		"tip": "Después de dividir, la duración total de la palabra original se redistribuirá según el número de caracteres y sus pesos.",
-		"postProcess": {
-			"title": "Postprocesamiento",
-			"punct": {
-				"caption": "Manejo de puntuación:",
-				"merge": "Fusionar con sílaba adyacente",
-				"standalone": "Establecer como segmento independiente",
-				"weight": "Peso de tiempo de puntuación:"
-			},
-			"empty": "Eliminar segmentos vacíos"
-		},
-		"custom": {
-			"title": "Reglas de segmentación personalizadas",
-			"input": "Ingresa palabra para división manual...",
-			"add": "Añadir a reglas personalizadas",
-			"list": "Lista de reglas personalizadas:"
-		},
-		"ignore": {
-			"title": "Lista de ignorados",
-			"placeholder": "Una palabra por línea, las palabras en esta lista no se segmentarán automáticamente"
-		}
-	},
 	"aboutModal": {
 		"appName": "Herramienta TTML de Letras estilo Apple Music",
 		"description": "Una herramienta de edición y línea de tiempo TTML palabra por palabra para letras estilo Apple Music",

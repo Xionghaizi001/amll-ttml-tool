@@ -458,53 +458,6 @@
 		"ignoreCase": "Ignorer la casse",
 		"actionButton": "Confirmer"
 	},
-	"advancedSegmentDialog": {
-		"test": {
-			"outputError": "Erreur d'aperçu de division",
-			"title": "Test de division",
-			"input": "Entrez une ligne de paroles ou un mot à tester...",
-			"output": "Aperçu du résultat :"
-		},
-		"title": "Segmentation avancée",
-		"scope": {
-			"title": "Portée d'application",
-			"all": "Toutes les lignes de paroles",
-			"range": {
-				"from": "De la ligne",
-				"to": "à la ligne",
-				"end": ""
-			}
-		},
-		"rules": {
-			"title": "Règles de segmentation automatique",
-			"cjk": "Diviser les caractères CJK",
-			"syllable": "Diviser les mots occidentaux par syllabes"
-		},
-		"language": {
-			"select": "Sélectionnez un modèle de langue pour la césure :"
-		},
-		"tip": "Après la division, la durée totale du mot original sera redistribuée en fonction du nombre de caractères et de leurs poids.",
-		"postProcess": {
-			"title": "Post-traitement",
-			"punct": {
-				"caption": "Gestion de la ponctuation :",
-				"merge": "Fusionner avec la syllabe adjacente",
-				"standalone": "Définir comme segment indépendant",
-				"weight": "Poids temporel de la ponctuation :"
-			},
-			"empty": "Supprimer les segments vides"
-		},
-		"custom": {
-			"title": "Règles de segmentation personnalisées",
-			"input": "Entrez un mot pour division manuelle...",
-			"add": "Ajouter aux règles personnalisées",
-			"list": "Liste des règles personnalisées :"
-		},
-		"ignore": {
-			"title": "Liste d'exclusion",
-			"placeholder": "Un mot par ligne, les mots de cette liste ne seront pas segmentés automatiquement"
-		}
-	},
 	"aboutModal": {
 		"appName": "Outil TTML de paroles style Apple Music",
 		"description": "Un outil d'édition et de chronométrage TTML mot par mot pour les paroles style Apple Music",
