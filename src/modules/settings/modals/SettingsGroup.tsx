@@ -14,6 +14,8 @@ interface SettingsRowProps {
 	action?: ReactNode;
 	children?: ReactNode;
 	asLabel?: boolean;
+	/** Greys out icon and text (e.g. a disabled plugin); the action stays usable. */
+	dimmed?: boolean;
 }
 
 export const SettingsGroup = ({ title, children }: SettingsGroupProps) => (
@@ -30,6 +32,7 @@ export const SettingsRow = ({
 	action,
 	children,
 	asLabel = false,
+	dimmed = false,
 }: SettingsRowProps) => {
 	const content = (
 		<>
@@ -48,8 +51,16 @@ export const SettingsRow = ({
 	);
 
 	if (asLabel) {
-		return <label className={styles.settingsRow}>{content}</label>;
+		return (
+			<label className={styles.settingsRow} data-dimmed={dimmed || undefined}>
+				{content}
+			</label>
+		);
 	}
 
-	return <div className={styles.settingsRow}>{content}</div>;
+	return (
+		<div className={styles.settingsRow} data-dimmed={dimmed || undefined}>
+			{content}
+		</div>
+	);
 };

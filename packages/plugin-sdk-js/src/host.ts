@@ -334,6 +334,10 @@ export interface TrustedJsModeV0 {
 	hideSidebar?: boolean;
 }
 
+/**
+ * `settings-view` pages are listed in the plugin manager sidebar below a
+ * divider, ordered by localized `title` ascending.
+ */
 export type TrustedJsTrustedViewKindV0 =
 	| "sidebar"
 	| "settings-view"

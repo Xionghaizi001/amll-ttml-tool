@@ -165,6 +165,7 @@ export interface PluginInstallation {
 	artifact?: ArtifactIdentity;
 	enabled: boolean;
 	installedAt?: number;
+	updatedAt?: number;
 	trustedJs?: {
 		loaded: boolean;
 		bundled: boolean;
@@ -216,7 +217,7 @@ export interface InstallationPorts {
 /** Single directory and subscription, with separate runtime and theme semantics. */
 export class PluginInstallationService {
 	private readonly knownLoaded = new Map<string, TrustedJsPluginSummary>();
-	constructor(private readonly ports: InstallationPorts) { }
+	constructor(private readonly ports: InstallationPorts) {}
 	list = (): PluginInstallation[] => {
 		const factory = new Map(
 			this.ports.factory().map((entry) => [entry.id, entry]),
@@ -268,10 +269,10 @@ export class PluginInstallationService {
 			if (!entry) throw new Error(`Missing installation metadata: ${id}`);
 			const selectedRecord =
 				!bundled &&
-					record &&
-					(!live ||
-						(live.version === record.manifest.version &&
-							(!this.ports.entry || liveEntry?.moduleBlob === record.code)))
+				record &&
+				(!live ||
+					(live.version === record.manifest.version &&
+						(!this.ports.entry || liveEntry?.moduleBlob === record.code)))
 					? record
 					: undefined;
 			const state = this.ports.state(id);
@@ -290,9 +291,7 @@ export class PluginInstallationService {
 					remote.get(id)?.description,
 				author:
 					liveEntry?.author ??
-					(bundled
-						? bundledEntry?.author
-						: selectedRecord?.manifest.author) ??
+					(bundled ? bundledEntry?.author : selectedRecord?.manifest.author) ??
 					remote.get(id)?.author,
 				homepage:
 					liveEntry?.homepage ??
@@ -305,11 +304,13 @@ export class PluginInstallationService {
 				store: selectedRecord?.store,
 				artifact: selectedRecord
 					? {
-						sha256:
-							selectedRecord.store?.artifactSha256 ?? selectedRecord.sha256,
-					}
+							sha256:
+								selectedRecord.store?.artifactSha256 ?? selectedRecord.sha256,
+						}
 					: undefined,
 				installedAt: selectedRecord?.installedAt,
+				// Older records only have installedAt, which was rewritten on every update.
+				updatedAt: selectedRecord?.updatedAt ?? selectedRecord?.installedAt,
 				enabled: !state?.disabled && !crashDisabled,
 				trustedJs: {
 					loaded: Boolean(live),
@@ -332,14 +333,14 @@ export class PluginInstallationService {
 					pinnedToFactory: pinned,
 					installedPackage: record
 						? {
-							version: record.manifest.version,
-							source: record.source,
-							store: record.store,
-							artifact: {
-								sha256: record.store?.artifactSha256 ?? record.sha256,
-							},
-							installedAt: record.installedAt,
-						}
+								version: record.manifest.version,
+								source: record.source,
+								store: record.store,
+								artifact: {
+									sha256: record.store?.artifactSha256 ?? record.sha256,
+								},
+								installedAt: record.installedAt,
+							}
 						: undefined,
 				},
 			};
@@ -368,11 +369,19 @@ export class PluginInstallationService {
 						? { sha256: theme.store.artifactSha256 }
 						: undefined,
 					installedAt: theme.installedAt,
-					enabled: (state.activeThemeIds ?? [state.activeThemeId]).includes(theme.id) && !state.safeMode && !theme.disabledByDependency,
+					updatedAt: theme.updatedAt ?? theme.installedAt,
+					enabled:
+						(state.activeThemeIds ?? [state.activeThemeId]).includes(
+							theme.id,
+						) &&
+						!state.safeMode &&
+						!theme.disabledByDependency,
 					theme: {
 						scope: theme.scope,
 						disabledByDependency: theme.disabledByDependency,
-						active: (state.activeThemeIds ?? [state.activeThemeId]).includes(theme.id),
+						active: (state.activeThemeIds ?? [state.activeThemeId]).includes(
+							theme.id,
+						),
 						preview: state.previewThemeId === theme.id,
 						safeMode: state.safeMode,
 						appearance: theme.appearance,

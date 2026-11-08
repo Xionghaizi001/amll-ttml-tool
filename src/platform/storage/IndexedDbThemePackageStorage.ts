@@ -94,6 +94,7 @@ export class IndexedDbThemePackageStorage {
 				id,
 				pkg: metadata,
 				installedAt: installation.installedAt ?? Date.now(),
+				updatedAt: installation.updatedAt,
 				store: installation.store,
 			} satisfies StoredThemePackageRecord);
 			await transaction.done;

@@ -5,6 +5,8 @@ export const settingsDialogAtom = atom(false);
 export const settingsTabAtom = atom("common");
 export const latencyTestDialogAtom = atom(false);
 export const pluginStoreDialogAtom = atom(false);
+/** Plugin manager page: a host section or a plugin `settings-view` id. */
+export const pluginStoreSectionAtom = atom("available");
 export const submitToAMLLDBDialogAtom = atom(false);
 export const confirmDialogAtom = atom<{
 	open: boolean;

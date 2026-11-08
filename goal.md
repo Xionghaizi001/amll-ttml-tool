@@ -49,7 +49,6 @@
 
 - [x] 分词收尾：已删除宿主遗留的 `AdvancedSegmentation` 组件、对话框 atom 与 `advancedSegmentDialog` 文案；分词算法与配置目前仍经 `host.segmentation` 由宿主提供，算法外置时再接 provider/dependencies。
 - [x] 罗马音与词级工具：已迁至 `builtin.word-tools`（逐字音译分配/检查、拆分/替换单词、平滑时间轴），`builtin.segmentation` 声明依赖；新增 `host.romanization.registerPredictor` 与 `PluginWordV0.romanWarning`。
-- [ ] 帮助、设置和更新。
 - [ ] 第三方格式接入与相应验收（复用 `core.formats` registry）。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
 - [ ] 网络服务（先迁移 LRCLIB 等业务消费者，并接入网络端口与离线总开关）；GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。

@@ -9,7 +9,12 @@ import { installTrustedJsPackage } from "$/plugins/trusted/trusted-js-host";
 import { pluginInstallationService } from "$/plugins/store/store-host";
 import { globalStore } from "$/states/store";
 import { selectedLinesAtom } from "$/states/main";
-import { settingsDialogAtom, settingsTabAtom } from "$/states/dialogs";
+import {
+	pluginStoreDialogAtom,
+	pluginStoreSectionAtom,
+	settingsDialogAtom,
+	settingsTabAtom,
+} from "$/states/dialogs";
 import { pluginNetworkOfflineAtom } from "$/states/plugins";
 import { editorDocumentAdapter } from "$/plugins/adapters/editor-document";
 
@@ -92,8 +97,8 @@ function Fixture() {
 			</button>
 			<button
 				onClick={() => {
-					globalStore.set(settingsTabAtom, `${id}.settings`);
-					globalStore.set(settingsDialogAtom, true);
+					globalStore.set(pluginStoreSectionAtom, `${id}.settings`);
+					globalStore.set(pluginStoreDialogAtom, true);
 				}}
 			>
 				打开贡献视图（端口验收）

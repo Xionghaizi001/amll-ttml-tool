@@ -87,6 +87,8 @@ export interface ThemePackageStorePort {
 export interface ThemeInstallationMetadata {
 	store?: StoreInstallationProvenance;
 	installedAt?: number;
+	/** Last install/update of the package; absent on records written before it existed. */
+	updatedAt?: number;
 }
 
 export type ThemeSource = "builtin" | "installed";

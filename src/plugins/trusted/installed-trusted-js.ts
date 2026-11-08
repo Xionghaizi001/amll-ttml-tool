@@ -1,4 +1,7 @@
-import { parseTrustedJsPackage, resolvePluginStrings } from "@amll-ttml-tool/plugin-api";
+import {
+	parseTrustedJsPackage,
+	resolvePluginStrings,
+} from "@amll-ttml-tool/plugin-api";
 import type { StoreInstallationProvenance } from "$/kernel/extensions/installation-provenance";
 import type { StoredTrustedJsRecord } from "$/platform/storage/IndexedDbTrustedJsStorage";
 import type {
@@ -19,7 +22,13 @@ export const digestTrustedJsPackage = async (
 	code: string,
 	resources?: StoredTrustedJsRecord["resources"],
 ) => {
-	const bytes = new TextEncoder().encode(JSON.stringify({ manifest, code, ...(resources === undefined ? {} : { resources }) }));
+	const bytes = new TextEncoder().encode(
+		JSON.stringify({
+			manifest,
+			code,
+			...(resources === undefined ? {} : { resources }),
+		}),
+	);
 	const hash = await crypto.subtle.digest("SHA-256", bytes);
 	return [...new Uint8Array(hash)]
 		.map((b) => b.toString(16).padStart(2, "0"))
@@ -34,7 +43,7 @@ export class InstalledTrustedJsService<THost> {
 		private readonly storage: TrustedJsPackageStorage,
 		private readonly runtime: TrustedJsPluginService<THost>,
 		private readonly clearKv: (id: string) => Promise<void>,
-	) { }
+	) {}
 	list = () => [...this.records.values()];
 	/** End a temporary override without deleting the persisted release or KV. */
 	discardDevelopment(id: string): void {
@@ -74,13 +83,18 @@ export class InstalledTrustedJsService<THost> {
 					packageVersion: 0,
 					manifest: record.manifest,
 					code,
-					...(record.resources === undefined ? {} : { resources: record.resources }),
+					...(record.resources === undefined
+						? {}
+						: { resources: record.resources }),
 				});
 				if (
 					!parsed.ok ||
 					record.id !== parsed.value.manifest.id ||
-					(await digestTrustedJsPackage(parsed.value.manifest, code, record.resources)) !==
-					record.sha256
+					(await digestTrustedJsPackage(
+						parsed.value.manifest,
+						code,
+						record.resources,
+					)) !== record.sha256
 				)
 					continue;
 				this.records.set(record.id, record);
@@ -132,7 +146,9 @@ export class InstalledTrustedJsService<THost> {
 			code: new Blob([code], { type: "text/javascript" }),
 			sha256: await digestTrustedJsPackage(manifest, code, resources),
 			source,
-			installedAt: Date.now(),
+			// An update keeps the original install time.
+			installedAt: previous?.installedAt ?? Date.now(),
+			updatedAt: Date.now(),
 			store: source === "store" && store ? { ...store } : undefined,
 		};
 		const entry: TrustedJsPluginEntry = {

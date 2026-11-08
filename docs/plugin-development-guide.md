@@ -265,7 +265,7 @@ pnpm build
 
 目录公开读取无需管理员登录；管理员仅用于后端维护目录/上传。提供者警示与 localhost HTTP 放行仅用于本期技术原型。
 
-浏览器交互已于 2026-10-18 随提交 `82e406f0` 验收完成。后续回归使用 `tests/plugins/browser/index.html`，步骤、导航预期与平台边界见 [浏览器验收说明](../tests/plugins/browser/README.md)。插件管理器入口位于常规页，SDK 的动态 `settings-view` 贡献与管理器自身的“插件设置”分别覆盖；Tauri 真实 WebView 的 Blob 加载与共享 React 尚待平台实测。
+浏览器交互已于 2026-10-18 随提交 `82e406f0` 验收完成。后续回归使用 `tests/plugins/browser/index.html`，步骤、导航预期与平台边界见 [浏览器验收说明](../tests/plugins/browser/README.md)。插件管理器入口位于常规页，SDK 的动态 `settings-view` 贡献（插件管理侧栏分割线下方，按标题升序）与管理器自身的“插件设置”分别覆盖；Tauri 真实 WebView 的 Blob 加载与共享 React 尚待平台实测。
 
 ## 局部覆盖资源协议
 

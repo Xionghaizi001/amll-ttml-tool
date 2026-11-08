@@ -290,6 +290,7 @@ export class ThemeService {
 					source: "installed",
 					store: record.store,
 					installedAt: record.installedAt,
+					updatedAt: record.updatedAt,
 				});
 		}
 		this.restoreActive();
@@ -303,7 +304,7 @@ export class ThemeService {
 
 	listThemes(): ThemeSummary[] {
 		return [...this.themes.values()].map(
-			({ pkg, source, store, installedAt }) => ({
+			({ pkg, source, store, installedAt, updatedAt }) => ({
 				id: pkg.manifest.id,
 				name: pkg.manifest.name,
 				version: pkg.manifest.version,
@@ -317,6 +318,7 @@ export class ThemeService {
 				source,
 				store,
 				installedAt,
+				updatedAt,
 			}),
 		);
 	}
@@ -354,6 +356,7 @@ export class ThemeService {
 					{
 						store: previous.store,
 						installedAt: previous.installedAt,
+						updatedAt: previous.updatedAt,
 					},
 				);
 			} else await this.ports.packageStore?.remove(id);
@@ -611,9 +614,14 @@ export class ThemeService {
 		const parsed = this.parseThemeImport(input);
 		if (!parsed.ok) return parsed;
 		const id = parsed.value.manifest.id;
+		const now = Date.now();
+		// An update keeps the original install time.
+		const previous = this.themes.get(id);
 		const metadata = {
 			store: store ? { ...store } : undefined,
-			installedAt: Date.now(),
+			installedAt:
+				previous?.source === "installed" ? (previous.installedAt ?? now) : now,
+			updatedAt: now,
 		};
 		if (this.ports.packageStore)
 			await this.ports.packageStore.save(

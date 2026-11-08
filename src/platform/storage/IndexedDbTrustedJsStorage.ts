@@ -14,6 +14,8 @@ export interface StoredTrustedJsRecord {
 	sha256: string;
 	source: "user" | "dev" | "store";
 	installedAt: number;
+	/** Last install/update; absent on records written before it existed. */
+	updatedAt?: number;
 	store?: StoreInstallationProvenance;
 }
 
@@ -21,7 +23,7 @@ export interface StoredTrustedJsRecord {
 export class IndexedDbTrustedJsStorage {
 	constructor(
 		private readonly getDatabase: ExtensionDatabaseProvider = openPluginDatabase,
-	) { }
+	) {}
 	async loadAll(): Promise<StoredTrustedJsRecord[]> {
 		return (await this.getDatabase()).getAll("trusted-js");
 	}

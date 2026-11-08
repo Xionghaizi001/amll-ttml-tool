@@ -8,6 +8,30 @@
 	max-height: none;
 	padding: 0;
 	overflow: hidden;
+	transition:
+		width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+		height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Plugin manager: the same dialog grows/shrinks via the transition above. */
+.dialogContent[data-manager] {
+	width: min(1366px, calc(100vw - 48px));
+	height: min(768px, calc(100vh - 48px));
+}
+
+/* Fade wrapper spans the dialog grid and passes its layout through. */
+.pageFade {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: inherit;
+	grid-template-rows: inherit;
+	min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dialogContent {
+		transition: none;
+	}
 }
 
 .srOnly {
@@ -24,6 +48,7 @@
 
 .sidebar {
 	min-width: 0;
+	overflow-y: auto;
 	padding: var(--space-5) var(--space-2) var(--space-4);
 	border-right: 1px solid var(--gray-a4);
 }
@@ -74,6 +99,14 @@
 	content: "";
 	background: var(--accent-9);
 	border-radius: var(--radius-full);
+}
+
+.navDivider {
+	flex: 0 0 auto;
+	width: auto;
+	margin: var(--space-2) var(--space-3);
+	border: 0;
+	border-top: 1px solid var(--gray-a5);
 }
 
 .navIcon {
@@ -184,6 +217,11 @@
 	gap: 2px;
 }
 
+.settingsRow[data-dimmed] .settingsRowIcon,
+.settingsRow[data-dimmed] .settingsRowContent {
+	opacity: 0.5;
+}
+
 .settingsRowAction {
 	flex: 0 0 auto;
 	max-width: 60%;
@@ -227,7 +265,8 @@
 }
 
 @media (max-width: 720px) {
-	.dialogContent {
+	.dialogContent,
+	.dialogContent[data-manager] {
 		grid-template-columns: 1fr;
 		width: min(100vw - 24px, 560px);
 		height: min(100vh - 24px, 720px);
@@ -256,6 +295,13 @@
 
 	.navItem[data-active]::before {
 		display: none;
+	}
+
+	.navDivider {
+		align-self: stretch;
+		margin: var(--space-1) var(--space-1);
+		border-top: 0;
+		border-left: 1px solid var(--gray-a5);
 	}
 
 	.header {
