@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { EditorDocumentService } from "$/kernel/editor";
 import type { LyricLine, LyricWord } from "$/types/ttml";
 import {
-	buildManualSegments,
 	createSegmentationConfig,
 	normalizeSegmentationRange,
 	type SegmentationEnginePort,
@@ -45,16 +44,11 @@ describe("SegmentationService", () => {
 		expect(config.punctuationWeight).toBe(0.2);
 		expect([...config.ignoreList]).toEqual(["a", " b "]);
 	});
-	it("normalizes ranges and manual split points", () => {
+	it("normalizes ranges", () => {
 		expect(normalizeSegmentationRange(5, "range", "0", "99")).toEqual({
 			startIndex: 0,
 			endIndex: 5,
 		});
-		expect(buildManualSegments("abcdef", [4, 2, 2, 0, 6])).toEqual([
-			"ab",
-			"cd",
-			"ef",
-		]);
 	});
 
 	it("applies an injected segmentation engine as one undoable transaction", () => {
@@ -73,7 +67,6 @@ describe("SegmentationService", () => {
 				})),
 			segmentWord: (item) => [item],
 			recalculateWordTime: (item) => [item],
-			smoothLine: (item) => item,
 		};
 
 		const event = segmentEntireDocument(document, null, engine);

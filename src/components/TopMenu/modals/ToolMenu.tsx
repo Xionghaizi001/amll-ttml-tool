@@ -2,16 +2,12 @@ import { Button, DropdownMenu } from "@radix-ui/themes";
 import { Toolbar } from "radix-ui";
 import type { CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import {
-	cmdCheckRomanizationWarnings,
-	cmdDistributeRomanization,
-	cmdOpenLatencyTest,
-	cmdOpenSyllableSmoothing,
-} from "$/modules/keyboard/commands";
+import { cmdOpenLatencyTest } from "$/modules/keyboard/commands";
 import {
 	ContributionMenuItems,
 	PINNED_FACTORY_COMMANDS,
 	PinnedCommandMenuItem,
+	usePinnedCommandTitle,
 } from "$/plugins/ui/ContributionMenuItems";
 import { CommandMenuItem } from "../CommandMenuItem";
 
@@ -23,6 +19,14 @@ type ToolMenuProps = {
 
 const ToolMenuItems = () => {
 	const { t } = useTranslation();
+	const distributeTitle = usePinnedCommandTitle(
+		PINNED_FACTORY_COMMANDS.romanizationDistribute,
+	);
+	const checkTitle = usePinnedCommandTitle(
+		PINNED_FACTORY_COMMANDS.romanizationCheck,
+	);
+	const hasRomanizationTools =
+		distributeTitle !== undefined || checkTitle !== undefined;
 
 	return (
 		<>
@@ -38,28 +42,27 @@ const ToolMenuItems = () => {
 					<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.segmentationAdvanced} />
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
-			<CommandMenuItem commandId={cmdOpenSyllableSmoothing.id}>
-				{t("topBar.menu.syllableSmoothing", "平滑时间轴...")}
-			</CommandMenuItem>
+			<PinnedCommandMenuItem
+				commandId={PINNED_FACTORY_COMMANDS.syllableSmoothing}
+			/>
 			<PinnedCommandMenuItem
 				commandId={PINNED_FACTORY_COMMANDS.syncLineTimestamps}
 			/>
-			<DropdownMenu.Sub>
-				<DropdownMenu.SubTrigger>
-					{t("topBar.menu.perWordRomanization.index", "逐字音译")}
-				</DropdownMenu.SubTrigger>
-				<DropdownMenu.SubContent>
-					<CommandMenuItem commandId={cmdDistributeRomanization.id}>
-						{t(
-							"topBar.menu.perWordRomanization.distribute",
-							"自动分配罗马音...",
-						)}
-					</CommandMenuItem>
-					<CommandMenuItem commandId={cmdCheckRomanizationWarnings.id}>
-						{t("topBar.menu.perWordRomanization.check", "检查")}
-					</CommandMenuItem>
-				</DropdownMenu.SubContent>
-			</DropdownMenu.Sub>
+			{hasRomanizationTools && (
+				<DropdownMenu.Sub>
+					<DropdownMenu.SubTrigger>
+						{t("topBar.menu.perWordRomanization.index", "逐字音译")}
+					</DropdownMenu.SubTrigger>
+					<DropdownMenu.SubContent>
+						<PinnedCommandMenuItem
+							commandId={PINNED_FACTORY_COMMANDS.romanizationDistribute}
+						/>
+						<PinnedCommandMenuItem
+							commandId={PINNED_FACTORY_COMMANDS.romanizationCheck}
+						/>
+					</DropdownMenu.SubContent>
+				</DropdownMenu.Sub>
+			)}
 			<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.rubyGenerate} />
 			<CommandMenuItem commandId={cmdOpenLatencyTest.id}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}

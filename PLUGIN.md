@@ -595,7 +595,7 @@ Contribution registry 强制 plugin id 命名空间和 owner 归属；mode、tru
 - 相对导入按解析后的真实目标校验，不能以 `../../modules/...` 绕过 application/kernel 边界。
 - application/kernel/state/API/SDK 层禁止全局 `document`、`window`、`localStorage`、`fetch`、`indexedDB` 与 DOM 类型；局部同名参数合法。`globalThis` 也禁止，避免通过它绕过限制；`URL` 构造仍合法，但 Object URL 生命周期只能经 platform adapter。
 - 遍历 `tests/plugin-api/` 与 `tests/plugin-sdk-js/`；`src/platform` 与 `src/plugins`（runtime、adapters、ui、trusted、store 与根目录）有正向依赖白名单。
-- UI 不得以别名或相对路径直接导入纯算法模块（drag-reorder、segmentation、syllable-smoothing、LRC parser、时间线边界等），只能经 application service 与 adapter；`?worker` 资源只能由 platform/runtime adapter 引入。
+- UI 不得以别名或相对路径直接导入纯算法模块（drag-reorder、segmentation、LRC parser、时间线边界等），只能经 application service 与 adapter；`?worker` 资源只能由 platform/runtime adapter 引入。
 - 普通菜单项不得重新内联 `onSelect`/`onClick`/`onCheckedChange` 或使用可能隐藏回调的 prop spread（菜单只引用 command ID）。编辑文档的写入仅限 editor document adapter。
 - state 层不得重新访问 idb、fetch、localStorage 或 Object URL API（走 platform adapter）。
 - `src/plugins/builtin/<plugin>/**`（formats/modes/themes 三个宿主核心目录除外）与 `examples/` 只允许导入 `@amll-ttml-tool/plugin-api`、`@amll-ttml-tool/plugin-sdk-js` 与 React；SDK 包只允许 plugin-api 与 type-only React。
@@ -744,6 +744,6 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 
 `updateWord.patch.ruby: null` 表示删除结构，`[]` 仍表示保留空结构，省略字段则不修改；文档投影及新建词不接受 null。mock 与真实宿主共享该语义。异步批量操作读取 revision 后计算，提交前冲突检查，失败提示且不覆盖并发编辑；一次操作对应一次撤销。
 
-`host.segmentation.isKanaOnly` 与异步 `segmentText(input, segments?)` 暂由宿主现有分词算法及偏好提供：不传 segments 自动分词，传入 tokens 则分配时间，不修改文档。Ruby 生成、选区筛选和批量业务归插件。分词/罗马音模块本轮未迁出，尚无外置分词插件可声明依赖；其迁出时复用端口并接 provider/dependencies。原生注音显示、同步打轴、导入导出不随编辑插件停用而消失。
+`host.segmentation.isKanaOnly` 与异步 `segmentText(input, segments?)` 暂由宿主现有分词算法及偏好提供：不传 segments 自动分词，传入 tokens 则分配时间，不修改文档。Ruby 生成、选区筛选和批量业务归插件。词级工具（逐字音译分配/检查、拆分/替换单词、平滑时间轴）已迁至 `amll-ttml-tool-plugin-word-tools/`（`builtin.word-tools`），`builtin.segmentation` 以 manifest dependencies 声明依赖它；分词算法本身仍由宿主经 `host.segmentation` 提供。编辑器内联罗马音建议经 `host.romanization.registerPredictor` 由插件提供（最后注册者生效，停用即无建议）；`PluginWordV0.romanWarning` 为可读写的逐字音译警告标记。右键拆分/替换与词块剪刀按钮向插件命令传 `{ wordId }`。原生注音显示、同步打轴、导入导出不随编辑插件停用而消失。
 
 API/SDK tarball 已同步至 Ruby 与 toolkit vendor；旧插件仍使用各自锁定 SDK，需新接口的插件升级时同步。验证入口为插件 `pnpm test`、宿主 `tests/plugins/trusted/{ruby-ports,migrated-artifacts}.test.ts`、`tests/modules/lyric-editor/ruby-patch.test.ts` 和 `tests/plugins/browser/ruby.browser-check.mjs`。远端发布及原生平台验收仍后置。

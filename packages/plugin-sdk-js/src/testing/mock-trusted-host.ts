@@ -29,6 +29,7 @@ import type {
 	TrustedJsFormatProviderV0,
 	TrustedJsHostV0,
 	TrustedJsModeV0,
+	TrustedJsRomanizationPredictorV0,
 	TrustedJsProjectInfoV0,
 	TrustedJsTrustedViewV0,
 } from "../host";
@@ -143,6 +144,20 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 			);
 			if (this.disposed) throw new Error("Plugin host is disposed");
 			return result;
+		},
+	};
+	/** Active romanization predictors, latest last. */
+	readonly romanizationPredictors: TrustedJsRomanizationPredictorV0[] = [];
+	readonly romanization: TrustedJsHostV0["romanization"] = {
+		registerPredictor: (predict) => {
+			if (this.disposed) throw new Error("Plugin host is disposed");
+			this.romanizationPredictors.push(predict);
+			return {
+				dispose: () => {
+					const index = this.romanizationPredictors.indexOf(predict);
+					if (index >= 0) this.romanizationPredictors.splice(index, 1);
+				},
+			};
 		},
 	};
 	readonly sdkVersion = TRUSTED_JS_SDK_VERSION;
@@ -655,6 +670,7 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 		this.formatRegistry.clear();
 		this.modeRegistry.clear();
 		this.viewRegistry.clear();
+		this.romanizationPredictors.length = 0;
 		this.openViewIds.clear();
 		this.changeListeners.clear();
 		this.selectionListeners.clear();

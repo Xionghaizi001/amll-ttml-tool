@@ -202,6 +202,8 @@ export interface PluginWordV0 {
 	endTime: number;
 	emptyBeat: number;
 	romanText: string;
+	/** Host editor flag for a suspicious per-word romanization; absent means false. */
+	romanWarning?: boolean;
 	ruby?: PluginRubySegmentV0[];
 }
 

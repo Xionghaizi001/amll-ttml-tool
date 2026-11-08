@@ -5,11 +5,9 @@ import {
 	segmentLyricLines,
 	segmentWord,
 } from "$/modules/segmentation/utils/segmentation";
-import { smoothSyllables } from "$/modules/segmentation/utils/syllable-smoothing";
 
 export const segmentationEngine: SegmentationEnginePort<SegmentationConfig> = {
 	segmentLines: segmentLyricLines,
 	segmentWord,
 	recalculateWordTime,
-	smoothLine: smoothSyllables,
 };

@@ -37,10 +37,6 @@ export interface SegmentationEnginePort<TConfig> {
 		segments: string[],
 		config: TConfig,
 	): LyricWord[];
-	smoothLine(
-		line: LyricLine,
-		options: { threshold?: number; mergeSyllables?: boolean },
-	): LyricLine;
 }
 
 export function createSegmentationConfig(
@@ -78,21 +74,6 @@ export function normalizeSegmentationRange(
 		startIndex,
 		endIndex: Math.max(startIndex, Math.min(requestedEnd, lineCount)),
 	};
-}
-
-export function buildManualSegments(
-	text: string,
-	splitIndices: Iterable<number>,
-) {
-	const parts: string[] = [];
-	let lastIndex = 0;
-	for (const index of [...splitIndices].sort((a, b) => a - b)) {
-		if (index <= lastIndex || index >= text.length) continue;
-		parts.push(text.slice(lastIndex, index));
-		lastIndex = index;
-	}
-	parts.push(text.slice(lastIndex));
-	return parts.filter(Boolean);
 }
 
 type SegmentationDocumentPort = Pick<
@@ -133,72 +114,6 @@ export function segmentDocumentRange<TConfig>(
 	);
 }
 
-export function splitDocumentWord<TConfig>(
-	document: SegmentationDocumentPort,
-	request: {
-		lineIndex: number;
-		wordIndex: number;
-		targetText: string;
-		splitIndices: Iterable<number>;
-		applyToAll: boolean;
-		ignoreCase: boolean;
-		config: TConfig;
-	},
-	engine: Pick<SegmentationEnginePort<TConfig>, "recalculateWordTime">,
-) {
-	const targetSegments = buildManualSegments(
-		request.targetText,
-		request.splitIndices,
-	);
-	if (!targetSegments.length) return;
-	return document.transact(
-		{
-			source: "user",
-			label: "Split lyric word",
-			expectedRevision: document.getRevision(),
-		},
-		(draft) => {
-			if (request.applyToAll) {
-				const target = request.ignoreCase
-					? request.targetText.toLowerCase()
-					: request.targetText;
-				for (const line of draft.lyricLines) {
-					line.words = line.words.flatMap((word) => {
-						const candidate = request.ignoreCase
-							? word.word.toLowerCase()
-							: word.word;
-						if (candidate !== target) return word;
-						const segments = request.ignoreCase
-							? buildManualSegments(word.word, request.splitIndices)
-							: targetSegments;
-						return engine.recalculateWordTime(
-							word,
-							segments.length ? segments : targetSegments,
-							request.config,
-						);
-					});
-				}
-				return;
-			}
-			const line = draft.lyricLines[request.lineIndex];
-			const word = line?.words[request.wordIndex];
-			if (line && word?.word === request.targetText) {
-				line.words.splice(
-					request.wordIndex,
-					1,
-					...engine.recalculateWordTime(word, targetSegments, request.config),
-				);
-			}
-		},
-	);
-}
-
-export const previewSegmentWord = <TConfig>(
-	word: LyricWord,
-	config: TConfig,
-	engine: Pick<SegmentationEnginePort<TConfig>, "segmentWord">,
-) => engine.segmentWord(word, config);
-
 export const previewSegmentLines = <TConfig>(
 	lines: LyricLine[],
 	config: TConfig,
@@ -218,26 +133,6 @@ export function segmentEntireDocument<TConfig>(
 		},
 		(draft) => {
 			draft.lyricLines = engine.segmentLines(draft.lyricLines, config);
-		},
-	);
-}
-
-export function smoothDocumentLines(
-	document: SegmentationDocumentPort,
-	lineIds: ReadonlySet<string>,
-	options: { threshold?: number; mergeSyllables?: boolean },
-	engine: Pick<SegmentationEnginePort<unknown>, "smoothLine">,
-) {
-	return document.transact(
-		{
-			source: "user",
-			label: "Smooth lyric syllables",
-			expectedRevision: document.getRevision(),
-		},
-		(draft) => {
-			draft.lyricLines = draft.lyricLines.map((line) =>
-				lineIds.has(line.id) ? engine.smoothLine(line, options) : line,
-			);
 		},
 	);
 }

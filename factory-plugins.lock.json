@@ -50,10 +50,16 @@
       "source": "vendor/plugin-store/0477d926eabbcfe98b9e53328a49c6f709fa68cca931ab4f77925457641b9784.zip"
     },
     {
-      "id": "builtin.segmentation",
+      "id": "builtin.word-tools",
       "version": "1.0.0",
-      "sha256": "d41662e5e25265bda8a47f918309ad3d5ba4e1c75c250b7c31f5694fb330c2ab",
-      "source": "vendor/plugin-store/d41662e5e25265bda8a47f918309ad3d5ba4e1c75c250b7c31f5694fb330c2ab.zip"
+      "sha256": "b8af02997ed409e6b61ea8891722bf07626410eaa296b625bd99fa279ba52a03",
+      "source": "vendor/plugin-store/b8af02997ed409e6b61ea8891722bf07626410eaa296b625bd99fa279ba52a03.zip"
+    },
+    {
+      "id": "builtin.segmentation",
+      "version": "1.1.0",
+      "sha256": "8a11fc455fbeba2f073e419b94b3a48f3a7b9ef798dfc8dbbccc6a614b1a2d54",
+      "source": "vendor/plugin-store/8a11fc455fbeba2f073e419b94b3a48f3a7b9ef798dfc8dbbccc6a614b1a2d54.zip"
     }
   ]
 }

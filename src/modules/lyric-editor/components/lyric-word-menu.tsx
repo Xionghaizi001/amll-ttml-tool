@@ -5,13 +5,12 @@ import { normalizeLineTime } from "$/application/lyrics";
 import { ContextCommandMenuItem } from "$/components/TopMenu/ContextCommandMenuItem";
 import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
-import { ContributionMenuItems } from "$/plugins/ui/ContributionMenuItems";
-import { replaceWordDialogAtom, splitWordDialogAtom } from "$/states/dialogs";
 import {
-	editingWordStateAtom,
-	selectedLinesAtom,
-	selectedWordsAtom,
-} from "$/states/main";
+	ContributionMenuItems,
+	PINNED_FACTORY_COMMANDS,
+	PinnedCommandMenuItem,
+} from "$/plugins/ui/ContributionMenuItems";
+import { selectedLinesAtom, selectedWordsAtom } from "$/states/main";
 import {
 	type LyricLine,
 	type LyricWord,
@@ -37,35 +36,14 @@ export const LyricWordMenu = ({
 	const selectedWordsSize = useAtomValue(selectedWordsSizeAtom);
 	const selectedLinesSize = useAtomValue(selectedLinesSizeAtom);
 	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
-	const setOpenSplitWordDialog = useSetAtom(splitWordDialogAtom);
-	const setOpenReplaceWordDialog = useSetAtom(replaceWordDialogAtom);
-	const setEditingWordState = useSetAtom(editingWordStateAtom);
 	const word = useAtomValue(wordAtom);
 	const commandPrefix = `core.context.word.${word.id}`;
 	const commandIds = {
-		split: `${commandPrefix}.split`,
-		replace: `${commandPrefix}.replace`,
 		combine: `${commandPrefix}.combine`,
 		delete: `${commandPrefix}.delete`,
 		followingToLine: `${commandPrefix}.followingToLine`,
 		selectedToLine: `${commandPrefix}.selectedToLine`,
 	};
-	useLocalCommand(
-		commandIds.split,
-		() => {
-			setEditingWordState({ wordIndex, lineIndex, word: word.word });
-			setOpenSplitWordDialog(true);
-		},
-		() => selectedWordsSize === 1,
-	);
-	useLocalCommand(
-		commandIds.replace,
-		() => {
-			setEditingWordState({ wordIndex, lineIndex, word: word.word });
-			setOpenReplaceWordDialog(true);
-		},
-		() => selectedWordsSize === 1,
-	);
 	useLocalCommand(
 		commandIds.combine,
 		() => {
@@ -117,12 +95,16 @@ export const LyricWordMenu = ({
 
 	return (
 		<>
-			<ContextCommandMenuItem commandId={commandIds.split}>
-				{t("contextMenu.splitWord", "拆分单词…")}
-			</ContextCommandMenuItem>
-			<ContextCommandMenuItem commandId={commandIds.replace}>
-				{t("contextMenu.replaceWord", "替换单词…")}
-			</ContextCommandMenuItem>
+			<PinnedCommandMenuItem
+				commandId={PINNED_FACTORY_COMMANDS.wordSplit}
+				variant="context"
+				args={{ wordId: word.id }}
+			/>
+			<PinnedCommandMenuItem
+				commandId={PINNED_FACTORY_COMMANDS.wordReplace}
+				variant="context"
+				args={{ wordId: word.id }}
+			/>
 			<ContextCommandMenuItem commandId={commandIds.combine}>
 				{t("contextMenu.combineWords", "合并单词")}
 			</ContextCommandMenuItem>

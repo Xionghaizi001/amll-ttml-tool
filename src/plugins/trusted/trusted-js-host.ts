@@ -1,3 +1,4 @@
+import { registerRomanizationPredictor } from "$/plugins/adapters/romanization";
 import { pluginSegmentation } from "$/plugins/adapters/segmentation";
 import { createPluginEditor } from "$/plugins/ui/plugin-editor";
 import { TrustedJsStateStorage } from "./trusted-js-state-storage";
@@ -64,6 +65,7 @@ import { checkDependencyActivation, checkDependencyGraph, registerDependencySour
 const trustedJsHostPorts: TrustedJsHostPorts = {
 	documents: pluginDocumentGateway,
  segmentation: pluginSegmentation,
+	registerRomanizationPredictor,
  createEditor: createPluginEditor,
 	subscribeDocumentChanges: subscribeHostDocumentChanges,
 	getSelection: getHostSelection,

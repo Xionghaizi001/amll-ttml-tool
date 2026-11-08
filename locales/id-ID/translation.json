@@ -191,9 +191,7 @@
 			"autoSegment": "Segmentasi Otomatis",
 			"advancedSegment": "Segmentasi Lanjutan...",
 			"perWordRomanization": {
-				"index": "Romanisasi Per Kata",
-				"check": "Periksa Konsistensi Romanisasi Per Kata",
-				"distribute": "Distribusikan Romanisasi Otomatis..."
+				"index": "Romanisasi Per Kata"
 			},
 			"help": "Bantuan",
 			"helpDoc": "Panduan Pengguna",
@@ -238,8 +236,6 @@
 		"copyLine": "Salin Baris",
 		"combineLine": "Gabungkan Baris",
 		"deleteLine": "Hapus Baris",
-		"splitWord": "Pecah Kata…",
-		"replaceWord": "Ganti Kata…",
 		"combineWords": "Gabungkan Kata",
 		"moveFollowingWordToNewLine": "Pindahkan Kata Berikutnya ke Baris Baru",
 		"moveWordToNewLine": "Pindahkan Kata yang Dipilih ke Baris Baru"
@@ -340,18 +336,7 @@
 		"search": "Cari",
 		"close": "Tutup",
 		"cancel": "Batal",
-		"confirm": "Konfirmasi",
 		"apply": "Terapkan",
-		"applyScope": "Diterapkan pada",
-		"scope": {
-			"all": "Semua Baris",
-			"selected": "Baris yang Dipilih",
-			"selectedFollowing": "Baris yang Dipilih dan Seterusnya",
-			"custom": "Rentang Kustom"
-		},
-		"fromLine": "Dari baris",
-		"toLine": "Sampai baris",
-		"line": "Baris",
 		"success": "Berhasil dipulihkan",
 		"error": "Data rusak atau hilang",
 		"deleteSuccess": "Berhasil dihapus",
@@ -376,13 +361,6 @@
 		"prevWord": "Ke Kata Seb.",
 		"nextWord": "Ke Kata Ber."
 	},
-	"replaceWordDialog": {
-		"title": "Ganti Kata",
-		"description": "Isi kata baru:",
-		"placeholder": "Kata baru",
-		"applyToAll": "Terapkan aturan penggantian ini ke semua kata yang sama",
-		"ignoreCase": "Abaikan huruf besar/kecil"
-	},
 	"timeShiftDialog": {
 		"title": "Geser Waktu",
 		"amount": "Besaran Geser (ms)",
@@ -399,10 +377,6 @@
 		"fromLine": "Dari baris",
 		"toLine": "Sampai baris",
 		"line": "Baris"
-	},
-	"distributeRomanDialog": {
-		"title": "Terapkan Romanisasi Baris ke Kata",
-		"warning": "Fungsi ini akan membaca romanisasi satu baris dan mendistribusikannya secara otomatis ke setiap kata. Algoritma ini dirancang untuk Huruf Jepang (Romaji), untuk bahasa lain hasilnya mungkin kurang baik."
 	},
 	"globalDragOverlay": {
 		"title": "Lepaskan di sini untuk memuat"
@@ -486,15 +460,6 @@
 		"commentPlaceholder": "Ada hal lain yang perlu ditambahkan?",
 		"fixIssues": "Masalah berikut ditemukan, silakan perbaiki sebelum mengirim:",
 		"submitAction": "Unggah Lirik dan Buat Issue"
-	},
-	"splitWordDialog": {
-		"spaceCount": "Spasi x{count}",
-		"empty": "Kosong",
-		"title": "Pecah Kata",
-		"tip": "Setelah dipecah, kata baru akan membagi rata waktu awal dan akhir dari kata aslinya berdasarkan jumlah karakter. Ketukan kosong akan dihapus jika ada.",
-		"applyToAll": "Terapkan aturan pemecahan ini ke semua kata yang sama",
-		"ignoreCase": "Abaikan huruf besar/kecil",
-		"actionButton": "Konfirmasi"
 	},
 	"aboutModal": {
 		"appName": "Apple Music-like lyrics TTML Tools",

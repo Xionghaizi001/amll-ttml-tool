@@ -22,13 +22,40 @@ export const PINNED_FACTORY_COMMANDS = {
 	metadata: "builtin.metadata.run",
 	plainTextImport: "builtin.plain-text-import.run",
 	syncLineTimestamps: "builtin.sync-line-timestamps.run",
+	wordSplit: "builtin.word-tools.split",
+	wordReplace: "builtin.word-tools.replace",
+	syllableSmoothing: "builtin.word-tools.smooth",
+	romanizationDistribute: "builtin.word-tools.distribute-romanization",
+	romanizationCheck: "builtin.word-tools.check-romanization",
 } as const;
 const pinnedCommandIds = new Set<string>(
 	Object.values(PINNED_FACTORY_COMMANDS),
 );
 
 /** A pinned factory command at its host slot; absent while the plugin is disabled or uninstalled. */
-export const PinnedCommandMenuItem = ({ commandId }: { commandId: string }) => {
+export const PinnedCommandMenuItem = ({
+	commandId,
+	variant = "dropdown",
+	args,
+}: {
+	commandId: string;
+	variant?: "dropdown" | "context";
+	/** Context variant only: passed to the handler. */
+	args?: unknown;
+}) => {
+	const title = usePinnedCommandTitle(commandId);
+	if (title === undefined) return null;
+	return variant === "context" ? (
+		<ContextCommandMenuItem commandId={commandId} args={args}>
+			{title}
+		</ContextCommandMenuItem>
+	) : (
+		<CommandMenuItem commandId={commandId}>{title}</CommandMenuItem>
+	);
+};
+
+/** Localized title of a registered command; undefined while it is absent. */
+export const usePinnedCommandTitle = (commandId: string) => {
 	const { i18n } = useTranslation();
 	const title = useSyncExternalStore(
 		(listener) => {
@@ -38,12 +65,7 @@ export const PinnedCommandMenuItem = ({ commandId }: { commandId: string }) => {
 		() => commandRegistry.get(commandId)?.title,
 		() => undefined,
 	);
-	if (title === undefined) return null;
-	return (
-		<CommandMenuItem commandId={commandId}>
-			{localizeText(title, i18n.language)}
-		</CommandMenuItem>
-	);
+	return title === undefined ? undefined : localizeText(title, i18n.language);
 };
 
 /**

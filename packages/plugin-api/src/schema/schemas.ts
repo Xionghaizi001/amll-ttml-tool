@@ -454,6 +454,7 @@ const documentDefs = {
 			endTime: time,
 			emptyBeat: { type: "number" },
 			romanText: { type: "string" },
+			romanWarning: { type: "boolean" },
 			ruby: { type: "array", items: { $ref: "#/$defs/ruby" } },
 		},
 		additionalProperties: false,
@@ -541,6 +542,7 @@ const wordPatchProperties = {
 	endTime: time,
 	emptyBeat: { type: "number" },
 	romanText: { type: "string" },
+	romanWarning: { type: "boolean" },
 	ruby: { type: "array", items: documentDefs.ruby },
 };
 const newWordSchema = {

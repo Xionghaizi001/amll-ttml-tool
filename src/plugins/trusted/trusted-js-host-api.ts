@@ -19,6 +19,7 @@ import {
 import type {
 	DocumentChangedEventV0,
 	TrustedJsHostV0,
+	TrustedJsRomanizationPredictorV0,
 	TrustedJsAudioStateV0,
 	TrustedJsBpmStateV0,
 	TrustedJsModeV0,
@@ -66,6 +67,10 @@ export interface TrustedJsViewPort {
  */
 export interface TrustedJsHostPorts {
 	segmentation: TrustedJsHostV0["segmentation"];
+	/** Installs the editor's romanization predictor; returns its removal. */
+	registerRomanizationPredictor(
+		predict: TrustedJsRomanizationPredictorV0,
+	): () => void;
 	/** One transaction path and revision conflict rule for plugin edits. */
 	documents: PluginDocumentGateway;
 	createEditor(
@@ -199,6 +204,12 @@ export const createTrustedJsHost = (
 				const result = await ports.segmentation.segmentText(input, segments);
 				assertActive();
 				return result;
+			},
+		},
+		romanization: {
+			registerPredictor: (predict) => {
+				assertActive();
+				return track(ports.registerRomanizationPredictor(predict));
 			},
 		},
 		editor: {

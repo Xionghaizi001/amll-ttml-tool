@@ -219,8 +219,6 @@
 		"copyLine": "Duplikovať {count, plural, one {riadok} few {riadky} other {riadkov}}",
 		"combineLine": "Zlúčiť riadky",
 		"deleteLine": "Zmazať {count, plural, one {riadok} few {riadky} other {riadkov}}",
-		"splitWord": "Rozdeliť slovo…",
-		"replaceWord": "Nahradiť slovo…",
 		"combineWords": "Zlúčiť slová",
 		"moveFollowingWordToNewLine": "Presunúť nasledujúce na nový riadok",
 		"moveWordToNewLine": "Presunúť {count, plural, one {slovo} few {slová} other {slov}} na nový riadok"
@@ -319,18 +317,7 @@
 		"search": "Hľadať",
 		"close": "Zavrieť",
 		"cancel": "Zrušiť",
-		"confirm": "Potvrdiť",
 		"apply": "Použiť",
-		"applyScope": "Rozsah",
-		"scope": {
-			"all": "Všetky riadky textov",
-			"selected": "Vybrané riadky textov",
-			"selectedFollowing": "Vybrané a nasledujúce",
-			"custom": "Vlastný rozsah"
-		},
-		"fromLine": "Od riadku",
-		"toLine": "do riadku",
-		"line": "",
 		"success": "Obnovenie úspešné",
 		"error": "Dáta poškodené alebo stratené",
 		"deleteSuccess": "Zmazanie úspešné",
@@ -355,13 +342,6 @@
 		"prevWord": "Prejsť na predchádzajúce slovo",
 		"nextWord": "Prejsť na ďalšie slovo"
 	},
-	"replaceWordDialog": {
-		"title": "Nahradiť slovo",
-		"description": "Nové slovo:",
-		"placeholder": "Nové slovo",
-		"applyToAll": "Použiť túto náhradu na všetky identické slová",
-		"ignoreCase": "Ignorovať veľkosť písmen"
-	},
 	"timeShiftDialog": {
 		"title": "Časový posun",
 		"amount": "Posun (ms)",
@@ -378,10 +358,6 @@
 		"fromLine": "Od riadku",
 		"toLine": "do riadku",
 		"line": ""
-	},
-	"distributeRomanDialog": {
-		"title": "Distribuovať romanizáciu riadku do slov",
-		"warning": "Táto akcia prečíta transliteráciu na úrovni riadku a distribuuje ju do jednotlivých slov. Algoritmus je optimalizovaný pre japonské romadži a nemusí fungovať podľa očakávania pre iné jazyky."
 	},
 	"globalDragOverlay": {
 		"title": "Uvoľnite pre načítanie"
@@ -448,15 +424,6 @@
 		"rightsWarning": "Ak si ceníte zachovanie vlastníctva, NEODOSIELAJTE!",
 		"submitInstructions": "Zadajte nasledujúce informácie a prejdite na stránku odoslania issue na GitHub!",
 		"closeWarning": "Zavrieť varovnú správu"
-	},
-	"splitWordDialog": {
-		"spaceCount": "Medzera x{count}",
-		"empty": "Prázdne",
-		"title": "Rozdeliť slovo",
-		"tip": "Po rozdelení nové slová rovnomerne rozdelia čas začiatku/konca pôvodného slova. Prázdne doby budú vymazané.",
-		"applyToAll": "Použiť toto rozdelenie na všetky identické slová",
-		"ignoreCase": "Ignorovať veľkosť písmen",
-		"actionButton": "Potvrdiť"
 	},
 	"aboutModal": {
 		"appName": "Nástroj TTML pre texty v štýle Apple Music",

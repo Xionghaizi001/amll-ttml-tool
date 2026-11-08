@@ -115,6 +115,13 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
 		segmentation: media.segmentation,
+		registerRomanizationPredictor: (predict) => {
+			media.romanizationPredictors.push(predict);
+			return () => {
+				const index = media.romanizationPredictors.indexOf(predict);
+				if (index >= 0) media.romanizationPredictors.splice(index, 1);
+			};
+		},
 		createEditor: () => ({
 			...media.editor,
 			revealLine: (id) => {

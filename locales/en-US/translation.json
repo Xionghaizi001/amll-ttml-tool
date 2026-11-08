@@ -230,9 +230,7 @@
 			"autoSegment": "Auto Segment",
 			"advancedSegment": "Advanced Segment...",
 			"perWordRomanization": {
-				"index": "Per-Word Romanization",
-				"distribute": "Distribute Romanization...",
-				"check": "Check Per-Word Romanization"
+				"index": "Per-Word Romanization"
 			},
 			"tool": "Tools",
 			"importLyric": {
@@ -255,7 +253,6 @@
 				"toASS": "Export to ASS subtitles",
 				"toFormat": "Export to {name}"
 			},
-			"syllableSmoothing": "Smooth Timeline...",
 			"pluginStore": "Plugin store..."
 		}
 	},
@@ -273,8 +270,6 @@
 		"copyLine": "Duplicate {count, plural, one {line} other {lines}}",
 		"combineLine": "Combine lines",
 		"deleteLine": "Delete {count, plural, one {line} other {lines}}",
-		"splitWord": "Split word…",
-		"replaceWord": "Replace word…",
 		"combineWords": "Combine words",
 		"moveFollowingWordToNewLine": "Move followings to new line",
 		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line",
@@ -424,18 +419,7 @@
 		"search": "Search",
 		"close": "Close",
 		"cancel": "Cancel",
-		"confirm": "Confirm",
 		"apply": "Apply",
-		"applyScope": "Scope",
-		"scope": {
-			"all": "All lyric lines",
-			"selected": "Selected lyric lines",
-			"selectedFollowing": "Selected and followings",
-			"custom": "Custom Range"
-		},
-		"fromLine": "From line",
-		"toLine": "to line",
-		"line": "",
 		"success": "Restore successful",
 		"error": "Data corrupted or lost",
 		"deleteSuccess": "Delete Success",
@@ -464,23 +448,12 @@
 		"prevWord": "Jump Previous Word",
 		"nextWord": "Jump Next Word"
 	},
-	"replaceWordDialog": {
-		"title": "Replace Word",
-		"description": "New word:",
-		"placeholder": "New word",
-		"applyToAll": "Apply this replacing to all identical words",
-		"ignoreCase": "Ignore case"
-	},
 	"timeShiftDialog": {
 		"title": "Time Shift",
 		"amount": "Offset (ms)",
 		"direction": "Direction",
 		"advance": "Advance (-)",
 		"delay": "Delay (+)"
-	},
-	"distributeRomanDialog": {
-		"title": "Distribute Line Romanization to Words",
-		"warning": "This action reads the line-level transliteration and distributes it to individual words. The algorithm is optimized for Japanese Romaji and may not work as expected for other languages."
 	},
 	"globalDragOverlay": {
 		"title": "Release to load"
@@ -548,15 +521,6 @@
 		"submitInstructions": "Enter the following info then jump to the GitHub issue submission page!",
 		"closeWarning": "Close warning message"
 	},
-	"splitWordDialog": {
-		"spaceCount": "Space x{count}",
-		"empty": "Empty",
-		"title": "Split Word",
-		"tip": "After splitting, new words will evenly divide the original word's start/end time. Empty beats will be cleared.",
-		"applyToAll": "Apply this splitting to all identical words",
-		"ignoreCase": "Ignore case",
-		"actionButton": "Confirm"
-	},
 	"aboutModal": {
 		"appName": "Apple Music-like Lyrics TTML Tool",
 		"description": "A Word-by-Word TTML Editing and Timeline Tool for Apple Music-like Lyrics",
@@ -583,19 +547,6 @@
 			"emptyLine": "Empty",
 			"title": "Outline"
 		}
-	},
-	"syllableSmoothingDialog": {
-		"title": "Smooth Timeline",
-		"thresholdWarning": "Setting a threshold that is too high may overstretch syllables and affect timestamp accuracy.",
-		"thresholdLabel": "Smoothing Threshold",
-		"thresholdLow": "Low (5%)",
-		"thresholdMedium": "Medium (15%)",
-		"thresholdHigh": "High (30%)",
-		"thresholdCustom": "Custom",
-		"customThresholdInput": "Threshold",
-		"mergeSyllables": "Merge Syllables",
-		"mergeSyllablesHint": "Produces Apple Music-like lyrics where CJK characters are merged together, but not suitable for regular use.",
-		"description": "Smooth the timeline for CJK syllables.\nDoes not smooth syllables from other languages."
 	},
 	"pluginStore": {
 		"author": "Author",

@@ -252,3 +252,62 @@ describe("ruby factory artifact", () => {
   fixture.handle.dispose();fixture.scope.dispose();expect(fixture.commands.get(`${id}.generate`)).toBeUndefined();expect(fixture.commands.get(`${id}.segment`)).toBeUndefined();expect(fixture.extensions.contributions.getTrustedViews("word-editor")).toHaveLength(0);
  });
 });
+
+describe("word tools factory artifact", () => {
+	it("edits words through public ports, keeps internal fields and cleans up on disposal", async () => {
+		const id = "builtin.word-tools";
+		const { activate, strings } = await loadLockedArtifact(id);
+		const { pluginSegmentation } = await import("$/plugins/adapters/segmentation");
+		const predictors: unknown[] = [];
+		const doc = realHostFixture();
+		const [line] = doc.lyricLines;
+		line.romanLyric = "bo ku xa";
+		line.words = ["ぼ", "く", "ら"].map((word, index) => ({
+			id: `kana-${index}`,
+			word,
+			startTime: index * 100,
+			endTime: index * 100 + 100,
+			obscene: index === 0,
+			emptyBeat: 0,
+			romanWord: "",
+		}));
+		const fixture = createRealTrustedHost({
+			pluginId: id,
+			document: doc,
+			strings,
+			locale: "zh-CN",
+			ports: {
+				segmentation: pluginSegmentation,
+				registerRomanizationPredictor: (predict) => {
+					predictors.push(predict);
+					return () => predictors.splice(predictors.indexOf(predict), 1);
+				},
+			},
+		});
+		await activate({ pluginId: id, host: fixture.host, signal: new AbortController().signal });
+		expect(predictors).toHaveLength(1);
+
+		await fixture.commands.execute(`${id}.distribute-romanization`);
+		const words = fixture.service.readSnapshot().lyricLines[0].words;
+		expect(words.map((word) => word.romanWord)).toEqual(["bo", "ku", "xa"]);
+		expect(words.map((word) => Boolean(word.romanWarning))).toEqual([false, false, true]);
+		expect(words[0].obscene).toBe(true);
+		fixture.service.undo();
+		expect(fixture.service.readSnapshot()).toEqual(doc);
+
+		await fixture.commands.execute(`${id}.split`, { wordId: "kana-0" });
+		const [open] = fixture.views.getSnapshot();
+		expect(open.record.kind).toBe("dialog-view");
+		const html = renderToString(
+			createElement(Theme, null, createElement(open.record.view as ComponentType)),
+		);
+		expect(html).toContain("将此拆分规则应用于所有相同的单词");
+
+		fixture.handle.dispose();
+		fixture.scope.dispose();
+		expect(predictors).toHaveLength(0);
+		for (const key of ["split", "replace", "smooth", "distribute-romanization", "check-romanization"])
+			expect(fixture.commands.get(`${id}.${key}`)).toBeUndefined();
+		expect(fixture.views.getSnapshot()).toHaveLength(0);
+	});
+});

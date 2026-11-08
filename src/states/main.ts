@@ -105,11 +105,6 @@ export const lastSavedTimeAtom = atom<number | null>(null);
 
 export const undoableLyricLinesAtom = withHistory(lyricLinesAtom, 256);
 export const isDirtyAtom = atom((get) => get(undoableLyricLinesAtom).canUndo);
-export const editingWordStateAtom = atom({
-	wordIndex: -1,
-	lineIndex: -1,
-	word: "",
-});
 export const selectedLinesAtom = atom(new Set<string>());
 export const selectedWordsAtom = atom(new Set<string>());
 

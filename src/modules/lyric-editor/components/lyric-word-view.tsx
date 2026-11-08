@@ -45,10 +45,13 @@ import {
 	showTimestampsAtom,
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
+import { commandRegistry } from "$/modules/keyboard/registry";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
-import { splitWordDialogAtom } from "$/states/dialogs.ts";
 import {
-	editingWordStateAtom,
+	PINNED_FACTORY_COMMANDS,
+	usePinnedCommandTitle,
+} from "$/plugins/ui/ContributionMenuItems";
+import {
 	selectedLinesAtom,
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
@@ -161,8 +164,9 @@ const LyricWordViewEditAdvance = ({
 }: LyricWordViewEditProps) => {
 	const store = useStore();
 	const editLyricLines = useSetAtom(editorDocumentWriteAtom);
-	const setOpenSplitWordDialog = useSetAtom(splitWordDialogAtom);
-	const setSplitState = useSetAtom(editingWordStateAtom);
+	const splitWordTitle = usePinnedCommandTitle(
+		PINNED_FACTORY_COMMANDS.wordSplit,
+	);
 	const currentWord = useAtomValue(wordAtom);
 	const toolMode = useAtomValue(toolModeAtom);
 	const isWordSelectedAtom = useMemo(
@@ -223,20 +227,21 @@ const LyricWordViewEditAdvance = ({
 						</TextField.Slot>
 					</WordEditField>
 					<div className={styles.advanceBar}>
-						<IconButton
-							variant="soft"
-							size="1"
-							onClick={() => {
-								setSplitState({
-									wordIndex,
-									lineIndex,
-									word: currentWord.word,
-								});
-								setOpenSplitWordDialog(true);
-							}}
-						>
-							<CutRegular />
-						</IconButton>
+						{splitWordTitle !== undefined && (
+							<IconButton
+								variant="soft"
+								size="1"
+								title={splitWordTitle}
+								onClick={() => {
+									void commandRegistry.execute(
+										PINNED_FACTORY_COMMANDS.wordSplit,
+										{ wordId: currentWord.id },
+									);
+								}}
+							>
+								<CutRegular />
+							</IconButton>
+						)}
 						<WordEditField
 							size="1"
 							wordAtom={wordAtom}

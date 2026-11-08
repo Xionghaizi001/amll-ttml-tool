@@ -219,8 +219,6 @@
 		"copyLine": "Dupliquer {count, plural, one {ligne} other {lignes}}",
 		"combineLine": "Combiner les lignes",
 		"deleteLine": "Supprimer {count, plural, one {ligne} other {lignes}}",
-		"splitWord": "Diviser le mot…",
-		"replaceWord": "Remplacer le mot…",
 		"combineWords": "Combiner les mots",
 		"moveFollowingWordToNewLine": "Déplacer les suivants vers une nouvelle ligne",
 		"moveWordToNewLine": "Déplacer {count, plural, one {mot} other {mots}} vers une nouvelle ligne"
@@ -319,18 +317,7 @@
 		"search": "Rechercher",
 		"close": "Fermer",
 		"cancel": "Annuler",
-		"confirm": "Confirmer",
 		"apply": "Appliquer",
-		"applyScope": "Portée",
-		"scope": {
-			"all": "Toutes les lignes de paroles",
-			"selected": "Lignes de paroles sélectionnées",
-			"selectedFollowing": "Sélectionnées et suivantes",
-			"custom": "Plage personnalisée"
-		},
-		"fromLine": "De la ligne",
-		"toLine": "à la ligne",
-		"line": "",
 		"success": "Restauration réussie",
 		"error": "Données corrompues ou perdues",
 		"deleteSuccess": "Suppression réussie",
@@ -355,13 +342,6 @@
 		"prevWord": "Aller au mot précédent",
 		"nextWord": "Aller au mot suivant"
 	},
-	"replaceWordDialog": {
-		"title": "Remplacer le mot",
-		"description": "Nouveau mot :",
-		"placeholder": "Nouveau mot",
-		"applyToAll": "Appliquer ce remplacement à tous les mots identiques",
-		"ignoreCase": "Ignorer la casse"
-	},
 	"timeShiftDialog": {
 		"title": "Décalage temporel",
 		"amount": "Décalage (ms)",
@@ -378,10 +358,6 @@
 		"fromLine": "De la ligne",
 		"toLine": "à la ligne",
 		"line": ""
-	},
-	"distributeRomanDialog": {
-		"title": "Distribuer la romanisation de ligne aux mots",
-		"warning": "Cette action lit la translittération au niveau de la ligne et la distribue aux mots individuels. L'algorithme est optimisé pour le romaji japonais et peut ne pas fonctionner comme prévu pour d'autres langues."
 	},
 	"globalDragOverlay": {
 		"title": "Relâchez pour charger"
@@ -448,15 +424,6 @@
 		"rightsWarning": "Si vous tenez à conserver la propriété, NE soumettez PAS !",
 		"submitInstructions": "Entrez les informations suivantes puis accédez à la page de soumission d'issue GitHub !",
 		"closeWarning": "Fermer le message d'avertissement"
-	},
-	"splitWordDialog": {
-		"spaceCount": "Espace x{count}",
-		"empty": "Vide",
-		"title": "Diviser le mot",
-		"tip": "Après la division, les nouveaux mots diviseront équitablement le temps de début/fin du mot original. Les temps vides seront effacés.",
-		"applyToAll": "Appliquer cette division à tous les mots identiques",
-		"ignoreCase": "Ignorer la casse",
-		"actionButton": "Confirmer"
 	},
 	"aboutModal": {
 		"appName": "Outil TTML de paroles style Apple Music",

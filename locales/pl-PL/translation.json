@@ -219,8 +219,6 @@
 		"copyLine": "Duplikuj {count, plural, one {ľinię} few {linie} many {linii} other {linii}}",
 		"combineLine": "Połącz linie",
 		"deleteLine": "Usuń {count, plural, one {linię} few {linie} many {linii} other {linii}}",
-		"splitWord": "Podziel słowo…",
-		"replaceWord": "Zamień słowo…",
 		"combineWords": "Połącz słowa",
 		"moveFollowingWordToNewLine": "Przenieś następne do nowej linii",
 		"moveWordToNewLine": "Przenieś {count, plural, one {słowo} few {słowa} many {słów} other {słów}} do nowego wiersza"
@@ -319,18 +317,7 @@
 		"search": "Szukaj",
 		"close": "Zamknij",
 		"cancel": "Anuluj",
-		"confirm": "Potwierdź",
 		"apply": "Zastosuj",
-		"applyScope": "Zakres",
-		"scope": {
-			"all": "Wszystkie linie tekstu",
-			"selected": "Zaznaczone linie tekstu",
-			"selectedFollowing": "Zaznaczone i następne",
-			"custom": "Zakres niestandardowy"
-		},
-		"fromLine": "Od linii",
-		"toLine": "do linii",
-		"line": "",
 		"success": "Przywracanie powiodło się",
 		"error": "Dane uszkodzone lub utracone",
 		"deleteSuccess": "Usunięcie powiodło się",
@@ -355,13 +342,6 @@
 		"prevWord": "Przejdź do poprzedniego słowa",
 		"nextWord": "Przejdź do następnego słowa"
 	},
-	"replaceWordDialog": {
-		"title": "Zamień słowo",
-		"description": "Nowe słowo:",
-		"placeholder": "Nowe słowo",
-		"applyToAll": "Zastosuj tę zamianę do wszystkich identycznych słów",
-		"ignoreCase": "Ignoruj wielkość liter"
-	},
 	"timeShiftDialog": {
 		"title": "Przesunięcie czasowe",
 		"amount": "Przesunięcie (ms)",
@@ -378,10 +358,6 @@
 		"fromLine": "Od linii",
 		"toLine": "do linii",
 		"line": ""
-	},
-	"distributeRomanDialog": {
-		"title": "Dystrybuuj romanizację linii do słów",
-		"warning": "Ta akcja odczytuje transliterację na poziomie linii i dystrybuuje ją do poszczególnych słów. Algorytm jest zoptymalizowany dla japońskiego romaji i może nie działać zgodnie z oczekiwaniami dla innych języków."
 	},
 	"globalDragOverlay": {
 		"title": "Upuść, aby załadować"
@@ -448,15 +424,6 @@
 		"rightsWarning": "Jeśli cenisz zachowanie własności, NIE przesyłaj!",
 		"submitInstructions": "Wprowadź poniższe informacje, a następnie przejdź do strony przesyłania zgłoszenia na GitHub!",
 		"closeWarning": "Zamknij komunikat ostrzegawczy"
-	},
-	"splitWordDialog": {
-		"spaceCount": "Spacja x{count}",
-		"empty": "Pusty",
-		"title": "Podziel słowo",
-		"tip": "Po podzieleniu nowe słowa równomiernie podzielą czas początkowy/końcowy oryginalnego słowa. Puste takty zostaną usunięte.",
-		"applyToAll": "Zastosuj ten podział do wszystkich identycznych słów",
-		"ignoreCase": "Ignoruj wielkość liter",
-		"actionButton": "Potwierdź"
 	},
 	"aboutModal": {
 		"appName": "Narzędzie TTML dla tekstów w stylu Apple Music",

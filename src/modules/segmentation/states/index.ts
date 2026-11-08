@@ -68,12 +68,3 @@ export const segmentationCustomRulesAtom = atom<
 );
 
 export const segmentationLangAtom = atom<string>("en-us");
-
-export const splitWordApplyToAllAtom = atomWithStorage(
-	"splitWord.applyToAll",
-	false,
-);
-export const splitWordIgnoreCaseAtom = atomWithStorage(
-	"splitWord.ignoreCase",
-	true,
-);

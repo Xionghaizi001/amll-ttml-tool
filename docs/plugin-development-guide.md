@@ -341,6 +341,6 @@ JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆�
 
 `views.registerView` 支持 `kind: "word-editor"`，视图接收 `{ word: PluginWordV0, layout: "simple" | "advanced" }`，在词块原位渲染并随 scope 卸载。可选 `transformTextInput(text, word, context)`（context 为 `insert`/`edit`）同步返回 `PluginWordPatchV0` 或 undefined；按注册顺序取首个匹配，在同一宿主输入事务中校验并应用。不要在此回调另开事务。插件样式需限定自己的作用域。
 
-`updateWord.patch.ruby`：null 删除结构、[] 保留空结构、省略不修改。`host.segmentation.isKanaOnly(text)` 共享假名识别；`await host.segmentation.segmentText({text,startTime,endTime}, segments?)` 读取当前分词设置，省略 segments 自动分词，传入 segments 为明确分段重算时间；该端口不写文档。异步操作须保存 snapshot.revision 并用 expectedRevision 提交，宿主卸载后端口拒绝结果。
+`updateWord.patch.ruby`：null 删除结构、[] 保留空结构、省略不修改。`host.segmentation.isKanaOnly(text)` 共享假名识别；`await host.segmentation.segmentText({text,startTime,endTime}, segments?)` 读取当前分词设置，省略 segments 自动分词，传入 segments 为明确分段重算时间；该端口不写文档。`host.romanization.registerPredictor((words, romanization) => string[])` 为编辑器提供逐字罗马音建议，`PluginWordV0.romanWarning` 可经 `updateWord` 读写。异步操作须保存 snapshot.revision 并用 expectedRevision 提交，宿主卸载后端口拒绝结果。
 
-完整示例位于 `../amll-ttml-tool-plugin-ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件；分词消费者未来迁出时再增加 manifest dependencies 与 provider 接线。
+完整示例位于 `../amll-ttml-tool-plugin-ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件。词级工具示例见 `../amll-ttml-tool-plugin-word-tools/`。

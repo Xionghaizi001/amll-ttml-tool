@@ -219,8 +219,6 @@
 		"copyLine": "Dupliker {count, plural, one {linje} other {linjer}}",
 		"combineLine": "Kombiner linjer",
 		"deleteLine": "Slet {count, plural, one {linje} other {linjer}}",
-		"splitWord": "Opdel ord…",
-		"replaceWord": "Erstat ord…",
 		"combineWords": "Kombiner ord",
 		"moveFollowingWordToNewLine": "Flyt følgende til ny linje",
 		"moveWordToNewLine": "Flyt {count, plural, one {ord} other {ord}} til ny linje"
@@ -319,18 +317,7 @@
 		"search": "Søg",
 		"close": "Luk",
 		"cancel": "Annuller",
-		"confirm": "Bekræft",
 		"apply": "Anvend",
-		"applyScope": "Omfang",
-		"scope": {
-			"all": "Alle sangtekstlinjer",
-			"selected": "Valgte sangtekstlinjer",
-			"selectedFollowing": "Valgte og følgende",
-			"custom": "Brugerdefineret område"
-		},
-		"fromLine": "Fra linje",
-		"toLine": "til linje",
-		"line": "",
 		"success": "Gendannelse vellykket",
 		"error": "Data beskadiget eller tabt",
 		"deleteSuccess": "Sletning vellykket",
@@ -355,13 +342,6 @@
 		"prevWord": "Hop til forrige ord",
 		"nextWord": "Hop til næste ord"
 	},
-	"replaceWordDialog": {
-		"title": "Erstat ord",
-		"description": "Nyt ord:",
-		"placeholder": "Nyt ord",
-		"applyToAll": "Anvend denne erstatning på alle identiske ord",
-		"ignoreCase": "Ignorer store/små bogstaver"
-	},
 	"timeShiftDialog": {
 		"title": "Tidsforskydning",
 		"amount": "Forskydning (ms)",
@@ -378,10 +358,6 @@
 		"fromLine": "Fra linje",
 		"toLine": "til linje",
 		"line": ""
-	},
-	"distributeRomanDialog": {
-		"title": "Distribuer linjeromanisering til ord",
-		"warning": "Denne handling læser translittereringen på linjeniveau og distribuerer den til individuelle ord. Algoritmen er optimeret til japansk romaji og fungerer muligvis ikke som forventet for andre sprog."
 	},
 	"globalDragOverlay": {
 		"title": "Slip for at indlæse"
@@ -448,15 +424,6 @@
 		"rightsWarning": "Hvis du værdsætter at bevare ejerskab, indsend venligst IKKE!",
 		"submitInstructions": "Indtast følgende info og hop derefter til GitHub issue-indsendelsessiden!",
 		"closeWarning": "Luk advarselsbesked"
-	},
-	"splitWordDialog": {
-		"spaceCount": "Mellemrum x{count}",
-		"empty": "Tom",
-		"title": "Opdel ord",
-		"tip": "Efter opdeling vil nye ord ligeligt opdele det originale ords start-/sluttid. Tomme takter vil blive ryddet.",
-		"applyToAll": "Anvend denne opdeling på alle identiske ord",
-		"ignoreCase": "Ignorer store/små bogstaver",
-		"actionButton": "Bekræft"
 	},
 	"aboutModal": {
 		"appName": "Apple Music-lignende Sangtekst TTML Værktøj",

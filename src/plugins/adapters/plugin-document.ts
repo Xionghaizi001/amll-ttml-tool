@@ -23,7 +23,7 @@ import type {
 
 /**
  * Projects the internal document into the stable v0 plugin projection.
- * Internal-only fields (obscene, romanWarning, endTimeLink, custom fork
+ * Internal-only fields (obscene, endTimeLink, custom fork
  * extensions) are intentionally absent; they are preserved on write-back
  * because ops patch the internal objects in place by id.
  */
@@ -60,6 +60,7 @@ export const toPluginWord = (
 	endTime: word.endTime,
 	emptyBeat: word.emptyBeat ?? 0,
 	romanText: word.romanWord ?? "",
+	...(word.romanWarning ? { romanWarning: true } : {}),
 	...(includeRuby && word.ruby !== undefined
 		? {
 				ruby: word.ruby.map((segment) => ({
@@ -86,6 +87,7 @@ export const patchWord = (word: LyricWord, patch: PluginWordPatchV0): void => {
 	if (patch.endTime !== undefined) word.endTime = patch.endTime;
 	if (patch.emptyBeat !== undefined) word.emptyBeat = patch.emptyBeat;
 	if (patch.romanText !== undefined) word.romanWord = patch.romanText;
+	if (patch.romanWarning !== undefined) word.romanWarning = patch.romanWarning;
 	if (patch.ruby !== undefined)
 		word.ruby = patch.ruby === null ? undefined : toRuby(patch.ruby);
 };
@@ -125,6 +127,7 @@ const createWord = (word: NewWordV0, ids: PluginOpIdAllocator): LyricWord => ({
 	emptyBeat: word.emptyBeat,
 	romanWord: word.romanText,
 	obscene: false,
+	...(word.romanWarning ? { romanWarning: true } : {}),
 	...(word.ruby !== undefined ? { ruby: toRuby(word.ruby) } : {}),
 });
 

@@ -230,9 +230,7 @@
 			"autoSegment": "一键分词",
 			"advancedSegment": "高级分词...",
 			"perWordRomanization": {
-				"index": "逐字音译",
-				"distribute": "自动分配罗马音...",
-				"check": "检查逐字音译一致性"
+				"index": "逐字音译"
 			},
 			"tool": "工具",
 			"importLyric": {
@@ -255,7 +253,6 @@
 				"toASS": "导出到 ASS 字幕",
 				"toFormat": "导出到 {name}"
 			},
-			"syllableSmoothing": "平滑时间轴...",
 			"pluginStore": "插件商店..."
 		}
 	},
@@ -273,8 +270,6 @@
 		"copyLine": "复制行",
 		"combineLine": "合并行",
 		"deleteLine": "删除行",
-		"splitWord": "拆分单词…",
-		"replaceWord": "替换单词…",
 		"combineWords": "合并单词",
 		"moveFollowingWordToNewLine": "此后单词拆至新行",
 		"moveWordToNewLine": "选中单词拆至新行",
@@ -424,18 +419,7 @@
 		"search": "搜索",
 		"close": "关闭",
 		"cancel": "取消",
-		"confirm": "确认",
 		"apply": "应用",
-		"applyScope": "应用于",
-		"scope": {
-			"all": "所有行",
-			"selected": "所选行",
-			"selectedFollowing": "所选行及其后续",
-			"custom": "自定义范围"
-		},
-		"fromLine": "从",
-		"toLine": "行 到",
-		"line": "行",
 		"success": "恢复成功",
 		"error": "数据已损坏或丢失",
 		"deleteSuccess": "删除成功",
@@ -464,23 +448,12 @@
 		"prevWord": "跳上词",
 		"nextWord": "跳下词"
 	},
-	"replaceWordDialog": {
-		"title": "替换单词",
-		"description": "新的单词内容:",
-		"placeholder": "新单词",
-		"applyToAll": "将此替换规则应用于所有相同的单词",
-		"ignoreCase": "忽略大小写"
-	},
 	"timeShiftDialog": {
 		"title": "平移时间",
 		"amount": "偏移量 (毫秒)",
 		"direction": "方向",
 		"advance": "提前 (-)",
 		"delay": "延后 (+)"
-	},
-	"distributeRomanDialog": {
-		"title": "应用逐行音译到逐字",
-		"warning": "此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。"
 	},
 	"globalDragOverlay": {
 		"title": "拖放到此处以加载"
@@ -548,15 +521,6 @@
 		"submitInstructions": "请输入以下提交信息然后跳转到 Github 议题提交页面！",
 		"closeWarning": "关闭上述警告信息"
 	},
-	"splitWordDialog": {
-		"spaceCount": "空格x{count}",
-		"empty": "空白",
-		"title": "拆分单词",
-		"tip": "拆分后新单词将会按自身单词字符平均分配原单词的始末时间，如有空拍则会被清除",
-		"applyToAll": "将此拆分规则应用于所有相同的单词",
-		"ignoreCase": "忽略大小写",
-		"actionButton": "确认"
-	},
 	"aboutModal": {
 		"appName": "Apple Music-like lyrics TTML Tools",
 		"description": "一个用于 Apple Music-like lyrics 生态的逐词歌词 TTML 编辑和时间轴工具",
@@ -583,19 +547,6 @@
 			"emptyLine": "空",
 			"title": "大纲"
 		}
-	},
-	"syllableSmoothingDialog": {
-		"title": "平滑时间轴",
-		"thresholdWarning": "过高的阈值可能会导致过度拉伸音节，影响时间戳的准确性",
-		"thresholdLabel": "平滑阈值",
-		"thresholdLow": "低 (5%)",
-		"thresholdMedium": "中 (15%)",
-		"thresholdHigh": "高 (30%)",
-		"thresholdCustom": "自定义",
-		"customThresholdInput": "阈值",
-		"mergeSyllables": "合并音节",
-		"mergeSyllablesHint": "可以获得类似 Apple Music 的、把 CJK 合并到一起的歌词，但不适合日常使用",
-		"description": "对 CJK 音节的时间轴进行平滑处理\n不会平滑其他语言的音节"
 	},
 	"pluginStore": {
 		"author": "作者",

@@ -186,4 +186,4 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 
 词级视图仅拿公开投影；宿主 `WordEditorContributions` 用稳定快照订阅（不可只调用后忽略 revision，React 编译优化可能缓存已卸载视图）。`applyWordTextInput` 在现有事务中执行并校验插件 patch，禁用后 `|` 应保留为普通文本。`ruby: null` 与 [] 的语义不可混淆。批量分词/应用须在异步等待后校验原 revision。
 
-共享 `host.segmentation` 暂复用宿主算法/设置，不是分词迁移完成；外置分词 provider 后再接依赖声明。API/SDK 新接口的 tarball 已更新 Ruby/toolkit vendor，宿主 lock 必须与 Ruby dist ZIP 字节一致。回归入口见架构文档“Ruby 编辑器迁移”和验收清单。
+共享 `host.segmentation` 暂复用宿主算法/设置。词级工具与罗马音算法在 `builtin.word-tools`（`builtin.segmentation` 依赖它），不要恢复宿主 split-word/ReplaceWord/SyllableSmoothing/DistributeRomanization 或 Transliteration 分配器；宿主只保留 `isKanaOnly`、预测 provider 槽位与 `PINNED_FACTORY_COMMANDS` 入口。API/SDK 新接口的 tarball 已更新 Ruby/toolkit vendor，宿主 lock 必须与 Ruby dist ZIP 字节一致。回归入口见架构文档“Ruby 编辑器迁移”和验收清单。

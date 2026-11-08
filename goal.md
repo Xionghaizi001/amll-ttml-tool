@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已有独立技术原型（`../amll-ttml-tool-plugin-store/`）：Fastify/SQLite、本地管理员、ZIP 校验上传、不可变版本、待验收/上架/下架、公开清单与下载、运营记录。尚不具备正式 GitHub 身份、组织资格、受限下载、kill switch 与可信 CI 发布链路，不能视为阶段 10 完成。
-- 阶段 8 已迁出并以锁定 factory artifact 交付（见 `factory-plugins.lock.json`）：time-shift、同步行时间戳、纯文本导入、formats（LRC/ESLRC/QRC/YRC/LYS）、节拍器、大纲、元数据、Ruby、分词（自动/高级分词）。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新；`lyric-drag`、TTML/ASS 导出、剪贴板、保存/导入的文件名推导与默认作者元数据保留在宿主。
+- 阶段 8 已迁出并以锁定 factory artifact 交付（见 `factory-plugins.lock.json`）：time-shift、同步行时间戳、纯文本导入、formats（LRC/ESLRC/QRC/YRC/LYS）、节拍器、大纲、元数据、Ruby、分词（自动/高级分词）、词级工具。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新；`lyric-drag`、TTML/ASS 导出、剪贴板、保存/导入的文件名推导与默认作者元数据保留在宿主。
 - 尚未落地：阶段 8/9 其余业务迁移、商店生产能力与宿主控制状态联调、工具链/插件远端发布；平台实测与文档补齐贯穿实施。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
 
@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | 1 | 开发与安装链路补验收 | 三平台 ZIP CI、macOS/Linux WebView 与桌面生产包实测（Windows 开发模式 Blob/共享 React 已验证）；正式发布前的远程完整性缺口见“稳定性收口” |
 | 2 | 作用域内局部覆盖 | 当前交付范围已验收；主题包 overrides 与 settings 表单渲染随消费者落地，见该节边界 |
-| 3 | 阶段 8：逐个外置业务消费者 | 罗马音与词级工具 → 帮助/设置/更新 → 第三方格式 → 网络服务；toolbar 随交付 i18n 落地；每项删除旧入口并通过禁用/恢复验收 |
+| 3 | 阶段 8：逐个外置业务消费者 | 帮助/设置/更新 → 第三方格式 → 网络服务；toolbar 随交付 i18n 落地；每项删除旧入口并通过禁用/恢复验收 |
 | 4（可与 2/3 并行） | 阶段 10：生产合同与后端补齐 | 先确定认证/受限下载/客户端控制合同，再接 GitHub 身份与资格、kill switch、CI 溯源、同源部署和兼容策略；复用公开分发原型与多提供者 |
 | 5 | 阶段 9：定制功能外置 | 依赖主题/覆盖与相应公开业务端口；复用阶段 8 渲染器，审阅开发可与后端并行，正式上架须等待资格、控制状态和运营记录验收 |
 | 5a（阶段 8 端口就绪后） | MCP：对外自动化接口 | 先验收桌面本机只读薄片，再开放事务编辑和插件工具；不阻塞业务迁移或商店上线，若纳入 API v1 则在冻结前完成合同验收 |
@@ -48,7 +48,7 @@
 执行清单（已迁出项见“进度总览”，按以下顺序逐项验收）：
 
 - [x] 分词收尾：已删除宿主遗留的 `AdvancedSegmentation` 组件、对话框 atom 与 `advancedSegmentDialog` 文案；分词算法与配置目前仍经 `host.segmentation` 由宿主提供，算法外置时再接 provider/dependencies。
-- [ ] 罗马音与词级工具：`src/modules/segmentation/utils/Transliteration`、`split-word`（手动拆词，迁出时一并删除其使用的 `ManualWordSplitter`）、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx`，统一使用 document-ops。
+- [x] 罗马音与词级工具：已迁至 `builtin.word-tools`（逐字音译分配/检查、拆分/替换单词、平滑时间轴），`builtin.segmentation` 声明依赖；新增 `host.romanization.registerPredictor` 与 `PluginWordV0.romanWarning`。
 - [ ] 帮助、设置和更新。
 - [ ] 第三方格式接入与相应验收（复用 `core.formats` registry）。
 - [ ] toolbar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；审阅功能的自定义 toolbar items 归阶段 9 复用同一渲染器。`registerToolbar` 目前同样没有渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
@@ -66,7 +66,7 @@
 
 | 功能组 | 当前代码线索 | 目标插件边界 |
 | --- | --- | --- |
-| 罗马音、分词算法与词级编辑辅助 | `src/modules/segmentation`（含 `utils/Transliteration`、`split-word`）、`src/modules/lyric-editor/tools/{ReplaceWordDialog,SyllableSmoothingDialog}.tsx` | 纯算法与交互编辑器均走 trusted-js；统一使用 document-ops；`builtin.ruby`/`builtin.segmentation` 共享经 provider/dependencies 表达 |
+| 分词算法 | `src/modules/segmentation/utils/segmentation.ts`（经 `host.segmentation` 提供） | 外置时接 provider/dependencies，`builtin.ruby`/`builtin.segmentation`/`builtin.word-tools` 共享经端口表达 |
 | 交付文件 i18n 支持 | 定制版 toolbar 模块 | toolbar contribution 的首批消费者；渲染器随之落地，审阅 toolbar items 在阶段 9 复用 |
 | 帮助、设置和更新扩展 | `src/modules/settings` 中可独立关闭的业务页/工具 | 设置壳、插件管理、权限与恢复入口留在宿主；可替换的业务设置页/更新检查器再插件化 |
 | 网络服务与定制功能 | `src/modules/lrclib`、GitHub/歌词站/NCM 等阶段 9 功能 | 通过明确的网络 capability 与离线总开关接入；凭据由宿主持有，插件只经宿主端口操作 |
@@ -97,7 +97,7 @@
 
 | 功能 | 当前可用的框架接口 | 业务迁移状态 |
 | --- | --- | --- |
-| 罗马音、分词算法与词级工具 | `word-editor` contribution、`host.segmentation`，既有选区与文档事务 | 待迁移 |
+| 分词算法 | `host.segmentation` | 算法仍在宿主，待外置 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
 | 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | LRCLIB 迁移复用同一端口 |
 | 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |

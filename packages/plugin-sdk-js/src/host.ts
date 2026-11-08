@@ -392,6 +392,18 @@ export interface TrustedJsSegmentationV0 {
 	): Promise<PluginRubySegmentV0[]>;
 }
 
+/** Per-word romanization suggestions for one line; index-aligned with `words`. */
+export type TrustedJsRomanizationPredictorV0 = (
+	words: PluginWordV0[],
+	romanization: string,
+) => string[];
+
+/** Provider port for the host editor's inline per-word romanization suggestions. */
+export interface TrustedJsRomanizationV0 {
+	/** The latest active registration wins; disposed with the plugin. */
+	registerPredictor(predict: TrustedJsRomanizationPredictorV0): DisposableV0;
+}
+
 /** Trusted-tier only: first-class pages and host view slots. */
 export interface TrustedJsViewsV0 {
 	registerMode(input: TrustedJsModeV0): DisposableV0;
@@ -421,6 +433,7 @@ export interface TrustedJsEditorV0 {
  */
 export interface TrustedJsHostV0 {
 	segmentation: TrustedJsSegmentationV0;
+	romanization: TrustedJsRomanizationV0;
 	editor: TrustedJsEditorV0;
 	readonly sdkVersion: typeof TRUSTED_JS_SDK_VERSION;
 	document: TrustedJsDocumentV0;

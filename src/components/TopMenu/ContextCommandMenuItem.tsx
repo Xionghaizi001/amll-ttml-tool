@@ -11,10 +11,13 @@ const logger = createLogger("ContextCommandMenuItem");
 
 export const ContextCommandMenuItem = ({
 	commandId,
+	args,
 	children,
 	...props
 }: Omit<ComponentProps<typeof ContextMenu.Item>, "onSelect" | "disabled"> & {
 	commandId: string;
+	/** Passed to the command handler, e.g. the right-clicked target. */
+	args?: unknown;
 	children: ReactNode;
 }) => {
 	const enabled = useSyncExternalStore(
@@ -31,7 +34,7 @@ export const ContextCommandMenuItem = ({
 			disabled={!enabled}
 			onSelect={() => {
 				void commandRegistry
-					.execute(commandId)
+					.execute(commandId, args)
 					.catch((error) =>
 						logger.error(`Failed to execute ${commandId}`, error),
 					);

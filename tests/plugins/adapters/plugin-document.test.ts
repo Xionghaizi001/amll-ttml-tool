@@ -67,6 +67,7 @@ describe("toPluginDocument", () => {
 			endTime: 100,
 			emptyBeat: 2,
 			romanText: "he",
+			romanWarning: true,
 			ruby: [{ text: "ha", startTime: 0, endTime: 50 }],
 		});
 		expect(JSON.stringify(projected)).not.toContain("obscene");

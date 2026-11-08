@@ -3,13 +3,7 @@ import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { withImmer } from "jotai-immer";
 import { useCallback } from "react";
 import {
-	distributeDocumentRomanization,
-	refreshRomanizationWarnings,
-} from "$/application/lyrics";
-import {
-	cmdCheckRomanizationWarnings,
 	cmdDeleteSelection,
-	cmdDistributeRomanization,
 	cmdNewFile,
 	cmdOpenFile,
 	cmdOpenFileFromClipboard,
@@ -18,7 +12,6 @@ import {
 	cmdOpenLatencyTest,
 	cmdOpenPluginStore,
 	cmdOpenSettings,
-	cmdOpenSyllableSmoothing,
 	cmdOpenWiki,
 	cmdRedo,
 	cmdSaveFile,
@@ -31,9 +24,7 @@ import {
 	cmdUnselectAll,
 } from "$/modules/keyboard/commands";
 import { useCommandHandler } from "$/modules/keyboard/hooks";
-import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import {
-	editorDocumentAdapter,
 	editorDocumentHistoryAtom,
 	editorDocumentRedoAtom,
 	editorDocumentUndoAtom,
@@ -46,7 +37,6 @@ import {
 	pluginStoreDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
-	syllableSmoothingDialogAtom,
 } from "$/states/dialogs.ts";
 import {
 	lyricLinesAtom,
@@ -63,7 +53,6 @@ export const useTopMenuActions = () => {
 	const documentHistory = useAtomValue(editorDocumentHistoryAtom);
 	const store = useStore();
 	const setHistoryRestoreDialog = useSetAtom(historyRestoreDialogAtom);
-	const setSyllableSmoothingDialog = useSetAtom(syllableSmoothingDialogAtom);
 
 	const onNewFile = useCallback(() => {
 		lyricFileFlow.newDocument();
@@ -218,29 +207,6 @@ export const useTopMenuActions = () => {
 	}, [store, editLyricLines]);
 
 
-	const onOpenDistributeRomanization = useCallback(() => {
-		const selectedLines = store.get(selectedLinesAtom);
-		const { failures } = distributeDocumentRomanization(
-			editorDocumentAdapter,
-			romanizationEngine,
-			selectedLines.size ? selectedLines : undefined,
-		);
-		for (const failure of failures)
-			topMenuLogger.error(
-				`Failed to distribute romanization for line ${failure.lineIndex + 1}`,
-				failure.error,
-			);
-	}, [store]);
-
-	const onCheckRomanizationWarnings = useCallback(() => {
-		refreshRomanizationWarnings(editorDocumentAdapter, romanizationEngine);
-	}, []);
-
-
-	const onOpenSyllableSmoothing = useCallback(() => {
-		setSyllableSmoothingDialog(true);
-	}, [setSyllableSmoothingDialog]);
-
 	const canUndo = useCallback(() => documentHistory.canUndo, [documentHistory]);
 	const canRedo = useCallback(() => documentHistory.canRedo, [documentHistory]);
 	useCommandHandler(cmdNewFile, onNewFile);
@@ -261,9 +227,6 @@ export const useTopMenuActions = () => {
 	);
 	useCommandHandler(cmdDeleteSelection, onDeleteSelection);
 	useCommandHandler(cmdOpenSettings, onOpenSettings);
-	useCommandHandler(cmdOpenSyllableSmoothing, onOpenSyllableSmoothing);
-	useCommandHandler(cmdDistributeRomanization, onOpenDistributeRomanization);
-	useCommandHandler(cmdCheckRomanizationWarnings, onCheckRomanizationWarnings);
 	useCommandHandler(cmdOpenLatencyTest, onOpenLatencyTest);
 	useCommandHandler(cmdOpenPluginStore, onOpenPluginStore);
 	useCommandHandler(cmdOpenGitHub, onOpenGitHub);
@@ -284,10 +247,7 @@ export const useTopMenuActions = () => {
 		onSelectInverted,
 		onSelectWordsOfMatchedSelection,
 		onDeleteSelection,
-		onOpenSyllableSmoothing,
 		onOpenSettings,
-		onOpenDistributeRomanization,
-		onCheckRomanizationWarnings,
 		onOpenLatencyTest,
 		onOpenGitHub,
 		onOpenWiki,

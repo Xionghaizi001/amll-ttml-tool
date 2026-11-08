@@ -39,7 +39,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { LyricLineMenu } from "$/components/Menus/lyric-line-menu.tsx";
-import { romanizationEngine } from "$/modules/segmentation/adapters/romanization-engine";
 import {
 	enableAutoRomanizationPredictionAtom,
 	showLineRomanizationAtom,
@@ -49,6 +48,8 @@ import {
 } from "$/modules/settings/states/index.ts";
 import { visualizeTimestampUpdateAtom } from "$/modules/settings/states/sync.ts";
 import { editorDocumentWriteAtom } from "$/plugins/adapters/editor-document";
+import { toPluginWord } from "$/plugins/adapters/plugin-document";
+import { useRomanizationPredictor } from "$/plugins/adapters/romanization";
 import {
 	dragSourceAtom,
 	isDraggingGlobalAtom,
@@ -145,6 +146,7 @@ export const LyricLineView: FC<{
 	);
 	const editingRomanWordIndex = useAtomValue(editingRomanWordIndexAtom);
 	const enablePrediction = useAtomValue(enableAutoRomanizationPredictionAtom);
+	const predictRomanization = useRomanizationPredictor();
 
 	const startTimeRef = useRef<HTMLDivElement>(null);
 	const endTimeRef = useRef<HTMLButtonElement>(null);
@@ -230,12 +232,20 @@ export const LyricLineView: FC<{
 	}, [endTimeLinked, line.endTimeLink]);
 
 	const suggestedRomans = useMemo(() => {
-		if (!enablePrediction) {
+		if (!enablePrediction || !predictRomanization) {
 			return [];
 		}
 
-		return romanizationEngine.predict(line.words, line.romanLyric || "");
-	}, [line.romanLyric, line.words, enablePrediction]);
+		try {
+			return predictRomanization(
+				line.words.map((word) => toPluginWord(word, false)),
+				line.romanLyric || "",
+			);
+		} catch {
+			// A failing provider must not break line rendering.
+			return [];
+		}
+	}, [line.romanLyric, line.words, enablePrediction, predictRomanization]);
 
 	const onToggleEndTimeLink = useCallback(
 		(evt: React.MouseEvent<HTMLButtonElement>) => {

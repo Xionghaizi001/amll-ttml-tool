@@ -308,18 +308,6 @@ export const cmdOpenSettings = registerMenuCommand(
 	"edit.openSettings",
 	t("settingsDialog.title"),
 );
-export const cmdOpenSyllableSmoothing = registerMenuCommand(
-	"tool.openSyllableSmoothing",
-	t("topBar.menu.syllableSmoothing"),
-);
-export const cmdDistributeRomanization = registerMenuCommand(
-	"tool.distributeRomanization",
-	t("topBar.menu.perWordRomanization.distribute"),
-);
-export const cmdCheckRomanizationWarnings = registerMenuCommand(
-	"tool.checkRomanizationWarnings",
-	t("topBar.menu.perWordRomanization.check"),
-);
 export const cmdOpenLatencyTest = registerMenuCommand(
 	"tool.openLatencyTest",
 	t("settingsDialog.common.latencyTest"),
