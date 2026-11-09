@@ -100,7 +100,7 @@
 | 分词算法 | `host.segmentation` | 算法仍在宿主，待外置 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
 | 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | LRCLIB 已复用同一端口 |
-| 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB 已迁出并接入；GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
+| 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB 已迁出并接入；GitHub PAT/身份/POST 凭据桥已落地（非内置 github.auth）；NCM 与其余 GitHub 业务待迁移 |
 | 第三方格式 provider | 既有 `formats.register` 共用 registry | 第三方接入与相应验收已完成；后续格式继续复用 registry，TTML 与 ASS 导出仍在宿主 |
 | 交付 i18n、审阅功能区（Ribbon bar） | `registerToolbar` | 只有注册接口，宿主尚无 Ribbon bar 渲染位；渲染器随首个消费者落地 |
 
@@ -171,7 +171,8 @@ SDK 构建边界、React 共享、本地安装与外置模板已落地；余下�
 - [ ] 将插件事务接入 review operation log（以审阅插件内的 operation log 形态实现，不再依赖定制版宿主）。
 - [ ] 为 agents、vocalTags、多语言和 songPart 增加 capability：不作为原生能力提供，而是作为插件接入现有体系，对应修改插件系统的作用范围。
 - [ ] 通知中心、设置页扩展和复杂对话框按 trusted-js 插件 contribution 形态承接。
-- [ ] 将 GitHub、Review、歌词站和 NCM 功能迁移为外置插件（非必须功能，且涉及版权或数据安全风险，不内置）。
+- GitHub 身份与带凭据 POST 已迁至总插件仓库 `plugins/github`（`github.auth`，非内置）；PAT/身份查询/设置页/包内图标与 SDK 命令调用已实现，真实 PAT 与桌面验收待完成。
+- [ ] 将余下 GitHub 提交业务、Review、歌词站和 NCM 功能迁移为外置插件（不内置）。
 
 ## 插件工具链与 time-shift 外置
 

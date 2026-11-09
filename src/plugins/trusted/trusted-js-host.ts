@@ -1,3 +1,5 @@
+import { commandRegistry } from "$/modules/keyboard/registry";
+import { createGithubAuth } from "$/plugins/adapters/github-auth";
 import { registerRomanizationPredictor } from "$/plugins/adapters/romanization";
 import { pluginSegmentation } from "$/plugins/adapters/segmentation";
 import { createPluginEditor } from "$/plugins/ui/plugin-editor";
@@ -117,6 +119,15 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	},
 	kv: pluginKvStorage,
 	network: pluginNetworkPort,
+	executeCommand: (id, args) => commandRegistry.execute(id, args),
+	createGithub: (signal) => createGithubAuth({
+		isOffline: () => pluginNetworkPort.isOffline(),
+		storage: {
+			getItem: (key) => localStorage.getItem(key),
+			setItem: (key, value) => localStorage.setItem(key, value),
+			removeItem: (key) => localStorage.removeItem(key),
+		},
+	}, signal),
 	views: pluginViewService,
 	getEnablementContext: getHostEnablementContext,
 	registerMode: registerHostMode,

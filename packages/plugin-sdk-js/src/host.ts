@@ -206,6 +206,8 @@ export interface TrustedJsCommandRegistrationV0 {
 }
 
 export interface TrustedJsCommandsV0 {
+	/** Calls a registered command; rejects when its provider is disabled or absent. */
+	execute(id: string, args?: JsonValue): Promise<unknown>;
 	register(input: TrustedJsCommandRegistrationV0): DisposableV0;
 }
 
@@ -244,6 +246,24 @@ export interface TrustedJsNetworkV0 {
 	request(request: HttpRequestV0): Promise<HostResult<HttpResponseV0>>;
 	/** True while the host offline switch is on; requests fail fast then. */
 	isOffline(): boolean;
+}
+
+/** GitHub account projection; never includes credentials. */
+export type GithubIdentityV0 =
+	| { status: "ok"; profile: { login: string; id: number } }
+	| { status: "missing-token" | "invalid-token" | "user-missing" | "network-error" | "cancelled" }
+	| { status: "user-error"; code: number };
+
+/** Host credential bridge reserved for the external `github.auth` provider.
+ * Consumers use its github.auth.getIdentity / github.auth.post commands.
+ */
+export interface TrustedJsGithubV0 {
+	/** Validates before replacing the host's saved PAT. Storage errors reject. */
+	authenticate(token: string): Promise<GithubIdentityV0>;
+	getIdentity(): Promise<GithubIdentityV0>;
+	logout(): void;
+	/** JSON POST to a relative api.github.com path; no redirects or automatic retries. */
+	post(path: string, body: JsonValue): Promise<HostResult<HttpResponseV0>>;
 }
 
 /** Per-plugin isolated key-value store (the `amll-plugin-kv` namespace). */
@@ -452,6 +472,7 @@ export interface TrustedJsHostV0 {
 	ui: TrustedJsUiV0;
 	storage: TrustedJsStorageV0;
 	network: TrustedJsNetworkV0;
+	github: TrustedJsGithubV0;
 	formats: TrustedJsFormatsV0;
 	views: TrustedJsViewsV0;
 }

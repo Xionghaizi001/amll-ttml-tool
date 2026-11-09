@@ -37,6 +37,7 @@ import { TRUSTED_JS_SDK_VERSION } from "../host";
 
 export interface MockTrustedJsHostOptions {
 	segmentation?: TrustedJsHostV0["segmentation"];
+	github?: TrustedJsHostV0["github"];
 	pluginId: string;
 	document?: PluginDocumentV0;
 	selection?: PluginSelectionV0;
@@ -429,6 +430,10 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 	})();
 
 	readonly commands: TrustedJsHostV0["commands"] = {
+		execute: async (id, args) => {
+			if (this.disposed) throw new Error("Plugin host is disposed");
+			return this.executeCommand(id, args);
+		},
 		register: (input) => {
 			this.requireOwnNamespace(input.id, "command");
 			return this.commandRegistry.add(input.id, input);
@@ -503,6 +508,17 @@ export class MockTrustedJsHost implements TrustedJsHostV0 {
 			keys: async () => [...this.kvStore.keys()].sort(),
 		},
 	};
+
+	get github(): TrustedJsHostV0["github"] {
+		if (this.disposed) throw new Error("Plugin host is disposed");
+		if (this.pluginId !== "github.auth") throw new Error("Use the github.auth provider commands");
+		return this.options.github ?? {
+			authenticate: async () => ({ status: "network-error" }),
+			getIdentity: async () => ({ status: "missing-token" }),
+			logout: () => {},
+			post: async () => ({ ok: false, error: { code: "network-unavailable", message: "No GitHub transport scripted" } }),
+		};
+	}
 
 	readonly network: TrustedJsHostV0["network"] = {
 		isOffline: () => this.offlineState,

@@ -152,6 +152,8 @@ export interface ArtifactIdentity {
 }
 /** Host management projection. Runtime payloads remain owned by their services. */
 export interface PluginInstallation {
+	/** Embedded PNG icon; no remote fetch. */
+	icon?: string;
 	store?: import("$/kernel/extensions/installation-provenance").StoreInstallationProvenance;
 	id: string;
 	kind: "function" | "theme";
@@ -283,6 +285,7 @@ export class PluginInstallationService {
 				kind: "function",
 				runtime: "trusted-js",
 				name: entry.name,
+				icon: liveEntry?.icon ?? selectedRecord?.manifest.icon,
 				description:
 					liveEntry?.description ??
 					(bundled

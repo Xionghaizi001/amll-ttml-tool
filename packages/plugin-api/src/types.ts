@@ -127,6 +127,8 @@ export interface PluginDependencyV0 {
 }
 
 export interface PluginManifestBase {
+	/** Embedded PNG icon; no remote fetch. */
+	icon?: string;
 	id: string;
 	name: string;
 	version: string;

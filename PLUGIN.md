@@ -760,3 +760,11 @@ API/SDK tarball 已同步至 Ruby 与 toolkit vendor；旧插件仍使用各自�
 `builtin.lrclib` 源码位于 `../amll-ttml-tool-plugins/plugins/lrclib/`。搜索/响应校验、预览、LRC 转换、背景人声提取归插件；自动分词复用 `host.segmentation`，导入复用 `host.project.importDocument`，文件名/默认作者/项目身份继续由宿主处理。File → 导入歌词的原位置仅在 `builtin.lrclib.run` 注册时显示；宿主旧 LRCLIB 模块、对话框 atom、应用层服务和文案已删除。网络调用仅经 `host.network.request`，匿名端口离线策略现在覆盖 LRCLIB。
 
 共享导入路径在确认后检查插件 signal 和项目身份，并在异步项目查找后、文档替换前再次检查取消，revision 使用确认前快照，防止等待期间卸载或修改文档后覆盖旧上下文。该修正不改变公开 SDK。插件异步分词完成后也复核 revision/项目身份。禁用清除命令/视图并中断网络，重新启用恢复入口；搜索结果只在当前对话框中保留。
+
+### GitHub 外置身份提供者（2026-11-10）
+
+`amll-ttml-tool-plugins/plugins/github` 的 `github.auth` 为非内置插件，设置页通过 `settings-view` 注册到插件管理器；不加入 factory lock。调用者声明 `{ "id": "github.auth", "version": "^1.0.0" }` 依赖，经 `host.commands.execute("github.auth.getIdentity")` 获取 `GithubIdentityV0`，经 `host.commands.execute("github.auth.post", { path, body })` 获取 `HostResult<HttpResponseV0>`。提供者停用后命令消失；依赖只解决顺序与可用性，不授予账号权限。
+
+宿主 `host.github` 凭据桥仅对 `github.auth` 提供者开放，PAT 验证通过后存入宿主独立 localStorage key，未加密，不进入插件 KV、包快照或公开结果。退出删除 PAT 并中断在途请求，禁用/卸载中断请求但保留宿主账号以便恢复。匿名 `network.request` 的授权头禁令不变；GitHub POST 由宿主注入凭据，只到固定 `https://api.github.com` origin，无 cookie/重定向/重试，JSON 请求 1 MiB、响应 8 MiB、超时 30 秒，继承离线开关。超时/取消不保证服务端未提交，调用者不可盲目重试。trusted-js 仍不是沙箱。
+
+插件 manifest 的可选 `icon` 为最多 64 KiB 字符的 PNG base64 data URL，跟随包摘要与安装记录保存，在已安装列表显示，禁止远程 URL/SVG。GitHub 官方图标来源与原文件保留在插件 assets 中。工具链 vendor 已同步 API/SDK；GitHub 插件 vendor 使用同步版本，其余旧插件无需重打包。

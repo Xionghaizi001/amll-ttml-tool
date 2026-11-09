@@ -114,6 +114,13 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 	const media = new MockTrustedJsHost({ pluginId: options.pluginId });
 	const ports: TrustedJsHostPorts = {
 		documents: gateway,
+		executeCommand: (id, args) => commands.execute(id, args),
+		createGithub: () => ({
+			authenticate: async () => ({ status: "network-error" }),
+			getIdentity: async () => ({ status: "missing-token" }),
+			logout: () => {},
+			post: async () => ({ ok: false, error: { code: "network-unavailable", message: "No transport scripted" } }),
+		}),
 		segmentation: media.segmentation,
 		registerRomanizationPredictor: (predict) => {
 			media.romanizationPredictors.push(predict);

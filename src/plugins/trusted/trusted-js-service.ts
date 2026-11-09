@@ -10,6 +10,8 @@ export const TRUSTED_JS_CRASH_AUTO_DISABLE_THRESHOLD = 3;
  * remote catalog feed the same gate.
  */
 export interface TrustedJsPluginEntry {
+	/** Embedded PNG icon; no remote fetch. */
+	icon?: string;
 	contributes?: import("@amll-ttml-tool/plugin-api").FunctionContributions;
 	id: string;
 	name: string;

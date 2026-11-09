@@ -322,6 +322,7 @@ const baseManifestProperties = {
 		pattern:
 			"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$",
 	},
+	icon: { type: "string", maxLength: 65536, pattern: "^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$" },
 	description: { type: "string", maxLength: 4096 },
 	author: { type: "string", maxLength: 256 },
 	homepage: { type: "string", pattern: "^https://" },

@@ -520,7 +520,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 					key={`${item.kind}:${item.id}`}
 					dimmed={!item.enabled || blockedBy !== undefined}
 					icon={
-						item.kind === "theme" ? (
+						item.icon ? <img src={item.icon} alt="" width={24} height={24} /> : item.kind === "theme" ? (
 							<PaintBrush24Regular />
 						) : (
 							<Javascript24Regular />

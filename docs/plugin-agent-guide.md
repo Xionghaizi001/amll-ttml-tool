@@ -199,3 +199,11 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 ### LRCLIB 维护边界
 
 不要恢复 `src/modules/lrclib` 或旧 `core.file.import.lrclib` 命令。插件实现和算法测试归总仓库的 lrclib 子包，宿主保留锁定 ZIP、原菜单位置和真实宿主/浏览器合同。修改插件后运行子包 test/pack，按 catalog 的 sha256 更新宿主 vendor/plugin-store 与 factory lock；不用更改其他子包或重新打 SDK。公共导入流程须保持确认前 revision 和取消信号直到异步项目匹配后的提交点。
+
+### GitHub 外置身份提供者（2026-11-10）
+
+`amll-ttml-tool-plugins/plugins/github` 的 `github.auth` 为非内置插件，设置页通过 `settings-view` 注册到插件管理器；不加入 factory lock。调用者声明 `{ "id": "github.auth", "version": "^1.0.0" }` 依赖，经 `host.commands.execute("github.auth.getIdentity")` 获取 `GithubIdentityV0`，经 `host.commands.execute("github.auth.post", { path, body })` 获取 `HostResult<HttpResponseV0>`。提供者停用后命令消失；依赖只解决顺序与可用性，不授予账号权限。
+
+宿主 `host.github` 凭据桥仅对 `github.auth` 提供者开放，PAT 验证通过后存入宿主独立 localStorage key，未加密，不进入插件 KV、包快照或公开结果。退出删除 PAT 并中断在途请求，禁用/卸载中断请求但保留宿主账号以便恢复。匿名 `network.request` 的授权头禁令不变；GitHub POST 由宿主注入凭据，只到固定 `https://api.github.com` origin，无 cookie/重定向/重试，JSON 请求 1 MiB、响应 8 MiB、超时 30 秒，继承离线开关。超时/取消不保证服务端未提交，调用者不可盲目重试。trusted-js 仍不是沙箱。
+
+插件 manifest 的可选 `icon` 为最多 64 KiB 字符的 PNG base64 data URL，跟随包摘要与安装记录保存，在已安装列表显示，禁止远程 URL/SVG。GitHub 官方图标来源与原文件保留在插件 assets 中。工具链 vendor 已同步 API/SDK；GitHub 插件 vendor 使用同步版本，其余旧插件无需重打包。

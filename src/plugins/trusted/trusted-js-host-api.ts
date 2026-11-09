@@ -123,6 +123,8 @@ export interface TrustedJsHostPorts {
 	/** The `amll-extensions/plugin-kv` namespace store, keyed by plugin id. */
 	kv: TrustedJsKvPort;
 	network: TrustedJsNetworkPort;
+	createGithub(signal: AbortSignal): TrustedJsHostV0["github"];
+	executeCommand(id: string, args?: JsonValue): Promise<unknown>;
 	views: TrustedJsViewPort;
 	getEnablementContext(): EnablementContext;
 	/**
@@ -186,6 +188,11 @@ export const createTrustedJsHost = (
 		};
 	};
 
+	const github = ports.createGithub(lifecycle.signal);
+	const assertGithub = () => {
+		assertActive();
+		if (pluginId !== "github.auth") throw new Error("Use the github.auth provider commands");
+	};
 	const editor = ports.createEditor(pluginId, lifecycle.signal);
 	const host: TrustedJsHostV0 = {
 		sdkVersion: TRUSTED_JS_SDK_VERSION,
@@ -371,6 +378,12 @@ export const createTrustedJsHost = (
 			},
 		},
 		commands: {
+			execute: async (id, args) => {
+				assertActive();
+				const result = await ports.executeCommand(id, args);
+				assertActive();
+				return result;
+			},
 			register: (input) => {
 				assertActive();
 				const enablement =
@@ -425,6 +438,12 @@ export const createTrustedJsHost = (
 				if (viewId.startsWith(`${pluginId}.`))
 					ports.views.close(viewId, pluginId);
 			},
+		},
+		github: {
+			authenticate: (token) => { assertGithub(); return github.authenticate(token); },
+			getIdentity: () => { assertGithub(); return github.getIdentity(); },
+			logout: () => { assertGithub(); github.logout(); },
+			post: (path, body) => { assertGithub(); return github.post(path, body); },
 		},
 		network: {
 			request: (request) =>
