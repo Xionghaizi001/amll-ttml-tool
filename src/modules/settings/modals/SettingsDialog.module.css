@@ -323,3 +323,28 @@
 		padding-left: calc(22px + var(--space-3));
 	}
 }
+
+.settingsCard {
+	min-width: 0;
+	padding: var(--space-4);
+	border: 1px solid var(--gray-a4);
+	border-radius: var(--radius-4);
+	background: var(--gray-a2);
+}
+
+.settingsCard .settingsGroup {
+	border: 0;
+	background: transparent;
+}
+
+.settingsCard .settingsRow {
+	padding: var(--space-3) 0;
+}
+
+.settingsCard .settingsRow:first-child {
+	padding-top: 0;
+}
+
+.settingsCard .settingsRow:last-child {
+	padding-bottom: 0;
+}

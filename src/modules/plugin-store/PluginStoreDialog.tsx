@@ -1,11 +1,12 @@
 import type { RemotePluginCatalogV0 } from "@amll-ttml-tool/plugin-api";
 import {
-	ArrowCounterclockwise24Regular,
 	ArrowLeft24Regular,
 	ArrowSortDown24Regular,
 	ArrowSortUp24Regular,
 	ArrowSync24Regular,
 	CloudArrowDown24Regular,
+	FolderOpen24Regular,
+	StoreMicrosoft24Regular,
 	Javascript24Regular,
 	PaintBrush24Regular,
 	PuzzlePiece24Regular,
@@ -19,16 +20,16 @@ import {
 	Link,
 	SegmentedControl,
 	Select,
-	Switch,
 	Text,
+	TextField,
 } from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import {
 	type ComponentType,
-	type ReactNode,
 	useCallback,
 	useEffect,
 	useState,
+	useRef,
 	useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -49,18 +50,14 @@ import {
 } from "$/plugins/store/store-host";
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import { installedDependencyNodes } from "$/plugins/trusted/dependency-context";
-import { isStoreUpdateAvailable } from "$/plugins/store/store-install";
 import type { ProviderCatalogEntry } from "$/plugins/store/store-providers";
 import { FACTORY_TRUSTED_JS_PLUGINS } from "$/plugins/trusted/factory-plugins";
-import {
-	applyTrustedJsUpdate,
-	getTrustedJsUpdateStates,
-	reloadTrustedJsPlugin,
-} from "$/plugins/trusted/trusted-js-host";
-import type { TrustedJsFactoryUpdateState } from "$/plugins/trusted/trusted-js-load-plan";
+import { reloadTrustedJsPlugin } from "$/plugins/trusted/trusted-js-host";
 import { installLocalPluginFile } from "$/plugins/ui/local-package-install";
 import { localizeText } from "$/plugins/ui/localize";
 import { pluginStoreSectionAtom } from "$/states/dialogs";
+import { PluginCard, PluginCardGroup } from "./PluginCard";
+import cardStyles from "./PluginCard.module.css";
 import { compareSortKeys, type SortField, type SortKey } from "./sort";
 
 const CHANNEL_BADGES = {
@@ -82,16 +79,18 @@ const CHANNEL_ICONS = {
 interface CatalogEntryRowProps {
 	entry: ProviderCatalogEntry;
 	installedVersion: string | null;
-	trustedUpdate?: TrustedJsFactoryUpdateState;
+	enabled: boolean;
+	onToggle?: () => void;
 	trustedLive?: { version: string; bundled: boolean };
 	busy: boolean;
-	onAction(action: "install" | "update" | "revert" | "load"): void;
+	onAction(action: "install" | "load"): void;
 }
 
 const CatalogEntryRow = ({
 	entry,
 	installedVersion,
-	trustedUpdate,
+	enabled,
+	onToggle,
 	trustedLive,
 	busy,
 	onAction,
@@ -99,117 +98,55 @@ const CatalogEntryRow = ({
 	const { t } = useTranslation();
 	const badge = CHANNEL_BADGES[entry.channel];
 
-	let action: ReactNode = null;
-	let statusBadge: ReactNode = null;
-	if (entry.blockedReason) {
-		statusBadge = <Badge color="red">{entry.blockedReason}</Badge>;
-	} else if (entry.channel === "trusted-js" && trustedUpdate !== undefined) {
-		// Factory-backed plugin: the store is only its update channel.
-		if (trustedLive !== undefined && !trustedLive.bundled) {
-			statusBadge = (
-				<Badge color="green">
-					{t("pluginStore.storeVersionActive", "商店版运行中")}
-				</Badge>
-			);
-			action = (
-				<Button
-					size="1"
-					variant="soft"
-					disabled={busy}
-					onClick={() => onAction("revert")}
-				>
-					<ArrowCounterclockwise24Regular width="1em" height="1em" />
-					{t("pluginStore.revertToFactory", "回退出厂版")}
-				</Button>
-			);
-		} else if (trustedUpdate.updateAvailable) {
-			statusBadge = (
-				<Badge color="amber">
-					{t("pluginStore.factoryVersion", "出厂版")}{" "}
-					{trustedUpdate.factoryVersion}
-				</Badge>
-			);
-			action = (
-				<Button
-					size="1"
-					variant="soft"
-					disabled={busy}
-					onClick={() => onAction("update")}
-				>
-					<CloudArrowDown24Regular width="1em" height="1em" />
-					{t("pluginStore.update", "更新")}
-				</Button>
-			);
-		} else {
-			statusBadge = (
-				<Badge color="gray">
-					{t("pluginStore.factoryUpToDate", "出厂版已是最新")}
-				</Badge>
-			);
-		}
-	} else if (
-		entry.channel === "trusted-js" &&
-		!/\.(zip|json)$/i.test(entry.entry)
-	) {
-		// Remote-only trusted-js entry.
-		if (trustedLive !== undefined)
-			statusBadge = (
-				<Badge color="green">{t("pluginStore.loaded", "已加载")}</Badge>
-			);
-		else
-			action = (
-				<Button
-					size="1"
-					variant="soft"
-					disabled={busy}
-					onClick={() => onAction("load")}
-				>
-					{t("pluginStore.load", "加载")}
-				</Button>
-			);
-	} else if (installedVersion === null) {
-		action = (
+	const installed = installedVersion !== null || trustedLive !== undefined;
+	const statusBadge = entry.blockedReason ? (
+		<Badge color="red">{entry.blockedReason}</Badge>
+	) : null;
+	const action = (
+		<Flex gap="2" justify="end" wrap="wrap">
 			<Button
 				size="1"
 				variant="soft"
-				disabled={busy}
-				onClick={() => onAction("install")}
+				color={installed ? "gray" : undefined}
+				disabled={busy || installed || Boolean(entry.blockedReason)}
+				onClick={() =>
+					onAction(
+						entry.channel === "trusted-js" &&
+							!/\.(zip|json)$/i.test(entry.entry)
+							? "load"
+							: "install",
+					)
+				}
 			>
-				{t("pluginStore.install", "安装")}
+				{!installed && <CloudArrowDown24Regular width="1em" height="1em" />}
+				{installed
+					? t("pluginStore.installed", "已安装")
+					: t("pluginStore.install", "安装")}
 			</Button>
-		);
-	} else if (isStoreUpdateAvailable(entry.version, installedVersion)) {
-		statusBadge = (
-			<Badge color="amber">
-				{t("pluginStore.installed", "已安装")} {installedVersion}
-			</Badge>
-		);
-		action = (
 			<Button
 				size="1"
 				variant="soft"
-				disabled={busy}
-				onClick={() => onAction("update")}
+				color={enabled ? "gray" : undefined}
+				disabled={busy || !installed || !onToggle}
+				aria-label={`${entry.name} ${enabled ? t("pluginStore.disable", "禁用") : t("pluginStore.enable", "启用")}`}
+				onClick={onToggle}
 			>
-				<CloudArrowDown24Regular width="1em" height="1em" />
-				{t("pluginStore.update", "更新")}
+				{enabled
+					? t("pluginStore.disable", "禁用")
+					: t("pluginStore.enable", "启用")}
 			</Button>
-		);
-	} else {
-		statusBadge = (
-			<Badge color="gray">{t("pluginStore.upToDate", "已是最新")}</Badge>
-		);
-	}
+		</Flex>
+	);
 
 	return (
-		<SettingsRow
+		<PluginCard
+			title={entry.name}
+			version={entry.version}
 			icon={CHANNEL_ICONS[entry.channel]}
-			title={
+			badges={
 				<Flex align="center" gap="2" wrap="wrap">
-					{entry.name}
 					<Badge color="gray">{entry.provider.name}</Badge>
 					{entry.mirrorOf && <Badge color="gray">镜像：{entry.mirrorOf}</Badge>}
-					<Badge color="gray">{entry.version}</Badge>
 					<Badge color={badge.color}>{t(badge.key, badge.fallback)}</Badge>
 					{entry.firstParty === true && (
 						<Badge color="blue" variant="soft">
@@ -271,6 +208,7 @@ const HOST_SECTIONS = ["available", "installed", "settings"];
 
 /** The manager replaces the settings body inside its protected dialog shell. */
 export const PluginManager = ({ onBack }: { onBack(): void }) => {
+	const importInput = useRef<HTMLInputElement>(null);
 	const { t, i18n } = useTranslation();
 	const shelves = useSyncExternalStore(
 		storeProviderClient.subscribe,
@@ -297,7 +235,6 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const [sortDescending, setSortDescending] = useState(false);
 	const [location, setLocation] = useState("online");
 	const [catalog, setCatalog] = useState<RemotePluginCatalogV0 | null>(null);
-	const [updates, setUpdates] = useState<TrustedJsFactoryUpdateState[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState<string | null>(null);
 	const [installations, setInstallations] = useState(() =>
@@ -363,12 +300,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const refresh = useCallback(async (force = false) => {
 		setLoading(true);
 		try {
-			const [next, states] = await Promise.all([
-				loadRemotePluginCatalog({ refresh: force }),
-				getTrustedJsUpdateStates(),
-			]);
-			setCatalog(next);
-			setUpdates(force ? await getTrustedJsUpdateStates() : states);
+			setCatalog(await loadRemotePluginCatalog({ refresh: force }));
 		} catch (error) {
 			toast.error(String(error));
 		} finally {
@@ -425,11 +357,14 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const sortControls = (
 		<Flex align="center" gap="2">
 			<Select.Root
-				size="1"
+				size="2"
 				value={sortField}
 				onValueChange={(value) => setSortField(value as SortField)}
 			>
-				<Select.Trigger aria-label={t("pluginStore.sortBy", "排序方式")} />
+				<Select.Trigger
+					className={cardStyles.sortSelect}
+					aria-label={t("pluginStore.sortBy", "排序方式")}
+				/>
 				<Select.Content>
 					<Select.Item value="name">
 						{t("pluginStore.sort.name", "名称")}
@@ -443,7 +378,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 				</Select.Content>
 			</Select.Root>
 			<IconButton
-				size="1"
+				size="2"
 				variant="soft"
 				aria-label={
 					sortDescending
@@ -499,37 +434,34 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 		).map(
 			([title, group]) =>
 				group.length > 0 && (
-					<SettingsGroup key={title} title={title}>
+					<PluginCardGroup key={title} title={title}>
 						{installedRows(group)}
-					</SettingsGroup>
+					</PluginCardGroup>
 				),
 		);
 	const installedRows = (items: typeof installations) =>
 		items.map((item) => {
 			const trusted = item.trustedJs;
-			const update =
-				item.kind === "function"
-					? updates.find((entry) => entry.id === item.id)
-					: undefined;
-			const mutable = item.source !== "builtin" || trusted?.hasInstalledPackage;
 			const overrides = item.kind === "function" ? overriddenBy(item.id) : [];
 			const blockedBy =
 				item.theme?.disabledByDependency ?? disabledDependency(item.id);
 			return (
-				<SettingsRow
+				<PluginCard
+					title={item.name}
+					version={item.version}
 					key={`${item.kind}:${item.id}`}
 					dimmed={!item.enabled || blockedBy !== undefined}
 					icon={
-						item.icon ? <img src={item.icon} alt="" width={24} height={24} /> : item.kind === "theme" ? (
+						item.icon ? (
+							<img src={item.icon} alt="" width={24} height={24} />
+						) : item.kind === "theme" ? (
 							<PaintBrush24Regular />
 						) : (
 							<Javascript24Regular />
 						)
 					}
-					title={
+					badges={
 						<Flex gap="2" align="center" wrap="wrap">
-							{item.name}
-							<Badge color="gray">{item.version}</Badge>
 							<Badge color={item.kind === "theme" ? "purple" : "amber"}>
 								{item.kind === "theme"
 									? t("pluginStore.channel.theme", "主题")
@@ -629,66 +561,20 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 					}
 					action={
 						<Flex gap="2" align="center" wrap="wrap">
-							{update?.updateAvailable && (
-								<Button
-									size="1"
-									variant="soft"
-									disabled={busy !== null}
-									onClick={() =>
-										void run(item.id, () => applyTrustedJsUpdate(item.id))
-									}
-								>
-									{t("pluginStore.update", "更新")}
+							{section === "available" && (
+								<Button size="1" variant="soft" color="gray" disabled>
+									{t("pluginStore.installed", "已安装")}
 								</Button>
 							)}
-							{trusted && !trusted.bundled && (
-								<Button
-									size="1"
-									variant="soft"
-									disabled={busy !== null}
-									onClick={() =>
-										void run(item.id, () =>
-											pluginInstallationService.reauthorize(item.id),
-										)
-									}
-								>
-									{t("pluginStore.reauthorize", "重新授权")}
-								</Button>
-							)}
-							{trusted?.hasFactory && trusted.hasInstalledPackage && (
-								<Button
-									size="1"
-									variant="soft"
-									disabled={busy !== null}
-									onClick={() =>
-										void run(item.id, () =>
-											pluginInstallationService.revertToFactory(item.id),
-										)
-									}
-								>
-									{t("pluginStore.revertToFactory", "回退出厂版")}
-								</Button>
-							)}
-							{mutable && (
-								<Button
-									size="1"
-									variant="soft"
-									disabled={busy !== null}
-									onClick={() =>
-										void run(item.id, () =>
-											pluginInstallationService.uninstall(item.kind, item.id),
-										)
-									}
-								>
-									{t("pluginStore.uninstall", "卸载")}
-								</Button>
-							)}
-							<Switch
-								aria-label={`${item.name} ${t("pluginStore.enable", "启用")}`}
-								checked={item.enabled}
+							<Button
+								size="1"
+								variant="soft"
+								color={item.enabled ? "gray" : undefined}
+								aria-label={`${item.name} ${item.enabled ? t("pluginStore.disable", "禁用") : t("pluginStore.enable", "启用")}`}
 								disabled={busy !== null || item.theme?.safeMode}
-								onCheckedChange={(enabled) =>
+								onClick={() =>
 									void run(item.id, async () => {
+										const enabled = !item.enabled;
 										await pluginInstallationService.setEnabled(
 											item.kind,
 											item.id,
@@ -703,7 +589,11 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 											);
 									})
 								}
-							/>
+							>
+								{item.enabled
+									? t("pluginStore.disable", "禁用")
+									: t("pluginStore.enable", "启用")}
+							</Button>
 						</Flex>
 					}
 				/>
@@ -756,6 +646,71 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 				<header className={styles.header} />
 				<div className={styles.scrollContent}>
 					<Flex direction="column" gap="4">
+						<input
+							ref={importInput}
+							hidden
+							type="file"
+							aria-label={t("pluginStore.importZip", "导入插件包（ZIP）")}
+							accept=".zip"
+							disabled={busy !== null}
+							onChange={(event) => {
+								const file = event.currentTarget.files?.[0];
+								event.currentTarget.value = "";
+								if (file)
+									void run("local-import", async () => {
+										if (!/\.zip$/i.test(file.name))
+											throw new Error(
+												t("pluginStore.zipOnly", "请选择 ZIP 插件包"),
+											);
+										const result = await installLocalPluginFile(file);
+										if (result.ok)
+											toast.success(t("pluginStore.installSuccess", "已安装"));
+										else if (!("cancelled" in result && result.cancelled))
+											toast.error(result.message);
+									});
+							}}
+						/>
+						{(section === "available" || section === "installed") && (
+							<section
+								className={cardStyles.importPanel}
+								aria-label={t("pluginStore.importTitle", "导入插件")}
+							>
+								<div className={cardStyles.importDescription}>
+									<Text as="div" size="3" weight="medium">
+										{t("pluginStore.importTitle", "导入插件")}
+									</Text>
+									<Text as="p" size="2" color="gray">
+										{t(
+											"pluginStore.importHint",
+											"从本地 ZIP 安装插件，或浏览在线商店。",
+										)}
+									</Text>
+								</div>
+								<Flex gap="2" wrap="wrap" className={cardStyles.importActions}>
+									<Button
+										size="2"
+										variant="soft"
+										disabled={busy !== null}
+										onClick={() => importInput.current?.click()}
+									>
+										<FolderOpen24Regular width="1em" height="1em" />
+										{t("pluginStore.localImport", "本地导入")}
+									</Button>
+									<Button
+										size="2"
+										variant="soft"
+										onClick={() => {
+											setSection("available");
+											setLocation("online");
+										}}
+									>
+										<StoreMicrosoft24Regular width="1em" height="1em" />
+										{t("pluginStore.onlineStore", "在线商店")}
+									</Button>
+								</Flex>
+							</section>
+						)}
+
 						{section === "available" && (
 							<>
 								<Flex justify="between" align="center" gap="3" wrap="wrap">
@@ -786,44 +741,12 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 											{t("pluginStore.local", "本地")}
 										</SegmentedControl.Item>
 									</SegmentedControl.Root>
-									{sortControls}
+									<Flex align="center" gap="3" wrap="wrap">
+										{sortControls}
+									</Flex>
 								</Flex>
 								{location === "local" ? (
-									<>
-										<label>
-											{t("pluginStore.importZip", "导入插件包（ZIP）")}
-											<input
-												type="file"
-												aria-label={t(
-													"pluginStore.importZip",
-													"导入插件包（ZIP）",
-												)}
-												accept=".zip"
-												disabled={busy !== null}
-												onChange={(event) => {
-													const file = event.currentTarget.files?.[0];
-													event.currentTarget.value = "";
-													if (file)
-														void run("local-import", async () => {
-															if (!/\.zip$/i.test(file.name))
-																throw new Error(
-																	t("pluginStore.zipOnly", "请选择 ZIP 插件包"),
-																);
-															const result = await installLocalPluginFile(file);
-															if (result.ok)
-																toast.success(
-																	t("pluginStore.installSuccess", "已安装"),
-																);
-															else if (
-																!("cancelled" in result && result.cancelled)
-															)
-																toast.error(result.message);
-														});
-												}}
-											/>
-										</label>
-										{groupedRows(local)}
-									</>
+									<>{groupedRows(local)}</>
 								) : (
 									<>
 										<Flex justify="end">
@@ -863,18 +786,34 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 										).map(
 											([title, group]) =>
 												group.length > 0 && (
-													<SettingsGroup key={title} title={title}>
+													<PluginCardGroup key={title} title={title}>
 														{group.map(({ entry, item }) => {
 															return (
 																<CatalogEntryRow
 																	key={`${entry.provider.id}:${entry.id}`}
 																	entry={entry}
 																	installedVersion={item?.version ?? null}
-																	trustedUpdate={
-																		entry.provider.official
-																			? updates.find(
-																					(update) => update.id === entry.id,
-																				)
+																	enabled={item?.enabled ?? false}
+																	onToggle={
+																		item && !item.theme?.safeMode
+																			? () =>
+																					void run(item.id, async () => {
+																						await pluginInstallationService.setEnabled(
+																							item.kind,
+																							item.id,
+																							!item.enabled,
+																						);
+																						if (
+																							item.enabled &&
+																							item.trustedJs?.hasFactory
+																						)
+																							toast.info(
+																								t(
+																									"pluginStore.factoryDisableReloadHint",
+																									"部分内置插件禁用后需刷新页面才能完全生效",
+																								),
+																							);
+																					})
 																			: undefined
 																	}
 																	trustedLive={
@@ -888,11 +827,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 																	busy={busy !== null}
 																	onAction={(action) =>
 																		void run(entry.id, async () => {
-																			if (action === "revert")
-																				await pluginInstallationService.revertToFactory(
-																					entry.id,
-																				);
-																			else if (action === "load")
+																			if (action === "load")
 																				await reloadTrustedJsPlugin(entry.id);
 																			else {
 																				const result =
@@ -913,7 +848,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 																/>
 															);
 														})}
-													</SettingsGroup>
+													</PluginCardGroup>
 												),
 										)}
 									</>
@@ -928,8 +863,8 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 						)}
 						{section === "settings" && (
 							<>
-								<SettingsGroup title="商店提供者">
-									<Text size="2">
+								<SettingsGroup variant="card" title="商店提供者">
+									<Text as="p" size="2" color="gray">
 										添加的来源均按第三方处理。JS
 										插件可访问应用数据与登录态，安装时需要授权；主题可改变界面。当前技术原型允许
 										HTTP localhost 来源。
@@ -973,6 +908,7 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 										/>
 									))}
 									<form
+										className={cardStyles.providerForm}
 										onSubmit={(event) => {
 											event.preventDefault();
 											void run("provider", async () => {
@@ -983,15 +919,20 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 											});
 										}}
 									>
-										<Flex gap="2" wrap="wrap">
-											<input
+										<Text as="div" size="2" weight="medium">
+											添加第三方来源
+										</Text>
+										<Flex gap="3" wrap="wrap">
+											<TextField.Root
+												size="2"
 												aria-label="提供者名称"
 												placeholder="提供者名称"
 												value={providerName}
 												onChange={(e) => setProviderName(e.target.value)}
 												required
 											/>
-											<input
+											<TextField.Root
+												size="2"
 												aria-label="提供者目录 URL"
 												placeholder="http://localhost:8787/plugins/catalog.json"
 												type="url"
@@ -1001,7 +942,8 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 											/>
 											<Button
 												type="submit"
-												size="1"
+												size="2"
+												variant="soft"
 												disabled={loading || busy !== null}
 											>
 												添加第三方提供者

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import styles from "./SettingsDialog.module.css";
 
 interface SettingsGroupProps {
+	variant?: "card";
 	title?: ReactNode;
 	children: ReactNode;
 }
@@ -18,8 +19,16 @@ interface SettingsRowProps {
 	dimmed?: boolean;
 }
 
-export const SettingsGroup = ({ title, children }: SettingsGroupProps) => (
-	<Flex direction="column" gap="2">
+export const SettingsGroup = ({
+	title,
+	children,
+	variant,
+}: SettingsGroupProps) => (
+	<Flex
+		direction="column"
+		gap={variant === "card" ? "3" : "2"}
+		className={variant === "card" ? styles.settingsCard : undefined}
+	>
 		{title && <Heading size="4">{title}</Heading>}
 		<div className={styles.settingsGroup}>{children}</div>
 	</Flex>

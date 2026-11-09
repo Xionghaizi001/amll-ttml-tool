@@ -33,7 +33,7 @@ const PluginNetworkSection = () => {
 	const { t } = useTranslation();
 	const [offline, setOffline] = useAtom(pluginNetworkOfflineAtom);
 	return (
-		<SettingsGroup title={t("plugins.network.title", "插件网络")}>
+		<SettingsGroup variant="card" title={t("plugins.network.title", "插件网络")}>
 			<SettingsRow
 				icon={<PlugDisconnected24Regular />}
 				title={t("plugins.network.offline", "离线模式")}
@@ -165,7 +165,7 @@ const DevPluginSection = () => {
 	if (!isDevPluginLoadingSupported()) return null;
 
 	return (
-		<SettingsGroup title={t("plugins.dev.title", "开发模式")}>
+		<SettingsGroup variant="card" title={t("plugins.dev.title", "开发模式")}>
 			<SettingsRow
 				icon={<FolderOpen24Regular />}
 				title={t("plugins.dev.loadDirectory", "从目录加载插件")}
