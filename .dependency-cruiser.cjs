@@ -107,7 +107,7 @@ module.exports = {
 				pathNot: "(?:/adapters/|^src/modules/lyric-drag/reorder-engine\\.ts$)",
 			},
 			{
-			path: "^(?:src/(?:modules/(?:segmentation/utils/(?:segmentation|syllable-smoothing)|lyric-drag/drag-reorder|project/logic/|spectrogram/utils/timeline-boundary|lyric-editor/utils/(?:ruby-generator|normalize-line-time)|lrclib/utils/)|utils/parse-lrc(?:\\.|$))|\\$/utils/parse-lrc(?:\\.|$))",
+			path: "^(?:src/(?:modules/(?:segmentation/utils/(?:segmentation|syllable-smoothing)|lyric-drag/drag-reorder|project/logic/|spectrogram/utils/timeline-boundary|lyric-editor/utils/(?:ruby-generator|normalize-line-time))|utils/parse-lrc(?:\\.|$))|\\$/utils/parse-lrc(?:\\.|$))",
 			},
 		),
 	],

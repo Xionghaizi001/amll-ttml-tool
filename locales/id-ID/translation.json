@@ -197,7 +197,6 @@
 			"helpDoc": "Panduan Pengguna",
 			"importLyric": {
 				"import": "Impor Lirik",
-				"fromLRCLIB": "Impor dari LRCLIB...",
 				"fromLyRiC": "Impor dari File LyRiC…",
 				"fromESLyRiC": "Impor dari File ESLyRiC…",
 				"fromQRC": "Impor dari File QRC…",
@@ -317,20 +316,6 @@
 		"error": {
 			"workerError": "Terjadi kesalahan saat memproses audio"
 		}
-	},
-	"lrclib": {
-		"searchError": "Pencarian gagal, periksa jaringan Anda atau coba lagi nanti",
-		"importError": "Terjadi kesalahan saat mengimpor lirik",
-		"title": "Impor lirik dari LRCLIB",
-		"placeholder": "Judul Lagu, Artis...",
-		"synced": "Ter-sinkronisasi",
-		"unsynced": "Tidak ter-sinkronisasi",
-		"notFound": "Hasil tidak ditemukan, silakan coba ganti kata kunci",
-		"noResult": "Masukkan kata kunci untuk mulai mencari",
-		"noLyrics": "Lagu ini belum memiliki lirik",
-		"extractBg": "Ekstrak konten dalam kurung sebagai vokal latar",
-		"autoSegment": "Segmentasi Otomatis",
-		"import": "Impor Lirik"
 	},
 	"common": {
 		"search": "Cari",

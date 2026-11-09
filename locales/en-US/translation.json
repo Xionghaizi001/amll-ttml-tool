@@ -235,7 +235,6 @@
 			"tool": "Tools",
 			"importLyric": {
 				"import": "Import lyrics",
-				"fromLRCLIB": "Import from LRCLIB...",
 				"fromLyRiC": "Import from LyRiC file…",
 				"fromESLyRiC": "Import from ESLyRiC file…",
 				"fromQRC": "Import from QRC file…",
@@ -400,20 +399,6 @@
 			"stop": "Stop",
 			"start": "Start"
 		}
-	},
-	"lrclib": {
-		"searchError": "Search failed, please check network or try again later",
-		"importError": "Error occurred while importing lyrics",
-		"title": "Import Lyric from LRCLIB",
-		"placeholder": "Title Artist...",
-		"synced": "Synced",
-		"unsynced": "Unsynced",
-		"notFound": "No results found, please try different keywords",
-		"noResult": "Enter keywords to start searching",
-		"noLyrics": "No lyrics content available for this track",
-		"extractBg": "Extract parentheses as background vocals",
-		"autoSegment": "Auto Segment",
-		"import": "Import Lyric"
 	},
 	"common": {
 		"search": "Search",

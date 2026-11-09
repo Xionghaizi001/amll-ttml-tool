@@ -180,7 +180,6 @@
 			"helpDoc": "Documentation (CN)",
 			"importLyric": {
 				"import": "Importer des paroles",
-				"fromLRCLIB": "Importer depuis LRCLIB...",
 				"fromLyRiC": "Importer depuis un fichier LyRiC…",
 				"fromESLyRiC": "Importer depuis un fichier ESLyRiC…",
 				"fromQRC": "Importer depuis un fichier QRC…",
@@ -298,20 +297,6 @@
 		"error": {
 			"workerError": "Erreur lors du traitement de l'audio"
 		}
-	},
-	"lrclib": {
-		"searchError": "Échec de la recherche, vérifiez le réseau ou réessayez plus tard",
-		"importError": "Une erreur s'est produite lors de l'importation des paroles",
-		"title": "Importer des paroles depuis LRCLIB",
-		"placeholder": "Titre Artiste...",
-		"synced": "Synchronisé",
-		"unsynced": "Non synchronisé",
-		"notFound": "Aucun résultat trouvé, essayez d'autres mots-clés",
-		"noResult": "Entrez des mots-clés pour commencer la recherche",
-		"noLyrics": "Aucun contenu de paroles disponible pour cette piste",
-		"extractBg": "Extraire les parenthèses comme voix de fond",
-		"autoSegment": "Segmentation automatique",
-		"import": "Importer les paroles"
 	},
 	"common": {
 		"search": "Rechercher",

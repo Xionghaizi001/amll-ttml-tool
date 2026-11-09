@@ -180,7 +180,6 @@
 			"helpDoc": "Dokumentácia (ČĽR)",
 			"importLyric": {
 				"import": "Importovať texty",
-				"fromLRCLIB": "Importovať z LRCLIB...",
 				"fromLyRiC": "Importovať zo súboru LyRiC…",
 				"fromESLyRiC": "Importovať zo súboru ESLyRiC…",
 				"fromQRC": "Importovať zo súboru QRC…",
@@ -298,20 +297,6 @@
 		"error": {
 			"workerError": "Chyba pri spracovaní zvuku"
 		}
-	},
-	"lrclib": {
-		"searchError": "Vyhľadávanie zlyhalo, skontrolujte sieť alebo to skúste neskôr",
-		"importError": "Pri importe textov sa vyskytla chyba",
-		"title": "Importovať texty z LRCLIB",
-		"placeholder": "Názov Umelec...",
-		"synced": "Synchronizované",
-		"unsynced": "Nesynchronizované",
-		"notFound": "Žiadne výsledky, skúste iné kľúčové slová",
-		"noResult": "Zadajte kľúčové slová pre začatie vyhľadávania",
-		"noLyrics": "Pre túto skladbu nie je k dispozícii žiadny obsah textov",
-		"extractBg": "Extrahovať zátvorky ako sprievodný vokál",
-		"autoSegment": "Automatická segmentácia",
-		"import": "Importovať texty"
 	},
 	"common": {
 		"search": "Hľadať",

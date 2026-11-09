@@ -180,7 +180,6 @@
 			"helpDoc": "Dokumentation (CN)",
 			"importLyric": {
 				"import": "Importér sangtekster",
-				"fromLRCLIB": "Importér fra LRCLIB...",
 				"fromLyRiC": "Importér fra LyRiC-fil…",
 				"fromESLyRiC": "Importér fra ESLyRiC-fil…",
 				"fromQRC": "Importér fra QRC-fil…",
@@ -298,20 +297,6 @@
 		"error": {
 			"workerError": "Fejl ved behandling af lyd"
 		}
-	},
-	"lrclib": {
-		"searchError": "Søgning mislykkedes, kontroller netværket eller prøv igen senere",
-		"importError": "Der opstod en fejl under import af sangtekster",
-		"title": "Importér sangtekst fra LRCLIB",
-		"placeholder": "Titel Kunstner...",
-		"synced": "Synkroniseret",
-		"unsynced": "Ikke synkroniseret",
-		"notFound": "Ingen resultater fundet, prøv andre søgeord",
-		"noResult": "Indtast søgeord for at starte søgning",
-		"noLyrics": "Intet sangtekstindhold tilgængeligt for dette nummer",
-		"extractBg": "Udtræk parenteser som baggrundsvokal",
-		"autoSegment": "Auto-segmentering",
-		"import": "Importér sangtekst"
 	},
 	"common": {
 		"search": "Søg",

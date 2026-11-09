@@ -1,9 +1,7 @@
 import { DropdownMenu } from "@radix-ui/themes";
-import { useSetAtom } from "jotai";
 import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { CommandMenuItem } from "$/components/TopMenu/CommandMenuItem";
-import { useLocalCommand } from "$/components/TopMenu/useLocalCommand";
 import { extensionRegistry } from "$/plugins/adapters/extension-host";
 import {
 	formatExportCommandId,
@@ -14,11 +12,6 @@ import {
 	PinnedCommandMenuItem,
 } from "$/plugins/ui/ContributionMenuItems";
 import { localizeText } from "$/plugins/ui/localize";
-import { importFromLRCLIBDialogAtom } from "$/states/dialogs.ts";
-
-const commandIds = {
-	importLrcLib: "core.file.import.lrclib",
-} as const;
 
 /**
  * 导入/导出子菜单：条目完全由 format provider registry 驱动。
@@ -26,7 +19,6 @@ const commandIds = {
  * 菜单项只引用由宿主派生的 command ID。
  */
 export const ImportExportLyric = () => {
-	const setImportFromLRCLIBDialog = useSetAtom(importFromLRCLIBDialogAtom);
 	const { t, i18n } = useTranslation();
 
 	useSyncExternalStore(
@@ -43,10 +35,6 @@ export const ImportExportLyric = () => {
 	const importProviders = providers.filter((provider) => provider.importer);
 	const exportProviders = providers.filter((provider) => provider.exporter);
 
-	useLocalCommand(commandIds.importLrcLib, () =>
-		setImportFromLRCLIBDialog(true),
-	);
-
 	return (
 		<>
 			<DropdownMenu.Sub>
@@ -57,17 +45,19 @@ export const ImportExportLyric = () => {
 					<PinnedCommandMenuItem
 						commandId={PINNED_FACTORY_COMMANDS.plainTextImport}
 					/>
-					<CommandMenuItem commandId={commandIds.importLrcLib}>
-						{t("topBar.menu.importLyric.fromLRCLIB", "从 LRCLIB 导入...")}
-					</CommandMenuItem>
+					<PinnedCommandMenuItem commandId={PINNED_FACTORY_COMMANDS.lrclib} />
 					{importProviders.map((provider) => (
 						<CommandMenuItem
 							key={provider.formatId}
 							commandId={formatImportCommandId(provider.formatId)}
 						>
-							{t("topBar.menu.importLyric.fromFormatFile", "从 {name} 文件导入", {
-								name: localizeText(provider.title, i18n.language),
-							})}
+							{t(
+								"topBar.menu.importLyric.fromFormatFile",
+								"从 {name} 文件导入",
+								{
+									name: localizeText(provider.title, i18n.language),
+								},
+							)}
 						</CommandMenuItem>
 					))}
 				</DropdownMenu.SubContent>

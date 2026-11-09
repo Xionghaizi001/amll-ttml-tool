@@ -324,3 +324,14 @@ describe("LyricFileFlow", () => {
 		expect(state.selectionCleared).toBe(1);
 	});
 });
+
+ it("does not commit a plugin import cancelled during asynchronous project lookup", async () => {
+  const { flow, state } = createHarness();
+  const controller = new AbortController();
+  const pending = flow.commitImportedLyric(sampleLyric(), {label:"Import",signal:controller.signal});
+  controller.abort();
+  await expect(pending).rejects.toThrow();
+  expect(state.replaced).toEqual([]);
+  expect(state.projectId).toBe("initial");
+  expect(state.selectionCleared).toBe(0);
+ });

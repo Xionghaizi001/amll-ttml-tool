@@ -81,7 +81,9 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 	setShowBeatLines: setHostShowBeatLines,
 	tapBpm: tapHostBpm,
 	resetBpm: resetHostBpm,
-	importDocument: async (lyric, { label }) => {
+	importDocument: async (lyric, { label, signal }) => {
+		const expectedRevision = pluginDocumentGateway.getRevision();
+		const projectId = getHostProjectInfo().projectId;
 		const confirmed = await lyricFileFlow.confirmDiscard({
 			title: i18n.t("confirmDialog.importFile.title", "确认导入歌词"),
 			description: i18n.t(
@@ -89,11 +91,14 @@ const trustedJsHostPorts: TrustedJsHostPorts = {
 				"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要导入歌词吗？",
 			),
 		});
-		if (!confirmed) return false;
-		await lyricFileFlow.commitImportedLyric(lyric, {
-			label,
-			expectedRevision: pluginDocumentGateway.getRevision(),
-		});
+		if (!confirmed || signal.aborted || getHostProjectInfo().projectId !== projectId)
+			return false;
+		try {
+			await lyricFileFlow.commitImportedLyric(lyric, { label, expectedRevision, signal });
+		} catch (error) {
+			if (signal.aborted) return false;
+			throw error;
+		}
 		return true;
 	},
 	getLocale: () => i18n.language,

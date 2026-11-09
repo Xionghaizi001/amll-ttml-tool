@@ -21,6 +21,7 @@ export const PINNED_FACTORY_COMMANDS = {
 	segmentationAdvanced: "builtin.segmentation.advanced",
 	metadata: "builtin.metadata.run",
 	plainTextImport: "builtin.plain-text-import.run",
+	lrclib: "builtin.lrclib.run",
 	syncLineTimestamps: "builtin.sync-line-timestamps.run",
 	wordSplit: "builtin.word-tools.split",
 	wordReplace: "builtin.word-tools.replace",

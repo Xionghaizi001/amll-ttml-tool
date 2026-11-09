@@ -180,7 +180,6 @@
 			"helpDoc": "Dokumentacja (CN)",
 			"importLyric": {
 				"import": "Importuj tekst",
-				"fromLRCLIB": "Importuj z LRCLIB...",
 				"fromLyRiC": "Importuj z pliku LyRiC…",
 				"fromESLyRiC": "Importuj z pliku ESLyRiC…",
 				"fromQRC": "Importuj z pliku QRC…",
@@ -298,20 +297,6 @@
 		"error": {
 			"workerError": "Błąd przetwarzania audio"
 		}
-	},
-	"lrclib": {
-		"searchError": "Wyszukiwanie nie powiodło się, sprawdź sieć lub spróbuj później",
-		"importError": "Wystąpił błąd podczas importowania tekstów",
-		"title": "Importuj tekst z LRCLIB",
-		"placeholder": "Tytułowy Artysta...",
-		"synced": "Zsynchronizowany",
-		"unsynced": "Niezsynchronizowany",
-		"notFound": "Nie znaleziono wyników, spróbuj innych słów kluczowych",
-		"noResult": "Wprowadź słowa kluczowe, aby rozpocząć wyszukiwanie",
-		"noLyrics": "Brak dostępnych treści tekstu dla tego utworu",
-		"extractBg": "Wyodrębnij nawiasy jako linia w tle",
-		"autoSegment": "Automatyczna segmentacja",
-		"import": "Importuj tekst"
 	},
 	"common": {
 		"search": "Szukaj",

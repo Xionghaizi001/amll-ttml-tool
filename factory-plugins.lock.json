@@ -60,6 +60,12 @@
       "version": "1.1.0",
       "sha256": "8a11fc455fbeba2f073e419b94b3a48f3a7b9ef798dfc8dbbccc6a614b1a2d54",
       "source": "vendor/plugin-store/8a11fc455fbeba2f073e419b94b3a48f3a7b9ef798dfc8dbbccc6a614b1a2d54.zip"
+    },
+    {
+      "id": "builtin.lrclib",
+      "version": "1.0.0",
+      "sha256": "ea6beef7302ff408f8958570d744baa40010efe502b900cf6a07c3b8f21902fc",
+      "source": "vendor/plugin-store/ea6beef7302ff408f8958570d744baa40010efe502b900cf6a07c3b8f21902fc.zip"
     }
   ]
 }

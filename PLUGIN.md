@@ -753,3 +753,10 @@ Surface key 使用 JSON Pointer 转义（`~` → `~0`，`/` → `~1`），最长
 `host.segmentation.isKanaOnly` 与异步 `segmentText(input, segments?)` 暂由宿主现有分词算法及偏好提供：不传 segments 自动分词，传入 tokens 则分配时间，不修改文档。Ruby 生成、选区筛选和批量业务归插件。词级工具（逐字音译分配/检查、拆分/替换单词、平滑时间轴）已迁至 `amll-ttml-tool-plugin-word-tools/`（`builtin.word-tools`），`builtin.segmentation` 以 manifest dependencies 声明依赖它；分词算法本身仍由宿主经 `host.segmentation` 提供。编辑器内联罗马音建议经 `host.romanization.registerPredictor` 由插件提供（最后注册者生效，停用即无建议）；`PluginWordV0.romanWarning` 为可读写的逐字音译警告标记。右键拆分/替换与词块剪刀按钮向插件命令传 `{ wordId }`。原生注音显示、同步打轴、导入导出不随编辑插件停用而消失。
 
 API/SDK tarball 已同步至 Ruby 与 toolkit vendor；旧插件仍使用各自锁定 SDK，需新接口的插件升级时同步。验证入口为插件 `pnpm test`、宿主 `tests/plugins/trusted/{ruby-ports,migrated-artifacts}.test.ts`、`tests/modules/lyric-editor/ruby-patch.test.ts` 和 `tests/plugins/browser/ruby.browser-check.mjs`。远端发布及原生平台验收仍后置。
+
+
+### LRCLIB 出厂插件
+
+`builtin.lrclib` 源码位于 `../amll-ttml-tool-plugins/plugins/lrclib/`。搜索/响应校验、预览、LRC 转换、背景人声提取归插件；自动分词复用 `host.segmentation`，导入复用 `host.project.importDocument`，文件名/默认作者/项目身份继续由宿主处理。File → 导入歌词的原位置仅在 `builtin.lrclib.run` 注册时显示；宿主旧 LRCLIB 模块、对话框 atom、应用层服务和文案已删除。网络调用仅经 `host.network.request`，匿名端口离线策略现在覆盖 LRCLIB。
+
+共享导入路径在确认后检查插件 signal 和项目身份，并在异步项目查找后、文档替换前再次检查取消，revision 使用确认前快照，防止等待期间卸载或修改文档后覆盖旧上下文。该修正不改变公开 SDK。插件异步分词完成后也复核 revision/项目身份。禁用清除命令/视图并中断网络，重新启用恢复入口；搜索结果只在当前对话框中保留。

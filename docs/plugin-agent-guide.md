@@ -193,4 +193,9 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 
 `src/platform/network/NetworkService.ts` 是共用传输，`src/plugins/adapters/plugin-network.ts` 保留匿名协议门禁；现有离线 atom 和存储 key 保持兼容。新宿主业务接入层须注入同一个离线状态，并自行选择固定 API/代理路由、管理凭据、校验 JSON、解释业务状态；不可向插件转交任意带凭据的请求接口。参考测试分支的 GitHub/PAT、歌词站 JSON/PATCH、NCM cookie 和音频进度需求，基础设施支持 RequestInit、二进制、进度、有限超时/大小预算，不内置服务名称；默认不重试。宿主 GET 下载可显式传 `retries: 1–5`，网络中断时退避并尝试基于强 ETag 的 Range 续传；缺元数据从头下载，版本/范围不一致拒绝拼接，超时为所有尝试共用期限。SDK/API 未改，无需重打插件 artifact。
 
-验证入口：`tests/platform/network/NetworkService.test.ts`、`tests/plugins/adapters/plugin-network.test.ts`、`tests/plugins/trusted/migration-ports.test.ts`、`tests/plugin-api/network.test.ts`。LRCLIB、提交、更新与其他原 fetch 调用尚未迁移，不能把开关描述成全应用断网。
+验证入口：`tests/platform/network/NetworkService.test.ts`、`tests/plugins/adapters/plugin-network.test.ts`、`tests/plugins/trusted/migration-ports.test.ts`、`tests/plugin-api/network.test.ts`。LRCLIB 已迁至 `../amll-ttml-tool-plugins/plugins/lrclib/` 并接入端口；提交、更新与其他原 fetch 调用尚未迁移，不能把开关描述成全应用断网。
+
+
+### LRCLIB 维护边界
+
+不要恢复 `src/modules/lrclib` 或旧 `core.file.import.lrclib` 命令。插件实现和算法测试归总仓库的 lrclib 子包，宿主保留锁定 ZIP、原菜单位置和真实宿主/浏览器合同。修改插件后运行子包 test/pack，按 catalog 的 sha256 更新宿主 vendor/plugin-store 与 factory lock；不用更改其他子包或重新打 SDK。公共导入流程须保持确认前 revision 和取消信号直到异步项目匹配后的提交点。

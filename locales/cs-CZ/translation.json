@@ -180,7 +180,6 @@
 			"helpDoc": "Dokumentace (ČLR)",
 			"importLyric": {
 				"import": "Importovat titulky",
-				"fromLRCLIB": "Importovat z LRCLIB...",
 				"fromLyRiC": "Importovat ze souboru LyRiC…",
 				"fromESLyRiC": "Importovat ze souboru ESLyRiC…",
 				"fromQRC": "Importovat ze souboru QRC…",
@@ -298,20 +297,6 @@
 		"error": {
 			"workerError": "Chyba při zpracování zvuku"
 		}
-	},
-	"lrclib": {
-		"searchError": "Vyhledávání selhalo, zkontrolujte síť nebo to zkuste později",
-		"importError": "Při importu titulek došlo k chybě",
-		"title": "Importovat titulky z LRCLIB",
-		"placeholder": "Název Umělec...",
-		"synced": "Synchronizováno",
-		"unsynced": "Nesynchronizováno",
-		"notFound": "Žádné výsledky, zkuste jiná klíčová slova",
-		"noResult": "Zadejte klíčová slova pro zahájení vyhledávání",
-		"noLyrics": "Pro tuto skladbu není k dispozici žádný obsah titulek",
-		"extractBg": "Extrahovat závorky jako doprovodný vokál",
-		"autoSegment": "Automatická segmentace",
-		"import": "Importovat titulky"
 	},
 	"common": {
 		"search": "Hledat",

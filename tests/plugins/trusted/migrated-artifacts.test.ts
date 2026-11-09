@@ -311,3 +311,31 @@ describe("word tools factory artifact", () => {
 		expect(fixture.views.getSnapshot()).toHaveLength(0);
 	});
 });
+
+
+describe("LRCLIB artifact on the real trusted host", () => {
+ it("loads locked bytes, opens a localized dialog, honors offline and cleans up on disable", async () => {
+  const id = "builtin.lrclib";
+  const { activate, strings } = await loadLockedArtifact(id);
+  const fixture = createRealTrustedHost({pluginId:id,strings,locale:"zh-CN",offline:true});
+  await activate({pluginId:id,host:fixture.host,signal:new AbortController().signal});
+  expect(fixture.extensions.contributions.getMenus("menu.file")[0]?.commandId).toBe(`${id}.run`);
+  await fixture.commands.execute(`${id}.run`);
+  const [open] = fixture.views.getSnapshot();
+  expect(open.id).toBe(`${id}.dialog`);
+  const html=renderToString(createElement(Theme,null,createElement(open.record.view as ComponentType)));
+  expect(html).toContain("歌名 歌手");
+  expect(html).toContain("输入关键词开始搜索");
+  expect(await fixture.host.network.request({url:"https://lrclib.net/api/search?q=test"})).toMatchObject({ok:false,error:{code:"network-unavailable"}});
+  expect(fixture.requests).toHaveLength(0);
+  fixture.scope.dispose();
+  expect(fixture.commands.get(`${id}.run`)).toBeUndefined();
+  expect(fixture.views.getSnapshot()).toHaveLength(0);
+  expect(fixture.extensions.contributions.getMenus("menu.file")).toHaveLength(0);
+  const restored=createRealTrustedHost({pluginId:id,strings,locale:"zh-CN"});
+  await activate({pluginId:id,host:restored.host,signal:new AbortController().signal});
+  await restored.commands.execute(`${id}.run`);
+  expect(restored.views.getSnapshot()).toHaveLength(1);
+  restored.scope.dispose();
+ });
+});

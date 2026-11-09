@@ -7,7 +7,7 @@
 - 已落地：阶段 0–7 的基础架构与运行能力，里程碑 1–3 的远程加载器、商店薄片与 time-shift 试点，trusted-js SDK、本地安装、工具链与 time-shift 外置、单文件开发体验与热重载、IndexedDB 合库与可编辑默认图片遮罩、完整边界负例与 CI、统一 installation 目录及设置内插件管理器。 插件依赖已完成：跨提供者闭包求解、版本与启用检查、可选依赖排序、环检测、拓扑激活、一次确认的批量商店安装、失败回滚，以及手动安装后的缺失依赖禁用状态。
 - 多商店前端已落地：提供者身份、相对 catalog URL、镜像/冲突规则、第三方强制摘要、安装来源记录与来源移除后的状态展示。
 - 商店后端已由其他项目实现，不再纳入本项目推进范围；阶段 10 仅保留客户端对接、控制状态与联调验收，不代表客户端已完成接入。
-- 阶段 8 已迁出并以锁定 factory artifact 交付（见 `factory-plugins.lock.json`）：time-shift、同步行时间戳、纯文本导入、formats（LRC/ESLRC/QRC/YRC/LYS）、节拍器、大纲、元数据、Ruby、分词（自动/高级分词）、词级工具。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新；`lyric-drag`、TTML/ASS 导出、剪贴板、保存/导入的文件名推导与默认作者元数据保留在宿主。
+- 阶段 8 已迁出并以锁定 factory artifact 交付（见 `factory-plugins.lock.json`）：time-shift、同步行时间戳、纯文本导入、formats（LRC/ESLRC/QRC/YRC/LYS）、节拍器、大纲、元数据、Ruby、分词（自动/高级分词）、词级工具、LRCLIB。已知取舍：部分内置插件禁用后需刷新页面才完全生效，插件管理器在禁用出厂插件时提示刷新；`lyric-drag`、TTML/ASS 导出、剪贴板、保存/导入的文件名推导与默认作者元数据保留在宿主。
 - 已验收：局部覆盖的当前交付范围、第三方格式接入；主题包 overrides 与 settings 声明式表单渲染仍随实际消费者补齐（见 PLUGIN.md“局部覆盖协议”）。
 - 剩余工作：阶段 8 的 Ribbon bar contribution 渲染器、交付文件 i18n 与网络服务迁移，分词算法等按消费者推进的外置范围，阶段 9 定制功能迁移，阶段 10 商店客户端对接，以及远程完整性收口、工具链/插件远端发布和平台验收。
 - 测试统一位于根目录 `tests/`（镜像源码路径，包测试在 `tests/plugin-api`、`tests/plugin-sdk-js`），随分支入库。
@@ -17,7 +17,7 @@
 | 顺序 | 工作 | 前置与完成边界 |
 | --- | --- | --- |
 | 1 | 远程完整性收口 | 补齐官方远程 artifact 摘要与裸 trusted-js 加载校验，并完成失败/恢复合同测试，见“稳定性收口” |
-| 2 | 阶段 8：剩余业务迁移 | Ribbon bar 渲染器随交付文件 i18n 落地，再迁移 LRCLIB 等网络服务；分词算法等其余范围按消费者需要推进，每项通过禁用/恢复验收；第三方格式接入已完成 |
+| 2 | 阶段 8：剩余业务迁移 | Ribbon bar 渲染器随交付文件 i18n 落地，继续迁移余下网络服务（LRCLIB 已迁出）；分词算法等其余范围按消费者需要推进，每项通过禁用/恢复验收；第三方格式接入已完成 |
 | 3（可与 2 并行） | 阶段 10：商店客户端对接 | 对接外部已实现的商店，验收登录态、受限下载、兼容性及客户端控制状态；本项目不再建设后端 |
 | 4 | 阶段 9：定制功能外置 | 按实际消费者补齐主题包 overrides、settings 表单渲染与公开业务端口；复用阶段 8 Ribbon bar 渲染器，审阅插件正式分发前完成客户端资格/控制状态联调 |
 | 4a（相应端口就绪后） | MCP：对外自动化接口 | 先验收桌面本机只读薄片，再开放事务编辑和插件工具；不阻塞业务迁移或商店接入，若纳入 API v1 则在冻结前完成合同验收 |
@@ -52,7 +52,7 @@
 - [x] 第三方格式接入与相应验收（复用 `core.formats` registry）。
 - [ ] Ribbon bar contribution 渲染器与首批消费者：交付文件的 i18n 支持模块；
 - [ ] 自定义 Tool bar：审阅功能的自定义 Tool bar items 作为单独待办。`registerToolbar` 目前只有注册接口，尚无 Ribbon bar 渲染位；渲染位、分组与数量上限随 i18n 模块落地，标题栏动作位不与之合并。
-- [ ] 网络服务：公共传输基础设施已抽出（匿名端口复用，支持取消/超时、二进制、上传、下载进度与有限预算）；下一步迁移 LRCLIB 等业务消费者并接入网络端口与离线总开关，逐项完成禁用/恢复验收。GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
+- [ ] 网络服务：公共传输基础设施已抽出（匿名端口复用，支持取消/超时、二进制、上传、下载进度与有限预算）；LRCLIB 已迁至 `amll-ttml-tool-plugins/plugins/lrclib`（`builtin.lrclib`）并接入匿名网络端口与离线开关；余下业务消费者逐项迁移并完成禁用/恢复验收。GitHub、歌词站、NCM 与 Review 的外置迁移归阶段 9。
 
 每迁移一个功能，都要求旧入口删除、插件禁用后功能消失、重新启用后状态恢复。本阶段即“里程碑 4”，其前置条件见“里程碑 4 前置”。迁出的插件沿用“插件工具链与 time-shift 外置”的独立项目模板；存在插件间依赖的功能（如元数据 / Ruby / 分词之间的共享）使用已实现的 manifest dependencies 声明存在与版本关系；共享业务调用另经公开端口表达，不得退回宿主内部直接耦合。
 
@@ -69,7 +69,7 @@
 | 分词算法 | `src/modules/segmentation/utils/segmentation.ts`（经 `host.segmentation` 提供） | 外置时接 provider/dependencies，`builtin.ruby`/`builtin.segmentation`/`builtin.word-tools` 共享经端口表达 |
 | 交付文件 i18n 支持 | 定制版 Ribbon bar 模块 | Ribbon bar contribution 的首批消费者；渲染器随之落地，审阅 Ribbon bar items 在阶段 9 复用 |
 | 帮助、设置和更新扩展 | `src/modules/settings` 中可独立关闭的业务页/工具 | 设置壳、插件管理、权限与恢复入口留在宿主；可替换的业务设置页/更新检查器再插件化 |
-| 网络服务与定制功能 | `src/modules/lrclib`、GitHub/歌词站/NCM 等阶段 9 功能 | 通过明确的网络 capability 与离线总开关接入；凭据由宿主持有，插件只经宿主端口操作 |
+| 网络服务与定制功能 | GitHub/歌词站/NCM 等阶段 9 功能（LRCLIB 已迁出） | 通过明确的网络 capability 与离线总开关接入；凭据由宿主持有，插件只经宿主端口操作 |
 | 第三方格式 provider | 未来第三方格式 | 复用 `core.formats` registry；TTML 与 ASS 导出不在此项迁出 |
 
 #### 明确保留在宿主的功能
@@ -99,8 +99,8 @@
 | --- | --- | --- |
 | 分词算法 | `host.segmentation` | 算法仍在宿主，待外置 |
 | 帮助、设置扩展 | `settings-view` 接入设置页动态标签；贡献消失时回退常规页 | 插槽就绪；宿主设置壳、权限与恢复入口保留 |
-| 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | LRCLIB 迁移复用同一端口 |
-| 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB/GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
+| 导入类工具 | `project.importDocument`：未保存确认 + 打开文件同款提交（项目 ID、默认作者、文件名、清空选区） | LRCLIB 已复用同一端口 |
+| 网络服务 | trusted-js `network.request/isOffline`、协议 `network.http`、持久化插件网络开关 | 匿名 HTTP 接口就绪；LRCLIB 已迁出并接入；GitHub/NCM 尚未替换原调用，认证业务端口待实现 |
 | 第三方格式 provider | 既有 `formats.register` 共用 registry | 第三方接入与相应验收已完成；后续格式继续复用 registry，TTML 与 ASS 导出仍在宿主 |
 | 交付 i18n、审阅功能区（Ribbon bar） | `registerToolbar` | 只有注册接口，宿主尚无 Ribbon bar 渲染位；渲染器随首个消费者落地 |
 

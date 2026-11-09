@@ -131,6 +131,7 @@ export interface LyricFileFlowPorts {
 }
 
 export interface CommitImportedLyricOptions {
+	signal?: AbortSignal;
 	label: string;
 	/** 导入来源的原始文件名（含扩展名）；剪贴板/纯文本等来源省略。 */
 	importedFileName?: string;
@@ -274,6 +275,8 @@ export class LyricFileFlow {
 			onLookupError: (error) =>
 				this.ports.logError("解析项目数据时失败", error),
 		});
+
+		options.signal?.throwIfAborted();
 
 		applyDefaultTtmlAuthorMetadata(
 			lyric.metadata,

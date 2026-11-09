@@ -345,3 +345,8 @@ JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆�
 `updateWord.patch.ruby`：null 删除结构、[] 保留空结构、省略不修改。`host.segmentation.isKanaOnly(text)` 共享假名识别；`await host.segmentation.segmentText({text,startTime,endTime}, segments?)` 读取当前分词设置，省略 segments 自动分词，传入 segments 为明确分段重算时间；该端口不写文档。`host.romanization.registerPredictor((words, romanization) => string[])` 为编辑器提供逐字罗马音建议，`PluginWordV0.romanWarning` 可经 `updateWord` 读写。异步操作须保存 snapshot.revision 并用 expectedRevision 提交，宿主卸载后端口拒绝结果。
 
 完整示例位于 `../plugins/plugins/ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件。词级工具示例见 `../plugins/plugins/word-tools/`。
+
+
+### 网络业务迁移示例：LRCLIB
+
+完整子包见 `../amll-ttml-tool-plugins/plugins/lrclib/`。manifest 声明 `network.http`；搜索通过 `host.network.request` 并分别处理 HostResult 失败、HTTP 非 2xx、JSON/业务结构不合法。文档使用 NewLineV0 和 metadata.values，通过 `host.project.importDocument` 导入；不要把内部 TTMLLyric、Jotai 或 fetch 放回插件。自动分词经 `host.segmentation.segmentText`，异步等待后复核取消和文档 revision。当前接口不默认重试。

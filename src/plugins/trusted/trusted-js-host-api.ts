@@ -113,7 +113,7 @@ export interface TrustedJsHostPorts {
 	/** File → Open commit path; resolves false when the user keeps the current document. */
 	importDocument(
 		lyric: TTMLLyric,
-		options: { label: string },
+		options: { label: string; signal: AbortSignal },
 	): Promise<boolean>;
 	/** Host UI locale for `i18n`; the application passes i18next's language. */
 	getLocale(): string;
@@ -279,7 +279,7 @@ export const createTrustedJsHost = (
 					metadata,
 					createSeededIdAllocator(nextSeed(pluginId)),
 				);
-				if (!(await ports.importDocument(lyric, { label }))) return cancelled;
+				if (!(await ports.importDocument(lyric, { label, signal: lifecycle.signal }))) return cancelled;
 				return { ok: true, value: { revision: ports.documents.getRevision() } };
 			},
 		},

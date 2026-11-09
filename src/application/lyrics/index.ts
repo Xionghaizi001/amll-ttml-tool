@@ -1,4 +1,3 @@
-export * from "./LrcLibImportService";
 export * from "./LyricExportService";
 export * from "./LyricFileService";
 export * from "./LyricLineReorderService";
