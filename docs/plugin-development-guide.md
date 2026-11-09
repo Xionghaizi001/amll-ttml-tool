@@ -143,6 +143,7 @@ export default definePlugin({
 - `views.registerMode/registerView`（`dialog-view` 可设 `size: "small" | "medium" | "large" | "full"`，`full` 为视口宽度；`sidebar` 在编辑模式 ribbon“视图”区出现同名开关，打开后成为侧边栏标签页）
 
 网络端口仅允许 HTTPS 或本机 HTTP，不附加凭据、不跟随重定向，请求体上限 1 MiB、响应体上限 8 MiB。用户的离线开关只约束这个端口，不能阻止全权 JS 自行发起网络访问。
+宿主共用网络服务已支持二进制/上传和下载进度，但这些属于内部能力，不改变 `host.network` 的文本匿名合同。认证业务需另行提供具名宿主端口；插件不得通过请求参数获取或注入宿主凭据。离线、取消和超时仍映射为 `network-unavailable`，非 2xx 仍返回 `ok: true` 的 HostResult，由内层 response.ok/status 表达 HTTP 结果；不得依赖错误 message 文案做分支。
 
 React 与 React DOM 由宿主固定为 19.2.7，Radix Themes 为 3.3.0（受信任视图可直接使用宿主同款组件，渲染在宿主 `<Theme>` 内）。构建时必须 externalize：
 
@@ -343,4 +344,4 @@ JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆�
 
 `updateWord.patch.ruby`：null 删除结构、[] 保留空结构、省略不修改。`host.segmentation.isKanaOnly(text)` 共享假名识别；`await host.segmentation.segmentText({text,startTime,endTime}, segments?)` 读取当前分词设置，省略 segments 自动分词，传入 segments 为明确分段重算时间；该端口不写文档。`host.romanization.registerPredictor((words, romanization) => string[])` 为编辑器提供逐字罗马音建议，`PluginWordV0.romanWarning` 可经 `updateWord` 读写。异步操作须保存 snapshot.revision 并用 expectedRevision 提交，宿主卸载后端口拒绝结果。
 
-完整示例位于 `../amll-ttml-tool-plugin-ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件。词级工具示例见 `../amll-ttml-tool-plugin-word-tools/`。
+完整示例位于 `../plugins/plugins/ruby/`。生成/注音分词菜单和词级输入均由插件注册，源码不得导入宿主内部文件。词级工具示例见 `../plugins/plugins/word-tools/`。

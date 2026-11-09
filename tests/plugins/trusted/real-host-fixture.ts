@@ -10,17 +10,17 @@ import type {
 } from "@amll-ttml-tool/plugin-api";
 import { parseFormSchema } from "@amll-ttml-tool/plugin-api";
 import type { TrustedJsProjectInfoV0 } from "@amll-ttml-tool/plugin-sdk-js";
+import { MockTrustedJsHost } from "@amll-ttml-tool/plugin-sdk-js/testing";
 import { CommandRegistry } from "$/kernel/commands";
 import { EditorDocumentService } from "$/kernel/editor";
 import { ExtensionRegistry } from "$/kernel/extensions";
 import { PluginDocumentGateway } from "$/plugins/adapters/plugin-document";
 import { createPluginNetworkPort } from "$/plugins/adapters/plugin-network";
-import { PluginViewService } from "$/plugins/ui/plugin-view-service";
 import {
 	createTrustedJsHost,
 	type TrustedJsHostPorts,
 } from "$/plugins/trusted/trusted-js-host-api";
-import { MockTrustedJsHost } from "@amll-ttml-tool/plugin-sdk-js/testing";
+import { PluginViewService } from "$/plugins/ui/plugin-view-service";
 import type { TTMLLyric } from "$/types/ttml";
 
 /** Two lines; the first carries a word with ruby so projection depth is covered. */
@@ -203,18 +203,27 @@ export const createRealTrustedHost = (options: RealTrustedHostOptions) => {
 		},
 		network: createPluginNetworkPort({
 			isOffline: () => offline,
-			transport: async (request) => {
+			fetch: async (url, init) => {
+				const request = {
+					url: String(url),
+					method: init?.method,
+					headers: init?.headers,
+					body: init?.body,
+				} as HttpRequestV0;
 				requests.push(request);
 				if (options.onRequest === undefined)
 					throw new Error("no transport scripted");
 				const response = await options.onRequest(request);
-				return {
-					ok: response.ok,
-					status: response.status,
-					statusText: response.statusText,
-					headers: Object.entries(response.headers),
-					text: async () => response.body,
-				};
+				return new Response(
+					response.status === 204 || response.status === 304
+						? null
+						: response.body,
+					{
+						status: response.status,
+						statusText: response.statusText,
+						headers: response.headers,
+					},
+				);
 			},
 		}),
 		views,

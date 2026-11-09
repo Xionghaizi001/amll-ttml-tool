@@ -12,10 +12,7 @@ import { pluginNetworkOfflineAtom } from "$/states/plugins";
 import { globalStore } from "$/states/store";
 import { editorDocumentAdapter } from "./editor-document";
 import { PluginDocumentGateway } from "./plugin-document";
-import {
-	createPluginNetworkPort,
-	fetchPluginNetworkTransport,
-} from "./plugin-network";
+import { createPluginNetworkPort } from "./plugin-network";
 
 /** Shared document, selection, project, network and KV ports for trusted-js plugins. */
 
@@ -92,7 +89,6 @@ export * from "$/modules/audio/adapters/plugin-audio";
  * switch and one "no credentials" transport for all plugins.
  */
 export const pluginNetworkPort = createPluginNetworkPort({
-	transport: fetchPluginNetworkTransport,
 	isOffline: () => globalStore.get(pluginNetworkOfflineAtom),
 	log: (pluginId, message) =>
 		console.warn(`[plugins] network ${pluginId}: ${message}`),

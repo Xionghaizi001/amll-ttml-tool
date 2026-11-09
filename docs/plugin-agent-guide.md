@@ -187,3 +187,10 @@ manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用�
 词级视图仅拿公开投影；宿主 `WordEditorContributions` 用稳定快照订阅（不可只调用后忽略 revision，React 编译优化可能缓存已卸载视图）。`applyWordTextInput` 在现有事务中执行并校验插件 patch，禁用后 `|` 应保留为普通文本。`ruby: null` 与 [] 的语义不可混淆。批量分词/应用须在异步等待后校验原 revision。
 
 共享 `host.segmentation` 暂复用宿主算法/设置。词级工具与罗马音算法在 `builtin.word-tools`（`builtin.segmentation` 依赖它），不要恢复宿主 split-word/ReplaceWord/SyllableSmoothing/DistributeRomanization 或 Transliteration 分配器；宿主只保留 `isKanaOnly`、预测 provider 槽位与 `PINNED_FACTORY_COMMANDS` 入口。API/SDK 新接口的 tarball 已更新 Ruby/toolkit vendor，宿主 lock 必须与 Ruby dist ZIP 字节一致。回归入口见架构文档“Ruby 编辑器迁移”和验收清单。
+
+
+### 网络服务基础设施
+
+`src/platform/network/NetworkService.ts` 是共用传输，`src/plugins/adapters/plugin-network.ts` 保留匿名协议门禁；现有离线 atom 和存储 key 保持兼容。新宿主业务接入层须注入同一个离线状态，并自行选择固定 API/代理路由、管理凭据、校验 JSON、解释业务状态；不可向插件转交任意带凭据的请求接口。参考测试分支的 GitHub/PAT、歌词站 JSON/PATCH、NCM cookie 和音频进度需求，基础设施支持 RequestInit、二进制、进度、有限超时/大小预算，不内置服务名称；默认不重试。宿主 GET 下载可显式传 `retries: 1–5`，网络中断时退避并尝试基于强 ETag 的 Range 续传；缺元数据从头下载，版本/范围不一致拒绝拼接，超时为所有尝试共用期限。SDK/API 未改，无需重打插件 artifact。
+
+验证入口：`tests/platform/network/NetworkService.test.ts`、`tests/plugins/adapters/plugin-network.test.ts`、`tests/plugins/trusted/migration-ports.test.ts`、`tests/plugin-api/network.test.ts`。LRCLIB、提交、更新与其他原 fetch 调用尚未迁移，不能把开关描述成全应用断网。
