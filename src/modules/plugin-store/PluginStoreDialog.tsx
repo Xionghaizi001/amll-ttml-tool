@@ -442,6 +442,8 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 	const installedRows = (items: typeof installations) =>
 		items.map((item) => {
 			const trusted = item.trustedJs;
+			const removable =
+				item.source !== "builtin" || Boolean(trusted?.hasInstalledPackage);
 			const overrides = item.kind === "function" ? overriddenBy(item.id) : [];
 			const blockedBy =
 				item.theme?.disabledByDependency ?? disabledDependency(item.id);
@@ -562,8 +564,21 @@ export const PluginManager = ({ onBack }: { onBack(): void }) => {
 					action={
 						<Flex gap="2" align="center" wrap="wrap">
 							{section === "available" && (
-								<Button size="1" variant="soft" color="gray" disabled>
-									{t("pluginStore.installed", "已安装")}
+								<Button
+									size="1"
+									variant="soft"
+									color={removable ? "red" : "gray"}
+									disabled={!removable || busy !== null}
+									aria-label={`${item.name} ${removable ? t("pluginStore.uninstall", "卸载") : t("pluginStore.installed", "已安装")}`}
+									onClick={() =>
+										void run(item.id, () =>
+											pluginInstallationService.uninstall(item.kind, item.id),
+										)
+									}
+								>
+									{removable
+										? t("pluginStore.uninstall", "卸载")
+										: t("pluginStore.installed", "已安装")}
 								</Button>
 							)}
 							<Button

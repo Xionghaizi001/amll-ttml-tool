@@ -9,6 +9,7 @@
  * https://github.com/amll-dev/amll-ttml-tool/blob/main/LICENSE
  */
 
+import { LineAdornments, WordAdornments } from "$/plugins/ui/LyricAdornments";
 import {
 	AddFilled,
 	LinkMultiple20Regular,
@@ -430,12 +431,15 @@ export const LyricLineView: FC<{
 													className={styles.wordGroup}
 													onPointerDown={(e) => e.stopPropagation()}
 												>
-													<LyricWordView
-														wordAtom={wordAtom}
-														wordIndex={wi}
-														line={line}
-														lineIndex={lineIndex}
-													/>
+													<Flex align="center" gap="1">
+														<LyricWordView
+															wordAtom={wordAtom}
+															wordIndex={wi}
+															line={line}
+															lineIndex={lineIndex}
+														/>
+														<WordAdornments targetId={word.id} />
+													</Flex>
 													{toolMode === ToolMode.Edit &&
 														showWordRomanizationInput && (
 															<RomanWordView
@@ -512,6 +516,7 @@ export const LyricLineView: FC<{
 									</>
 								)}
 							</div>
+							<LineAdornments targetId={line.id} />
 							{toolMode === ToolMode.Edit && (
 								<Flex p="3">
 									<IconButton

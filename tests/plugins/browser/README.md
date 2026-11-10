@@ -71,3 +71,7 @@ pnpm exec tauri dev --no-watch --config tests/plugins/browser/tauri.conf.json
 ### 词级工具（2026-11-09）
 
 启动独立 Vite 端口，执行 `node tests/plugins/browser/word-tools.browser-check.mjs http://127.0.0.1:5188/`。覆盖出厂加载后 `builtin.word-tools` 与依赖它的 `builtin.segmentation` 均激活、逐字音译分配与警告写回、按 `{ wordId }` 打开拆分对话框；使用独立 Chrome 上下文。未覆盖禁用跨刷新。
+
+### 歌词 Linter（2026-11-10）
+
+先在合集 `plugins/linter` 执行 `pnpm run pack`，启动独立 Vite 端口，再运行 `node tests/plugins/browser/linter.browser-check.mjs http://127.0.0.1:5196/`。全新 Chrome 上下文覆盖 ZIP 安装、行/词右侧提示、悬停原因、简单/高级/打轴布局、编辑刷新、插件管理设置页、等级实时更新与跨刷新持久化、卸载清理。截图存放在 release；不改动个人浏览器或源歌词文件。

@@ -82,7 +82,9 @@ export interface TrustedViewContributionRecord<TView = unknown>
 		| "settings-view"
 		| "dialog-view"
 		| "titlebar-group"
-		| "word-editor";
+		| "word-editor"
+		| "word-adornment"
+		| "line-adornment";
 	title: LocalizedText;
 	view: TView;
 	transformTextInput?(
@@ -167,6 +169,8 @@ const TRUSTED_VIEW_KINDS = new Set([
 	"dialog-view",
 	"titlebar-group",
 	"word-editor",
+	"word-adornment",
+	"line-adornment",
 ]);
 
 class DisposableStore implements Disposable {
@@ -431,7 +435,9 @@ export interface ExtensionScope<TView = unknown> extends Disposable {
 			| "settings-view"
 			| "dialog-view"
 			| "titlebar-group"
-			| "word-editor";
+			| "word-editor"
+			| "word-adornment"
+			| "line-adornment";
 		title: LocalizedText;
 		view: TView;
 		transformTextInput?(

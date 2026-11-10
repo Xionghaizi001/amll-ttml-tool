@@ -390,8 +390,21 @@ export interface TrustedJsWordEditorV0 {
 		context: "insert" | "edit",
 	): PluginWordPatchV0 | undefined;
 }
+/** Read-only adornments rendered at the right of a lyric word or line in the editor.
+ * Read content through document.readSnapshot(); subscribe with document.onChanged.
+ */
+export interface TrustedJsLyricAdornmentPropsV0 {
+	targetId: string;
+}
+export interface TrustedJsLyricAdornmentV0 {
+	id: string;
+	kind: "word-adornment" | "line-adornment";
+	title: LocalizedText;
+	view: ComponentType<TrustedJsLyricAdornmentPropsV0>;
+}
 export type TrustedJsTrustedViewV0 =
 	| TrustedJsPanelViewV0
+	| TrustedJsLyricAdornmentV0
 	| TrustedJsWordEditorV0;
 
 /** Shared segmentation consumer port. Uses the current host segmentation preferences; never edits the document. */
