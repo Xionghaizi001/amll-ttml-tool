@@ -768,3 +768,11 @@ API/SDK tarball 已同步至 Ruby 与 toolkit vendor；旧插件仍使用各自�
 宿主 `host.github` 凭据桥仅对 `github.auth` 提供者开放，PAT 验证通过后存入宿主独立 localStorage key，未加密，不进入插件 KV、包快照或公开结果。退出删除 PAT 并中断在途请求，禁用/卸载中断请求但保留宿主账号以便恢复。匿名 `network.request` 的授权头禁令不变；GitHub POST 由宿主注入凭据，只到固定 `https://api.github.com` origin，无 cookie/重定向/重试，JSON 请求 1 MiB、响应 8 MiB、超时 30 秒，继承离线开关。超时/取消不保证服务端未提交，调用者不可盲目重试。trusted-js 仍不是沙箱。
 
 插件 manifest 的可选 `icon` 为最多 64 KiB 字符的 PNG base64 data URL，跟随包摘要与安装记录保存，在已安装列表显示，禁止远程 URL/SVG。GitHub 官方图标来源与原文件保留在插件 assets 中。工具链 vendor 已同步 API/SDK；GitHub 插件 vendor 使用同步版本，其余旧插件无需重打包。
+
+### 包图标与二进制资源边界
+
+`PluginManifestBase.icon` 是可选 PNG base64 data URL，整个字符串上限 65,536 字符，无远程加载或包内路径解析。它随 manifest 进入包摘要与安装持久化；当前功能插件本地/已安装卡片显示它，远程 catalog 尚无 icon 字段。标题栏 `ActionIconV0` 与 icons override 继续使用 Fluent 白名单，不消费此字段。
+
+`ThemePackageV0.assets` 是主题包顶层字段，不属于 manifest 或 trusted-js 包。JSON 中使用 `{ [name]: { mime, data } }`（data 无 data URL 前缀）；ZIP 描述符声明 MIME，二进制保存为 `assets/<name>`，解包后补 data 再执行主题校验。最多 16 项，名字最多 64 字符，每项 base64 最多 2,097,152 字符；CSS/surface 的 `asset:<name>` 必须能解析为已声明资源。主题 MIME 白名单包含图片及字体，不能据此向 manifest.icon 填 SVG。
+
+trusted-js ZIP 的 `assets/<entry>` 只是入口 JS 的固定容器路径，不代表支持任意静态资源。未声明文件、路径穿越和额外顶层字段继续被拒绝。toolkit 支持内嵌 manifest.icon 及 strings/overrides JSON 收集，但当前主题 pack 未自动收集 assets。格式、限制和制作示例见 [开发指南：图标、资源字段与 ZIP 布局](docs/plugin-development-guide.md#图标资源字段与-zip-布局)。

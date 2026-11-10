@@ -221,6 +221,74 @@ ZIP 可复现打包由独立 toolkit 保证：输入文件名、字节及锁定�
 - 插件管理 → 设置：插件网络设置、从目录加载 trusted-js 开发插件。主题设置页保留预览、应用、恢复默认与 override 编辑，不再安装或卸载主题包。
 - 开发目录：`manifest.json` 加入口 JS，仅当前会话有效；浏览器需支持 File System Access API。
 
+### 图标、资源字段与 ZIP 布局
+
+以下概念不能互换；项目里的 `assets/` 文件夹不会自动成为宿主可访问的资源。
+
+| 名称 | 所在位置 | 当前用途 |
+| --- | --- | --- |
+| `icon?: string` | 功能插件或主题的 manifest | 内嵌 PNG 图标，不能填写文件路径或远程 URL |
+| `assets?: Record<string, { mime, data }>` | `ThemePackageV0` 顶层，与 manifest 同级 | 主题图片/字体；不是 manifest 字段，也不是 trusted-js 包字段 |
+| `assets/` | ZIP 内部目录 | 功能插件入口 JS 或主题声明的二进制文件 |
+| `resources` / `resources/` | JSON 包字段 / ZIP 目录 | 字符串表和覆盖 JSON，不用于图片或任意二进制文件 |
+| `ActionIconV0` | 标题栏动作和 icons 覆盖 | 宿主预编译 Fluent 图标白名单，与 manifest.icon 无关 |
+
+#### manifest.icon
+
+格式为 `data:image/png;base64,<PNG 的 base64>`，整个字符串最多 **65,536 字符**（含前缀）。只接受 PNG data URL；不接受 SVG、JPEG、HTTP(S) URL、`asset:logo` 或 `assets/logo.png`。这个限制是字符串长度，不是原图文件的 64 KiB 上限。
+
+在插件项目中运行下面的 Node.js 脚本，将本地图标写入现有 manifest；请使用足够小的 PNG，并保留图片来源与许可说明：
+
+```js
+import { readFileSync, writeFileSync } from "node:fs";
+const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
+manifest.icon = `data:image/png;base64,${readFileSync("assets/icon.png").toString("base64")}`;
+if (manifest.icon.length > 65536) throw new Error("Icon exceeds 65536 characters");
+writeFileSync("manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+```
+
+随后正常执行 `pnpm run pack`：图标已包含在 ZIP 的 manifest 内，不需要再附加 `assets/icon.png`。单文件 `definePlugin()` 的 SDK 元数据类型目前未声明 icon，带图标插件使用独立 `manifest.json`。当前功能插件安装列表/本地卡片读取这个字段；远程 catalog 尚无 icon 字段，不能假定在线商店或主题卡片会自动显示它。插件自己的 React 设置页需要自行渲染图片。
+
+图标随 manifest 参与包完整性计算，修改后必须重打包并更新 artifact 摘要；不要直接修改已发布 ZIP。宿主和工具链 vendor 的 API schema 都必须支持此字段；旧 schema 的 `additionalProperties: false` 会拒绝它，可能只提示 `/: value must match exactly one schema`。使用本地开发宿主时，更新后重启服务并刷新页面，不要通过跳过 schema 校验解决兼容问题。
+
+#### 主题包 assets
+
+JSON 主题包的 `assets` 示例片段如下（省略 manifest/tokens/styles；`<base64>` 必须替换成文件真实编码）：
+
+```json
+{
+  "assets": {
+    "background.png": { "mime": "image/png", "data": "<base64>" },
+    "body.woff2": { "mime": "font/woff2", "data": "<base64>" }
+  }
+}
+```
+
+- 最多 16 项。资源名最多 64 字符，匹配 `^[a-zA-Z0-9][a-zA-Z0-9._-]*$`，不允许目录、斜杠或路径穿越。
+- `data` 是不带 `data:` 前缀的非空 base64，最多 2,097,152 字符（解码后约 1.5 MiB/项）。
+- MIME 白名单：`image/png`、`image/jpeg`、`image/webp`、`image/gif`、`image/svg+xml`、`font/woff2`、`font/woff`、`font/ttf`、`font/otf`。这是主题资源白名单，不放宽 manifest.icon 的 PNG 限制。
+- 主题 CSS 使用 `url(asset:background.png)`；图片 surface 的 `value` 使用 `asset:background.png`。引用必须对应已声明资源，宿主应用时转换成本地 Object URL，不获取远程资源；CSS 仍须通过选择器和属性等原有安全校验。
+
+主题 ZIP 的根 `manifest.json` 是包描述符，不只是 manifest：它内联 `tokens` 和 `styles` 内容，`assets` 中声明 MIME，二进制另存于 ZIP 的 `assets/<资源名>`。例如：
+
+```text
+manifest.json         # { packageVersion: 0, manifest, tokens, styles,
+                      #   assets: { "background.png": { mime: "image/png" } } }
+assets/background.png # 原始 PNG 字节，不是 base64 文本
+```
+
+解包器读取二进制并填充 `assets[name].data` 后交给 `parseThemePackage`。不要只在描述符内写 data 而省略对应文件；主题 ZIP 必须具有已声明的二进制文件。当前 toolkit 的主题 pack 仅收集 tokens/styles 与声明的 JSON resources，**尚未自动收集主题 assets**；需要资源的主题必须按上述布局制作容器并通过宿主解析验证，不能假定往项目 assets 目录放文件就会被打包。
+
+#### trusted-js ZIP 的 assets/ 目录
+
+```text
+manifest.json     # { "packageVersion": 0, "manifest": { ..., "entry": "index.js", "icon": "data:image/png;base64,..." } }
+assets/index.js   # 构建后的自包含 ESM
+resources/...     # 仅在 manifest 声明 strings/overrides 时存在
+```
+
+trusted-js 包没有顶层 `assets` 字段或 `host.assets` 接口。除了入口 JS 和已声明的 JSON resources，ZIP 中额外的图片、字体、源码文件都会被拒绝。视图所需的小图片可内嵌在 JS 中；manifest.icon 则直接内嵌在 manifest 中。源码目录与分发容器不是同一布局。
+
 ### trusted-js 插件级热重载
 
 安装与卸载只有在必要写入提交后才报告成功；失败会尝试恢复旧包、授权/启停状态和旧实例，正式包激活失败及商店批次回滚还恢复安装前 KV 快照。`host.storage.kv` 的读取、写入和删除失败会 reject，插件应等待 Promise 并处理错误。localStorage 不可用时不会把授权或启停写入伪装为成功，启动恢复错误会显示提示。持续存储故障也可能使补偿失败，此时明确报告“回滚失败”；不保证跨 localStorage/IndexedDB 的原子提交，文档与网络副作用也不属于安装回滚范围。
@@ -292,7 +360,7 @@ trusted-js 覆盖方启用后，目标插件的命令标题/分类、标题栏�
 }
 ```
 
-JSON 安装包将此对象放入 `resources["strings/zh-CN.json"]`；ZIP 将它保存为 `resources/strings/zh-CN.json`，manifest.json descriptor 不内联 resources。现有独立工具链尚未扩展自动收集此资源，制作时须遵守此容器布局。文件名不指定语言，使用 LocalizedText 映射指定 locale；映射必须含 default，最多 16 项，每个字符串最多 2048 字符，无 HTML。icons 使用相同 key 映射形状，值为宿主白名单 ActionIconV0。
+JSON 安装包将此对象放入 `resources["strings/zh-CN.json"]`；ZIP 将它保存为 `resources/strings/zh-CN.json`，manifest.json descriptor 不内联 resources。独立工具链会收集 manifest 声明的 overrides/strings JSON，制作时须遵守此容器布局。文件名不指定语言，使用 LocalizedText 映射指定 locale；映射必须含 default，最多 16 项，每个字符串最多 2048 字符，无 HTML。icons 使用相同 key 映射形状，值为宿主白名单 ActionIconV0。
 
 完整地址与限制见 PLUGIN.md“局部覆盖协议”。目标不存在的地址只产生诊断；核心行为字段不能覆盖。表单数组索引绑定目标版本，目标结构改变时应调整依赖版本范围和资源。`resolveOverridePayload` 返回过滤后的 payload 和 diagnostics；调用者应记录诊断，不得把原始 payload 当作对象补丁合并到 manifest。
 
@@ -358,3 +426,9 @@ JSON 包放入 `resources[entry]`，ZIP 保存为 `resources/<entry>`，与覆�
 宿主 `host.github` 凭据桥仅对 `github.auth` 提供者开放，PAT 验证通过后存入宿主独立 localStorage key，未加密，不进入插件 KV、包快照或公开结果。退出删除 PAT 并中断在途请求，禁用/卸载中断请求但保留宿主账号以便恢复。匿名 `network.request` 的授权头禁令不变；GitHub POST 由宿主注入凭据，只到固定 `https://api.github.com` origin，无 cookie/重定向/重试，JSON 请求 1 MiB、响应 8 MiB、超时 30 秒，继承离线开关。超时/取消不保证服务端未提交，调用者不可盲目重试。trusted-js 仍不是沙箱。
 
 插件 manifest 的可选 `icon` 为最多 64 KiB 字符的 PNG base64 data URL，跟随包摘要与安装记录保存，在已安装列表显示，禁止远程 URL/SVG。GitHub 官方图标来源与原文件保留在插件 assets 中。工具链 vendor 已同步 API/SDK；GitHub 插件 vendor 使用同步版本，其余旧插件无需重打包。
+
+### 歌词行与词块的只读提示
+
+`views.registerView` 支持 `kind: "word-adornment" | "line-adornment"`，视图接收 `{ targetId: string }`，显示于编辑器对应词块或行的右侧（编辑、打轴模式均可见）。通过 `document.readSnapshot()` 读取内容、`document.onChanged()` 订阅更新；不要读取宿主 atom 或操作编辑器 DOM。注册受 trusted owner 校验、插件命名空间与 scope 生命周期约束，异常视图由边界隔离。
+
+合集中的 `plugins/linter` 使用这两个插槽以及 `settings-view` 实现实时检查与规则等级设置；它不在出厂清单内。使用新增插槽的插件需要同步升级宿主，旧宿主没有该渲染位置。

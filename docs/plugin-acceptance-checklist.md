@@ -44,3 +44,10 @@ LRCLIB 已迁出；其余业务调用者、认证业务端口与真实服务/COR
 
 - 自动测试：PAT 验证后保存、错误不覆盖旧账号、身份结果不含敏感字段、存储错误传播；固定 GitHub origin、POST 请求预算、离线、退出/卸载取消；真实 registry 跨插件调用及停用清理；插件设置注册与 PNG 内嵌打包。
 - 手动待验收：新版宿主安装 ZIP，在插件管理器打开 GitHub 设置，真实 PAT 登录/重启恢复/退出；用受控仓库验证 POST、401/403 与网络失败；桌面 WebView 尚未验证。
+
+### 图标与包资源
+
+- manifest.icon：PNG data URL 长度上限包含前缀；拒绝远程 URL、SVG 和文件路径；用实际 ZIP 验证内嵌图标及摘要，核对功能插件本地卡片显示。
+- 主题 assets：验证 JSON base64 与 ZIP 原始二进制两种输入、MIME/名称/数量/体积限制、缺失引用和未声明文件拒绝；token/CSS 的 asset 引用可在应用后解析。
+- trusted-js：额外 assets 字段、非入口二进制文件应被拒绝；strings/overrides 保持 resources 布局。检查宿主、toolkit vendor 和插件 vendor 使用兼容 schema。
+- 上述为验收项目，不代表本次文档补充已重新执行全部运行测试；toolkit 主题 assets 自动收集仍未实现。
