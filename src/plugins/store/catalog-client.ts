@@ -1,9 +1,6 @@
 import type { RemotePluginCatalogV0 } from "@amll-ttml-tool/plugin-api";
 import { StoreProviderClient } from "./store-providers";
 
-const origin =
-	typeof window === "undefined" ? "http://localhost/" : window.location.href;
-const base = new URL(import.meta.env.BASE_URL ?? "/", origin);
 let storage: Storage | undefined;
 try {
 	storage = globalThis.localStorage;
@@ -14,7 +11,8 @@ export const storeProviderClient = new StoreProviderClient(
 	{
 		id: "official",
 		name: "官方商店",
-		catalogUrl: new URL("plugins/catalog.json", base).href,
+		catalogUrl:
+			"https://api.beta.amllhub.bikonoo.com/api/v1/store/catalog.json",
 		official: true,
 	},
 	storage,

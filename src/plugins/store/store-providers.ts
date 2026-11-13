@@ -16,6 +16,7 @@ export interface ProviderShelf {
 	provider: StoreProviderV0;
 	catalog: RemotePluginCatalogV0 | null;
 	fetchedAt?: number;
+	etag?: string;
 	error?: string;
 }
 export interface ProviderStorage {
@@ -83,6 +84,10 @@ export class StoreProviderClient {
 					const shelf = {
 						provider: restored,
 						catalog: parsed.ok ? parsed.value : null,
+						etag:
+							parsed.ok && typeof item.etag === "string"
+								? item.etag
+								: undefined,
 						fetchedAt:
 							typeof item.fetchedAt === "number" ? item.fetchedAt : undefined,
 					};
@@ -144,21 +149,30 @@ export class StoreProviderClient {
 				try {
 					const response = await this.request(original.provider.catalogUrl, {
 						cache: "no-store",
+						headers:
+							original.catalog && original.etag
+								? { "If-None-Match": original.etag }
+								: undefined,
 						credentials: "omit",
 						redirect: "error",
 						signal: AbortSignal.timeout(15000),
 					});
-					if (!response.ok) throw new Error(`HTTP ${response.status}`);
-					const raw = new TextDecoder().decode(
-						await readStoreResponse(response, 4 * 1024 * 1024),
-					);
-					const parsed = parseRemotePluginCatalog(JSON.parse(raw));
-					if (!parsed.ok) throw new Error("目录格式无效");
-					next = {
-						provider: original.provider,
-						catalog: parsed.value,
-						fetchedAt: Date.now(),
-					};
+					if (response.status === 304 && original.catalog) {
+						next = { ...original, fetchedAt: Date.now(), error: undefined };
+					} else {
+						if (!response.ok) throw new Error(`HTTP ${response.status}`);
+						const raw = new TextDecoder().decode(
+							await readStoreResponse(response, 4 * 1024 * 1024),
+						);
+						const parsed = parseRemotePluginCatalog(JSON.parse(raw));
+						if (!parsed.ok) throw new Error("目录格式无效");
+						next = {
+							provider: original.provider,
+							catalog: parsed.value,
+							fetchedAt: Date.now(),
+							etag: response.headers.get("etag") ?? undefined,
+						};
+					}
 				} catch (error) {
 					next = {
 						...original,
