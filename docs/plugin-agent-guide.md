@@ -1,216 +1,177 @@
-# 插件系统维护指南
+# 插件系统 Agent 指南
 
-状态：当前实现约束
+本文供编写插件和维护宿主的编码 Agent 使用，按 2026-11-14 当前工作区实现重写。只描述插件系统及公开 SDK，不记录内置插件的功能、命令、迁移历史或独立仓库用法。
 
-本文供维护插件系统的开发者和编码 Agent 使用。它说明应从哪里确认事实、改动应落在哪一层，以及合并前必须验证什么。插件作者请阅读 [插件开发指南](./plugin-development-guide.md)。
+完整方法、参数说明和简短 snippet 统一放在 [插件开发指南](./plugin-development-guide.md)。本指南说明如何判断能力是否真正可用、如何选用接口，以及修改系统时必须同步哪些位置。
 
-## 1. 权威来源
+## 1. 先确认事实，不凭名称猜 API
 
-发生冲突时，按以下顺序判断当前行为：
+按下面顺序核对：
 
-1. `packages/plugin-api/src/types.ts` 与 `schema/schemas.ts`
-2. `packages/plugin-api/src/parsers.ts`、`capabilities.ts`
-3. `packages/plugin-sdk-js/src/host.ts`
-4. `src/plugins`、`src/kernel`、`src/platform` 的实现与测试
-5. 仓库根目录 `PLUGIN.md`、本指南和开发指南
+1. [SDK host.ts](../packages/plugin-sdk-js/src/host.ts)：插件可调用的 TypeScript 表面。
+2. [types.ts](../packages/plugin-api/src/types.ts)、[Schema](../packages/plugin-api/src/schema/schemas.ts)、[parsers.ts](../packages/plugin-api/src/parsers.ts)：可跨包边界的数据、字段、枚举和运行时约束。
+3. [真实 host facade](../src/plugins/trusted/trusted-js-host-api.ts)、[端口接线](../src/plugins/trusted/trusted-js-host.ts)：方法是否接通、返回方式、身份限制。
+4. [加载服务](../src/plugins/trusted/trusted-js-service.ts) 与对应 adapter、kernel service：激活、事务、注册与清理的实际语义。
+5. 对应测试和真实 UI 消费方：能注册不等于界面一定会显示。
 
-`docs/plugin-protocol-v0.md` 由 `pnpm plugin:api:build` 生成，不入库，不能手改。当前协议为 experimental v0，但破坏性变更仍必须同时更新类型、Schema、parser、合同测试、生成文档和调用方。架构决策与信任边界以仓库根目录 `PLUGIN.md` 为准，不再维护单独的 ADR 文件。
+协议版本 `PLUGIN_API_VERSION`、`TRUSTED_JS_SDK_VERSION`、主题 API/token 当前均为 0。不要据此认定任意旧 tarball 都具备最新接口。`docs/plugin-protocol-v0.md` 为生成产物，生成入口是 `pnpm plugin:api:build`，不要手工修改它。
 
-## 2. 分层边界
+### 当前运行模型
 
-| 目录 | 职责 |
-| --- | --- |
-| `packages/plugin-api` | JSON 可表达的公开合同、Schema、解析器、权限规则 |
-| `packages/plugin-sdk-js` | trusted-js 强类型 facade、mock 和合同测试 |
-| `src/kernel` | 文档事务、命令、贡献点、格式、主题核心与资源所有权 |
-| `src/plugins/adapters` | 公开协议与宿主模型之间的转换、端口接线 |
-| `src/plugins/trusted` | trusted-js 准入、状态、factory 解析与安装 |
-| `src/plugins/store` | catalog、摘要校验、容器解包和安装路由 |
-| `src/plugins/ui` | 权限/consent、管理器、表单、视图宿主和诊断 UI |
-| `src/platform` | IndexedDB、网络、Blob URL、DOM 样式等环境适配 |
+- 外部功能插件使用 trusted-js：单文件 ESM，加载器执行模块的 `activate({ pluginId, host, signal })`，可返回 cleanup。
+- 外部主题使用 runtime none：token、CSS、assets/resources，经 parser 校验后应用，不执行 JS。
+- builtin 是宿主内部运行档；随应用交付的来源与 runtime 是不同维度。
+- 当前没有外部 Worker/RPC 插件运行档。trusted-js 具有应用级权限，SDK 不是沙箱。
+- manifest 的 `activationEvents` 不驱动当前 trusted-js 延迟激活。`contributes.commands/menus/settings/formats/titleBarActions` 不是自动执行器；功能必须在 activate 中通过 SDK 注册。
+- `contributes.strings`、`overrides`、`dependencies`、主题声明由相应资源/加载链路消费，不应与未自动注册的贡献项混为一谈。
 
-必须保持的边界：
+## 2. 按需求选现有接口
 
-- `plugin-api` 不依赖 React、DOM、Worker、Tauri 或内部歌词类型。
-- kernel 不依赖插件 UI 。
-- 插件不能直接写 Jotai atom；文档写入最终进入 `EditorDocumentService` 事务。
-- 所有跨信任边界输入都先经过 Schema/parser，再进入业务服务。
-- 命令、菜单、事件、视图、模式和格式必须归属一个 `ExtensionScope`，卸载时可整体释放。
+| 需求 | 应使用的接口 | 方法与 snippet |
+| --- | --- | --- |
+| 读取/修改歌词、Ruby、元数据 | document.readSnapshot / applyEdit / onChanged | [文档事务](./plugin-development-guide.md#5-文档选区与项目) |
+| 当前选区、定位行 | selection.get / onChanged、editor.revealLine | [选区](./plugin-development-guide.md#5-文档选区与项目)、[编辑器](./plugin-development-guide.md#7-表单通知与视图) |
+| 作为新导入打开歌词 | project.getInfo / importDocument | [项目](./plugin-development-guide.md#5-文档选区与项目) |
+| 操作入口与调用 | commands.register / execute、menus.register、titleBarActions.register | [命令和菜单](./plugin-development-guide.md#6-命令菜单与标题栏) |
+| 简单参数输入、通知 | ui.showForm / notify | [表单](./plugin-development-guide.md#7-表单通知与视图) |
+| 侧栏、设置页、对话框、附加标记、词编辑器 | views.registerView、ui.openView / closeView | [视图](./plugin-development-guide.md#7-表单通知与视图) |
+| 自定义编辑模式 | views.registerMode | [模式](./plugin-development-guide.md#7-表单通知与视图) |
+| 复用多选、拖拽和右键菜单 | editor.useLineList / LineContextMenu | [编辑器](./plugin-development-guide.md#7-表单通知与视图) |
+| 只读播放状态 | audio.getState / onChanged | [音频](./plugin-development-guide.md#8-音频与-bpm) |
+| 节拍显示、输入和校准 | bpm.connect / setTapMode / getTapKeyLabel / applyCalibration / getState / onChanged / setScale / setFollowPlaybackRate / setShowBeatLines / tap / reset | [BPM 全部方法](./plugin-development-guide.md#8-音频与-bpm) |
+| 分词与设置 | segmentation.isKanaOnly / getConfig / setConfig / segmentText | [分词](./plugin-development-guide.md#9-分词与罗马音预测) |
+| 编辑器罗马音建议 | romanization.registerPredictor | [预测](./plugin-development-guide.md#9-分词与罗马音预测) |
+| 文件格式转换 | formats.register | [格式](./plugin-development-guide.md#10-格式转换) |
+| 插件私有 JSON 持久化 | storage.kv.get / set / delete / keys | [存储](./plugin-development-guide.md#11-存储网络与专用桥接) |
+| 匿名 HTTP | network.request / isOffline | [网络](./plugin-development-guide.md#11-存储网络与专用桥接) |
+| 专用认证桥（普通插件不可调用） | github.authenticate / getIdentity / logout / post | [身份限制](./plugin-development-guide.md#11-存储网络与专用桥接) |
+| 国际化文案 | i18n.t / onLocaleChanged | [国际化](./plugin-development-guide.md#12-国际化依赖与覆盖) |
+| 主题样式、语言或图标覆盖 | manifest + 声明式包资源，没有对应 host 写入方法 | [资源](./plugin-development-guide.md#12-国际化依赖与覆盖)、[主题](./plugin-development-guide.md#13-主题能力) |
 
-## 3. 当前运行档
+除此之外还有 `definePlugin()` 身份函数、注册/订阅返回的 `DisposableV0.dispose()`，以及只读属性 sdkVersion、document.revision、i18n.locale。`editor.useLineList` 返回的 onPointerDown 是 React 手势回调；LineContextMenu 是组件。不要把它们误写成 commands.execute 的命令。
 
-### trusted-js
+以下接口不存在：`host.audio.play/pause/seek`、任意 `selection.set`、`host.theme`、通用文件系统、任意登录态网络请求、按 capability 自动生成的 `host.extensions` 对象。若需求超出 SDK，应明确提出宿主合同扩展，不导入私有 atom 或 Tauri API 冒充现有能力。
 
-用于经过准入的全权 ESM。它已正式实现，不得再按“保留值”或“一律拒绝”处理。非 factory 模块必须在 import 前经过来源、禁用/崩溃状态和 consent 检查。SDK host 负责兼容性、命名空间和资源回收，不构成安全隔离。
+## 3. 插件实现的最小完整路径
 
-开发模式与正式 trusted-js 同权，入口与授权文案必须明确可访问应用数据和当前登录态。仅开发包及授权限于会话，数据副作用不会自动撤销。保留 API/manifest 校验、来源展示、scope 清理、热重载失败恢复和正式安装崩溃恢复；不要为开发模式新增一套权限模型。桌面 Blob 与共享 React 验收复用 `tests/plugins/browser/README.md` 的原生 WebView 步骤。
+1. 使用独立 toolkit 创建项目，确认 vendor API/SDK 与目标宿主匹配。
+2. 确定最小的公开数据操作与 UI 入口；命令/视图/格式使用插件自己的 ID 前缀。
+3. 在 activate 注册；不要在模块 import 顶层修改宿主状态。
+4. 数据从公开快照读取，写入只通过 applyEdit 或 project.importDocument。
+5. 处理错误、取消和卸载，最后验证打包产物在真实宿主的行为。
 
-### theme
+### 文档编辑模式
 
-不执行代码。token、CSS 与资源引用必须通过解析器；主题不能覆盖带 `data-amll-protected` 的权限、插件管理和恢复 UI。应用主题、预览主题、用户 override 和安全模式是不同状态，不要合并写入。
-
-激活集按 global / pluginId 分组，更新 UI 时使用 `activeThemeIds`，旧 `activeThemeId` 仅表示全局主题。同作用域替换与启动恢复冲突必须保留受保护的确认/撤销入口，不能降级为 toast。锚点由宿主视图包装生成，不能包住表单或安全 UI。作用域 token 不得写 `:root` 或 html flag；用户层必须在作用域后代上声明 token，单纯根上的继承无法战胜后代声明。CSS `@scope` 下边界与目标 part 重校验不要删去；旧 WebView 支持需平台实测。
-
-回归集中在 `tests/kernel/theme/scoped-themes.test.ts`：协议负例、多作用域、冲突撤销、启动仲裁、依赖缺失和全量恢复。真实浏览器需额外检查计算样式、受保护对话框、宿主锚点及 portal 表单隔离；临时主题不可加入 factory/catalog 引用。
-
-面向用户的主题或插件冲突提示应直接点名双方，例如“「XX」主题与「YY」主题产生冲突，无法同时使用”，并说明当前使用哪一个、如何恢复。不要用“作用域重合”等技术概念解释操作结果；不同商店的同名插件应同时显示来源，便于区分。
-
-### builtin 与 factory
-
-`builtin` 是宿主核心运行档；factory 是随应用交付的 trusted-js 来源。两者不是同一个维度。当前 `builtin.time-shift`、`builtin.sync-line-timestamps`、`builtin.plain-text-import`、`builtin.formats` 由各自外置仓库产生锁定 artifact。Tauri 启动参数中的文件在 `factoryPluginsLoaded` 之后才打开，保证出厂格式 provider 已注册，构建期校验 SHA-256 并生成 loader；高版本安装包可遮蔽 factory，pin 后回退到随应用副本。
-
-## 4. 改动流程
-
-### 修改公开协议
-
-1. 修改 `plugin-api` 类型与版本常量。
-2. 同步 Schema、parser、跨字段约束、capability/permission 映射。
-3. 增加 parser、JSON Schema 和 mock host 合同测试。
-4. 更新 SDK 与真实宿主实现。
-5. 运行 `pnpm plugin:api:build` 生成协议文档和包。
-6. 更新开发指南，并检查独立插件/toolkit 是否需要同步。
-
-仅增加 TypeScript 类型是不完整的；跨边界字段如果没有运行时校验，等同于没有合同。
-
-### 增加宿主能力
-
-先判断它属于：公开文档操作、平台端口、contribution，还是 trusted-js 专用能力。安全敏感能力必须有独立 capability、默认拒绝策略、输入上限、取消语义和错误映射。不得把内部对象、凭据、文件句柄或 Tauri API 直接交给插件。
-
-### 增加 contribution
-
-静态声明放入 manifest；动态注册只开放给 trusted-js SDK。注册必须校验 owner 命名空间和冲突，返回 disposable，并由 extension scope 接管。UI 只渲染声明式数据或明确受信任的 React view。
-
-### 修改安装或分发
-
-底层 ZIP/JSON 容器处理应复用同一链路（用户导入入口只接受 ZIP）：容器识别 → 安全解包 → 对应 package parser → 授权/consent → 持久化 → 加载。catalog 中的 trusted-js 裸 ESM 不经过容器，但必须经过 catalog parser、同源解析和唯一的 trusted-js 加载闸门。商店 artifact 还要校验可选 SHA-256 和 catalog/package 身份。不要创建绕过语义校验或加载闸门的“开发快捷路径”。
-
-## 5. 不变量检查
-
-Manifest 与包：
-
-- 功能/主题判别联合保持互斥。
-- 插件、command、view、mode、format ID 受命名空间约束。
-- ZIP 拒绝路径穿越、重复、未声明文件和解压炸弹。
-- 安装持久化回归位于 `tests/plugins/trusted/installed-trusted-js.test.ts`、`trusted-js-state-storage.test.ts`、`tests/kernel/theme/ThemeService.packageStore.test.ts` 和本地导入测试：提交等待、写盘/状态失败、卸载恢复、KV 快照与回滚失败必须覆盖。`node tests/platform/storage/extensions.browser-check.mjs` 使用专用 Chromium profile 验证真实 IndexedDB 事务；可用 `CHROME_EXECUTABLE` 指定浏览器。不得吞掉 KV/localStorage 写入错误，跨 localStorage/IndexedDB 使用补偿并保留回滚失败诊断。
-- toolkit 的 `pnpm test` 覆盖开发内联 source map 的模块/源码行映射、编译失败保留旧输出和正式构建不含映射；宿主只为 dev Blob 添加 sourceURL，正式包摘要仍绑定原始代码字节。
-- 修改 toolkit ZIP 打包或压缩依赖时运行其 `tests/reproducibility.test.mjs`；固定摘要基线覆盖 Unicode 排序、语言/时区、文件 mtime、trusted-js/theme 与 catalog 一致性。保留三平台 CI，摘要变化必须审阅原因，不自动更新基线。此合同要求相同输入字节和锁定依赖。
-- trusted-js 入口只接受单文件 ESM；代码和表单 payload 有明确上限。
-
-文档与生命周期：
-
-- 编辑按稳定 ID 定位，失败不部分提交。
-- 跨异步边界使用 revision 冲突保护。
-- 插件自身产生的文档事件不能形成回灌循环。
-- 禁用保留包与 KV；卸载删除包、授权/consent、状态和 KV。
-- 停用先阻止新调用并取消在途工作，再 cleanup/dispose，最后关闭 runtime。
-
-安全与 UI：
-
-- trusted-js consent 在执行任何插件代码之前完成，内容变化重新 consent。
-- 主题和插件内容不能覆盖受保护恢复入口。
-- 网络端口不带凭据，遵守离线开关、URL/头部规则、大小上限和取消。
-
-## 6. 验证矩阵
-
-最小命令：
-
-```sh
-pnpm plugin:api:check
-pnpm plugin:sdk:check
-pnpm lint:boundaries
-pnpm test
-pnpm build
+```ts
+const snapshot = host.document.readSnapshot();
+const form = await host.ui.showForm({
+  title: "设置译文",
+  fields: [{ kind: "text", key: "translation", label: "译文", default: "" }],
+});
+const line = snapshot.lines[0];
+if (form.submitted && line && !signal.aborted) {
+  const result = host.document.applyEdit(
+    [{ op: "updateLine", lineId: line.id, patch: { translation: String(form.values.translation) } }],
+    "设置译文",
+    { expectedRevision: snapshot.revision },
+  );
+  if (!result.ok) host.ui.notify({ level: "error", message: result.error.message });
+}
 ```
 
-`pnpm lint:boundaries` 使用 dependency-cruiser 校验依赖方向，再由 Biome 的路径 overrides 检查宿主全局与受限导入，最后运行不足 100 行的 AST 菜单/文档写入检查。修改这些规则时另跑 `pnpm lint:boundaries:test`：该命令创建并清理临时负例，验证跨层别名/相对导入、state 层 fetch、内联菜单回调、Worker 资源、纯算法与 SDK React 类型边界。不得以跳过 dependency-cruiser 的局部检查替代完整验收。
+同批 ops 是一次原子事务、一次 revision、一次撤销。跨异步边界保留原 revision，冲突时重新读取/计算或让用户重试，不自动去掉保护。行、词按稳定 ID 定位；不能依赖旧数组下标。setMetadata 是全量替换；Ruby 的 null 与空数组语义不同。
 
-协议验证还必须证明类型、JSON Schema 与 parser 对相同样例得出一致结论；parser 覆盖命名空间、跨字段、包载荷和恶意输入；`MockTrustedJsHost` 与真实宿主运行同一合同测试。生成器检查提交中没有协议文档漂移，行为测试覆盖原子性、revision 冲突、权限、限额、取消和卸载。
+自发事件防回灌：
 
-按改动范围补充：
+```ts
+host.document.onChanged(event => {
+  if (event.sourcePluginId === pluginId) return;
+  console.log(event.changedLineIds);
+});
+```
 
-- API/Schema：`tests/plugin-api/**`
-- trusted-js SDK/真实宿主：`tests/plugin-sdk-js/**`、`tests/plugins/trusted/**`
-- 包、catalog、安装：`tests/plugins/store/**`、`tests/plugins/adapters/**`
-- 主题：`tests/kernel/theme/**`、`tests/plugins/builtin/themes/**`
-- contribution/UI model：`tests/kernel/extensions/**`、`tests/plugins/ui/**`
+时间单位：歌词/词/Ruby/音频状态为毫秒；BPM tick、anchorTick 和 tap 为秒。不要通过统一的“时间”类型掩盖单位差异。
 
-涉及 WebView、Worker、文件选择、IndexedDB、PWA 或 Tauri 时，自动化测试不能替代真机冒烟。验收步骤见 [插件验收清单](./plugin-acceptance-checklist.md)。
+### 注册与清理模式
 
-## 7. 交付说明
+```ts
+const registration = host.commands.register({
+  id: `${pluginId}.run`, title: "执行示例", handler: () => console.log("run"),
+});
+host.menus.register({ command: `${pluginId}.run`, menu: "menu.tool" });
+// 宿主自动释放；需要提前撤回时才调用 registration.dispose()。
+```
 
-提交说明至少写清：
+宿主拥有 SDK 注册、订阅与打开的视图。插件拥有自己的定时器、原生监听器和额外资源，必须返回 cleanup。React 组件内订阅还应随组件卸载 dispose，不能仅等待插件停用。异步操作检查 signal；停用后不要尝试继续调用宿主修改方法。
 
-- 改动的公开合同及兼容性影响
-- 影响的运行档、来源与持久化数据
-- 新增或改变的安全边界
-- 已运行的自动化与人工验证
-- 未完成的跨平台验证或已知风险
+### 错误处理模式
 
-不要用“协议中已有字段”代表功能已接通，也不要用单个 mock 测试代表真实宿主、持久化和卸载路径已经完成。
+区分三种结果：
 
-## 统一管理入口
+- `HostResult<T>`：先判断 ok，再读 value 或 error。
+- 普通返回值：例如 FormResult 的 submitted、GithubIdentity 的 status，不能套用 HostResult。
+- 抛错/拒绝：例如非法注册、不可用命令、存储失败，必须在用户操作边界捕获。
 
-首选项中的插件管理子页复用设置 Dialog.Content，保留 `data-amll-protected` 和 body portal；返回导航恢复原设置页。工具菜单不再提供商店入口。管理列表只订阅 `pluginInstallationService`，功能与主题 runtime 状态保留在 installation 附加字段，不在 UI 分别订阅两个 service。主题包安装、更新与卸载在管理器完成；主题设置继续负责预览、应用、恢复默认和用户 override。
+network.request 还需判断内层 HTTP response.ok。不要把 404 当成功，也不要声称所有超时都会返回 timeout；当前网络适配器通常返回 network-unavailable。
 
-边界完整负例与合法对照由 `pnpm lint:boundaries:test` 在临时项目快照运行，保持真实配置和路径，不修改源码目录；桌面构建 quality job 必须运行该检查。
+## 4. 宿主源码职责
 
-## 局部覆盖协议维护与验收
+| 位置 | 职责 |
+| --- | --- |
+| packages/plugin-api | 公开 JSON 合同、Schema、parser、资源与主题校验 |
+| packages/plugin-sdk-js | trusted-js 类型表面、definePlugin、测试 mock |
+| src/kernel/editor | 文档事务、历史和稳定 ID 操作 |
+| src/kernel/extensions | owner scope、贡献 registry、冲突和释放 |
+| src/kernel/theme | 主题状态、作用域、预览/应用/恢复 |
+| src/plugins/adapters | 协议到内部模型的转换和宿主服务适配 |
+| src/plugins/trusted | consent、加载、依赖、安装状态和 host facade |
+| src/plugins/store | catalog、摘要、容器、安装路由 |
+| src/plugins/ui | 声明式表单、React view 宿主、管理和受保护 UI |
+| src/platform | IndexedDB、网络、样式与浏览器环境实现 |
 
-manifest、payload Schema 与包语义门禁位于 plugin-api；JSON/ZIP 使用同一个 resources 合同。新增字段必须保持只允许 LocalizedText 与白名单图标的边界，不能用通用对象 merge 实现。未知 key 由 resolveOverridePayload 过滤并返回 diagnostics，后续运行时必须记录覆盖方与目标身份；目标缺失不在安装时伪造白名单。
+plugin-api 不依赖 React/DOM/Tauri 或内部歌词类型；kernel 不依赖插件 UI。SDK 允许 React 类型但不引入宿主私有类型。插件 UI 写文档必须经过同一文档事务入口。
 
-合同测试：`tests/plugin-api/overrides.test.ts` 覆盖依赖、路径、HTML/大小/语言数、图标白名单、未知及禁止字段与嵌套表单；`tests/plugins/store/package-container.test.ts` 覆盖 ZIP 资源；`tests/plugins/trusted/installed-trusted-js.test.ts` 覆盖存储恢复、资源篡改摘要与运行时字符串表；`tests/plugin-api/strings.test.ts` 覆盖字符串表合并、default/locale 规则与 `/strings/<key>` 地址；`i18n` 在 mock（`tests/plugin-sdk-js`）与真实宿主（`trusted-js-host-api.test.ts`）各有一条。字符串表与覆盖共用 `resources`，修改上限需同步 `packageResources` 的 maxProperties。修改时运行这些测试、plugin-api/store 测试、API/宿主类型检查和边界 lint。运行时覆盖层：`tests/kernel/extensions/OverrideLayer.test.ts` 覆盖 getter 读取、locale 合并、最后启用者胜出、按 enabledAt 而非加载顺序排序、key+locale 冲突报告与覆盖链、dispose 回退、不新增字段与 builtin 隔离；`tests/plugins/trusted/plugin-overrides.test.ts` 经真实加载器覆盖激活注册、诊断日志（含 id/handler/能力/激活事件被拒）、卸载回退、目标缺失、`i18n.t`、跨重启的启用顺序及冲突提醒的去重；`tests/plugins/adapters/format-commands.test.ts` 覆盖派生命令标题。消费方必须读取 registry 记录的字段（getter），不得在注册时拷贝 LocalizedText 快照。真实 Chromium 生产编译 UI 回归已于 2026-10-20 通过，步骤及平台/消费者边界见 [局部覆盖验收记录](local-overrides-acceptance.md)。冲突提示早于胜者实例发布，修改弹窗时须保留运行实例订阅，避免首次加载只显示 id。
+## 5. 修改系统时的同步清单
 
-### 节拍器出厂插件（2026-10-26）
+### 修改公开方法或数据
 
-独立源码位于同级 `amll-ttml-tool-plugin-metronome/`，插件 id 为 `builtin.metronome`，侧栏 id 为 `builtin.metronome.sidebar`。宿主仅消费 factory lock 锁定的 ZIP；原 BPM 面板与两个业务 hook 已删除。BPM 分析与波形共用的 worker、播放时钟/硬件延迟、快捷键配置及频谱绘制保留在宿主。
+同步 SDK 类型 → API 类型/Schema/parser（涉及 JSON 合同时）→ 真实 host facade → 平台端口接线 → mock → 合同/行为测试 → 开发指南的方法和 snippet。检查所有调用方，不能只让接口类型编译通过。
 
-`host.bpm.connect(sidebarViewId, onTap)` 取得唯一显示/输入连接，返回可释放句柄；host dispose 自动释放。`setTapMode` 切换键盘/频谱输入，`tap` 无参数时按宿主音频时钟、输出延迟及按键判定校准，传值时单位为秒。插件负责最近十拍窗口、BPM/锚点计算，经 `applyCalibration` 提交；`reset` 恢复本次音频的原始分析。`getTapKeyLabel` 显示用户当前快捷键，输入绑定随设置更新。BPM scale 限制为 1/64–64，结果校验拒绝非法数值和超过十万个 tick；所有 tick 与 anchorTick 均为秒。
+新增 JSON 字段检查未知字段、大小限制、枚举、命名空间和跨字段约束。仅增加 TypeScript 类型不构成运行时验证。若改变 capability 名称，还需同步能力表及相关校验；不能将其描述成 trusted-js 不存在的沙箱授权。
 
-禁用时隐藏侧栏、音频 BPM 入口、频谱拍线与开关，停止打拍并解除订阅；保留用户跟随倍速/拍线偏好，重新启用恢复。旧 `bpm` 标签记录映射到新 id；校准提示改存插件 KV。手动校准结果与原来一样属于当前音频会话，重新启动后重新分析，不保存为项目内容。
+对外发布前构建 API/SDK 包，并在消费者仓库同步 tarball/lockfile；不要在本文加入消费者业务实现或历史记录。
 
-### 大纲出厂插件（2026-10-27）
+### 修改 contribution
 
-独立项目为同级 `amll-ttml-tool-plugin-outline/`，插件 id 为 `builtin.outline`，侧栏 id 为 `builtin.outline.sidebar`。宿主仅按 `factory-plugins.lock.json` 消费已打包 ZIP，不编译插件源项目。列表、背景行编号、对唱样式及原有语言文案归插件；旧 OutlinePanel 和 ribbon 固定入口已删除。旧 `outline` 标签页配置自动映射到插件 id，默认展开行为保留。
+先查 registry 和 UI 消费方。所有注册归属 ExtensionScope，校验命名空间、数量和冲突，返回可释放句柄。动态 React 视图仅用于 trusted-js；声明式表单/标题栏按钮不得变成任意 HTML 或回调 payload。修改文本消费方时保留覆盖层 getter，不能将可变本地化文案永久复制为快照。
 
-新增公开 `host.editor`：`revealLine(id)` 验证行存在、选中该行并滚动编辑器；React hook `useLineList(containerRef)` 复用宿主多选、拖拽复制/排序和撤销事务；`LineContextMenu` 包装一行并复用完整右键菜单（含插件贡献）。行容器必须提供 `data-line-id` / `data-absolute-index`，插入指示器读取 `--drop-indicator-display` / `--drop-indicator-y`。编辑模式外只保留选择，禁止拖拽修改和右键编辑；卸载或组件卸载取消手势。SDK Mock 支持 reveal/选区断言，DOM 手势需在浏览器验证。SDK 仍是 v0 开发快照，此插件要求包含这些端口的新宿主，旧宿主不兼容。
+### 修改安装、更新和开发加载
 
-### 元数据编辑器迁移（2026-10-29）
+保留容器识别、安全解包、包 parser、身份/摘要、consent、持久化、加载的完整路径。用户导入为 ZIP；不要用仅能解析的内部 JSON 结构承诺新的 UI 安装入口。拒绝路径穿越、重复/未声明文件、超大解压、任意远程模块依赖。
 
-独立源码位于同级 `amll-ttml-tool-plugin-metadata/`，插件 id 为 `builtin.metadata`。通过 `document.readSnapshot/onChanged/applyEdit` 和 `setMetadata` 更新元数据，每次操作校验 revision 并保留一次撤销；失败通过 `ui.notify` 告知。字段、校验、拖放去重、自定义键、平台图标和语言文案归插件，UI 使用共享 React/Radix 的 `dialog-view`（`size: "full"`），插件样式限定于自己的 scope 所在对话框，保留 920×680 的无外边距双栏布局；宿主标题仅视觉隐藏，继续提供无障碍名称。编辑菜单原槽位仅在 `builtin.metadata.run` 注册时显示；卸载关闭对话框并清理订阅，重新打开从当前文档读取数据。无新增 SDK 端口或插件存储；文件名推导、默认作者及文件保存流程留在宿主。
+非随应用捆绑代码在 import 前完成来源、禁用/崩溃、consent 检查；内容变化重新确认。开发加载只复用当前会话授权，不删除校验、scope 清理和失败恢复。禁用保留包与 KV，卸载清理包、状态、consent 和 KV。持久化失败必须向上传播；跨存储变更需要补偿，补偿失败也必须可诊断。
 
-宿主只消费 `factory-plugins.lock.json` 锁定 ZIP。插件侧运行 `pnpm test`、`pnpm run pack`；宿主运行 `tests/plugins/trusted/migrated-artifacts.test.ts` 与 `node tests/plugins/browser/metadata.browser-check.mjs http://127.0.0.1:5188/`。出厂副本与插件 `dist/plugins/store` 使用同一摘要；远端发布和 Tauri 平台验收仍待完成。
+### 修改主题与覆盖
 
-### Ruby 维护边界（2026-10-29）
+主题不能覆盖受保护管理/恢复 UI。保持全局与插件作用域、预览与应用、用户 override 的区分。作用域 token 不写到 :root，受保护表单 portal 不落入插件样式锚点。冲突保留明确的确认/撤销入口。覆盖资源只替换发布的 LocalizedText/白名单图标，不做通用对象 merge，不替换行为字段。
 
-`builtin.ruby` 源码在同级 `amll-ttml-tool-plugin-ruby/`。已适配补丁 `45494a142508c2a6876868213e87d3b0d423177e`，生成排除/最后项删除逻辑归插件，标点识别与原生导出清洗归共享宿主服务。不要恢复旧 RubyEditor、生成器或 TopMenu handler。
+## 6. 按范围验证
 
-词级视图仅拿公开投影；宿主 `WordEditorContributions` 用稳定快照订阅（不可只调用后忽略 revision，React 编译优化可能缓存已卸载视图）。`applyWordTextInput` 在现有事务中执行并校验插件 patch，禁用后 `|` 应保留为普通文本。`ruby: null` 与 [] 的语义不可混淆。批量分词/应用须在异步等待后校验原 revision。
+| 改动 | 检查入口 |
+| --- | --- |
+| 类型与协议 | `pnpm plugin:api:check`、`pnpm plugin:sdk:check`、tests/plugin-api |
+| SDK 与真实宿主 | tests/plugin-sdk-js、tests/plugins/trusted |
+| 文档事务与贡献点 | tests/kernel、tests/plugins/adapters、tests/plugins/ui |
+| 包、catalog、持久化 | tests/plugins/store、tests/platform、tests/plugins/trusted |
+| 主题 | tests/kernel/theme、对应 UI/browser 用例 |
+| 分层依赖规则 | `pnpm lint:boundaries`；修改规则再跑 `pnpm lint:boundaries:test` |
+| 生成包/协议 | `pnpm plugin:api:build`，检查生成内容与 tarball |
+| 整体构建 | `pnpm test`、`pnpm build`；需要宿主 TS 检查时使用 `pnpm build:tsc` |
 
-共享 `host.segmentation` 暂复用宿主算法/设置。词级工具与罗马音算法在 `builtin.word-tools`（`builtin.segmentation` 依赖它），不要恢复宿主 split-word/ReplaceWord/SyllableSmoothing/DistributeRomanization 或 Transliteration 分配器；宿主只保留 `isKanaOnly`、预测 provider 槽位与 `PINNED_FACTORY_COMMANDS` 入口。API/SDK 新接口的 tarball 已更新 Ruby/toolkit vendor，宿主 lock 必须与 Ruby dist ZIP 字节一致。回归入口见架构文档“Ruby 编辑器迁移”和验收清单。
+SDK mock 与真实 host 应运行同一合同测试。新非平凡逻辑至少增加一个验证真实行为的测试；不要写只复述实现的测试。纯文档更新核对方法覆盖、snippet 类型和链接即可，不为此改动运行时或重新发布包。
 
+自动化测试不能替代 React 手势、CSS 作用域、受保护 UI、真实 IndexedDB、文件选择和桌面 WebView 验收。步骤参考 [插件验收清单](./plugin-acceptance-checklist.md) 与 [浏览器验收入口](../tests/plugins/browser/README.md)。
 
-### 网络服务基础设施
+## 7. 交付要求
 
-`src/platform/network/NetworkService.ts` 是共用传输，`src/plugins/adapters/plugin-network.ts` 保留匿名协议门禁；现有离线 atom 和存储 key 保持兼容。新宿主业务接入层须注入同一个离线状态，并自行选择固定 API/代理路由、管理凭据、校验 JSON、解释业务状态；不可向插件转交任意带凭据的请求接口。参考测试分支的 GitHub/PAT、歌词站 JSON/PATCH、NCM cookie 和音频进度需求，基础设施支持 RequestInit、二进制、进度、有限超时/大小预算，不内置服务名称；默认不重试。宿主 GET 下载可显式传 `retries: 1–5`，网络中断时退避并尝试基于强 ETag 的 Range 续传；缺元数据从头下载，版本/范围不一致拒绝拼接，超时为所有尝试共用期限。SDK/API 未改，无需重打插件 artifact。
-
-验证入口：`tests/platform/network/NetworkService.test.ts`、`tests/plugins/adapters/plugin-network.test.ts`、`tests/plugins/trusted/migration-ports.test.ts`、`tests/plugin-api/network.test.ts`。LRCLIB 已迁至 `../amll-ttml-tool-plugins/plugins/lrclib/` 并接入端口；提交、更新与其他原 fetch 调用尚未迁移，不能把开关描述成全应用断网。
-
-
-### LRCLIB 维护边界
-
-不要恢复 `src/modules/lrclib` 或旧 `core.file.import.lrclib` 命令。插件实现和算法测试归总仓库的 lrclib 子包，宿主保留锁定 ZIP、原菜单位置和真实宿主/浏览器合同。修改插件后运行子包 test/pack，按 catalog 的 sha256 更新宿主 vendor/plugin-store 与 factory lock；不用更改其他子包或重新打 SDK。公共导入流程须保持确认前 revision 和取消信号直到异步项目匹配后的提交点。
-
-### GitHub 外置身份提供者（2026-11-10）
-
-`amll-ttml-tool-plugins/plugins/github` 的 `github.auth` 为非内置插件，设置页通过 `settings-view` 注册到插件管理器；不加入 factory lock。调用者声明 `{ "id": "github.auth", "version": "^1.0.0" }` 依赖，经 `host.commands.execute("github.auth.getIdentity")` 获取 `GithubIdentityV0`，经 `host.commands.execute("github.auth.post", { path, body })` 获取 `HostResult<HttpResponseV0>`。提供者停用后命令消失；依赖只解决顺序与可用性，不授予账号权限。
-
-宿主 `host.github` 凭据桥仅对 `github.auth` 提供者开放，PAT 验证通过后存入宿主独立 localStorage key，未加密，不进入插件 KV、包快照或公开结果。退出删除 PAT 并中断在途请求，禁用/卸载中断请求但保留宿主账号以便恢复。匿名 `network.request` 的授权头禁令不变；GitHub POST 由宿主注入凭据，只到固定 `https://api.github.com` origin，无 cookie/重定向/重试，JSON 请求 1 MiB、响应 8 MiB、超时 30 秒，继承离线开关。超时/取消不保证服务端未提交，调用者不可盲目重试。trusted-js 仍不是沙箱。
-
-插件 manifest 的可选 `icon` 为最多 64 KiB 字符的 PNG base64 data URL，跟随包摘要与安装记录保存，在已安装列表显示，禁止远程 URL/SVG。GitHub 官方图标来源与原文件保留在插件 assets 中。工具链 vendor 已同步 API/SDK；GitHub 插件 vendor 使用同步版本，其余旧插件无需重打包。
-
-### 维护 icon / assets 时的检查点
-
-- 先区分 manifest.icon、主题包顶层 assets、ZIP assets/ 目录和 JSON resources，字段及实例见 [开发指南](./plugin-development-guide.md#图标资源字段与-zip-布局)。目前不存在通用 `manifest.assets`、trusted-js 顶层 assets 或 `host.assets`。
-- icon 校验由 `PluginManifestBase` / `baseManifestProperties` 定义；主题资源由 `ThemePackageV0` / `THEME_PACKAGE_SCHEMA` / `parseThemePackage` 定义；ZIP 布局以 `src/plugins/store/package-container.ts` 为准。不要只改 TypeScript 类型而遗漏 schema、解包和安装校验。
-- 修改图标或资源后重打包、更新摘要，验证“实际 ZIP → unpackPluginContainer → 对应包 parser”，不能只验证项目 manifest。toolkit vendor 的 API/SDK 也要同步；旧宿主 schema 不会自动接受新增字段。
-- toolkit 当前只收集入口 JS、主题 tokens/styles、声明的 strings/overrides JSON；不要把宿主可解析主题 assets 写成 toolkit 已支持自动打包。包内无远程图标下载；catalog 与各卡片实际显示能力分别验证。
+说明修改了什么公开合同、影响哪些调用方、验证了哪些行为，以及仍未验证的平台。不要将“Schema 接受字段”“mock 有方法”“某次旧验收通过”写成当前真实宿主已可用的证据。文档保持面向当前能力；插件业务、专有命令和发布记录留在插件自己的仓库。
