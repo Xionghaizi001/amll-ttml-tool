@@ -44,7 +44,7 @@ export type Result<T> =
 	| { success: true; data: T }
 	| { success: false; error: JsError };
 
-/** 需要在导入时剔除的元数据键 */
+/** 降级为 AMLL 简化结构时剔除的元数据键 */
 const IGNORED_METADATA_KEYS = new Set(["timingMode", "language"]);
 
 /** 导入时需要重命名的元数据键 */
@@ -83,6 +83,8 @@ function processorMetadataToApp(
 	metadata: TTMLResult["metadata"],
 ): AppTTMLMetadata[] {
 	const result: AppTTMLMetadata[] = [];
+	appendMetadata(result, "language", [metadata.language ?? ""]);
+	appendMetadata(result, "timingMode", [metadata.timingMode ?? ""]);
 	appendMetadata(result, "musicName", metadata.title);
 	appendMetadata(result, "artists", metadata.artist);
 	appendMetadata(result, "album", metadata.album);
@@ -114,6 +116,12 @@ function appMetadataToProcessor(
 		if (!values.length) continue;
 
 		switch (item.key) {
+			case "language":
+				result.language = values[0];
+				break;
+			case "timingMode":
+				result.timingMode = values[0];
+				break;
 			case "musicName":
 			case "title":
 				result.title = [...(result.title ?? []), ...values];
@@ -140,7 +148,7 @@ function appMetadataToProcessor(
 			default:
 				if (PLATFORM_METADATA_KEYS.includes(item.key as PlatformId)) {
 					platformIds.set(item.key as PlatformId, values);
-				} else if (!IGNORED_METADATA_KEYS.has(item.key)) {
+				} else {
 					rawProperties.set(item.key, values);
 				}
 		}
