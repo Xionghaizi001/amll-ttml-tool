@@ -39,9 +39,9 @@
     },
     {
       "id": "builtin.metadata",
-      "version": "1.0.0",
-      "sha256": "3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10",
-      "source": "vendor/plugin-store/3763d4f619589fcdb795729467ab752524be080d1a851752cbfac180cfd26d10.zip"
+      "version": "1.1.0",
+      "sha256": "bac6993c012c3d848c834eb67089d495f1fa148881278bc31fcd682fcd92a6dd",
+      "source": "vendor/plugin-store/bac6993c012c3d848c834eb67089d495f1fa148881278bc31fcd682fcd92a6dd.zip"
     },
     {
       "id": "builtin.ruby",
