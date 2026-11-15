@@ -86,14 +86,17 @@ function sourceLines(root: Node, omit = excluded): SourceLine[] {
 	return lines;
 }
 
-const lineText = (runs: SourceLine) =>
-	runs
-		.map(({ text }) => text)
-		.join("")
-		.trim();
+const joinRuns = (runs: SourceLine) => runs.map(({ text }) => text).join("");
+const lineText = (runs: SourceLine) => joinRuns(runs).trim();
+const styleMarks = (runs: SourceLine) =>
+	new Set(
+		runs
+			.filter(({ text }) => /[\p{L}\p{N}]/u.test(text))
+			.map(({ style }) => style),
+	);
 
 function splitBackground(line: SourceLine) {
-	const full = line.map(({ text }) => text).join("");
+	const full = joinRuns(line);
 	const stack: string[] = [];
 	const groups: { start: number; end: number; text: string }[] = [];
 	let start = 0;
@@ -173,8 +176,7 @@ const singerNames = (text: string) =>
 			.filter(Boolean),
 	);
 
-function parseHeader(runs: SourceLine) {
-	const text = lineText(runs);
+function parseHeader(text: string, runs: SourceLine) {
 	const bracket = /^\[([^\]]+)\]$/.exec(text);
 	if (!bracket || bracket[1].includes("[")) return;
 	const colon = text.search(/[:：]/);
@@ -212,11 +214,7 @@ function parseHeader(runs: SourceLine) {
 	for (const group of groups) {
 		const names = singerNames(lineText(group));
 		singers.push(...names);
-		const marks = new Set(
-			group
-				.filter(({ text }) => /[\p{L}\p{N}]/u.test(text))
-				.map(({ style }) => style),
-		);
+		const marks = styleMarks(group);
 		if (marks.size !== 1 || names.length === 0) continue;
 		const mark = [...marks][0];
 		if (!styles.has(mark)) styles.set(mark, names);
@@ -230,17 +228,33 @@ function parseHeader(runs: SourceLine) {
 	};
 }
 
+function singersForLine(
+	runs: SourceLine,
+	singers: string[],
+	styles?: Map<number, string[]>,
+): string[] {
+	if (!styles) return singers;
+	const names: string[] = [];
+	for (const mark of styleMarks(runs)) {
+		const matching = styles.get(mark);
+		if (!matching) return singers;
+		names.push(...matching);
+	}
+	return names.length ? uniqueNames(names) : singers;
+}
+
 function annotate(lines: SourceLine[]): AnnotatedLine[] {
-	// Genius may include a localized song title in the lyrics themselves.
-	// Only the first non-empty line can be this title; later brackets may be sung.
-	const firstLine = lines.findIndex((line) => lineText(line) !== "");
 	const titleHeading =
 		/^\[[^[\]]*(?:"[^"]+"|“[^”]+”|‘[^’]+’)\s+(?:가사|lyrics)\s*\]$/i;
-	const parsed = lines.flatMap((line, index) =>
-		index === firstLine && titleHeading.test(lineText(line))
-			? []
-			: [{ line, header: parseHeader(line) }],
-	);
+	const nonempty = lines
+		.map((line) => ({ line, text: lineText(line) }))
+		.filter(({ text }) => text);
+	// Only the first non-empty line can be the title; later brackets may be sung.
+	if (nonempty[0] && titleHeading.test(nonempty[0].text)) nonempty.shift();
+	const parsed = nonempty.map(({ line, text }) => ({
+		line,
+		header: parseHeader(text, line),
+	}));
 	const knownSingers = new Set(
 		parsed
 			.flatMap(({ header }) => header?.singers ?? [])
@@ -251,8 +265,6 @@ function annotate(lines: SourceLine[]): AnnotatedLine[] {
 	let singers: string[] = [];
 	let styles: Map<number, string[]> | undefined;
 	for (const { line, header } of parsed) {
-		const text = lineText(line);
-		if (!text) continue;
 		if (header?.part) {
 			songPart = header.part;
 			singers = header.singers;
@@ -273,20 +285,15 @@ function annotate(lines: SourceLine[]): AnnotatedLine[] {
 			}
 		}
 		const vocals = splitBackground(line);
-		const marks = new Set(
-			(vocals.text ? vocals.lead : line)
-				.filter(({ text }) => /[\p{L}\p{N}]/u.test(text))
-				.map(({ style }) => style),
-		);
-		const styledNames = [...marks].flatMap((mark) => styles?.get(mark) ?? []);
 		result.push({
 			text: vocals.text,
 			background: vocals.background,
 			songPart,
-			singers:
-				styledNames.length && [...marks].every((mark) => styles?.has(mark))
-					? uniqueNames(styledNames)
-					: singers,
+			singers: singersForLine(
+				vocals.text ? vocals.lead : line,
+				singers,
+				styles,
+			),
 		});
 		songPart = undefined;
 	}
@@ -303,16 +310,12 @@ export function parsePastedLyrics(
 		: annotate(text.split(/\r?\n/).map((text) => [{ text, style: 0 }]));
 }
 
-export function parseGeniusSong(html: string) {
-	const root = parse(html);
-	const containers = elements(
-		root,
-		(node) => attr(node, "data-lyrics-container") === "true",
-	);
-	const lyrics = annotate(containers.flatMap((node) => sourceLines(node)));
-	let title: string | undefined;
-	let artistNames: string[] | undefined;
-	let album: string | undefined;
+function pageTitle(root: Node): string | undefined {
+	const [heading] = elements(root, (node) => node.tagName === "h1");
+	return heading && lineText(sourceLines(heading).flat());
+}
+
+function recordingMetadata(root: Node) {
 	for (const node of elements(
 		root,
 		(node) =>
@@ -321,36 +324,40 @@ export function parseGeniusSong(html: string) {
 		try {
 			const data = JSON.parse(lineText(sourceLines(node, () => false).flat()));
 			if (data?.["@type"] !== "MusicRecording") continue;
-			const list = (value: unknown) => (Array.isArray(value) ? value : [value]);
 			const names = (value: unknown) =>
-				list(value).flatMap((item) =>
+				(Array.isArray(value) ? value : [value]).flatMap((item) =>
 					typeof item?.name === "string" ? [item.name] : [],
 				);
-			title = typeof data.name === "string" ? data.name : undefined;
-			artistNames = names(data.byArtist);
-			album = names(data.inAlbum)[0];
-			break;
+			return {
+				title: typeof data.name === "string" ? data.name : undefined,
+				artistNames: names(data.byArtist),
+				album: names(data.inAlbum)[0],
+			};
 		} catch {
-			// Lyrics can still be imported if the page lacks structured metadata.
+			// Invalid metadata must not prevent lyric import.
 		}
 	}
-	title ??= elements(root, (node) => node.tagName === "h1").map((node) =>
-		lineText(sourceLines(node).flat()),
-	)[0];
+}
+
+export function parseGeniusSong(html: string) {
+	const root = parse(html);
+	const containers = elements(
+		root,
+		(node) => attr(node, "data-lyrics-container") === "true",
+	);
+	const metadata = recordingMetadata(root);
 	return {
-		lyrics,
-		title,
-		artist: artistNames?.join(", ") || undefined,
-		artistNames,
-		album,
+		lyrics: annotate(containers.flatMap((node) => sourceLines(node))),
+		title: metadata?.title ?? pageTitle(root),
+		artist: metadata?.artistNames.join(", ") || undefined,
+		artistNames: metadata?.artistNames,
+		album: metadata?.album,
 	};
 }
 
 export function parseGeniusAlbum(html: string): GeniusResult[] {
 	const root = parse(html);
-	const album = elements(root, (node) => node.tagName === "h1").map((node) =>
-		lineText(sourceLines(node).flat()),
-	)[0];
+	const album = pageTitle(root);
 	const rows = elements(root, (node) =>
 		hasClass(node, /^(?:chart_row|AlbumTracklist__TrackRow.*)$/),
 	);
@@ -362,6 +369,7 @@ export function parseGeniusAlbum(html: string): GeniusResult[] {
 			const target = parseGeniusLink(
 				href.startsWith("/") ? GENIUS_ORIGIN + href : href,
 			);
+			if (target?.kind !== "song" || seen.has(target.path)) return [];
 			const titleNode =
 				elements(link, (node) =>
 					hasClass(
@@ -377,7 +385,7 @@ export function parseGeniusAlbum(html: string): GeniusResult[] {
 						hasClass(node, /^chart_row-content-title-subtitle$/),
 				).flat(),
 			);
-			if (!title || target?.kind !== "song" || seen.has(target.path)) return [];
+			if (!title) return [];
 			seen.add(target.path);
 			return [{ title, album, path: target.path, kind: target.kind }];
 		});

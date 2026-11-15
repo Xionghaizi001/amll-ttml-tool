@@ -11,7 +11,7 @@ import {
 import { isTauri } from "@tauri-apps/api/core";
 import { open as openExternal } from "@tauri-apps/plugin-shell";
 import { useAtom, useSetAtom, useStore } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { uid } from "uid";
 import {
@@ -40,21 +40,28 @@ export function ImportFromGenius() {
 	);
 }
 
+type LookupView =
+	| { kind: "loading" }
+	| { kind: "error"; code: GeniusError; link?: GeniusResult }
+	| GeniusSong;
+
 function GeniusForm({ close }: { close: () => void }) {
 	const { t } = useTranslation();
 	const store = useStore();
 	const confirm = useSetAtom(confirmDialogAtom);
 	const request = useRef<AbortController | null>(null);
 	const [input, setInput] = useState("");
-	const [loading, setLoading] = useState(false);
 	const [listing, setListing] = useState<GeniusResults>();
-	const [song, setSong] = useState<GeniusSong>();
-	const [error, setError] = useState<GeniusError>();
-	const [failedLink, setFailedLink] = useState<GeniusResult | undefined>();
-	const [showPaste, setShowPaste] = useState(false);
-	const [pasted, setPasted] = useState("");
-	const [pastedHtml, setPastedHtml] = useState<string>();
-	const previewLines = song ? resolveGeniusLines(song.lyrics, song) : [];
+	const [view, setView] = useState<LookupView>();
+	const [paste, setPaste] = useState<{ text: string; html?: string }>();
+	const loading = view?.kind === "loading";
+	const song = view?.kind === "song" ? view : undefined;
+	const error = view?.kind === "error" ? view.code : undefined;
+	const failedLink = view?.kind === "error" ? view.link : undefined;
+	const previewLines = useMemo(
+		() => (song ? resolveGeniusLines(song.lyrics, song) : []),
+		[song],
+	);
 
 	useEffect(() => () => request.current?.abort(), []);
 
@@ -65,18 +72,13 @@ function GeniusForm({ close }: { close: () => void }) {
 		request.current?.abort();
 		const controller = new AbortController();
 		request.current = controller;
-		setLoading(true);
-		setSong(undefined);
-		setError(undefined);
-		setFailedLink(undefined);
-		setShowPaste(false);
-		setPasted("");
-		setPastedHtml(undefined);
+		setView({ kind: "loading" });
+		setPaste(undefined);
 		try {
 			const response = await lookupGenius(query, controller.signal);
 			if (controller.signal.aborted) return;
 			if (response.kind === "song") {
-				setSong({
+				setView({
 					...response,
 					title: response.title || selected?.title,
 					artist: response.artist || selected?.artist,
@@ -84,15 +86,16 @@ function GeniusForm({ close }: { close: () => void }) {
 				});
 			} else {
 				setListing(response);
+				setView(undefined);
 			}
 		} catch (cause) {
 			if (controller.signal.aborted) return;
-			setError(
-				cause instanceof GeniusRequestError ? cause.code : "connectionFailed",
-			);
-			setFailedLink(selected);
-		} finally {
-			if (!controller.signal.aborted) setLoading(false);
+			setView({
+				kind: "error",
+				code:
+					cause instanceof GeniusRequestError ? cause.code : "connectionFailed",
+				link: selected,
+			});
 		}
 	}
 
@@ -106,17 +109,15 @@ function GeniusForm({ close }: { close: () => void }) {
 		} else if (
 			/^(?:[\w+.-]+:\/\/|(?:www\.)?genius\.com(?:\/|$))/i.test(query)
 		) {
-			setSong(undefined);
-			setFailedLink(undefined);
-			setShowPaste(false);
-			setError("invalidInput");
+			setView({ kind: "error", code: "invalidInput" });
+			setPaste(undefined);
 		} else {
 			void load({ q: query });
 		}
 	}
 
 	function importSong() {
-		if (!song?.lyrics.length) return;
+		if (!song) return;
 		const project = toGeniusProject(song.lyrics, song);
 		const name = [song.artist, song.title]
 			.filter(Boolean)
@@ -161,20 +162,20 @@ function GeniusForm({ close }: { close: () => void }) {
 	};
 
 	function usePastedLyrics() {
-		const lyrics = parsePastedLyrics(pasted, pastedHtml);
+		if (!paste) return;
+		const lyrics = parsePastedLyrics(paste.text, paste.html);
 		if (!lyrics.length) {
-			setError("noLyrics");
+			setView({ kind: "error", code: "noLyrics", link: failedLink });
 			return;
 		}
-		setSong({
+		setView({
 			kind: "song",
 			title: failedLink?.kind === "song" ? failedLink.title : undefined,
 			artist: failedLink?.kind === "song" ? failedLink.artist : undefined,
 			album: failedLink?.album,
 			lyrics,
 		});
-		setShowPaste(false);
-		setError(undefined);
+		setPaste(undefined);
 	}
 
 	return (
@@ -214,10 +215,10 @@ function GeniusForm({ close }: { close: () => void }) {
 			)}
 			{error && (
 				<Text as="p" size="2" mb="2" color="red" role="alert">
-					{errors[error]}
+					{errors[error] ?? errors.connectionFailed}
 				</Text>
 			)}
-			{error && error !== "invalidInput" && !showPaste && (
+			{error && error !== "invalidInput" && !paste && (
 				<Flex gap="2" mb="3" wrap="wrap">
 					{failedLink && (
 						<Button
@@ -226,7 +227,11 @@ function GeniusForm({ close }: { close: () => void }) {
 								const url = GENIUS_ORIGIN + failedLink.path;
 								if (isTauri())
 									void openExternal(url).catch(() =>
-										setError("connectionFailed"),
+										setView({
+											kind: "error",
+											code: "connectionFailed",
+											link: failedLink,
+										}),
 									);
 								else window.open(url, "_blank", "noopener,noreferrer");
 							}}
@@ -234,12 +239,12 @@ function GeniusForm({ close }: { close: () => void }) {
 							{t("genius.openOriginal", "在浏览器中打开 Genius")}
 						</Button>
 					)}
-					<Button variant="soft" onClick={() => setShowPaste(true)}>
+					<Button variant="soft" onClick={() => setPaste({ text: "" })}>
 						{t("genius.pasteLyrics", "粘贴歌词作为备用")}
 					</Button>
 				</Flex>
 			)}
-			{showPaste && (
+			{paste && (
 				<Flex direction="column" gap="2" mb="3">
 					<TextArea
 						aria-label={t("genius.pasteLyrics", "粘贴歌词作为备用")}
@@ -247,22 +252,21 @@ function GeniusForm({ close }: { close: () => void }) {
 							"genius.pastePlaceholder",
 							"粘贴歌词，并保留 [Verse: 演唱者] 等标题",
 						)}
-						value={pasted}
-						onChange={(event) => {
-							setPasted(event.target.value);
-							setPastedHtml(undefined);
-						}}
+						value={paste.text}
+						onChange={(event) => setPaste({ text: event.target.value })}
 						onPaste={(event) => {
 							const html = event.clipboardData.getData("text/html");
 							if (!html) return;
 							event.preventDefault();
-							setPasted(event.clipboardData.getData("text/plain"));
-							setPastedHtml(html);
+							setPaste({
+								text: event.clipboardData.getData("text/plain"),
+								html,
+							});
 						}}
 					/>
 					<Button
 						variant="soft"
-						disabled={!pasted.trim()}
+						disabled={!paste.text.trim()}
 						onClick={usePastedLyrics}
 					>
 						{t("genius.preview", "预览歌词")}
@@ -335,23 +339,21 @@ function GeniusForm({ close }: { close: () => void }) {
 											{line.songPart}
 										</Text>
 									)}
-									{!line.isBG ? (
-										<Text size="2">
-											{line.singers.length > 0 && (
-												<Text color="gray" size="1">
-													{line.singers.join(" & ")} ·{" "}
-												</Text>
-											)}
-											{line.text}
-										</Text>
-									) : (
-										<Text size="2" color="gray" ml="3">
-											<Text size="1" weight="bold">
-												{t("genius.backgroundVocal", "背景人声")} ·{" "}
+									<Text
+										size="2"
+										color={line.isBG ? "gray" : undefined}
+										ml={line.isBG ? "3" : undefined}
+									>
+										{(line.isBG || line.singers.length > 0) && (
+											<Text color="gray" size="1">
+												{line.isBG
+													? t("genius.backgroundVocal", "背景人声")
+													: line.singers.join(" & ")}{" "}
+												·{" "}
 											</Text>
-											{line.text}
-										</Text>
-									)}
+										)}
+										{line.text}
+									</Text>
 								</Flex>
 							))}
 						</Flex>
@@ -360,7 +362,7 @@ function GeniusForm({ close }: { close: () => void }) {
 			)}
 			<Flex justify="end" gap="2" mt="4">
 				{song && listing && (
-					<Button variant="soft" onClick={() => setSong(undefined)}>
+					<Button variant="soft" onClick={() => setView(undefined)}>
 						{t("genius.back", "返回列表")}
 					</Button>
 				)}

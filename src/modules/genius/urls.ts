@@ -1,6 +1,6 @@
 export const GENIUS_ORIGIN = "https://genius.com";
 
-export function geniusPageKind(path: string): "album" | "song" | undefined {
+function geniusPageKind(path: string): "album" | "song" | undefined {
 	if (/^\/albums\/[\w%-]+\/[\w%-]+\/?$/i.test(path)) return "album";
 	if (/^\/[\w%-]+-lyrics\/?$/i.test(path)) return "song";
 }

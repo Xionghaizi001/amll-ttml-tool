@@ -19,10 +19,8 @@ export async function lookupGenius(
 	const url = new URL(endpoint, window.location.origin);
 	url.search = new URLSearchParams(params).toString();
 	const response = await fetch(url, { signal });
-	if (!response.headers.get("Content-Type")?.includes("application/json")) {
-		throw new GeniusRequestError("connectionFailed");
-	}
 	const result = await response.json();
-	if (!response.ok) throw new GeniusRequestError(result.error);
+	if (!response.ok)
+		throw new GeniusRequestError(result?.error ?? "connectionFailed");
 	return result;
 }
