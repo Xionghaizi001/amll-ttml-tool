@@ -181,13 +181,6 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		return this._pauseAt;
 	}
 
-	public get tempo(): number {
-		return this._tempo;
-	}
-	public set tempo(val: number) {
-		this.setTempoAndRate(val, this._rate);
-	}
-
 	public get pitch(): number {
 		return this._pitch;
 	}
@@ -201,27 +194,30 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		this.renderer.setPitch(this._pitch);
 	}
 
-	public get rate(): number {
-		return this._rate;
-	}
-	public set rate(val: number) {
-		this.setTempoAndRate(this._tempo, val);
+	public get playbackSpeed(): number {
+		return this._tempo * this._rate;
 	}
 
-	public setTempoAndRate(tempo: number, rate: number): void {
-		if (!Number.isFinite(tempo) || !Number.isFinite(rate)) return;
+	public setPlaybackSpeed(speed: number, pitchLocked: boolean): void {
+		if (!Number.isFinite(speed)) return;
 
-		const nextTempo = Math.max(0.1, tempo);
-		const nextRate = Math.max(0.1, rate);
-		if (nextTempo === this._tempo && nextRate === this._rate) return;
+		speed = Math.max(0.1, speed);
+		const tempo = pitchLocked ? speed : 1;
+		const rate = pitchLocked ? 1 : speed;
+		if (tempo === this._tempo && rate === this._rate) return;
 
-		const switchingSpeedModes = nextTempo !== this._tempo && nextRate !== this._rate;
-		this._tempo = nextTempo;
-		this._rate = nextRate;
-		// A pitch-lock toggle changes the DSP path. Refill from the current
-		// position via the decoder instead of rewinding over recycled PCM.
-		if (switchingSpeedModes) this.currentTime = this.currentTime;
-		this.renderer.setTempoAndRate(nextTempo, nextRate);
+		const switchingPath = tempo !== this._tempo && rate !== this._rate;
+		this._tempo = tempo;
+		this._rate = rate;
+		// A seek already in flight will also clear the old DSP buffers.
+		if (
+			switchingPath &&
+			this.audioController &&
+			!this.audioController.isSeeking()
+		) {
+			this.currentTime = this.currentTime;
+		}
+		this.renderer.setTempoAndRate(tempo, rate);
 	}
 
 	public get algorithm(): StretchAlgorithm {

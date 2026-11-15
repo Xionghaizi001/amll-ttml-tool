@@ -273,10 +273,10 @@ export const AudioControls: FC = memo(() => {
 										</Text>
 										<Switch
 											id="audio-pitch-lock"
+											style={{ gridColumn: "span 2" }}
 											checked={pitchLock}
 											onCheckedChange={setPitchLock}
 										/>
-										<span />
 										<Text wrap="nowrap">{t("audioPanel.bpm", "BPM")}</Text>
 										<Flex align="center">
 											{bpmState.status === "analyzing" && (
@@ -318,7 +318,6 @@ export const AudioControls: FC = memo(() => {
 												</Button>
 											)}
 										</Flex>
-										<span />
 									</Grid>
 									<Text
 										wrap="nowrap"

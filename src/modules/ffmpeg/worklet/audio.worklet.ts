@@ -67,11 +67,8 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 						algoEnum,
 					);
 
-					this.stProcessor.setTempo(this.currentTempo);
 					this.stProcessor.setPitch(pitch);
-					this.stProcessor.setRate(this.currentRate);
-
-					this.inputChunkSize = this.stProcessor.getInputChunkSize();
+					this.applySpeed();
 
 					this.postEvent({
 						type: "INIT_DONE",
@@ -87,14 +84,9 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 					});
 				}
 			} else if (data.type === "SET_TEMPO_AND_RATE") {
-				const { tempo, rate } = data.payload;
-				if (this.stProcessor) {
-					this.stProcessor.setTempo(tempo);
-					this.stProcessor.setRate(rate);
-					this.inputChunkSize = this.stProcessor.getInputChunkSize();
-				}
-				this.currentTempo = tempo;
-				this.currentRate = rate;
+				this.currentTempo = data.payload.tempo;
+				this.currentRate = data.payload.rate;
+				this.applySpeed();
 			} else if (data.type === "SET_PITCH" && this.stProcessor) {
 				this.stProcessor.setPitch(data.payload.pitch);
 			} else if (data.type === "SET_ALGORITHM" && this.stProcessor) {
@@ -121,6 +113,13 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 		};
 
 		this.port.start();
+	}
+
+	private applySpeed(): void {
+		if (!this.stProcessor) return;
+		this.stProcessor.setTempo(this.currentTempo);
+		this.stProcessor.setRate(this.currentRate);
+		this.inputChunkSize = this.stProcessor.getInputChunkSize();
 	}
 
 	private postEvent(event: WorkletEvent): void {

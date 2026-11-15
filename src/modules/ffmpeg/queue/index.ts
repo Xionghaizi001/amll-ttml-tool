@@ -34,6 +34,7 @@ export interface MainAudioController {
 	 */
 	getReadIndex(): number;
 	getPlaybackIndex(): number;
+	isSeeking(): boolean;
 	setSeeking(isSeeking: boolean): void;
 	setPauseAtIndex(index: number): void;
 	clearPauseAtIndex(): void;

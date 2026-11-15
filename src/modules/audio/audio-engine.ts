@@ -125,11 +125,11 @@ class AudioEngineWrapper extends EventTarget {
 			this.engine.algorithm = globalStore.get(stretchAlgorithmAtom);
 		});
 
-		const updateSpeed = () => {
-			const speed = globalStore.get(playbackRateAtom);
-			const pitchLocked = globalStore.get(pitchLockAtom);
-			this.engine.setTempoAndRate(pitchLocked ? speed : 1, pitchLocked ? 1 : speed);
-		};
+		const updateSpeed = () =>
+			this.engine.setPlaybackSpeed(
+				globalStore.get(playbackRateAtom),
+				globalStore.get(pitchLockAtom),
+			);
 		globalStore.sub(playbackRateAtom, updateSpeed);
 		globalStore.sub(pitchLockAtom, updateSpeed);
 		updateSpeed();
@@ -207,7 +207,7 @@ class AudioEngineWrapper extends EventTarget {
 	}
 
 	get musicPlayBackRate() {
-		return this.engine.tempo * this.engine.rate;
+		return this.engine.playbackSpeed;
 	}
 
 	get volume() {
