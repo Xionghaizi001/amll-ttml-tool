@@ -26,6 +26,7 @@ import {
 import { useAtom, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
+	pitchLockAtom,
 	playbackRateAtom,
 	stretchAlgorithmAtom,
 	volumeAtom,
@@ -72,6 +73,7 @@ export const SettingsCommonTab = () => {
 	const [smartLastWord, setSmartLastWord] = useAtom(smartLastWordAtom);
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
+	const [pitchLock, setPitchLock] = useAtom(pitchLockAtom);
 	const [stretchAlgorithm, setStretchAlgorithm] = useAtom(stretchAlgorithmAtom);
 	const [autosaveEnabled, setAutosaveEnabled] = useAtom(autosaveEnabledAtom);
 	const [autosaveInterval, setAutosaveInterval] = useAtom(autosaveIntervalAtom);
@@ -446,12 +448,23 @@ export const SettingsCommonTab = () => {
 						<Slider
 							min={0.1}
 							max={2}
-							defaultValue={[playbackRate]}
+							value={[playbackRate]}
 							step={0.05}
 							onValueChange={(v) => setPlaybackRate(v[0])}
 						/>
 					</Flex>
 				</SettingsRow>
+
+				<SettingsRow
+					asLabel
+					icon={<MusicNote224Regular />}
+					title={t("audioPanel.pitchLock", "音高锁定")}
+					description={t(
+						"settings.common.pitchLockDescription",
+						"改变播放速度时保持原音高",
+					)}
+					action={<Switch checked={pitchLock} onCheckedChange={setPitchLock} />}
+				/>
 
 				<SettingsRow
 					icon={<MusicNote224Regular />}

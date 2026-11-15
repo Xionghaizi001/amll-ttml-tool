@@ -27,6 +27,7 @@ import {
 	Inset,
 	Slider,
 	Spinner,
+	Switch,
 	Text,
 	Tooltip,
 } from "@radix-ui/themes";
@@ -41,6 +42,7 @@ import {
 	audioEngineStateAtom,
 	audioPlayingAtom,
 	currentDurationAtom,
+	pitchLockAtom,
 	playbackRateAtom,
 	stretchAlgorithmAtom,
 	volumeAtom,
@@ -151,6 +153,7 @@ export const AudioControls: FC = memo(() => {
 	const [audioPlaying, _setAudioPlaying] = useAtom(audioPlayingAtom);
 	const [volume, setVolume] = useAtom(volumeAtom);
 	const [playbackRate, setPlaybackRate] = useAtom(playbackRateAtom);
+	const [pitchLock, setPitchLock] = useAtom(pitchLockAtom);
 	const { openFile, openCachedAudio } = useFileOpener();
 	const stretchAlgorithm = useAtomValue(stretchAlgorithmAtom);
 	const { lyricLines } = useAtomValue(lyricLinesAtom);
@@ -200,7 +203,6 @@ export const AudioControls: FC = memo(() => {
 
 	useEffect(() => {
 		setVolume(audioEngine.volume);
-		setPlaybackRate(audioEngine.musicPlayBackRate);
 
 		const onVolumeChange = () => setVolume(audioEngine.volume);
 		audioEngine.addEventListener("volume-change", onVolumeChange);
@@ -208,15 +210,11 @@ export const AudioControls: FC = memo(() => {
 		return () => {
 			audioEngine.removeEventListener("volume-change", onVolumeChange);
 		};
-	}, [setVolume, setPlaybackRate]);
+	}, [setVolume]);
 
 	useEffect(() => {
 		audioEngine.volume = volume;
 	}, [volume]);
-
-	useEffect(() => {
-		audioEngine.musicPlayBackRate = playbackRate;
-	}, [playbackRate]);
 
 	useEffect(() => {
 		audioEngine.algorithm = stretchAlgorithm;
@@ -263,13 +261,22 @@ export const AudioControls: FC = memo(() => {
 										<Slider
 											min={0.1}
 											max={2}
-											defaultValue={[playbackRate]}
+											value={[playbackRate]}
 											step={0.05}
 											onValueChange={(v) => setPlaybackRate(v[0])}
 										/>
 										<Text wrap="nowrap" color="gray" size="1">
 											{playbackRate.toFixed(2)}x
 										</Text>
+										<Text as="label" htmlFor="audio-pitch-lock" wrap="nowrap">
+											{t("audioPanel.pitchLock", "音高锁定")}
+										</Text>
+										<Switch
+											id="audio-pitch-lock"
+											style={{ gridColumn: "span 2" }}
+											checked={pitchLock}
+											onCheckedChange={setPitchLock}
+										/>
 										<Text wrap="nowrap">{t("audioPanel.bpm", "BPM")}</Text>
 										<Flex align="center">
 											{bpmState.status === "analyzing" && (
@@ -311,7 +318,6 @@ export const AudioControls: FC = memo(() => {
 												</Button>
 											)}
 										</Flex>
-										<span />
 									</Grid>
 									<Text
 										wrap="nowrap"

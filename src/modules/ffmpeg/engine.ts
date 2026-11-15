@@ -181,19 +181,6 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		return this._pauseAt;
 	}
 
-	public get tempo(): number {
-		return this._tempo;
-	}
-	public set tempo(val: number) {
-		if (!Number.isFinite(val)) {
-			console.warn("Invalid tempo value ignored", val);
-			return;
-		}
-
-		this._tempo = Math.max(0.1, val);
-		this.renderer.setTempo(this._tempo);
-	}
-
 	public get pitch(): number {
 		return this._pitch;
 	}
@@ -207,17 +194,30 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		this.renderer.setPitch(this._pitch);
 	}
 
-	public get rate(): number {
-		return this._rate;
+	public get playbackSpeed(): number {
+		return this._tempo * this._rate;
 	}
-	public set rate(val: number) {
-		if (!Number.isFinite(val)) {
-			console.warn("Invalid rate value ignored", val);
-			return;
-		}
 
-		this._rate = Math.max(0.1, val);
-		this.renderer.setRate(this._rate);
+	public setPlaybackSpeed(speed: number, pitchLocked: boolean): void {
+		if (!Number.isFinite(speed)) return;
+
+		speed = Math.max(0.1, speed);
+		const tempo = pitchLocked ? speed : 1;
+		const rate = pitchLocked ? 1 : speed;
+		if (tempo === this._tempo && rate === this._rate) return;
+
+		const switchingPath = tempo !== this._tempo && rate !== this._rate;
+		this._tempo = tempo;
+		this._rate = rate;
+		// A seek already in flight will also clear the old DSP buffers.
+		if (
+			switchingPath &&
+			this.audioController &&
+			!this.audioController.isSeeking()
+		) {
+			this.currentTime = this.currentTime;
+		}
+		this.renderer.setTempoAndRate(tempo, rate);
 	}
 
 	public get algorithm(): StretchAlgorithm {

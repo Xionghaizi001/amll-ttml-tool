@@ -26,6 +26,7 @@ export const bpmFollowPlaybackRateAtom = atomWithStorage(
 export const audioEngineStateAtom = atom<EngineState>("idle");
 export const volumeAtom = atomWithStorage("volume", 0.5);
 export const playbackRateAtom = atomWithStorage("playbackRate", 1);
+export const pitchLockAtom = atomWithStorage("pitchLock", true);
 export const stretchAlgorithmAtom = atomWithStorage<StretchAlgorithm>(
 	"stretchAlgorithm",
 	"spectral",

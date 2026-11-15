@@ -221,11 +221,13 @@
 			"smartLastWordDesc": "对行末最后一个音节打轴时，最后一次按下“结束轴”按钮会设置其结束时间，但不会设置下一行第一个音节的开始时间。",
 			"volume": "音乐音量",
 			"playbackRate": "播放速度",
+		"pitchLock": "音高锁定",
 			"autosave": {
 				"enable": "启用自动保存",
 				"interval": "保存间隔 (分钟)",
 				"limit": "保留快照数量"
 			},
+			"pitchLockDescription": "改变播放速度时保持原音高",
 			"stretchAlgorithm": "音频变速算法",
 			"stretchAlgorithmDesc": {
 				"spectral": "Spectral（频域相位声码器）：保真度更高，但可能略微增加资源占用",
