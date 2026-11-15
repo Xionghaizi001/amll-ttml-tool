@@ -782,6 +782,10 @@ const SongPartField: FC = () => {
 							{option.label}
 						</Select.Item>
 					))}
+					{displayValue !== NONE_VALUE &&
+						!SONG_PART_OPTIONS.some(({ value }) => value === displayValue) && (
+							<Select.Item value={displayValue}>{displayValue}</Select.Item>
+						)}
 					<Select.Separator />
 					{isAddingCustom ? (
 						<Flex gap="2" p="2" align="center">

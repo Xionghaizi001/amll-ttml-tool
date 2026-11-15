@@ -13,6 +13,7 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { outlineJumpActionAtom } from "$/states/sidebar.ts";
+import { isAttachedBackground } from "$/types/ttml.ts";
 import styles from "./OutlinePanel.module.css";
 
 export const OutlinePanel = memo(() => {
@@ -40,7 +41,7 @@ export const OutlinePanel = memo(() => {
 		const nums: number[] = [];
 		let currentNumber = 0;
 		for (let i = 0; i < lyricLines.length; i++) {
-			if (!i || !lyricLines[i].isBG) currentNumber++;
+			if (!i || !isAttachedBackground(lyricLines[i])) currentNumber++;
 			nums.push(currentNumber);
 		}
 		return nums;

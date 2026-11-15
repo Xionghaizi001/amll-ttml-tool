@@ -1,4 +1,5 @@
 import { LatencyTestDialog } from "$/modules/audio/modals/LatencyTest.tsx";
+import { ImportFromGenius } from "$/modules/genius/ImportDialog";
 import { ImportFromLRCLIB } from "$/modules/lrclib/modals/ImportDialog.tsx";
 import { ReplaceWordDialog } from "$/modules/lyric-editor/tools/ReplaceWordDialog.tsx";
 import { SyllableSmoothingDialog } from "$/modules/lyric-editor/tools/SyllableSmoothingDialog.tsx";
@@ -28,6 +29,7 @@ export const Dialogs = () => {
 		<>
 			<ImportFromText />
 			<ImportFromLRCLIB />
+			<ImportFromGenius />
 			<MetadataEditor />
 			<VocalTagsEditor />
 			<AgentManager />

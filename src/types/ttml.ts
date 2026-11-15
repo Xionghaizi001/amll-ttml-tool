@@ -85,6 +85,8 @@ export interface LyricLine extends AMLLLyricLine {
 	translatedLyric: string;
 	romanLyric: string;
 	isBG: boolean;
+	/** A background vocal that has its own TTML paragraph. */
+	standaloneBackground?: boolean;
 	isDuet: boolean;
 	startTime: number;
 	endTime: number;
@@ -110,6 +112,9 @@ export interface LyricLine extends AMLLLyricLine {
 	songPart?: string;
 	agent?: string;
 }
+
+export const isAttachedBackground = (line: LyricLine): boolean =>
+	line.isBG && !line.standaloneBackground;
 
 export const newLyricLine = (): LyricLine => ({
 	id: uid(),

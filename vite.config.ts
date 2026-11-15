@@ -14,6 +14,7 @@ import i18nextLoader from "vite-plugin-i18next-loader";
 // import topLevelAwait from "vite-plugin-top-level-await";
 import wasm from "vite-plugin-wasm";
 import svgLoader from "vite-svg-loader";
+import geniusHandler from "./api/genius";
 
 const isProduction = process.env.NODE_ENV === "production";
 const amllLocalRoot = resolve(__dirname, "../applemusic-like-lyrics");
@@ -25,6 +26,15 @@ const AMLL_LOCAL_EXISTS = [
 
 const plugins: PluginOption[] = [
 	ConditionalCompile(),
+	{
+		name: "genius-api",
+		configureServer(server) {
+			server.middlewares.use("/api/genius", geniusHandler);
+		},
+		configurePreviewServer(server) {
+			server.middlewares.use("/api/genius", geniusHandler);
+		},
+	},
 	{
 		name: "github-proxy-dev",
 		configureServer(server) {

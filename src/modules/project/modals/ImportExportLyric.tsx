@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import {
+	importFromGeniusDialogAtom,
 	importFromLRCLIBDialogAtom,
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
@@ -22,6 +23,7 @@ import { projectLogger } from "../logger";
 export const ImportExportLyric = () => {
 	const store = useStore();
 	const setImportFromTextDialog = useSetAtom(importFromTextDialogAtom);
+	const setImportFromGeniusDialog = useSetAtom(importFromGeniusDialogAtom);
 	const setImportFromLRCLIBDialog = useSetAtom(importFromLRCLIBDialogAtom);
 	const { openFile } = useFileOpener();
 	const { t } = useTranslation();
@@ -85,6 +87,9 @@ export const ImportExportLyric = () => {
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onClick={() => setImportFromLRCLIBDialog(true)}>
 						{t("topBar.menu.importLyric.fromLRCLIB", "从 LRCLIB 导入...")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onClick={() => setImportFromGeniusDialog(true)}>
+						{t("topBar.menu.importLyric.fromGenius", "从 Genius 导入…")}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onClick={() => onImportLyric("lrc")}>
 						{t("topBar.menu.importLyric.fromLyRiC", "从 LyRiC 文件导入")}
