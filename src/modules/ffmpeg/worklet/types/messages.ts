@@ -14,9 +14,8 @@ export type WorkletCommand =
 				algorithm?: StretchAlgorithm;
 			};
 	  }
-	| { type: "SET_TEMPO"; payload: { tempo: number } }
+	| { type: "SET_TEMPO_AND_RATE"; payload: { tempo: number; rate: number } }
 	| { type: "SET_PITCH"; payload: { pitch: number } }
-	| { type: "SET_RATE"; payload: { rate: number } }
 	| { type: "SET_ALGORITHM"; payload: { algorithm: StretchAlgorithm } }
 	| {
 			type: "SET_FORMANT";

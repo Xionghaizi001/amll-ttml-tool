@@ -107,16 +107,12 @@ export class AudioRenderer {
 		});
 	}
 
-	public setTempo(tempo: number): void {
-		this.postCommand({ type: "SET_TEMPO", payload: { tempo } });
+	public setTempoAndRate(tempo: number, rate: number): void {
+		this.postCommand({ type: "SET_TEMPO_AND_RATE", payload: { tempo, rate } });
 	}
 
 	public setPitch(pitch: number): void {
 		this.postCommand({ type: "SET_PITCH", payload: { pitch } });
-	}
-
-	public setRate(rate: number): void {
-		this.postCommand({ type: "SET_RATE", payload: { rate } });
 	}
 
 	public setAlgorithm(algorithm: StretchAlgorithm): void {

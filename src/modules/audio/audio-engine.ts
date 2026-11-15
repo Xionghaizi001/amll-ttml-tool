@@ -5,6 +5,8 @@ import {
 	currentDurationAtom,
 	isAuditioningAtom,
 	loadedAudioAtom,
+	pitchLockAtom,
+	playbackRateAtom,
 	stretchAlgorithmAtom,
 } from "$/modules/audio/states/index.ts";
 import {
@@ -123,6 +125,15 @@ class AudioEngineWrapper extends EventTarget {
 			this.engine.algorithm = globalStore.get(stretchAlgorithmAtom);
 		});
 
+		const updateSpeed = () => {
+			const speed = globalStore.get(playbackRateAtom);
+			const pitchLocked = globalStore.get(pitchLockAtom);
+			this.engine.setTempoAndRate(pitchLocked ? speed : 1, pitchLocked ? 1 : speed);
+		};
+		globalStore.sub(playbackRateAtom, updateSpeed);
+		globalStore.sub(pitchLockAtom, updateSpeed);
+		updateSpeed();
+
 		this.setupEngineListeners();
 	}
 
@@ -196,10 +207,7 @@ class AudioEngineWrapper extends EventTarget {
 	}
 
 	get musicPlayBackRate() {
-		return this.engine.rate;
-	}
-	set musicPlayBackRate(v: number) {
-		this.engine.tempo = v;
+		return this.engine.tempo * this.engine.rate;
 	}
 
 	get volume() {

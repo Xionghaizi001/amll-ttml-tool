@@ -185,13 +185,7 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		return this._tempo;
 	}
 	public set tempo(val: number) {
-		if (!Number.isFinite(val)) {
-			console.warn("Invalid tempo value ignored", val);
-			return;
-		}
-
-		this._tempo = Math.max(0.1, val);
-		this.renderer.setTempo(this._tempo);
+		this.setTempoAndRate(val, this._rate);
 	}
 
 	public get pitch(): number {
@@ -211,13 +205,19 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		return this._rate;
 	}
 	public set rate(val: number) {
-		if (!Number.isFinite(val)) {
-			console.warn("Invalid rate value ignored", val);
-			return;
-		}
+		this.setTempoAndRate(this._tempo, val);
+	}
 
-		this._rate = Math.max(0.1, val);
-		this.renderer.setRate(this._rate);
+	public setTempoAndRate(tempo: number, rate: number): void {
+		if (!Number.isFinite(tempo) || !Number.isFinite(rate)) return;
+
+		const nextTempo = Math.max(0.1, tempo);
+		const nextRate = Math.max(0.1, rate);
+		if (nextTempo === this._tempo && nextRate === this._rate) return;
+
+		this._tempo = nextTempo;
+		this._rate = nextRate;
+		this.renderer.setTempoAndRate(nextTempo, nextRate);
 	}
 
 	public get algorithm(): StretchAlgorithm {

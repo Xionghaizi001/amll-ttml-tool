@@ -53,6 +53,8 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 
 				try {
 					this.channels = channels;
+					this.currentTempo = tempo;
+					this.currentRate = rate;
 					this.audioReader = createAudioReader(sharedBuffer);
 
 					const wasmInstance = await initWasm({ module_or_path: wasmBytes });
@@ -65,12 +67,9 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 						algoEnum,
 					);
 
-					this.stProcessor.setTempo(tempo);
+					this.stProcessor.setTempo(this.currentTempo);
 					this.stProcessor.setPitch(pitch);
-					this.stProcessor.setRate(rate);
-
-					this.currentTempo = tempo;
-					this.currentRate = rate;
+					this.stProcessor.setRate(this.currentRate);
 
 					this.inputChunkSize = this.stProcessor.getInputChunkSize();
 
@@ -87,14 +86,20 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 						},
 					});
 				}
-			} else if (data.type === "SET_TEMPO" && this.stProcessor) {
-				this.stProcessor.setTempo(data.payload.tempo);
-				this.currentTempo = data.payload.tempo;
+			} else if (data.type === "SET_TEMPO_AND_RATE") {
+				const { tempo, rate } = data.payload;
+				if (this.stProcessor) {
+					// Buffered output was rendered with the previous speed.
+					this.audioReader?.rewindReadIndexToPlayback();
+					this.stProcessor.clear();
+					this.stProcessor.setTempo(tempo);
+					this.stProcessor.setRate(rate);
+					this.inputChunkSize = this.stProcessor.getInputChunkSize();
+				}
+				this.currentTempo = tempo;
+				this.currentRate = rate;
 			} else if (data.type === "SET_PITCH" && this.stProcessor) {
 				this.stProcessor.setPitch(data.payload.pitch);
-			} else if (data.type === "SET_RATE" && this.stProcessor) {
-				this.stProcessor.setRate(data.payload.rate);
-				this.currentRate = data.payload.rate;
 			} else if (data.type === "SET_ALGORITHM" && this.stProcessor) {
 				const algoEnum = parseStretchAlgorithm(data.payload.algorithm);
 				if (this.audioReader) {

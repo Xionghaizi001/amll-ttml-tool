@@ -221,6 +221,7 @@
 				"interval": "Save Interval (minutes)",
 				"limit": "Snapshots to keep"
 			},
+			"pitchLockDescription": "Keep the original pitch when changing playback speed",
 			"stretchAlgorithm": "Audio Time-Stretching Algorithm",
 			"stretchAlgorithmDesc": {
 				"spectral": "Spectral (Phase Vocoder): Higher fidelity, but may slightly increase resource usage",
@@ -533,6 +534,7 @@
 	"audioPanel": {
 		"volume": "Volume",
 		"playbackRate": "Playback rate",
+		"pitchLock": "Pitch Lock",
 		"clickToLoadMusic": "Click the icon button to load music",
 		"playPause": "Play / pause music",
 		"expandSpectrogram": "Expand / collapse spectrogram",
