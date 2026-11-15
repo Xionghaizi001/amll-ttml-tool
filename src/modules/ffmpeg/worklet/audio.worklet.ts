@@ -89,9 +89,6 @@ class FFmpegAudioProcessor extends AudioWorkletProcessor {
 			} else if (data.type === "SET_TEMPO_AND_RATE") {
 				const { tempo, rate } = data.payload;
 				if (this.stProcessor) {
-					// Buffered output was rendered with the previous speed.
-					this.audioReader?.rewindReadIndexToPlayback();
-					this.stProcessor.clear();
 					this.stProcessor.setTempo(tempo);
 					this.stProcessor.setRate(rate);
 					this.inputChunkSize = this.stProcessor.getInputChunkSize();

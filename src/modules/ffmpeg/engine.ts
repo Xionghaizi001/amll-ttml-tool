@@ -215,8 +215,12 @@ export class FFmpegAudioEngine extends TypedEventTarget<EngineEventMap> {
 		const nextRate = Math.max(0.1, rate);
 		if (nextTempo === this._tempo && nextRate === this._rate) return;
 
+		const switchingSpeedModes = nextTempo !== this._tempo && nextRate !== this._rate;
 		this._tempo = nextTempo;
 		this._rate = nextRate;
+		// A pitch-lock toggle changes the DSP path. Refill from the current
+		// position via the decoder instead of rewinding over recycled PCM.
+		if (switchingSpeedModes) this.currentTime = this.currentTime;
 		this.renderer.setTempoAndRate(nextTempo, nextRate);
 	}
 
