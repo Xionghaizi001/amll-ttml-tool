@@ -56,6 +56,7 @@ import {
 	undoLyricLinesAtom,
 } from "$/states/main.ts";
 import {
+	isAttachedBackground,
 	type LyricWord,
 	type LyricWordBase,
 	type TTMLLyric,
@@ -437,7 +438,7 @@ export const useTopMenuActions = () => {
 
 					if (i + 1 < draft.lyricLines.length) {
 						const nextLine = draft.lyricLines[i + 1];
-						if (nextLine.isBG && nextLine.words.length > 0) {
+						if (isAttachedBackground(nextLine) && nextLine.words.length > 0) {
 							const nextLineStart = nextLine.words[0].startTime;
 							const nextLineEnd =
 								nextLine.words[nextLine.words.length - 1].endTime;

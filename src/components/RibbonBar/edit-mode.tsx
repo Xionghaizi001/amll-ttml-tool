@@ -60,6 +60,7 @@ import {
 	toggleTabAtom,
 } from "$/states/sidebar.ts";
 import {
+	isAttachedBackground,
 	type LyricLine,
 	type LyricWord,
 	newLyricLine,
@@ -856,20 +857,20 @@ const AgentField: FC = () => {
 	// 检查选中的行是否包含背景行
 	const hasSelectedBGLine = useMemo(() => {
 		for (const line of lyricLines.lyricLines) {
-			if (selectedLines.has(line.id) && line.isBG) {
+			if (selectedLines.has(line.id) && isAttachedBackground(line)) {
 				return true;
 			}
 		}
 		return false;
 	}, [selectedLines, lyricLines]);
 
-	// 获取当前选中行的 agent 值（只检查非背景行）
+	// 获取当前选中行的 agent 值（附属和声沿用主唱行的 agent）
 	const currentAgent = useMemo(() => {
 		if (selectedLines.size === 0) return undefined;
 		const values = new Set<string | undefined>();
 		for (const line of lyricLines.lyricLines) {
-			if (selectedLines.has(line.id) && !line.isBG) {
-				// 从行的 agent 字段获取值（背景行不参与）
+			if (selectedLines.has(line.id) && !isAttachedBackground(line)) {
+				// 从行的 agent 字段获取值
 				values.add(line.agent);
 			}
 		}
@@ -883,9 +884,9 @@ const AgentField: FC = () => {
 	const handleAgentChange = useCallback(
 		(value: string) => {
 			editLyricLines((state: Draft<TTMLLyric>) => {
-				// 首先更新选中行的 agent（跳过背景行）
+				// 首先更新选中行的 agent（跳过附属和声）
 				for (const line of state.lyricLines) {
-					if (selectedLines.has(line.id) && !line.isBG) {
+					if (selectedLines.has(line.id) && !isAttachedBackground(line)) {
 						line.agent = value === NONE_VALUE ? undefined : value;
 					}
 				}
