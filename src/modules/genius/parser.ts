@@ -231,7 +231,16 @@ function parseHeader(runs: SourceLine) {
 }
 
 function annotate(lines: SourceLine[]): AnnotatedLine[] {
-	const parsed = lines.map((line) => ({ line, header: parseHeader(line) }));
+	// Genius may include a localized song title in the lyrics themselves.
+	// Only the first non-empty line can be this title; later brackets may be sung.
+	const firstLine = lines.findIndex((line) => lineText(line) !== "");
+	const titleHeading =
+		/^\[[^[\]]*(?:"[^"]+"|“[^”]+”|‘[^’]+’)\s+(?:가사|lyrics)\s*\]$/i;
+	const parsed = lines.flatMap((line, index) =>
+		index === firstLine && titleHeading.test(lineText(line))
+			? []
+			: [{ line, header: parseHeader(line) }],
+	);
 	const knownSingers = new Set(
 		parsed
 			.flatMap(({ header }) => header?.singers ?? [])

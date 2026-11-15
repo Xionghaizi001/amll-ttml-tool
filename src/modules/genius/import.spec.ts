@@ -47,6 +47,27 @@ describe("Genius import", () => {
 		]);
 	});
 
+	it("filters a localized title before the first song part in HTML and on paste", () => {
+		const title = '[에스파 "Whiplash" 가사]';
+		const sungBracket = "[오늘의 가사]";
+		const body = ["[Intro: Ningning]", "Example line", sungBracket];
+		const html = `<div data-lyrics-container="true">
+			[에스파 <b>&quot;Whiplash&quot;</b> 가사]<br>${body.join("<br>")}
+		</div>`;
+		const { lyrics } = parseGeniusSong(html);
+		expect(parsePastedLyrics(sungBracket)[0]?.text).toBe(sungBracket);
+
+		for (const lines of [
+			lyrics,
+			parsePastedLyrics(["", title, ...body].join("\n")),
+		]) {
+			expect(lines).toEqual([
+				{ text: "Example line", songPart: "Intro", singers: ["Ningning"] },
+				{ text: sungBracket, songPart: undefined, singers: ["Ningning"] },
+			]);
+		}
+	});
+
 	it("uses Genius formatting to resolve different singers and exports each section", () => {
 		const { lyrics } = parseGeniusSong(`
 			<div data-lyrics-container="true"><div class="LyricsHeader__Container-example">123 Contributors</div>
