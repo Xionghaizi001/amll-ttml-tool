@@ -510,11 +510,7 @@ export const useTopMenuActions = () => {
 		editLyricLines((draft) => {
 			draft.lyricLines.forEach((line) => {
 				if (hasSelection && !selectedLines.has(line.id)) return;
-				try {
-					applyLineRomanization(line);
-				} catch (e) {
-					topMenuLogger.error("Failed to distribute romanization", e);
-				}
+				applyLineRomanization(line);
 			});
 		});
 	}, [editLyricLines, store]);

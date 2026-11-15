@@ -13,7 +13,8 @@ import {
 	DialogScopeSelector,
 	useDialogScope,
 } from "$/hooks/useDialogScope.tsx";
-import { applyLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
+import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom } from "$/states/main";
 import { projectLogger } from "../logger";
@@ -29,14 +30,25 @@ export const DistributeRomanizationDialog = () => {
 
 		setLyricLines((draft) => {
 			draft.lyricLines.forEach((line, index) => {
-				if (!targetLineIndices.has(index)) return;
-				try {
-					applyLineRomanization(line);
-				} catch (e) {
-					projectLogger.error(
-						`Failed to distribute romanization for line ${index + 1}`,
-						e,
-					);
+				if (targetLineIndices.has(index)) {
+					const fullRoman = line.romanLyric || "";
+					if (line.words.length > 0 && fullRoman.trim() !== "") {
+						try {
+							const results = predictLineRomanization(line.words, fullRoman);
+
+							line.words.forEach((word, wordIndex) => {
+								if (results[wordIndex]) {
+									word.romanWord = results[wordIndex];
+								}
+							});
+							applyRomanizationWarnings(line.words);
+						} catch (e) {
+							projectLogger.error(
+								`Failed to distribute romanization for line ${index + 1}`,
+								e,
+							);
+						}
+					}
 				}
 			});
 		});
@@ -48,7 +60,7 @@ export const DistributeRomanizationDialog = () => {
 		<Dialog.Root open={open} onOpenChange={setOpen}>
 			<Dialog.Content maxWidth="450px">
 				<Dialog.Title>
-					{t("distributeRomanDialog.title", "生成或分配逐字音译")}
+					{t("distributeRomanDialog.title", "应用逐行音译到逐字")}
 				</Dialog.Title>
 
 				<Flex direction="column" gap="4">
@@ -58,7 +70,7 @@ export const DistributeRomanizationDialog = () => {
 							<Text size="2" color="gray">
 								{t(
 									"distributeRomanDialog.warning",
-									"韩文可直接生成罗马音。其他歌词会使用已有的逐行音译，分配算法主要适用于日语。",
+									"此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。",
 								)}
 							</Text>
 						</Flex>

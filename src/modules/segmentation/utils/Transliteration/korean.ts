@@ -21,26 +21,27 @@ function romanizeSyllables(run: string): string[] {
 	);
 }
 
-export function fillKoreanRomanization(line: LyricLine): boolean {
-	let source = "";
-	const owners: number[] = [];
-	line.words.forEach(({ word }, index) => {
-		const text = word.normalize("NFC");
-		source += text;
-		for (let offset = 0; offset < text.length; offset++) owners.push(index);
-	});
+function romanizeWords(words: LyricLine["words"]): string[] | undefined {
+	const source = words.map(({ word }) => word.normalize("NFC"));
+	const text = source.join("");
+	const readings = words.map(() => "");
+	let owner = 0;
+	let wordEnd = source[0]?.length ?? 0;
+	let hasReading = false;
 
-	const readings = line.words.map(() => "");
-	let hasKorean = false;
-	for (const { 0: run, index } of source.matchAll(/[가-힣]+/g)) {
-		const syllables = romanizeSyllables(run);
-		syllables.forEach((syllable, offset) => {
-			const owner = owners[index + offset];
-			readings[owner] += (offset === 0 && hasKorean ? " " : "") + syllable;
+	for (const { 0: run, index } of text.matchAll(/[가-힣]+/g)) {
+		romanizeSyllables(run).forEach((syllable, offset) => {
+			while (index + offset >= wordEnd) wordEnd += source[++owner].length;
+			readings[owner] += (!offset && hasReading ? " " : "") + syllable;
 		});
-		hasKorean = true;
+		hasReading = true;
 	}
-	if (!hasKorean) return false;
+	return hasReading ? readings : undefined;
+}
+
+export function fillKoreanRomanization(line: LyricLine): boolean {
+	const readings = romanizeWords(line.words);
+	if (!readings) return false;
 
 	const reading = readings.join("");
 	const storedReading = line.romanLyricByLang?.[koreanLanguage]?.trim();
@@ -50,20 +51,24 @@ export function fillKoreanRomanization(line: LyricLine): boolean {
 		line.romanLyricByLang[koreanLanguage] = reading;
 	}
 
-	const hasManualWords = line.words.some(({ romanWord }) => romanWord.trim());
-	const canFillWords =
-		line.wordRomanizationLang === koreanLanguage ||
-		(!line.wordRomanizationLang && !hasManualWords);
 	// The TTML writer prefers timed words over line text for the same language.
 	if (
-		canFillWords &&
-		(!storedReading || storedReading === reading) &&
-		!line.wordRomanizationByLang?.[koreanLanguage]?.length
+		(storedReading && storedReading !== reading) ||
+		line.wordRomanizationByLang?.[koreanLanguage]?.length
+	)
+		return true;
+
+	const wordLanguage = line.wordRomanizationLang;
+	if (
+		wordLanguage
+			? wordLanguage !== koreanLanguage
+			: line.words.some(({ romanWord }) => romanWord.trim())
 	) {
-		line.wordRomanizationLang = koreanLanguage;
-		line.words.forEach((word, index) => {
-			if (!word.romanWord.trim()) word.romanWord = readings[index];
-		});
+		return true;
 	}
+	line.wordRomanizationLang = koreanLanguage;
+	line.words.forEach((word, index) => {
+		if (!word.romanWord.trim()) word.romanWord = readings[index];
+	});
 	return true;
 }
