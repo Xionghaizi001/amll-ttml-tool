@@ -31,16 +31,6 @@
 
 也可以使用 Github Action 构建的 Tauri 桌面版本，具体见 [Github Action 构建 Tauri 桌面版本](https://github.com/amll-dev/amll-ttml-tool/actions/workflows/build-desktop.yaml)。
 
-## 从 Genius 导入歌词
-
-- 在「文件 → 导入歌词 → 从 Genius 导入」中搜索歌名与歌手，或粘贴歌曲／专辑链接
-- 选曲后可预览自动识别的段落、演唱者和背景人声，导入后再打轴
-- 独立和声行保留原位；同一行的多组和声依次顺延到后续主唱行，余下的和声可单独打轴
-
-网页部署需要启用 `/api/genius`，Vercel 函数和 Vite 开发服务器均提供此路由
-
-桌面发行版默认使用测试站接口，自托管可设置 `VITE_GENIUS_API_URL`；如果 Genius 限制访问，可在导入窗口粘贴带段落标题的歌词
-
 ## 编辑器功能
 
 - 基本输入、编辑、打轴功能

@@ -28,7 +28,7 @@ import {
 import { GeniusRequestError, lookupGenius } from "./client";
 import { type GeniusResult, parsePastedLyrics } from "./parser";
 import { resolveGeniusLines, toGeniusProject } from "./project";
-import type { GeniusError, GeniusSong } from "./types";
+import type { GeniusError, GeniusResults, GeniusSong } from "./types";
 import { GENIUS_ORIGIN, parseGeniusLink } from "./urls";
 
 export function ImportFromGenius() {
@@ -47,8 +47,7 @@ function GeniusForm({ close }: { close: () => void }) {
 	const request = useRef<AbortController | null>(null);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [results, setResults] = useState<GeniusResult[]>();
-	const [resultKind, setResultKind] = useState<"search" | "album">("search");
+	const [listing, setListing] = useState<GeniusResults>();
 	const [song, setSong] = useState<GeniusSong>();
 	const [error, setError] = useState<GeniusError>();
 	const [failedLink, setFailedLink] = useState<GeniusResult | undefined>();
@@ -84,8 +83,7 @@ function GeniusForm({ close }: { close: () => void }) {
 					album: response.album || selected?.album,
 				});
 			} else {
-				setResults(response.results);
-				setResultKind(response.kind);
+				setListing(response);
 			}
 		} catch (cause) {
 			if (controller.signal.aborted) return;
@@ -101,7 +99,7 @@ function GeniusForm({ close }: { close: () => void }) {
 	function submit() {
 		const query = input.trim();
 		if (!query || loading) return;
-		setResults(undefined);
+		setListing(undefined);
 		const link = parseGeniusLink(query);
 		if (link) {
 			void load({ path: link.path }, { ...link, title: "" });
@@ -170,7 +168,6 @@ function GeniusForm({ close }: { close: () => void }) {
 		}
 		setSong({
 			kind: "song",
-			url: failedLink ? GENIUS_ORIGIN + failedLink.path : "",
 			title: failedLink?.kind === "song" ? failedLink.title : undefined,
 			artist: failedLink?.kind === "song" ? failedLink.artist : undefined,
 			album: failedLink?.album,
@@ -272,17 +269,17 @@ function GeniusForm({ close }: { close: () => void }) {
 					</Button>
 				</Flex>
 			)}
-			{!loading && !song && results && (
+			{!loading && !song && listing && (
 				<>
 					<Text as="p" weight="bold" size="2" mb="2">
-						{resultKind === "album"
+						{listing.kind === "album"
 							? t("genius.albumTracks", "选择专辑曲目")
 							: t("genius.results", "搜索结果")}
 					</Text>
-					{results.length ? (
+					{listing.results.length ? (
 						<ScrollArea style={{ maxHeight: "45vh" }}>
 							<Flex direction="column" align="stretch" gap="2" pr="3">
-								{results.map((result) => (
+								{listing.results.map((result) => (
 									<Button
 										key={result.path}
 										variant="soft"
@@ -309,7 +306,7 @@ function GeniusForm({ close }: { close: () => void }) {
 						</ScrollArea>
 					) : (
 						<Text size="2" color="gray">
-							{resultKind === "album"
+							{listing.kind === "album"
 								? t("genius.noTracks", "未找到有歌词链接的曲目。")
 								: t("genius.noResults", "未找到歌曲或专辑。")}
 						</Text>
@@ -362,7 +359,7 @@ function GeniusForm({ close }: { close: () => void }) {
 				</Flex>
 			)}
 			<Flex justify="end" gap="2" mt="4">
-				{song && results && (
+				{song && listing && (
 					<Button variant="soft" onClick={() => setSong(undefined)}>
 						{t("genius.back", "返回列表")}
 					</Button>

@@ -2,7 +2,6 @@ import type { AnnotatedLine, GeniusResult } from "./parser";
 
 export type GeniusSong = {
 	kind: "song";
-	url: string;
 	title?: string;
 	artist?: string;
 	artistNames?: string[];
@@ -10,9 +9,12 @@ export type GeniusSong = {
 	lyrics: AnnotatedLine[];
 };
 
-export type GeniusResponse =
-	| GeniusSong
-	| { kind: "search" | "album"; results: GeniusResult[] };
+export type GeniusResults = {
+	kind: "search" | "album";
+	results: GeniusResult[];
+};
+
+export type GeniusResponse = GeniusSong | GeniusResults;
 
 export type GeniusError =
 	| "invalidInput"

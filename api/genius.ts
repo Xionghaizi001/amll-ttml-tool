@@ -112,7 +112,7 @@ export default async function geniusHandler(
 		}
 		const song = parseGeniusSong(html);
 		if (!song.lyrics.length) return send(404, { error: "noLyrics" });
-		return send(200, { kind: "song", url: target.url, ...song });
+		return send(200, { kind: "song", ...song });
 	} catch {
 		return send(502, { error: "connectionFailed" });
 	}
