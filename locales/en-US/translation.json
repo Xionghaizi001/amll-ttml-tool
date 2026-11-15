@@ -377,7 +377,7 @@
 			},
 			"perWordRomanization": {
 				"index": "Per-Word Romanization",
-				"distribute": "Distribute Romanization...",
+				"distribute": "Generate or Distribute Romanization",
 				"check": "Check Per-Word Romanization",
 				"autoRuby": "Auto Ruby"
 			},
@@ -646,8 +646,8 @@
 		"delay": "Delay (+)"
 	},
 	"distributeRomanDialog": {
-		"title": "Distribute Line Romanization to Words",
-		"warning": "This action reads the line-level transliteration and distributes it to individual words. The algorithm is optimized for Japanese Romaji and may not work as expected for other languages."
+		"title": "Generate or Distribute Word Romanization",
+		"warning": "Generate romanization directly for Korean lyrics. For other lyrics, distribute the existing line romanization. Distribution works best with Japanese."
 	},
 	"globalDragOverlay": {
 		"title": "Release to load"

@@ -382,7 +382,7 @@
 			},
 			"perWordRomanization": {
 				"index": "逐字音译",
-				"distribute": "自动分配罗马音...",
+				"distribute": "自动生成或分配罗马音",
 				"check": "检查逐字音译一致性",
 				"autoRuby": "自动注音"
 			},
@@ -658,8 +658,8 @@
 		"play": "播放"
 	},
 	"distributeRomanDialog": {
-		"title": "应用逐行音译到逐字",
-		"warning": "此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。"
+		"title": "生成或分配逐字音译",
+		"warning": "韩文可直接生成罗马音。其他歌词会使用已有的逐行音译，分配算法主要适用于日语。"
 	},
 	"globalDragOverlay": {
 		"title": "拖放到此处以加载"

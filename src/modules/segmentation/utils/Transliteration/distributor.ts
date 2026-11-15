@@ -3,7 +3,7 @@
  * 特别感谢 Xionghaizi001 实现的算法
  */
 
-import type { LyricWord } from "$/types/ttml";
+import type { LyricLine, LyricWord } from "$/types/ttml";
 import {
 	getDictionaryRomaji,
 	isChoonpu,
@@ -13,6 +13,8 @@ import {
 	ROMAJI_VOWELS,
 	shouldApplyDictionaryFallback,
 } from "./TransliterationUtils";
+import { fillKoreanRomanization } from "./korean";
+import { applyRomanizationWarnings } from "./roman-warning";
 import { type TokenBuffer, tokenizeRomanLyric } from "./tokenizer";
 
 class RomanDistributor {
@@ -371,4 +373,14 @@ export function predictLineRomanization(
 ): string[] {
 	const distributor = new RomanDistributor(words, romanLyric);
 	return distributor.predict();
+}
+
+export function applyLineRomanization(line: LyricLine): void {
+	if (fillKoreanRomanization(line)) return;
+	if (line.words.length === 0 || !line.romanLyric.trim()) return;
+	const results = predictLineRomanization(line.words, line.romanLyric);
+	line.words.forEach((word, index) => {
+		if (results[index]) word.romanWord = results[index];
+	});
+	applyRomanizationWarnings(line.words);
 }

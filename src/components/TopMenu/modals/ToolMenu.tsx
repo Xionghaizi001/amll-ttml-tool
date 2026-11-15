@@ -59,7 +59,7 @@ const ToolMenuItems = () => {
 					<DropdownMenu.Item onSelect={menu.onOpenDistributeRomanization}>
 						{t(
 							"topBar.menu.perWordRomanization.distribute",
-							"自动分配罗马音...",
+							"自动生成或分配罗马音",
 						)}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onCheckRomanizationWarnings}>
