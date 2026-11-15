@@ -377,7 +377,7 @@
 			},
 			"perWordRomanization": {
 				"index": "Per-Word Romanization",
-				"distribute": "Distribute Romanization...",
+				"distribute": "Generate or Distribute Romanization",
 				"check": "Check Per-Word Romanization",
 				"autoRuby": "Auto Ruby"
 			},

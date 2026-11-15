@@ -382,7 +382,7 @@
 			},
 			"perWordRomanization": {
 				"index": "逐字音译",
-				"distribute": "自动分配罗马音...",
+				"distribute": "自动生成或分配罗马音",
 				"check": "检查逐字音译一致性",
 				"autoRuby": "自动注音"
 			},

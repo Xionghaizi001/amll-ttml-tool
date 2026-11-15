@@ -398,6 +398,18 @@ function EditField<
 							}
 						} else {
 							if (selectedItems.has(line.id)) {
+								if (
+									fieldName === "romanLyric" &&
+									typeof value === "string" &&
+									line.romanLyricByLang
+								) {
+									const languages = Object.keys(line.romanLyricByLang).filter(
+										(lang) => line.romanLyricByLang?.[lang] === line.romanLyric,
+									);
+									if (languages.length === 1) {
+										line.romanLyricByLang[languages[0]] = value;
+									}
+								}
 								(line as L)[fieldName] = value;
 							}
 						}
