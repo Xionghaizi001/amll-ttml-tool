@@ -42,7 +42,7 @@ export function ImportFromGenius() {
 
 type LookupView =
 	| { kind: "loading" }
-	| { kind: "error"; code: GeniusError; link?: GeniusResult }
+	| { kind: "error"; code: GeniusError | "openFailed"; link?: GeniusResult }
 	| GeniusSong;
 
 function GeniusForm({ close }: { close: () => void }) {
@@ -58,6 +58,14 @@ function GeniusForm({ close }: { close: () => void }) {
 	const song = view?.kind === "song" ? view : undefined;
 	const error = view?.kind === "error" ? view.code : undefined;
 	const failedLink = view?.kind === "error" ? view.link : undefined;
+	const query = input.trim();
+	const inputLink = parseGeniusLink(query);
+	const browserUrl = failedLink
+		? GENIUS_ORIGIN + failedLink.path
+		: (inputLink?.url ??
+			(query
+				? `${GENIUS_ORIGIN}/search?${new URLSearchParams({ q: query })}`
+				: undefined));
 	const previewLines = useMemo(
 		() => (song ? resolveGeniusLines(song.lyrics, song) : []),
 		[song],
@@ -100,12 +108,10 @@ function GeniusForm({ close }: { close: () => void }) {
 	}
 
 	function submit() {
-		const query = input.trim();
 		if (!query || loading) return;
 		setListing(undefined);
-		const link = parseGeniusLink(query);
-		if (link) {
-			void load({ path: link.path }, { ...link, title: "" });
+		if (inputLink) {
+			void load({ path: inputLink.path }, { ...inputLink, title: "" });
 		} else if (
 			/^(?:[\w+.-]+:\/\/|(?:www\.)?genius\.com(?:\/|$))/i.test(query)
 		) {
@@ -159,7 +165,30 @@ function GeniusForm({ close }: { close: () => void }) {
 			"Genius 暂时限制了自动访问。请在浏览器中打开链接，或粘贴歌词。",
 		),
 		noLyrics: t("genius.noLyrics", "未找到可导入的歌词。"),
+		openFailed: t("genius.openFailed", "无法打开浏览器。请手动访问 Genius。"),
 	};
+
+	function startPaste() {
+		if (loading) {
+			request.current?.abort();
+			setView(undefined);
+		}
+		setPaste((current) => current ?? { text: "" });
+	}
+
+	async function openGenius() {
+		if (!browserUrl) return;
+		startPaste();
+		if (!isTauri()) {
+			window.open(browserUrl, "_blank", "noopener,noreferrer");
+			return;
+		}
+		try {
+			await openExternal(browserUrl);
+		} catch {
+			setView({ kind: "error", code: "openFailed", link: failedLink });
+		}
+	}
 
 	function usePastedLyrics() {
 		if (!paste) return;
@@ -200,7 +229,10 @@ function GeniusForm({ close }: { close: () => void }) {
 						placeholder={t("genius.placeholder", "如 XG DEPENDS，或粘贴链接")}
 						value={input}
 						maxLength={600}
-						onChange={(event) => setInput(event.target.value)}
+						onChange={(event) => {
+							setInput(event.target.value);
+							if (error) setView(undefined);
+						}}
 					/>
 					<Button disabled={loading || !input.trim()} type="submit">
 						{t("genius.lookup", "搜索／打开")}
@@ -218,36 +250,30 @@ function GeniusForm({ close }: { close: () => void }) {
 					{errors[error] ?? errors.connectionFailed}
 				</Text>
 			)}
-			{error && error !== "invalidInput" && !paste && (
+			{!song && (browserUrl || !paste) && (
 				<Flex gap="2" mb="3" wrap="wrap">
-					{failedLink && (
-						<Button
-							variant="soft"
-							onClick={() => {
-								const url = GENIUS_ORIGIN + failedLink.path;
-								if (isTauri())
-									void openExternal(url).catch(() =>
-										setView({
-											kind: "error",
-											code: "connectionFailed",
-											link: failedLink,
-										}),
-									);
-								else window.open(url, "_blank", "noopener,noreferrer");
-							}}
-						>
+					{browserUrl && (
+						<Button variant="soft" onClick={openGenius}>
 							{t("genius.openOriginal", "在浏览器中打开 Genius")}
 						</Button>
 					)}
-					<Button variant="soft" onClick={() => setPaste({ text: "" })}>
-						{t("genius.pasteLyrics", "粘贴歌词作为备用")}
-					</Button>
+					{!paste && (
+						<Button variant="soft" onClick={startPaste}>
+							{t("genius.pasteLyrics", "粘贴歌词")}
+						</Button>
+					)}
 				</Flex>
 			)}
 			{paste && (
 				<Flex direction="column" gap="2" mb="3">
+					<Text size="2" color="gray">
+						{t(
+							"genius.pasteHelp",
+							"如有验证，请在 Genius 页面完成，再选中并复制歌词到这里。",
+						)}
+					</Text>
 					<TextArea
-						aria-label={t("genius.pasteLyrics", "粘贴歌词作为备用")}
+						aria-label={t("genius.pasteLyrics", "粘贴歌词")}
 						placeholder={t(
 							"genius.pastePlaceholder",
 							"粘贴歌词，并保留 [Verse: 演唱者] 等标题",

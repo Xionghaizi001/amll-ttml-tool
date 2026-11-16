@@ -92,14 +92,14 @@ export default async function geniusHandler(
 				response = await client.fetch(target.url);
 			}
 		}
-		if (!response.ok) {
-			return send(502, {
-				error:
-					response.status === 403 || response.status === 429
-						? "unavailable"
-						: "connectionFailed",
-			});
+		if (
+			response.headers.get("cf-mitigated") === "challenge" ||
+			response.status === 403 ||
+			response.status === 429
+		) {
+			return send(503, { error: "unavailable" });
 		}
+		if (!response.ok) return send(502, { error: "connectionFailed" });
 		if (!target)
 			return send(200, {
 				kind: "search",
@@ -113,7 +113,12 @@ export default async function geniusHandler(
 		const song = parseGeniusSong(html);
 		if (!song.lyrics.length) return send(404, { error: "noLyrics" });
 		return send(200, { kind: "song", ...song });
-	} catch {
-		return send(502, { error: "connectionFailed" });
+	} catch (cause) {
+		return send(
+			cause instanceof Error && cause.name === "TimeoutError" ? 504 : 502,
+			{
+				error: "connectionFailed",
+			},
+		);
 	}
 }
