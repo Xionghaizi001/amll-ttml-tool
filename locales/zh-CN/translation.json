@@ -392,6 +392,7 @@
 				"import": "导入歌词",
 				"fromPlainText": "从纯文本导入…",
 				"fromLRCLIB": "从 LRCLIB 导入...",
+				"fromGenius": "从 Genius 导入…",
 				"fromLyRiC": "从 LyRiC 文件导入…",
 				"fromESLyRiC": "从 ESLyRiC 文件导入…",
 				"fromKRL": "从 Rhythmical Lyrics 文件导入…",
@@ -555,6 +556,33 @@
 		"error": {
 			"workerError": "处理音频时出错"
 		}
+	},
+	"genius": {
+		"invalidInput": "请输入关键词，或粘贴有效的 Genius 歌曲／专辑链接。",
+		"connectionFailed": "无法连接 Genius，请稍后重试。",
+		"unavailable": "Genius 暂时限制了自动访问。请在浏览器中打开链接，或粘贴歌词。",
+		"noLyrics": "未找到可导入的歌词。",
+		"title": "从 Genius 导入歌词",
+		"description": "搜索歌名与歌手，或粘贴 Genius 的歌曲或专辑链接。",
+		"input": "歌名、歌手或 Genius 链接",
+		"placeholder": "如 XG DEPENDS，或粘贴链接",
+		"lookup": "搜索／打开",
+		"loading": "正在读取 Genius…",
+		"openOriginal": "在浏览器中打开 Genius",
+		"pasteLyrics": "粘贴歌词",
+		"pasteHelp": "如有验证，请在 Genius 页面完成，再选中并复制歌词到这里。",
+		"openFailed": "无法打开浏览器。请手动访问 Genius。",
+		"pastePlaceholder": "粘贴歌词，并保留 [Verse: 演唱者] 等标题",
+		"preview": "预览歌词",
+		"albumTracks": "选择专辑曲目",
+		"results": "搜索结果",
+		"album": "专辑",
+		"noTracks": "未找到有歌词链接的曲目。",
+		"noResults": "未找到歌曲或专辑。",
+		"unsynced": "Genius 歌词没有时间轴。请检查段落及演唱者，再进行打轴。",
+		"backgroundVocal": "背景人声",
+		"back": "返回列表",
+		"import": "导入歌词"
 	},
 	"lrclib": {
 		"searchError": "搜索失败，请检查网络或稍后重试",

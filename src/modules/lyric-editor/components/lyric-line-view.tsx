@@ -75,6 +75,7 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import {
+	isAttachedBackground,
 	type LyricLine,
 	newLyricLine,
 	newLyricWord,
@@ -114,10 +115,9 @@ const lineDisplayNumbersAtom = atom((get) => {
 	let currentNumber = 0;
 
 	for (const [index, line] of lyricLines.entries()) {
-		// 核心逻辑：只有当不是背景行时，计数器才+1
-		// 这样背景行就会自动继承上一行的行号
+		// 独立歌词行计数，附属背景行沿用上一行的行号
 		// 特例：首行从 1 开始
-		if (!index || !line.isBG) {
+		if (!index || !isAttachedBackground(line)) {
 			currentNumber++;
 		}
 		displayNumbers.push(currentNumber);

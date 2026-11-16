@@ -5,13 +5,14 @@ import {
 	translationOutputModeAtom,
 } from "$/modules/settings/states";
 import { globalStore } from "$/states/store.ts";
-import type {
-	LyricLine as AppLyricLine,
-	LyricWord as AppLyricWord,
-	TTMLAgent as AppTTMLAgent,
-	TTMLLyric as AppTTMLLyric,
-	TTMLMetadata as AppTTMLMetadata,
-	TTMLRomanWord as AppTTMLRomanWord,
+import {
+	type LyricLine as AppLyricLine,
+	type LyricWord as AppLyricWord,
+	type TTMLAgent as AppTTMLAgent,
+	type TTMLLyric as AppTTMLLyric,
+	type TTMLMetadata as AppTTMLMetadata,
+	type TTMLRomanWord as AppTTMLRomanWord,
+	isAttachedBackground,
 } from "$/types/ttml";
 import type {
 	Agent,
@@ -372,6 +373,7 @@ export function ttmlResultToEditorLyric(
 	const amllResult = normalizeImportedAmllResult(converted.data);
 	const lyricLines: AppLyricLine[] = [];
 	let amllIndex = 0;
+	let previousLine: LyricLine | undefined;
 
 	for (const rawLine of ttmlResult.lines) {
 		const mainLine = amllResult.lyricLines[amllIndex++];
@@ -381,14 +383,32 @@ export function ttmlResultToEditorLyric(
 			);
 		}
 
-		lyricLines.push(
-			createAppLine(rawLine, mainLine, {
-				isBG: false,
-				agentId: rawLine.agentId,
-				songPart: rawLine.songPart,
-				romanizationLanguage: options?.romanizationLanguage,
-			}),
-		);
+		// The parser supplies the enclosing part on every line. The editor uses
+		// the part as a boundary marker, so keep it only at the start of a block.
+		const songPart =
+			rawLine.blockIndex !== undefined &&
+			rawLine.blockIndex === previousLine?.blockIndex &&
+			rawLine.songPart === previousLine?.songPart
+				? undefined
+				: rawLine.songPart;
+		previousLine = rawLine;
+
+		const standaloneBackground =
+			!!rawLine.backgroundVocal &&
+			!rawLine.text.trim() &&
+			!rawLine.words?.length &&
+			!rawLine.translations?.length &&
+			!rawLine.romanizations?.length;
+		if (!standaloneBackground) {
+			lyricLines.push(
+				createAppLine(rawLine, mainLine, {
+					isBG: false,
+					agentId: rawLine.agentId,
+					songPart,
+					romanizationLanguage: options?.romanizationLanguage,
+				}),
+			);
+		}
 
 		if (rawLine.backgroundVocal) {
 			const backgroundLine = amllResult.lyricLines[amllIndex++];
@@ -397,12 +417,15 @@ export function ttmlResultToEditorLyric(
 					"TTML processor did not return the parsed background vocal",
 				);
 			}
-			lyricLines.push(
-				createAppLine(rawLine.backgroundVocal, backgroundLine, {
+			lyricLines.push({
+				...createAppLine(rawLine.backgroundVocal, backgroundLine, {
 					isBG: true,
+					agentId: standaloneBackground ? rawLine.agentId : undefined,
+					songPart: standaloneBackground ? songPart : undefined,
 					romanizationLanguage: options?.romanizationLanguage,
 				}),
-			);
+				standaloneBackground: standaloneBackground || undefined,
+			});
 		}
 	}
 
@@ -616,17 +639,31 @@ export function ttmlLyricToTTMLResult(ttmlLyric: AppTTMLLyric): TTMLResult {
 
 	for (let index = 0; index < ttmlLyric.lyricLines.length; index++) {
 		const line = ttmlLyric.lyricLines[index];
-		if (line.isBG) continue;
+		if (isAttachedBackground(line)) continue;
 		if (hasMainLine && line.songPart) blockIndex += 1;
 		hasMainLine = true;
 
 		const agentId =
 			line.agent ??
 			(ttmlLyric.agents.length ? undefined : line.isDuet ? "v2" : "v1");
+		if (line.isBG) {
+			const backgroundVocal = editorBackgroundToProcessor(line);
+			lines.push({
+				id: `L${lines.length + 1}`,
+				text: "",
+				startTime: backgroundVocal.startTime,
+				endTime: backgroundVocal.endTime,
+				backgroundVocal,
+				agentId,
+				songPart: line.songPart,
+				blockIndex,
+			});
+			continue;
+		}
 		const processorLine = editorLineToProcessor(line, { blockIndex, agentId });
 		processorLine.id = `L${lines.length + 1}`;
 		const backgroundLine = ttmlLyric.lyricLines[index + 1];
-		if (backgroundLine?.isBG) {
+		if (backgroundLine && isAttachedBackground(backgroundLine)) {
 			processorLine.backgroundVocal =
 				editorBackgroundToProcessor(backgroundLine);
 			index += 1;
@@ -651,7 +688,9 @@ export function generateTTMLLyric(
  */
 export function recalculateDuetStates(ttmlLyric: AppTTMLLyric): Result<void> {
 	const agents = appAgentsToProcessor(ttmlLyric.agents);
-	const mainLines = ttmlLyric.lyricLines.filter((line) => !line.isBG);
+	const mainLines = ttmlLyric.lyricLines.filter(
+		(line) => !isAttachedBackground(line),
+	);
 	const converted = rawTtmlResultToAmll(
 		{
 			metadata: { agents },
@@ -669,7 +708,7 @@ export function recalculateDuetStates(ttmlLyric: AppTTMLLyric): Result<void> {
 	let mainIndex = 0;
 	let lastMainLineIsDuet = false;
 	for (const line of ttmlLyric.lyricLines) {
-		if (line.isBG) {
+		if (isAttachedBackground(line)) {
 			line.isDuet = lastMainLineIsDuet;
 			continue;
 		}

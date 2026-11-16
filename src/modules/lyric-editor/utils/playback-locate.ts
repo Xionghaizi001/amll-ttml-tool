@@ -1,6 +1,6 @@
 import { atom } from "jotai";
 import { lyricLinesAtom } from "$/states/main.ts";
-import type { LyricLine } from "$/types/ttml.ts";
+import { isAttachedBackground, type LyricLine } from "$/types/ttml.ts";
 
 // Let scrolling arrive slightly before the line becomes active so short first words
 // are not visually consumed by the list jumping into place.
@@ -109,7 +109,7 @@ export const findPlaybackLocatedLineIndex = (
 	const mainIndex = findLocatedLineIndex(
 		lines,
 		locateTime,
-		(line) => !line.isBG,
+		(line) => !isAttachedBackground(line),
 	);
 	if (mainIndex !== -1) return mainIndex;
 	return findLocatedLineIndex(lines, locateTime);
@@ -122,7 +122,7 @@ export const findPlaybackActiveLineIndex = (
 	const mainIndex = findActiveLineIndex(
 		lines,
 		currentTime,
-		(line) => !line.isBG,
+		(line) => !isAttachedBackground(line),
 	);
 	if (mainIndex !== -1) return mainIndex;
 	return findActiveLineIndex(lines, currentTime);
@@ -138,7 +138,7 @@ export const findPlaybackHighlightedLineIndex = (
 	const bridgedMainIndex = findBridgedLineIndex(
 		lines,
 		currentTime,
-		(line) => !line.isBG,
+		(line) => !isAttachedBackground(line),
 	);
 	if (bridgedMainIndex !== -1) return bridgedMainIndex;
 

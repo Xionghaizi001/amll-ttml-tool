@@ -180,6 +180,8 @@ export const LyricWordMenu = ({
 			const newLine = {
 				...newLyricLine(),
 				isBG: state.lyricLines[lineIndex].isBG,
+				standaloneBackground: state.lyricLines[lineIndex].standaloneBackground,
+				agent: state.lyricLines[lineIndex].standaloneBackground ? state.lyricLines[lineIndex].agent : undefined,
 				isDuet: state.lyricLines[lineIndex].isDuet,
 			} as LyricLine;
 			newLine.words.push(...selectedWords);
@@ -200,6 +202,8 @@ export const LyricWordMenu = ({
 			const newLine = {
 				...newLyricLine(),
 				isBG: line.isBG,
+				standaloneBackground: line.standaloneBackground,
+				agent: line.standaloneBackground ? line.agent : undefined,
 				isDuet: line.isDuet,
 			} as LyricLine;
 			newLine.words.push(...wordsToMove);

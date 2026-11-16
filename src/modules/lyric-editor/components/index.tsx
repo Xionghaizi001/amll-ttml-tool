@@ -42,7 +42,7 @@ import {
 	playbackHighlightedLineIdAtom,
 	playbackLocatedLineIndexAtom,
 } from "../utils/playback-locate";
-import { type LyricLine, newLyricLine } from "$/types/ttml.ts";
+import { isAttachedBackground, type LyricLine, newLyricLine } from "$/types/ttml.ts";
 import { createLogger } from "$/utils/logger.ts";
 import styles from "./index.module.css";
 import { LyricLineView } from "./lyric-line-view";
@@ -86,7 +86,7 @@ const findCurrentLineIndex = (lines: LyricLine[], currentTime: number) => {
 		return previousIndex;
 	};
 
-	const mainIndex = scan((line) => !line.isBG);
+	const mainIndex = scan((line) => !isAttachedBackground(line));
 	if (mainIndex !== -1) return mainIndex;
 	return scan();
 };

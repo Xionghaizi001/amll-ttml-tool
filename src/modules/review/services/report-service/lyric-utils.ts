@@ -1,4 +1,8 @@
-import type { LyricLine, LyricWord } from "$/types/ttml";
+import {
+	isAttachedBackground,
+	type LyricLine,
+	type LyricWord,
+} from "$/types/ttml";
 
 const DISPLAY_ID_KEY_PREFIX = "id:";
 const DISPLAY_INDEX_KEY_PREFIX = "index:";
@@ -35,7 +39,7 @@ export const computeDisplayNumbers = (lines: LyricLine[]) => {
 	const map = new Map<string, number>();
 	const lineIdCounts = buildIdCounts(lines);
 	lines.forEach((line, index) => {
-		if (index === 0 || !line.isBG) {
+		if (index === 0 || !isAttachedBackground(line)) {
 			current += 1;
 		}
 		map.set(getIndexKey(index), current);

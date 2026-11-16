@@ -1,6 +1,6 @@
 import { atom } from "jotai";
-import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import { atomWithStorage } from "jotai/utils";
+import type { ReviewReport } from "$/modules/review/services/report-service/types";
 import type { JsError } from "$/modules/ttml-processor/types";
 
 export const hasDismissedSyllableSmoothingTipAtom = atomWithStorage(
@@ -59,6 +59,7 @@ export const riskConfirmDialogAtom = atom<{
 	open: false,
 });
 export const historyRestoreDialogAtom = atom(false);
+export const importFromGeniusDialogAtom = atom(false);
 export const importFromLRCLIBDialogAtom = atom(false);
 export type ReviewReportDialogState = {
 	open: boolean;

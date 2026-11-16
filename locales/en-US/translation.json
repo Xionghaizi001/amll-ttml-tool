@@ -387,6 +387,7 @@
 				"import": "Import lyrics",
 				"fromPlainText": "Import from plain text…",
 				"fromLRCLIB": "Import from LRCLIB...",
+				"fromGenius": "Import from Genius…",
 				"fromLyRiC": "Import from LyRiC file…",
 				"fromESLyRiC": "Import from ESLyRiC file…",
 				"fromKRL": "Import from Rhythmical Lyrics file…",
@@ -549,6 +550,33 @@
 		"error": {
 			"workerError": "Error processing audio"
 		}
+	},
+	"genius": {
+		"invalidInput": "Enter a search query or paste a valid Genius song or album link.",
+		"connectionFailed": "Could not connect to Genius. Please try again.",
+		"unavailable": "Genius temporarily restricted automatic access. Open the link in your browser or paste the lyrics.",
+		"noLyrics": "No lyrics available to import.",
+		"title": "Import lyrics from Genius",
+		"description": "Search by song and artist, or paste a Genius song or album link.",
+		"input": "Song, artist, or Genius link",
+		"placeholder": "e.g. XG DEPENDS, or paste a link",
+		"lookup": "Search / Open",
+		"loading": "Loading from Genius…",
+		"openOriginal": "Open Genius in browser",
+		"pasteLyrics": "Paste lyrics",
+		"pasteHelp": "Complete any verification on Genius, then select and copy the lyrics and paste them here.",
+		"openFailed": "Could not open the browser. Open Genius manually.",
+		"pastePlaceholder": "Paste lyrics with headers such as [Verse: Singer]",
+		"preview": "Preview lyrics",
+		"albumTracks": "Choose an album track",
+		"results": "Search results",
+		"album": "Album",
+		"noTracks": "No tracks with lyrics links were found.",
+		"noResults": "No songs or albums were found.",
+		"unsynced": "Genius lyrics have no timestamps. Review song parts and vocalists before syncing.",
+		"backgroundVocal": "Background vocals",
+		"back": "Back to results",
+		"import": "Import lyrics"
 	},
 	"lrclib": {
 		"searchError": "Search failed, please check network or try again later",
